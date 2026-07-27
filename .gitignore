@@ -10,8 +10,15 @@ venv/
 
 # --- Node / Next.js (frontend) ---
 frontend/node_modules/
+# .next/ is the intermediate build cache (~170 MB) and is never served.
 frontend/.next/
-frontend/out/
+# frontend/out/ is deliberately NOT ignored. Django serves it straight from
+# disk in the monolithic setup (backend/core/frontend.py), so committing it
+# lets the app be deployed from a clone without a Node toolchain. It is ~2 MB.
+#
+# The cost: it can go stale. Editing anything under frontend/ without running
+# `npm run build` leaves a commit whose served UI does not match its own
+# source. Always rebuild before committing frontend changes.
 frontend/.env.local
 
 # --- General ---
