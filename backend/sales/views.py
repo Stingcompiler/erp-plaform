@@ -1,0 +1,545 @@
+from decimal import Decimal, InvalidOperation
+
+from django.utils import timezone
+from rest_framework import mixins, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from core.activity import log_activity
+from core.deletion import ArchiveOnDeleteMixin
+from core.documents import payment_receipt_document
+from core.permissions import CanVerifyPayment
+from core.rbac import APPROVER_ROLES, RoleModuleAccess, can_approve_high_value
+from core.records import assemble as assemble_records
+from core.records import csv_response as records_csv
+from core.records import data_change_events
+from core.records import event as record_event
+from core.records import rows_csv as records_rows_csv
+from core.scoping import (
+    AppendOnlyScopedViewSet,
+    CompanyScopedModelViewSet,
+    CompanyScopedQuerySetMixin,
+)
+from sales.models import (
+    CashDrawerMovement,
+    CashShift,
+    CompanyBankAccount,
+    Customer,
+    Invoice,
+    Payment,
+    Quotation,
+    SalesOrder,
+    SalesOrderLine,
+)
+from sales.serializers import (
+    CashDrawerMovementSerializer,
+    CashShiftSerializer,
+    CompanyBankAccountSerializer,
+    CustomerSerializer,
+    InvoiceSerializer,
+    PaymentSerializer,
+    POSCheckoutSerializer,
+    QuotationSerializer,
+    SalesOrderSerializer,
+)
+
+
+class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
+    """Archived, not deleted — invoices and the customer records timeline cite
+    this row, and a receivable balance belongs to someone."""
+
+    queryset = Customer.objects.all()
+    serializer_class = CustomerSerializer
+    activity_entity_type = "Customer"
+
+    def _status(self, customer):
+        """Account state, driven by real credit terms: any invoice past its
+        `due_date` marks the customer overdue; otherwise an outstanding
+        balance is simply 'owing'."""
+        if not customer.is_active:
+            return "suspended"
+        if customer.ar_balance() <= 0:
+            return "active"
+        overdue = any(
+            inv.is_overdue for inv in customer.invoices.filter(is_void=False)
+        )
+        return "overdue" if overdue else "owing"
+
+    @action(detail=True, methods=["get"])
+    def records(self, request, pk=None):
+        """
+        Complete customer record: profile, account status, and every operation
+        (quotations, orders, invoices, payments, returns, credit notes, and
+        data changes) as one chronological stream. `?format=csv` exports it.
+
+        `get_object` resolves through the company-scoped queryset, so another
+        tenant's customer id 404s — and the whole action is already gated to the
+        `sales` module by RoleModuleAccess.
+        """
+        customer = self.get_object()
+        events = []
+
+        for q in customer.quotations.all():
+            events.append(record_event("quotation", "Quotation", q.created_at, q.id, q.total, q.status))
+        for so in customer.sales_orders.all():
+            events.append(record_event("order", "Sales order", so.created_at, so.id, so.total, so.status))
+        for inv in customer.invoices.all():
+            events.append(
+                record_event(
+                    "invoice", "Invoice", inv.issued_at, inv.number or inv.id, inv.total,
+                    "void" if inv.is_void else f"due {inv.amount_due()}",
+                )
+            )
+            for pay in inv.payments.all():
+                events.append(
+                    record_event(
+                        "payment", "Payment", pay.recorded_at, inv.number or inv.id,
+                        pay.amount, pay.get_method_display(),
+                    )
+                )
+        for sr in customer.sales_returns.all():
+            events.append(record_event("return", "Sales return", sr.created_at, sr.id, None, sr.reason))
+        for cn in customer.credit_notes.all():
+            events.append(record_event("credit_note", "Credit note", cn.created_at, cn.id, cn.amount, cn.reason))
+
+        events += data_change_events(customer.company_id, "Customer", customer.pk)
+        events = assemble_records(events, request.query_params)
+
+        profile = {
+            "id": customer.id,
+            "name": customer.name,
+            "phone": customer.phone,
+            "email": customer.email,
+            "address": customer.address,
+            "is_active": customer.is_active,
+            "created_at": customer.created_at,
+            "status": self._status(customer),
+            "balance": str(customer.ar_balance()),
+        }
+
+        if request.query_params.get("format") == "csv":
+            log_activity(
+                action="export", request=request, entity_type="Customer",
+                entity_id=customer.pk, metadata={"export": "records_csv"},
+            )
+            return records_csv(profile, events, f"customer-{customer.id}-records.csv")
+
+        log_activity(
+            action="view", request=request, entity_type="Customer",
+            entity_id=customer.pk, metadata={"view": "records"},
+        )
+        return Response({"customer": profile, "events": events})
+
+
+class CompanyBankAccountViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
+    """Archived, not deleted: the account's balance is derived from the payments
+    that reference it, so removing it would silently drop money from the
+    company's cash position."""
+
+    queryset = CompanyBankAccount.objects.all()
+    serializer_class = CompanyBankAccountSerializer
+    activity_entity_type = "CompanyBankAccount"
+    # Exception to the archive default: a bank account is treasury, not
+    # catalogue data. Anyone with sales write can record against it, but
+    # retiring one is a manager's call.
+    manager_only_delete = True
+
+
+class CashShiftViewSet(AppendOnlyScopedViewSet):
+    """
+    Till sessions. Open, close with a count, and (optionally) have a manager
+    sign off the variance.
+
+    List/retrieve/create only — a shift is never edited or deleted. `close` and
+    `review` are the two designed one-time transitions, the same shape as
+    Payment.verify.
+    """
+
+    rbac_module = "sales"
+    branch_field = "branch"
+    queryset = CashShift.objects.select_related(
+        "opened_by", "closed_by", "reviewed_by"
+    ).prefetch_related("drawer_movements", "payments").all()
+    serializer_class = CashShiftSerializer
+    activity_entity_type = "CashShift"
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        if self.request.query_params.get("mine") in ("1", "true"):
+            qs = qs.filter(opened_by=self.request.user)
+        return qs
+
+    def perform_create(self, serializer):
+        # A second open drawer would make every takings figure ambiguous. The DB
+        # constraint is the real guard; this turns it into a clear message.
+        existing = CashShift.objects.filter(
+            company_id=getattr(self.request.user, "company_id", None),
+            opened_by=self.request.user,
+            status=CashShift.OPEN,
+        ).first()
+        if existing:
+            raise ValidationError(
+                {
+                    "detail": "You already have an open till session. Close it "
+                    "before opening another.",
+                    "shift": existing.id,
+                }
+            )
+        # Must go through the parent chain, which is what injects `company` and
+        # the branch and writes the audit row. `opened_by` is stamped by the
+        # serializer from the request, never taken from the body.
+        super().perform_create(serializer)
+
+    @action(detail=False, methods=["get"])
+    def current(self, request):
+        """The caller's own open session, so the till can resume after a reload
+        without the cashier hunting for it."""
+        shift = CashShift.objects.filter(
+            company_id=getattr(request.user, "company_id", None),
+            opened_by=request.user,
+            status=CashShift.OPEN,
+        ).first()
+        if shift is None:
+            return Response({"shift": None})
+        return Response(self.get_serializer(shift).data)
+
+    @action(detail=True, methods=["post"])
+    def close(self, request, pk=None):
+        """
+        Record the physical count and close the drawer.
+
+        The count is required and taken as given — the system does not offer a
+        default, because pre-filling the expected figure is an invitation to
+        confirm it without counting, which would make the whole control
+        decorative.
+        """
+        shift = self.get_object()
+        if shift.status == CashShift.CLOSED:
+            return Response(
+                {"detail": "This session is already closed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        raw = request.data.get("counted_cash")
+        if raw is None or str(raw).strip() == "":
+            return Response(
+                {"counted_cash": "Count the drawer and enter the amount."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            counted = Decimal(str(raw))
+        except (InvalidOperation, TypeError):
+            return Response(
+                {"counted_cash": "Must be a number."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if counted < 0:
+            return Response(
+                {"counted_cash": "A drawer cannot hold less than nothing."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        expected = shift.expected_cash()
+        shift.counted_cash = counted
+        shift.closed_by = request.user
+        shift.closed_at = timezone.now()
+        shift.status = CashShift.CLOSED
+        if request.data.get("note"):
+            shift.note = str(request.data["note"])[:255]
+        shift.save(update_fields=[
+            "counted_cash", "closed_by", "closed_at", "status", "note",
+        ])
+        log_activity(
+            action="update", request=request, entity_type="CashShift",
+            entity_id=shift.pk,
+            metadata={
+                "closed": True,
+                "expected": str(expected),
+                "counted": str(counted),
+                "variance": str(counted - expected),
+            },
+        )
+        return Response(self.get_serializer(shift).data)
+
+    @action(detail=True, methods=["post"])
+    def review(self, request, pk=None):
+        """
+        A manager signing off a closed drawer.
+
+        Segregation of duties, same principle as payment verification: whoever
+        counted the cash cannot also be the one who accepts the count, or the
+        variance has no independent witness.
+        """
+        shift = self.get_object()
+        if shift.status != CashShift.CLOSED:
+            return Response(
+                {"detail": "Only a closed session can be reviewed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not can_approve_high_value(request.user):
+            return Response(
+                {"detail": "Only a manager or owner may sign off a till count."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if shift.closed_by_id and shift.closed_by_id == request.user.id:
+            return Response(
+                {
+                    "detail": "You closed this session, so you cannot also sign "
+                    "off its count. Another manager must review it."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if shift.reviewed_at is not None:
+            return Response(
+                {"detail": "Already reviewed."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        shift.reviewed_by = request.user
+        shift.reviewed_at = timezone.now()
+        shift.save(update_fields=["reviewed_by", "reviewed_at"])
+        log_activity(
+            action="approve", request=request, entity_type="CashShift",
+            entity_id=shift.pk, metadata={"variance": str(shift.variance())},
+        )
+        return Response(self.get_serializer(shift).data)
+
+
+class CashDrawerMovementViewSet(AppendOnlyScopedViewSet):
+    """Non-sale cash in and out of an open drawer. Append-only (Rule #9)."""
+
+    rbac_module = "sales"
+    queryset = CashDrawerMovement.objects.select_related(
+        "shift", "recorded_by"
+    ).all()
+    serializer_class = CashDrawerMovementSerializer
+    activity_entity_type = "CashDrawerMovement"
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        shift = self.request.query_params.get("shift")
+        if shift:
+            qs = qs.filter(shift_id=shift)
+        return qs
+
+
+class QuotationViewSet(AppendOnlyScopedViewSet):
+    branch_field = "branch"
+    queryset = Quotation.objects.prefetch_related("lines").all()
+    serializer_class = QuotationSerializer
+    activity_entity_type = "Quotation"
+
+    @action(detail=True, methods=["post"])
+    def set_status(self, request, pk=None):
+        quotation = self.get_object()
+        new_status = request.data.get("status")
+        valid = dict(Quotation.STATUS_CHOICES)
+        if new_status not in valid:
+            return Response(
+                {"detail": "Invalid status."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        quotation.status = new_status
+        quotation.save(update_fields=["status"])
+        log_activity(
+            action="update", request=request,
+            entity_type="Quotation", entity_id=quotation.id,
+            metadata={"status": new_status},
+        )
+        return Response(self.get_serializer(quotation).data)
+
+    @action(detail=True, methods=["post"])
+    def convert_to_order(self, request, pk=None):
+        quotation = self.get_object()
+        order = SalesOrder.objects.create(
+            company_id=quotation.company_id, customer=quotation.customer,
+            branch=quotation.branch, source_quotation=quotation,
+            subtotal=quotation.subtotal, tax_amount=quotation.tax_amount,
+            total=quotation.total,
+            created_by=request.user if request.user.is_authenticated else None,
+        )
+        for line in quotation.lines.all():
+            SalesOrderLine.objects.create(
+                sales_order=order, product=line.product,
+                description=line.description, quantity=line.quantity,
+                unit_price=line.unit_price, line_total=line.line_total,
+            )
+        quotation.status = Quotation.CONVERTED
+        quotation.save(update_fields=["status"])
+        log_activity(
+            action="create", request=request,
+            entity_type="SalesOrder", entity_id=order.id,
+        )
+        return Response(
+            SalesOrderSerializer(order, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class SalesOrderViewSet(AppendOnlyScopedViewSet):
+    branch_field = "branch"
+    queryset = SalesOrder.objects.prefetch_related("lines").all()
+    serializer_class = SalesOrderSerializer
+    activity_entity_type = "SalesOrder"
+
+
+class InvoiceViewSet(
+    CompanyScopedQuerySetMixin,
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
+    """
+    Read-only. Invoices are created only through POS checkout (append-only,
+    Rule #9); there is no direct create/update/delete path.
+    """
+
+    branch_field = "branch"
+
+    queryset = Invoice.objects.prefetch_related("lines", "payments").all()
+    serializer_class = InvoiceSerializer
+
+    @action(detail=False, methods=["get"])
+    def export(self, request):
+        """
+        CSV of the invoice list. Runs through the same scoped queryset as the
+        list view, so an export can never contain a row the caller could not
+        already see — including branch scoping.
+        """
+        invoices = self.filter_queryset(self.get_queryset()).select_related("customer")
+        log_activity(
+            action="export", request=request, entity_type="Invoice",
+            metadata={"count": invoices.count()},
+        )
+        return records_rows_csv(
+            "invoices.csv",
+            [
+                "Number", "Date", "Due date", "Customer", "Status",
+                "Subtotal", "Tax", "Total", "Paid", "Balance",
+            ],
+            [
+                [
+                    inv.number_display,
+                    inv.issued_at.date().isoformat() if inv.issued_at else "",
+                    inv.due_date.isoformat() if inv.due_date else "",
+                    inv.customer.name if inv.customer_id else "",
+                    inv.status,
+                    inv.subtotal,
+                    inv.tax_amount,
+                    inv.total,
+                    inv.amount_paid(),
+                    inv.amount_due(),
+                ]
+                for inv in invoices
+            ],
+        )
+
+
+class PaymentViewSet(AppendOnlyScopedViewSet):
+    queryset = Payment.objects.select_related(
+        "invoice__customer", "company", "company_bank_account",
+        "recorded_by", "verified_by",
+    ).all()
+    serializer_class = PaymentSerializer
+    activity_entity_type = "Payment"
+    approval_module = "sales"
+
+    @action(detail=True, methods=["get"])
+    def document(self, request, pk=None):
+        """Printable receipt for money received. Invoice totals on it are
+        recomputed from the payment ledger, so the receipt and the account can
+        never disagree."""
+        return Response(payment_receipt_document(self.get_object()))
+
+    def get_permissions(self):
+        # Verification is a treasury action — see CanVerifyPayment. Recording a
+        # payment still requires sales write via the normal module gate.
+        if getattr(self, "action", None) == "verify":
+            return [IsAuthenticated(), CanVerifyPayment()]
+        return super().get_permissions()
+
+    @action(detail=True, methods=["post"])
+    def verify(self, request, pk=None):
+        """
+        Manager reconciliation (Rule #3): fills verified_at/verified_by. This is
+        the one designed post-hoc field-set on a payment — amount/method remain
+        immutable, so append-only integrity holds.
+        """
+        payment = self.get_object()
+        if payment.verified_at is not None:
+            return Response(
+                {"detail": "Already verified."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        # Segregation of duties: the person who recorded the money may not be
+        # the one who confirms it. This is the control that makes the
+        # verified_by pair meaningful rather than a rubber stamp.
+        if payment.recorded_by_id and payment.recorded_by_id == request.user.id:
+            return Response(
+                {
+                    "detail": "You recorded this payment, so you cannot verify it. "
+                    "Verification must be done by a different user."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        # Second approval tier: above the company threshold, any second user is
+        # not enough — it takes an approver role (CFO / owner / GM).
+        threshold = getattr(payment.company, "payment_approval_threshold", 0) or 0
+        if threshold and payment.amount >= threshold and not can_approve_high_value(request.user):
+            return Response(
+                {
+                    "detail": (
+                        f"Payments of {threshold} or more must be approved by a "
+                        "CFO, owner or general manager."
+                    ),
+                    "threshold": str(threshold),
+                    "requires_role": sorted(APPROVER_ROLES),
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        payment.verified_at = timezone.now()
+        payment.verified_by = request.user if request.user.is_authenticated else None
+        payment.save(update_fields=["verified_at", "verified_by"])
+        log_activity(
+            action="update", request=request,
+            entity_type="Payment", entity_id=payment.id,
+            metadata={"verified": True, "verified_by": request.user.email},
+        )
+        return Response(self.get_serializer(payment).data)
+
+
+class POSCheckoutView(APIView):
+    """
+    POST /api/pos/checkout/ — offline-capable, idempotent sale completion.
+    """
+
+    permission_classes = [IsAuthenticated, RoleModuleAccess]
+    rbac_module = "sales"
+
+    def post(self, request):
+        client_uuid = request.data.get("client_uuid")
+        if client_uuid:
+            company_id = getattr(request.user, "company_id", None)
+            existing = Invoice.objects.filter(
+                company_id=company_id, client_uuid=client_uuid
+            ).first()
+            if existing:
+                # Replay of an already-synced offline sale — return it, don't
+                # ring it up again (Rule #2).
+                return Response(
+                    InvoiceSerializer(existing, context={"request": request}).data,
+                    status=status.HTTP_200_OK,
+                )
+
+        serializer = POSCheckoutSerializer(
+            data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        invoice = serializer.save()
+        log_activity(
+            action="create", request=request,
+            entity_type="Invoice", entity_id=invoice.id,
+            metadata={"number": invoice.number, "total": str(invoice.total)},
+        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

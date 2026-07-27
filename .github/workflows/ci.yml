@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend (lint + checks + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Repo structure audit (URL wiring + migration graph)
+        run: python scripts/repo_audit.py
+
+      - name: Lint (flake8)
+        run: flake8 .
+
+      - name: Django system check
+        env:
+          DJANGO_SECRET_KEY: ci-test-secret-key
+          DEBUG: "True"
+        run: python manage.py check
+
+      - name: Migrations are in sync with models
+        env:
+          DJANGO_SECRET_KEY: ci-test-secret-key
+          DEBUG: "True"
+        # Fails if any model change isn't captured in a committed migration —
+        # verifies the hand-authored migrations match the models.
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Deployment checks (production settings)
+        # Informational: runs Django's --deploy checks with production-like env.
+        continue-on-error: true
+        env:
+          DJANGO_SECRET_KEY: ci-test-secret-key
+          DEBUG: "False"
+          DJANGO_ALLOWED_HOSTS: ".onrender.com"
+        run: python manage.py check --deploy
+
+      - name: Test (pytest)
+        env:
+          DJANGO_SECRET_KEY: ci-test-secret-key
+          DEBUG: "True"
+        run: pytest -v
+
+  frontend:
+    name: Frontend (lint + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build

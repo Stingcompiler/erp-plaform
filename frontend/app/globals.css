@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Colors are stored as space-separated RGB channels so Tailwind's opacity
+   modifiers (e.g. text-paper/70) work against them. */
+:root {
+  --ink: 18 37 59;
+  --paper: 245 247 250;
+  --surface: 255 255 255;
+  --line: 228 232 238;
+  --muted: 91 107 127;
+  --accent: 14 124 134;
+  --accent-strong: 11 90 97;
+  --ok: 21 128 61;
+  --warn: 180 83 9;
+  --danger: 185 28 28;
+
+  /* Script-specific font pairing. LTR (English) uses Inter/Sora; the RTL
+     override below swaps to Cairo (body) + Tajawal (display) for Arabic. */
+  --font-body: var(--font-inter);
+  --font-display: var(--font-sora);
+}
+
+[dir="rtl"] {
+  --font-body: var(--font-cairo);
+  --font-display: var(--font-tajawal);
+}
+
+.dark {
+  --ink: 232 237 243;
+  --paper: 13 24 38;
+  --surface: 18 35 58;
+  --line: 33 55 79;
+  --muted: 144 161 181;
+  --accent: 55 176 184;
+  --accent-strong: 90 198 205;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background: rgb(var(--paper));
+  color: rgb(var(--ink));
+  font-family: var(--font-body), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numbers read as ledger figures throughout. */
+.tabular {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+:focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

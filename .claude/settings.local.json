@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./venv/Scripts/python.exe -m pip install -r requirements.txt)",
+      "Bash(npm install *)",
+      "Bash(./venv/Scripts/python.exe -m pip check)",
+      "Bash(./venv/Scripts/python.exe manage.py check)",
+      "Bash(./venv/Scripts/python.exe manage.py migrate)",
+      "Bash(./venv/Scripts/python.exe manage.py shell -c ' *)",
+      "Bash(kill %1)",
+      "Bash(cp .env.example .env)",
+      "Bash(grep -v \"^$\")",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //F //PID 6908)",
+      "Bash(xargs grep -l \"redirect\\\\|notFound\")",
+      "Bash(npm run *)",
+      "Bash(./venv/Scripts/python.exe scripts/repo_audit.py)",
+      "Bash(grep -n \"def.*migration\\\\|os.sep\\\\|replace.*\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\|split\" scripts/repo_audit.py)",
+      "Bash(mkdir -p \"C:\\\\Users\\\\Sting\\\\Desktop\\\\erp-sting\\\\erp-platform\\\\.claude\")",
+      "Bash(taskkill //F //PID 15460)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/ --max-time 5)",
+      "Bash(curl -s -I http://localhost:3000/ --max-time 5)"
+    ]
+  }
+}

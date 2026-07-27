@@ -1,0 +1,140 @@
+# Render Blueprint for the ERP platform — all services native (NO Docker).
+# Connect this repo as a Blueprint; Render builds and runs each service from
+# source. Verify the exact Key Value block against current Render docs on first
+# deploy (see DEPLOYMENT.md) — the rest follows the standard Blueprint schema.
+
+services:
+  # ---------------------------------------------------------------------------
+  # erp-api : Django + DRF via Gunicorn (Python native). Also builds and serves
+  # the Next.js static export (frontend/out) — one deployable web service, no
+  # separate frontend service or CORS hop (see backend/core/frontend.py and
+  # config/urls.py, wired only when DEBUG=False).
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: erp-api
+    runtime: python
+    plan: starter
+    region: oregon
+    rootDir: backend
+    autoDeploy: true
+    healthCheckPath: /api/health/
+    buildCommand: >-
+      (cd ../frontend && npm install && npm run build) &&
+      pip install -r requirements.txt &&
+      python manage.py collectstatic --noinput &&
+      python manage.py migrate &&
+      python manage.py seed_roles
+    startCommand: "gunicorn config.wsgi:application -c gunicorn.conf.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.3"
+      # Render's native Python build image is expected to include Node/npm for
+      # the frontend build step above — unverified against current Render docs
+      # (no network in the authoring sandbox, same caveat as erp-cache below).
+      # If the build fails on `npm`, install Node explicitly in buildCommand
+      # (e.g. via nvm) or pin a version here — confirm on first deploy.
+      - key: NODE_VERSION
+        value: "20.11.1"
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: ".onrender.com"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: AUTH_COOKIE_SAMESITE
+        value: Lax
+      - key: DATABASE_URL
+        fromDatabase:
+          name: erp-db
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: keyvalue
+          name: erp-cache
+          property: connectionString
+
+  # ---------------------------------------------------------------------------
+  # erp-worker : Celery worker (Python native background worker)
+  # ---------------------------------------------------------------------------
+  - type: worker
+    name: erp-worker
+    runtime: python
+    plan: starter
+    region: oregon
+    rootDir: backend
+    autoDeploy: true
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "celery -A config worker --loglevel=info"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.3"
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings
+      - key: DJANGO_SECRET_KEY
+        fromService:
+          type: web
+          name: erp-api
+          envVarKey: DJANGO_SECRET_KEY
+      - key: DEBUG
+        value: "False"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: erp-db
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: keyvalue
+          name: erp-cache
+          property: connectionString
+
+  # ---------------------------------------------------------------------------
+  # erp-backup-cron : nightly logical backups (Python native cron job)
+  # ---------------------------------------------------------------------------
+  - type: cron
+    name: erp-backup-cron
+    runtime: python
+    plan: starter
+    region: oregon
+    rootDir: backend
+    schedule: "0 2 * * *"   # daily 02:00 UTC
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python manage.py run_scheduled_backup"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.3"
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings
+      - key: DJANGO_SECRET_KEY
+        fromService:
+          type: web
+          name: erp-api
+          envVarKey: DJANGO_SECRET_KEY
+      - key: DEBUG
+        value: "False"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: erp-db
+          property: connectionString
+
+  # ---------------------------------------------------------------------------
+  # erp-cache : managed Key Value store (Redis-compatible) — Celery broker
+  # ---------------------------------------------------------------------------
+  - type: keyvalue
+    name: erp-cache
+    plan: starter
+    region: oregon
+    ipAllowList: []   # only reachable from Render services
+
+databases:
+  # ---------------------------------------------------------------------------
+  # erp-db : managed PostgreSQL
+  # ---------------------------------------------------------------------------
+  - name: erp-db
+    plan: starter
+    region: oregon
+    databaseName: erp
+    user: erp

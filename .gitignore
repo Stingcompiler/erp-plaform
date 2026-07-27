@@ -1,0 +1,19 @@
+# --- Python / Django (backend) ---
+__pycache__/
+*.pyc
+*.sqlite3
+backend/staticfiles/
+backend/media/
+backend/.env
+.venv/
+venv/
+
+# --- Node / Next.js (frontend) ---
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+
+# --- General ---
+.DS_Store
+*.log
