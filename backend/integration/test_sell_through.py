@@ -53,6 +53,9 @@ class SellThroughLifecycleTests(IntegrationBase):
         checkout = self._checkout(10, "100")
         self.assertEqual(checkout.status_code, status.HTTP_201_CREATED, checkout.content)
         invoice_id = checkout.data["id"]
+        # Rule #4: the return references the invoice line it came from, which is
+        # also what caps how much may be sent back.
+        invoice_line_id = checkout.data["lines"][0]["id"]
         self.assertEqual(self.on_hand(self.client, self.product_obj.id), Decimal("90"))
 
         # 3) Sales return of 4 — Rule #5: quarantined, NOT restocked yet
@@ -62,7 +65,10 @@ class SellThroughLifecycleTests(IntegrationBase):
                 "client_uuid": uuid.uuid4().hex,
                 "invoice": invoice_id,
                 "reason": "damaged",
-                "lines": [{"product": self.product_obj.id, "quantity": "4"}],
+                "lines": [{
+                    "invoice_line": invoice_line_id,
+                    "product": self.product_obj.id, "quantity": "4",
+                }],
             },
             format="json",
         )
@@ -101,10 +107,14 @@ class SellThroughLifecycleTests(IntegrationBase):
             {
                 "client_uuid": uuid.uuid4().hex,
                 "invoice": invoice_id,
-                "lines": [{"product": self.product_obj.id, "quantity": "3"}],
+                "lines": [{
+                    "invoice_line": checkout.data["lines"][0]["id"],
+                    "product": self.product_obj.id, "quantity": "3",
+                }],
             },
             format="json",
         )
+        self.assertEqual(ret.status_code, status.HTTP_201_CREATED, ret.content)
         line_id = ret.data["lines"][0]["id"]
         before = self.on_hand(self.client, self.product_obj.id)
         # Scrap disposition must NOT add stock back.

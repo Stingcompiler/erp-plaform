@@ -165,11 +165,24 @@ class SalesOrderSerializer(serializers.ModelSerializer):
 # ---------- Invoice (read) ----------
 
 class InvoiceLineSerializer(serializers.ModelSerializer):
+    # Lets the returns UI cap its quantity input at the same number the server
+    # enforces (Rule #4), instead of letting the user submit and be rejected.
+    product_name = serializers.CharField(source="product.name", read_only=True)
+    product_sku = serializers.CharField(source="product.sku", read_only=True)
+    returned_quantity = serializers.DecimalField(
+        max_digits=16, decimal_places=3, read_only=True
+    )
+    returnable_quantity = serializers.DecimalField(
+        max_digits=16, decimal_places=3, read_only=True
+    )
+
     class Meta:
         model = InvoiceLine
         fields = [
             "id", "product", "description", "quantity", "unit_price",
             "tax_rate", "line_subtotal", "line_tax", "line_total",
+            "product_name", "product_sku",
+            "returned_quantity", "returnable_quantity",
         ]
 
 

@@ -1,6 +1,8 @@
+from collections import defaultdict
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Sum
 from rest_framework import serializers
 
 from inventory.models import Product, StockBatch, StockMovement, Warehouse
@@ -30,8 +32,12 @@ def _assert_company(serializer, obj, label):
 # ---------- Sales return (Rule #5) ----------
 
 class SalesReturnLineInputSerializer(serializers.Serializer):
+    # Rule #4: a return is always a child of the original document, never a
+    # standalone credit. The id is resolved unscoped here and then tied to the
+    # (company-checked) invoice in SalesReturnWriteSerializer.validate — an
+    # InvoiceLine carries no company_id of its own to check directly.
     invoice_line = serializers.PrimaryKeyRelatedField(
-        queryset=InvoiceLine.objects.all(), required=False, allow_null=True
+        queryset=InvoiceLine.objects.all()
     )
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
     quantity = serializers.DecimalField(
@@ -71,6 +77,68 @@ class SalesReturnWriteSerializer(serializers.Serializer):
             raise serializers.ValidationError("At least one line is required.")
         return lines
 
+    def validate(self, attrs):
+        """
+        Rule #4, enforced here rather than in the model because the cap is a
+        cumulative one: what's returnable depends on every earlier return
+        against the same invoice line, which a per-row DB constraint can't see.
+
+        Three things are checked, in order:
+          1. the invoice belongs to the caller's company;
+          2. every referenced invoice line is ON that invoice — this is what
+             stops another tenant's InvoiceLine id being priced into our credit
+             note, since InvoiceLine has no company_id of its own;
+          3. quantity returned, counting prior returns and duplicate lines in
+             this same payload, never exceeds what was originally sold.
+        """
+        invoice = attrs["invoice"]
+        _assert_company(self, invoice, "invoice")
+
+        errors = []
+        # Several payload lines may point at one invoice line; they have to be
+        # summed before comparing, or two half-size lines slip past the cap.
+        requested = defaultdict(Decimal)
+        seen = {}
+        for ln in attrs["lines"]:
+            _assert_company(self, ln["product"], "product")
+            inv_line = ln["invoice_line"]
+            if inv_line.invoice_id != invoice.pk:
+                errors.append(
+                    f"Invoice line {inv_line.pk} is not on invoice "
+                    f"{invoice.pk}."
+                )
+                continue
+            if inv_line.product_id != ln["product"].pk:
+                errors.append(
+                    f"Invoice line {inv_line.pk} is for a different product "
+                    f"than the one being returned."
+                )
+                continue
+            seen[inv_line.pk] = inv_line
+            requested[inv_line.pk] += ln["quantity"]
+
+        if errors:
+            raise serializers.ValidationError({"lines": errors})
+
+        already = dict(
+            SalesReturnLine.objects.filter(invoice_line_id__in=requested)
+            .values("invoice_line_id")
+            .annotate(total=Sum("quantity"))
+            .values_list("invoice_line_id", "total")
+        )
+        for line_id, qty in requested.items():
+            inv_line = seen[line_id]
+            remaining = inv_line.quantity - already.get(line_id, Decimal("0"))
+            if qty > remaining:
+                errors.append(
+                    f"Cannot return {qty} of {inv_line.product.sku}: only "
+                    f"{remaining} of the {inv_line.quantity} sold on invoice "
+                    f"line {line_id} remain returnable."
+                )
+        if errors:
+            raise serializers.ValidationError({"lines": errors})
+        return attrs
+
     @transaction.atomic
     def create(self, validated_data):
         request = self.context["request"]
@@ -80,9 +148,6 @@ class SalesReturnWriteSerializer(serializers.Serializer):
             raise serializers.ValidationError("A company-scoped user is required.")
 
         invoice = validated_data["invoice"]
-        _assert_company(self, invoice, "invoice")
-        for ln in validated_data["lines"]:
-            _assert_company(self, ln["product"], "product")
 
         sales_return = SalesReturn.objects.create(
             company_id=company_id, invoice=invoice, customer=invoice.customer,
@@ -94,7 +159,7 @@ class SalesReturnWriteSerializer(serializers.Serializer):
         # deliberate disposition restocks them.
         credit_total = Decimal("0")
         for ln in validated_data["lines"]:
-            invoice_line = ln.get("invoice_line")
+            invoice_line = ln["invoice_line"]
             SalesReturnLine.objects.create(
                 sales_return=sales_return,
                 invoice_line=invoice_line,
@@ -105,14 +170,11 @@ class SalesReturnWriteSerializer(serializers.Serializer):
             # Priced from the original invoice line (Rule #4), never from the
             # product's current price — the customer is owed what they actually
             # paid, which may differ from today's list price.
-            if invoice_line is not None:
-                credit_total += invoice_line.unit_price * ln["quantity"]
+            credit_total += invoice_line.unit_price * ln["quantity"]
 
-        # Rule #6: every return generates a note. Two cases produce none:
-        #  * lines with no invoice_line cannot be valued, and a guessed amount
-        #    on a document handed to a customer is worse than no document;
-        #  * a walk-in sale has no customer to issue the note to (CreditNote
-        #    requires one) — that refund is settled in cash at the till.
+        # Rule #6: every return generates a note. One case produces none — a
+        # walk-in sale has no customer to issue the note to (CreditNote
+        # requires one); that refund is settled in cash at the till.
         if credit_total > 0 and invoice.customer_id:
             CreditNote.objects.create(
                 company_id=company_id,

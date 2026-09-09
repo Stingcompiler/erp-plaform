@@ -8,7 +8,7 @@ from accounts.models import Role, User
 from inventory.models import Product, StockMovement, Warehouse
 from org.models import Company
 from purchasing.models import Bill, Supplier
-from returns.models import SalesReturn, SalesReturnLine
+from returns.models import CreditNote, SalesReturn, SalesReturnLine
 from sales.models import Invoice, InvoiceLine
 
 
@@ -185,3 +185,117 @@ class DebitNoteAPTests(ReturnsBase):
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content)
         self.assertEqual(supplier.ap_balance(), Decimal("380"))
+
+
+class Rule4ReturnCapTests(ReturnsBase):
+    """
+    Rule #4: a return line references the original document, and the quantity
+    returned can never exceed what that line actually sold. The invoice built
+    in ReturnsBase sold 2 units at 100.
+    """
+
+    def post_lines(self, lines, invoice=None):
+        return self.client.post(
+            reverse("salesreturn-list"),
+            {"invoice": (invoice or self.invoice).id, "lines": lines},
+            format="json",
+        )
+
+    def test_returning_exactly_what_was_sold_is_allowed(self):
+        resp = self.create_return(qty="2")
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content)
+
+    def test_returning_more_than_was_sold_is_rejected(self):
+        resp = self.create_return(qty="100")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("returnable", str(resp.content).lower())
+        # Nothing was written — no return, and above all no credit note.
+        self.assertEqual(SalesReturn.objects.count(), 0)
+        self.assertEqual(CreditNote.objects.count(), 0)
+
+    def test_cumulative_returns_cannot_exceed_the_line(self):
+        self.assertEqual(self.create_return(qty="1").status_code, 201)
+        # 1 more is fine; the 2nd unit is still returnable.
+        self.assertEqual(self.create_return(qty="1").status_code, 201)
+        # A third crosses the line even though each request looked harmless.
+        resp = self.create_return(qty="1")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(SalesReturn.objects.count(), 2)
+
+    def test_duplicate_lines_in_one_payload_are_summed(self):
+        # Two lines of 2 against a line that sold 2: each looks valid alone.
+        line = {
+            "invoice_line": self.inv_line.id,
+            "product": self.product.id, "quantity": "2",
+        }
+        resp = self.post_lines([line, dict(line)])
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(SalesReturn.objects.count(), 0)
+
+    def test_invoice_line_is_required(self):
+        resp = self.post_lines(
+            [{"product": self.product.id, "quantity": "1"}]
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_invoice_line_from_another_invoice_is_rejected(self):
+        other_invoice = Invoice.objects.create(
+            company=self.company, warehouse=self.wh, number=2,
+            subtotal=Decimal("900"), total=Decimal("900"),
+        )
+        other_line = InvoiceLine.objects.create(
+            invoice=other_invoice, product=self.product, quantity=Decimal("9"),
+            unit_price=Decimal("100"), line_subtotal=Decimal("900"),
+            line_total=Decimal("900"),
+        )
+        # Claim the big line's quantity while returning against the small one.
+        resp = self.post_lines([{
+            "invoice_line": other_line.id,
+            "product": self.product.id, "quantity": "9",
+        }])
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(SalesReturn.objects.count(), 0)
+
+    def test_another_companys_invoice_line_is_rejected(self):
+        """Rule #1: InvoiceLine has no company_id, so the tie to the (scoped)
+        invoice is the only thing standing between tenants here."""
+        other_co = Company.objects.create(name="Beta")
+        other_wh = Warehouse.objects.create(company=other_co, name="Beta Main")
+        beta_product = Product.objects.create(
+            company=other_co, sku="B1", name="Beta Widget",
+            sale_price=Decimal("5000.00"),
+        )
+        beta_invoice = Invoice.objects.create(
+            company=other_co, warehouse=other_wh, number=1,
+            subtotal=Decimal("50000"), total=Decimal("50000"),
+        )
+        beta_line = InvoiceLine.objects.create(
+            invoice=beta_invoice, product=beta_product, quantity=Decimal("10"),
+            unit_price=Decimal("5000"), line_subtotal=Decimal("50000"),
+            line_total=Decimal("50000"),
+        )
+        resp = self.post_lines([{
+            "invoice_line": beta_line.id,
+            "product": self.product.id, "quantity": "10",
+        }])
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(SalesReturn.objects.count(), 0)
+        self.assertEqual(CreditNote.objects.count(), 0)
+
+    def test_product_must_match_the_invoice_line(self):
+        other_product = Product.objects.create(
+            company=self.company, sku="SKU2", name="Gadget",
+            sale_price=Decimal("100.00"),
+        )
+        resp = self.post_lines([{
+            "invoice_line": self.inv_line.id,
+            "product": other_product.id, "quantity": "1",
+        }])
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_returnable_quantity_tracks_prior_returns(self):
+        self.assertEqual(self.inv_line.returnable_quantity(), Decimal("2"))
+        self.create_return(qty="1")
+        self.inv_line.refresh_from_db()
+        self.assertEqual(self.inv_line.returned_quantity(), Decimal("1"))
+        self.assertEqual(self.inv_line.returnable_quantity(), Decimal("1"))
