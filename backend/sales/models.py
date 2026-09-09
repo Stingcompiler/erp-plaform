@@ -329,6 +329,20 @@ class InvoiceLine(models.Model):
     line_tax = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     line_total = models.DecimalField(max_digits=16, decimal_places=2)
 
+    def returned_quantity(self):
+        """
+        How much of this line has already come back (Rule #4). Summed in
+        Python rather than via aggregate() so that a caller which prefetched
+        `lines__return_lines` pays no extra query per line.
+        """
+        return sum(
+            (rl.quantity for rl in self.return_lines.all()), Decimal("0")
+        )
+
+    def returnable_quantity(self):
+        """What a new return may still claim against this line."""
+        return self.quantity - self.returned_quantity()
+
     def __str__(self):
         return f"{self.product.sku} x{self.quantity}"
 

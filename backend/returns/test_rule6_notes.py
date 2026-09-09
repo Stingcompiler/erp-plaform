@@ -19,7 +19,7 @@ from accounts.models import Role, User
 from inventory.models import Product, Warehouse
 from org.models import Company
 from purchasing.models import Bill, Supplier
-from returns.models import CreditNote, DebitNote
+from returns.models import CreditNote, DebitNote, SalesReturn
 from sales.models import Customer, Invoice, InvoiceLine
 
 
@@ -83,12 +83,16 @@ class SalesReturnCreditNoteTests(APITestCase):
         note = CreditNote.objects.get(company=self.company)
         self.assertEqual(note.sales_return_id, resp.data["id"])
 
-    def test_unpriceable_line_produces_no_note_rather_than_a_guess(self):
-        """A line with no invoice_line cannot be valued; inventing a figure
-        would put a wrong number on a document handed to a customer."""
+    def test_unpriceable_line_is_rejected_outright(self):
+        """A line with no invoice_line cannot be valued, and Rule #4 says a
+        return is never standalone anyway — so it is refused at the door
+        rather than stored as a return that owes the customer nothing.
+        (Before the Rule #4 cap landed this was accepted and silently produced
+        no note, which is how returns created in the UI went uncredited.)"""
         resp = self._create(with_line=False)
-        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.status_code, 400, resp.data)
         self.assertEqual(CreditNote.objects.count(), 0)
+        self.assertEqual(SalesReturn.objects.count(), 0)
 
     def test_walk_in_sale_produces_no_credit_note(self):
         """A POS sale with no customer has nobody to issue a note to — that

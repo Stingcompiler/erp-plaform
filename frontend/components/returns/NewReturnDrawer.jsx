@@ -1,93 +1,108 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Search, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
-import { inventory, returns, sales } from "@/lib/api";
+import { returns, sales } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
 import BarcodeScanInput from "@/components/inventory/BarcodeScanInput";
 import { Button, Field, Input, Select } from "@/components/ui/kit";
 
+// Rule #4: a return is a child of the original invoice, so the form is driven
+// by that invoice's own lines rather than a free product search. This is what
+// lets every line carry its `invoice_line` id — without it the server cannot
+// price the credit note, and returns land uncredited.
 export default function NewReturnDrawer({ open, onClose, onCreated }) {
   const { t } = useI18n();
   const toast = useToast();
   const [invoices, setInvoices] = useState([]);
-  const [invoice, setInvoice] = useState("");
+  const [invoiceId, setInvoiceId] = useState("");
   const [reason, setReason] = useState("");
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
-  const [lines, setLines] = useState([]);
+  // { [invoiceLineId]: "qty as typed" }
+  const [qty, setQty] = useState({});
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) {
-      setInvoice("");
-      setReason("");
-      setLines([]);
-      setError("");
-      sales.invoices({ page: 1 }).then((r) => setInvoices(r.data.results)).catch(() => {});
-    }
+    if (!open) return;
+    setInvoiceId("");
+    setReason("");
+    setQty({});
+    setError("");
+    sales
+      .invoices({ page: 1 })
+      .then((r) => setInvoices(r.data.results))
+      .catch(() => {});
   }, [open]);
 
-  useEffect(() => {
-    if (!query.trim()) {
-      setResults([]);
-      return undefined;
-    }
-    const timer = setTimeout(() => {
-      inventory
-        .products({ search: query })
-        .then((r) => setResults(r.data.results.slice(0, 6)))
-        .catch(() => setResults([]));
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [query]);
+  const invoice = useMemo(
+    () => invoices.find((i) => String(i.id) === String(invoiceId)) || null,
+    [invoices, invoiceId]
+  );
 
-  function addProduct(p) {
-    setLines((ls) =>
-      ls.find((l) => l.id === p.id)
-        ? ls
-        : [...ls, { id: p.id, sku: p.sku, name: p.name, qty: "1" }]
-    );
-    setQuery("");
-    setResults([]);
+  // The server is the authority on what's still returnable; it sends the
+  // remainder per line so the field can cap itself instead of submitting a
+  // number that will bounce.
+  const returnableOf = (line) =>
+    Number(line.returnable_quantity ?? line.quantity ?? 0);
+
+  function setLineQty(lineId, value, max) {
+    if (value === "") {
+      setQty((q) => ({ ...q, [lineId]: "" }));
+      return;
+    }
+    const n = Number(value);
+    if (Number.isNaN(n) || n < 0) return;
+    setQty((q) => ({ ...q, [lineId]: String(Math.min(n, max)) }));
   }
 
-  // Scanned returns: the product must belong to the selected invoice (Rule #4 —
-  // a return line references the original document). Scanning something that was
-  // never on this invoice is rejected rather than silently added.
+  // Scanning bumps the matching invoice line by one, capped at its remainder.
   function onScan(product) {
     if (!invoice) {
       toast.error(t("returns.scanFirstInvoice"));
       return;
     }
-    const inv = invoices.find((i) => String(i.id) === String(invoice));
-    const onInvoice = (inv?.lines || []).some((l) => l.product === product.id);
-    if (!onInvoice) {
+    const line = (invoice.lines || []).find((l) => l.product === product.id);
+    if (!line) {
       toast.error(t("returns.scanNotOnInvoice", { name: product.name }));
       return;
     }
-    addProduct(product);
+    const max = returnableOf(line);
+    if (max <= 0) {
+      toast.error(t("returns.lineFullyReturned", { name: product.name }));
+      return;
+    }
+    const next = Number(qty[line.id] || 0) + 1;
+    if (next > max) {
+      toast.error(t("returns.scanExceedsRemaining", { name: product.name }));
+      return;
+    }
+    setQty((q) => ({ ...q, [line.id]: String(next) }));
   }
 
-  const updateQty = (id, qty) =>
-    setLines((ls) => ls.map((l) => (l.id === id ? { ...l, qty } : l)));
-  const removeLine = (id) => setLines((ls) => ls.filter((l) => l.id !== id));
+  const payloadLines = useMemo(() => {
+    if (!invoice) return [];
+    return (invoice.lines || [])
+      .filter((l) => Number(qty[l.id] || 0) > 0)
+      .map((l) => ({
+        invoice_line: l.id,
+        product: l.product,
+        quantity: String(qty[l.id]),
+      }));
+  }, [invoice, qty]);
 
   async function save() {
     setError("");
     if (!invoice) return setError(t("returns.chooseInvoiceErr"));
-    if (lines.length === 0) return setError(t("returns.addProductErr"));
+    if (payloadLines.length === 0) return setError(t("returns.addProductErr"));
     setSaving(true);
     try {
       await returns.createSalesReturn({
         client_uuid: crypto.randomUUID(),
-        invoice: Number(invoice),
+        invoice: invoice.id,
         reason,
-        lines: lines.map((l) => ({ product: l.id, quantity: String(l.qty) })),
+        lines: payloadLines,
       });
       onCreated();
       onClose();
@@ -103,6 +118,10 @@ export default function NewReturnDrawer({ open, onClose, onCreated }) {
     }
   }
 
+  const lines = invoice?.lines || [];
+  const nothingReturnable =
+    invoice && lines.every((l) => returnableOf(l) <= 0);
+
   return (
     <Drawer
       open={open}
@@ -113,7 +132,10 @@ export default function NewReturnDrawer({ open, onClose, onCreated }) {
           <Button variant="ghost" onClick={onClose}>
             {t("common.cancel")}
           </Button>
-          <Button onClick={save} disabled={saving || !invoice || lines.length === 0}>
+          <Button
+            onClick={save}
+            disabled={saving || !invoice || payloadLines.length === 0}
+          >
             {saving ? t("returns.creating") : t("returns.createReturn")}
           </Button>
         </div>
@@ -121,72 +143,97 @@ export default function NewReturnDrawer({ open, onClose, onCreated }) {
     >
       <div className="space-y-4">
         <Field label={t("returns.invoice")}>
-          <Select value={invoice} onChange={(e) => setInvoice(e.target.value)}>
+          <Select
+            value={invoiceId}
+            onChange={(e) => {
+              setInvoiceId(e.target.value);
+              setQty({});
+            }}
+          >
             <option value="">{t("returns.selectInvoice")}</option>
             {invoices.map((inv) => (
               <option key={inv.id} value={inv.id}>
-                {(inv.number_display || inv.number) + " · " + (inv.customer_name || t("sales.walkIn"))}
+                {(inv.number_display || inv.number) +
+                  " · " +
+                  (inv.customer_name || t("sales.walkIn"))}
               </option>
             ))}
           </Select>
         </Field>
 
         <Field label={t("returns.reason")}>
-          <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t("common.optional")} />
+          <Input
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder={t("common.optional")}
+          />
         </Field>
 
         <div>
-          <span className="mb-1 block text-sm font-medium text-ink">{t("returns.returnedItems")}</span>
-          {/* Scan to add — only once an invoice is chosen, since the scan is
-              validated against that invoice's lines. */}
-          {invoice && (
-            <div className="mb-2">
-              <BarcodeScanInput onScan={onScan} autoFocus={false} />
-            </div>
-          )}
-          <div className="relative">
-            <Search size={16} className="pointer-events-none absolute inset-y-0 start-3 my-auto text-muted" />
-            <Input
-              placeholder={t("returns.searchProduct")}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="ps-9"
-            />
-            {results.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-card border border-line bg-surface shadow-card">
-                {results.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => addProduct(p)}
-                    className="flex w-full items-center justify-between px-3 py-2 text-start text-sm hover:bg-paper"
-                  >
-                    <span className="text-ink">{p.name}</span>
-                    <span className="tabular text-muted">{p.sku}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <span className="mb-1 block text-sm font-medium text-ink">
+            {t("returns.returnedItems")}
+          </span>
 
-          <div className="mt-3 space-y-2">
-            {lines.map((l) => (
-              <div key={l.id} className="flex items-center gap-3 rounded-card border border-line px-3 py-2">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm text-ink">{l.name}</div>
-                  <div className="tabular text-xs text-muted">{l.sku}</div>
-                </div>
-                <Input
-                  type="number"
-                  value={l.qty}
-                  onChange={(e) => updateQty(l.id, e.target.value)}
-                  className="w-20"
-                />
-                <button onClick={() => removeLine(l.id)} className="text-muted hover:text-danger">
-                  <Trash2 size={15} />
-                </button>
+          {!invoice && (
+            <p className="text-sm text-muted">{t("returns.pickInvoiceFirst")}</p>
+          )}
+
+          {invoice && (
+            <>
+              <div className="mb-2">
+                <BarcodeScanInput onScan={onScan} autoFocus={false} />
               </div>
-            ))}
-          </div>
+
+              {nothingReturnable && (
+                <p className="text-sm text-muted">
+                  {t("returns.everythingReturned")}
+                </p>
+              )}
+
+              <div className="space-y-2">
+                {lines.map((l) => {
+                  const max = returnableOf(l);
+                  const spent = max <= 0;
+                  return (
+                    <div
+                      key={l.id}
+                      className={
+                        "flex items-center gap-3 rounded-card border border-line px-3 py-2 " +
+                        (spent ? "opacity-50" : "")
+                      }
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm text-ink">
+                          {l.product_name || l.description}
+                        </div>
+                        <div className="tabular text-xs text-muted">
+                          {l.product_sku}
+                          {" · "}
+                          {spent
+                            ? t("returns.fullyReturned")
+                            : t("returns.returnableOf", {
+                                remaining: max,
+                                sold: Number(l.quantity),
+                              })}
+                        </div>
+                      </div>
+                      <Input
+                        type="number"
+                        min="0"
+                        max={String(max)}
+                        step="any"
+                        disabled={spent}
+                        placeholder="0"
+                        value={qty[l.id] ?? ""}
+                        onChange={(e) => setLineQty(l.id, e.target.value, max)}
+                        className="w-20"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
 
         {error && <p className="text-sm text-danger">{error}</p>}

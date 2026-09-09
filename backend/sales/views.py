@@ -410,7 +410,11 @@ class InvoiceViewSet(
 
     branch_field = "branch"
 
-    queryset = Invoice.objects.prefetch_related("lines", "payments").all()
+    # `lines__return_lines` feeds InvoiceLine.returned_quantity() from the
+    # prefetch cache — without it each line would issue its own COUNT.
+    queryset = Invoice.objects.prefetch_related(
+        "lines__return_lines", "lines__product", "payments"
+    ).all()
     serializer_class = InvoiceSerializer
 
     @action(detail=False, methods=["get"])
