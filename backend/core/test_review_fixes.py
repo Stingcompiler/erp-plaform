@@ -6,7 +6,6 @@ its destination warehouse straight from the request body with no validation, so
 a user could post returned stock into another company's warehouse.
 """
 
-from datetime import date
 from decimal import Decimal
 
 from django.urls import reverse

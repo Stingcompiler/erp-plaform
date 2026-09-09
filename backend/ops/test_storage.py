@@ -134,6 +134,7 @@ class BackupStorageIntegrationTests(APITestCase):
             with override_settings(BACKUP_S3_BUCKET="my-bucket"):
                 # Back up the source company (payload lands in fake storage).
                 backup = self.client.post(reverse("ops-backups"))
+                self.assertEqual(backup.status_code, 201, backup.content)
                 key = BackupRecord.objects.get(
                     company=self.company, kind="manual"
                 ).storage_key

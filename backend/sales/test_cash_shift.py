@@ -18,7 +18,6 @@ from org.models import Branch, Company
 from sales.models import (
     CashDrawerMovement,
     CashShift,
-    CompanyBankAccount,
     Customer,
     Invoice,
     Payment,

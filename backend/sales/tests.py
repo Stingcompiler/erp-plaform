@@ -300,7 +300,6 @@ class CreditTermsAndControlsTests(APITestCase):
     a payment's recorder may not verify it."""
 
     def setUp(self):
-        from datetime import date, timedelta
         from inventory.models import Warehouse
         self.company = Company.objects.create(name="TermsCo")
         self.role = Role.objects.create(name="Business Owner", scope_level=Role.SCOPE_BUSINESS)
