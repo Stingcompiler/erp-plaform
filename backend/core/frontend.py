@@ -5,7 +5,6 @@ Local dev keeps using `next dev` on :3000 against this API on :8000 via CORS
 urls.py when DEBUG is False, so the two workflows don't collide.
 """
 import mimetypes
-from pathlib import Path
 
 from django.conf import settings
 from django.http import FileResponse, Http404

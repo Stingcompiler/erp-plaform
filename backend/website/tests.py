@@ -105,7 +105,7 @@ class PublicSiteTests(WebsiteBase):
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_public_site_only_shows_visible_sections(self):
-        c = self._build_and_publish()
+        self._build_and_publish()
         site = Website.objects.get(company=self.company_a)
         # Hide one section.
         sec = site.sections.first()

@@ -83,9 +83,15 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         events = []
 
         for q in customer.quotations.all():
-            events.append(record_event("quotation", "Quotation", q.created_at, q.id, q.total, q.status))
+            events.append(record_event(
+                "quotation", "Quotation", q.created_at,
+                q.id, q.total, q.status,
+            ))
         for so in customer.sales_orders.all():
-            events.append(record_event("order", "Sales order", so.created_at, so.id, so.total, so.status))
+            events.append(record_event(
+                "order", "Sales order", so.created_at,
+                so.id, so.total, so.status,
+            ))
         for inv in customer.invoices.all():
             events.append(
                 record_event(
@@ -101,9 +107,15 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
                     )
                 )
         for sr in customer.sales_returns.all():
-            events.append(record_event("return", "Sales return", sr.created_at, sr.id, None, sr.reason))
+            events.append(record_event(
+                "return", "Sales return", sr.created_at,
+                sr.id, None, sr.reason,
+            ))
         for cn in customer.credit_notes.all():
-            events.append(record_event("credit_note", "Credit note", cn.created_at, cn.id, cn.amount, cn.reason))
+            events.append(record_event(
+                "credit_note", "Credit note", cn.created_at,
+                cn.id, cn.amount, cn.reason,
+            ))
 
         events += data_change_events(customer.company_id, "Customer", customer.pk)
         events = assemble_records(events, request.query_params)

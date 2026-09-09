@@ -174,15 +174,19 @@ class ReturnsAccessTests(APITestCase):
         self.client.force_authenticate(self._user("Purchasing Officer"))
         resp = self.client.post(
             reverse("sync-push"),
-            {"batch_uuid": "22222222-2222-2222-2222-222222222222",
-             "operations": [{
-                "op_type": "sales_return",
-                "client_uuid": "11111111-1111-1111-1111-111111111111",
-                "payload": {
-                    "invoice": self.invoice.id,
-                    "lines": [{"product": self.product.id, "quantity": "1"}],
-                },
-            }]},
+            {
+                "batch_uuid": "22222222-2222-2222-2222-222222222222",
+                "operations": [{
+                    "op_type": "sales_return",
+                    "client_uuid": "11111111-1111-1111-1111-111111111111",
+                    "payload": {
+                        "invoice": self.invoice.id,
+                        "lines": [
+                            {"product": self.product.id, "quantity": "1"},
+                        ],
+                    },
+                }],
+            },
             format="json",
         )
 

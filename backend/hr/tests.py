@@ -3,7 +3,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import Role, User
-from hr.models import Attendance, Employee, LeaveRequest, Position
+from hr.models import Employee, LeaveRequest, Position
 from org.models import Company
 
 

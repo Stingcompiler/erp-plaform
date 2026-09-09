@@ -1,7 +1,6 @@
 from datetime import date, timedelta
 from decimal import Decimal
 
-from django.test import override_settings
 from django.urls import reverse
 from rest_framework.test import APITestCase
 

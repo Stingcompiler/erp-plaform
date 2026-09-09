@@ -65,9 +65,15 @@ class SupplierViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         events = []
 
         for po in supplier.purchase_orders.all():
-            events.append(record_event("purchase_order", "Purchase order", po.created_at, po.id, po.total, po.status))
+            events.append(record_event(
+                "purchase_order", "Purchase order", po.created_at,
+                po.id, po.total, po.status,
+            ))
         for gr in supplier.goods_receipts.all():
-            events.append(record_event("goods_receipt", "Goods receipt", gr.received_at, gr.id, None, gr.note))
+            events.append(record_event(
+                "goods_receipt", "Goods receipt", gr.received_at,
+                gr.id, None, gr.note,
+            ))
         for bill in supplier.bills.all():
             events.append(
                 record_event(
@@ -84,9 +90,15 @@ class SupplierViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
                 )
             )
         for pr in supplier.purchase_returns.all():
-            events.append(record_event("return", "Purchase return", pr.created_at, pr.id, None, pr.reason))
+            events.append(record_event(
+                "return", "Purchase return", pr.created_at,
+                pr.id, None, pr.reason,
+            ))
         for dn in supplier.debit_notes.all():
-            events.append(record_event("debit_note", "Debit note", dn.created_at, dn.id, dn.amount, dn.reason))
+            events.append(record_event(
+                "debit_note", "Debit note", dn.created_at,
+                dn.id, dn.amount, dn.reason,
+            ))
 
         events += data_change_events(supplier.company_id, "Supplier", supplier.pk)
         events = assemble_records(events, request.query_params)
