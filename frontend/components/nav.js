@@ -159,7 +159,7 @@ export const AUDIT_VIEWER_ROLES = [
 // reachable by URL and still enforced by the server, so nothing about the
 // security model depends on it and switching a company back to enterprise
 // restores everything untouched.
-const SHOP_HIDDEN = new Set([
+export const SHOP_OPTIONAL = [
   "nav.crm",
   "nav.hr",
   "nav.website",
@@ -167,15 +167,16 @@ const SHOP_HIDDEN = new Set([
   "nav.customerRecords",
   "nav.supplierRecords",
   "nav.labels",
-]);
+];
+const SHOP_HIDDEN = new Set(SHOP_OPTIONAL);
 
-export function visibleNav(canRead, canWrite, roleName, businessType) {
+export function visibleNav(canRead, canWrite, roleName, businessType, optional = []) {
   const shopMode = businessType === "shop";
   // `altModule` covers a page that serves two modules at once (Returns holds
   // both the sales and purchasing sides): holding either one is enough to see
   // the link, and the page gates its own tabs from there.
   const allowed = (item) => {
-    if (shopMode && SHOP_HIDDEN.has(item.labelKey)) return false;
+    if (shopMode && SHOP_HIDDEN.has(item.labelKey) && !optional.includes(item.labelKey)) return false;
     if (item.auditViewer) {
       return (
         AUDIT_VIEWER_ROLES.includes(roleName) || canWrite("settings")

@@ -80,6 +80,9 @@ export default function PurchasingPage() {
   const { t } = useI18n();
   const writable = canWrite("purchasing");
   const [tab, setTab] = useState("suppliers");
+  useEffect(() => { const requested = new URLSearchParams(window.location.search).get("tab");
+    if (['suppliers', 'receive', 'bills'].includes(requested)) setTab(requested);
+  }, []);
   const [suppliers, setSuppliers] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [accounts, setAccounts] = useState([]);

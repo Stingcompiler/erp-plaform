@@ -17,6 +17,9 @@ import {
   Wallet,
 } from "lucide-react";
 
+import Link from "next/link";
+import { Button } from "@/components/ui/kit";
+
 import { dashboard } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
@@ -50,7 +53,7 @@ function Section({ title, children }) {
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, canWrite, canRead } = useAuth();
   const { t, language } = useI18n();
   const [data, setData] = useState(null);
   const [error, setError] = useState(false);
@@ -60,12 +63,14 @@ export default function DashboardPage() {
       maximumFractionDigits: 2,
     });
 
-  useEffect(() => {
+  const load = () => {
+    setError(false);
     dashboard
       .get()
       .then((res) => setData(res.data))
       .catch(() => setError(true));
-  }, []);
+  };
+  useEffect(() => { load(); }, []);
 
   const sections = data?.sections || {};
 
@@ -78,7 +83,7 @@ export default function DashboardPage() {
 
       {error && (
         <div className="mt-6 rounded-card border border-line bg-surface p-6 text-muted">
-          {t("dashboard.loadError")}
+          <p role="alert">{t("dashboard.loadError")}</p><Button className="mt-3" onClick={load}>{t("improvements.retry")}</Button>
         </div>
       )}
 
@@ -86,6 +91,29 @@ export default function DashboardPage() {
 
       {data && (
         <div className="mt-6">
+          {data.setup?.some((step) => !step.done) && <section className="mb-6 rounded-card border border-accent/30 bg-surface p-5">
+            <h2 className="font-display text-lg font-semibold">{t("improvements.checklist")}</h2>
+            <p className="mt-1 text-sm text-muted">{t("improvements.checklistHint")}</p>
+            <ol className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{data.setup.map((step,index) =>
+              <li key={step.key}><Link href={step.href} className="block h-full rounded-control border border-line p-3 hover:border-accent">
+                <span className={step.done ? "text-ok" : "text-muted"}>{step.done ? "✓" : index+1}</span>
+                <span className="mt-2 block text-sm font-medium">{t(`improvements.${step.key}`)}</span>
+                <span className="mt-1 block text-xs text-muted">{t(step.done ? "improvements.done" : "improvements.openStep")}</span>
+              </Link></li>)}</ol>
+          </section>}
+          <section className="mb-6">
+            <h2 className="mb-3 font-display text-sm font-semibold text-muted">{t("improvements.quickActions")}</h2>
+            <div className="flex flex-wrap gap-3">
+              {canWrite("sales") && <Link className="rounded-control bg-accent px-4 py-2 text-sm font-medium text-white" href="/sales?tab=pos">{t("improvements.newSale")}</Link>}
+              {canWrite("purchasing") && <Link className="rounded-control border border-line bg-surface px-4 py-2 text-sm" href="/purchasing?tab=receive">{t("improvements.receiveStock")}</Link>}
+              {canRead("inventory") && <Link className="rounded-control border border-line bg-surface px-4 py-2 text-sm" href="/inventory?low_stock=1">{t("dashboard.lowStock")} · {sections.inventory?.low_stock_count ?? "—"}</Link>}
+              {canRead("sales_returns") && <Link className="rounded-control border border-line bg-surface px-4 py-2 text-sm" href="/returns">{t("improvements.reviewReturns")} · {sections.returns?.pending_disposition_count ?? "—"}</Link>}
+            </div>
+          </section>
+          {sections.sales && <div className="mb-6 grid gap-4 sm:grid-cols-2">
+            <Link href="/sales?tab=invoices"><Stat icon={Receipt} label={t("improvements.todaySales")} value={money(sections.sales.today_total)} sub={data.currency} tone="accent" /></Link>
+            <Link href="/sales?tab=invoices&overdue=1"><Stat icon={CalendarClock} label={t("improvements.overdue")} value={sections.sales.overdue_count} /></Link>
+          </div>}
           {sections.sales && (
             <Section title={t("dashboard.sales")}>
               <Stat
@@ -165,7 +193,7 @@ export default function DashboardPage() {
             </Section>
           )}
 
-          {sections.crm && (
+          {user?.business_type !== "shop" && sections.crm && (
             <Section title={t("dashboard.crm")}>
               <Stat
                 icon={Contact}
@@ -181,7 +209,7 @@ export default function DashboardPage() {
             </Section>
           )}
 
-          {sections.hr && (
+          {user?.business_type !== "shop" && sections.hr && (
             <Section title={t("dashboard.hr")}>
               <Stat
                 icon={UsersRound}
@@ -213,14 +241,14 @@ export default function DashboardPage() {
               />
               <Stat
                 icon={Scale}
-                label={t("dashboard.net")}
+                label={t("improvements.netProfit")}
                 tone={Number(sections.finance.net) < 0 ? "warn" : "ink"}
                 value={money(sections.finance.net)}
               />
             </Section>
           )}
 
-          {sections.website && (
+          {user?.business_type !== "shop" && sections.website && (
             <Section title={t("dashboard.website")}>
               <Stat
                 icon={Globe}

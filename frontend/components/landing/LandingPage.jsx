@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import {
   Boxes,
@@ -21,6 +21,8 @@ import {
 
 import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
+
+import { demoRequests } from "@/lib/api";
 
 const FEATURES = [
   { icon: Package, titleKey: "landing.feature1Title", bodyKey: "landing.feature1Body" },
@@ -109,13 +111,13 @@ function Hero() {
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24 lg:py-28">
         <div className="mx-auto max-w-3xl text-center">
           <span className="inline-flex items-center rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-muted">
-            {t("landing.heroBadge")}
+            {t("improvements.productBadge")}
           </span>
           <h1 className="mt-5 font-display text-3xl font-bold leading-tight tracking-tight sm:text-5xl">
-            {t("landing.heroTitle")}
+            {t("improvements.productTitle")}
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-base text-muted sm:text-lg">
-            {t("landing.heroSubtitle")}
+            {t("improvements.productSubtitle")}
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a
@@ -131,7 +133,17 @@ function Hero() {
               {user ? t("nav.dashboard") : t("landing.heroCtaSecondary")}
             </Link>
           </div>
-          <p className="mt-6 text-sm text-muted">{t("landing.trustedBy")}</p>
+          <p className="mt-6 text-sm text-muted">{t("improvements.productProof")}</p>
+          <div className="mt-10 rounded-card border border-line bg-surface p-5 text-start shadow-card">
+            <p className="text-xs text-muted">{t("improvements.previewLabel")}</p>
+            <h2 className="mt-2 font-display text-xl font-semibold">{t("improvements.previewTitle")}</h2>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              {[["previewSales","24,500"],["previewStock","8"],["previewDue","6,200"]].map(([key,value]) =>
+                <div key={key} className="rounded-control bg-paper p-4"><div className="text-xs text-muted">{t(`improvements.${key}`)}</div><div className="tabular mt-2 text-2xl text-accent">{value}</div></div>)}
+            </div>
+            <p className="mt-5 font-medium text-accent">{t("improvements.previewAction")}</p>
+            <p className="mt-2 text-sm text-muted">{t("improvements.previewHint")}</p>
+          </div>
         </div>
       </div>
     </section>
@@ -203,13 +215,22 @@ function Modules() {
 
 function ContactCTA() {
   const { t } = useI18n();
-  const [sent, setSent] = useState(false);
-
-  function onSubmit(e) {
+  const [sent, setSent] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const requestId = useRef(null);
+  async function onSubmit(e) {
     e.preventDefault();
-    // No marketing backend endpoint yet — confirm receipt client-side. Wire to
-    // a real lead-capture endpoint when one exists.
-    setSent(true);
+    if (busy) return;
+    const form = new FormData(e.currentTarget);
+    requestId.current ||= crypto.randomUUID();
+    setBusy(true); setError("");
+    try {
+      const res = await demoRequests.create({ request_uuid: requestId.current,
+        name: form.get("name"), email: form.get("email"), message: form.get("message"), website: form.get("website") });
+      setSent(res.data.reference);
+    } catch (err) { setError(t(err?.response?.status === 503 ? "improvements.contactUnavailable" : "improvements.contactError")); }
+    finally { setBusy(false); }
   }
 
   return (
@@ -223,33 +244,35 @@ function ContactCTA() {
         </div>
         {sent ? (
           <p className="mt-8 rounded-control bg-ok/10 px-4 py-6 text-center font-medium text-ok">
-            {t("landing.contactSent")}
+            {t("landing.contactSent")}<span className="mt-2 block text-xs">{t("improvements.contactReference", { id: sent })}</span>
           </p>
         ) : (
           <form onSubmit={onSubmit} className="mt-8 space-y-4">
+            <div className="hidden" aria-hidden="true"><input name="website" tabIndex={-1} autoComplete="off" /></div>
+            {error && <p role="alert" className="text-danger">{error}</p>}
             <div className="grid gap-4 sm:grid-cols-2">
               <input
-                required
+                required name="name" maxLength={255} aria-label={t("landing.contactName")}
                 placeholder={t("landing.contactName")}
                 className="w-full rounded-control border border-line bg-paper px-3 py-3 outline-none focus:border-accent"
               />
               <input
-                type="email"
+                type="email" name="email" maxLength={254} aria-label={t("landing.contactEmail")}
                 required
                 placeholder={t("landing.contactEmail")}
                 className="w-full rounded-control border border-line bg-paper px-3 py-3 outline-none focus:border-accent"
               />
             </div>
             <textarea
-              rows={4}
+              rows={4} name="message" maxLength={4000} aria-label={t("landing.contactMessage")}
               placeholder={t("landing.contactMessage")}
               className="w-full rounded-control border border-line bg-paper px-3 py-3 outline-none focus:border-accent"
             />
             <button
-              type="submit"
+              type="submit" disabled={busy}
               className="w-full rounded-control bg-accent py-3 font-medium text-white hover:bg-accent-strong"
             >
-              {t("landing.contactSend")}
+              {busy ? t("improvements.contactSending") : t("landing.contactSend")}
             </button>
           </form>
         )}

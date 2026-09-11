@@ -15,7 +15,8 @@ import {
   X,
 } from "lucide-react";
 
-import { countLeaves, visibleNav } from "./nav";
+import { storageKey } from "@/lib/localIdentity";
+import { countLeaves, visibleNav, SHOP_OPTIONAL } from "./nav";
 import SetupPrompt from "./SetupPrompt";
 import SyncStatus from "./sync/SyncStatus";
 import { useAuth } from "../app/providers/AuthProvider";
@@ -37,8 +38,8 @@ function WorkspaceBadge({ user }) {
         {initial}
       </div>
       <div className="min-w-0">
-        <div className="truncate font-display text-sm font-semibold text-paper">{name}</div>
-        <div className="truncate text-xs text-paper/55">
+        <div className="truncate font-display text-sm font-semibold text-sidebarText">{name}</div>
+        <div className="truncate text-xs text-sidebarText/55">
           {user?.role_name ? translateRole(user.role_name, t) : t("shell.noRole")}
         </div>
       </div>
@@ -61,8 +62,8 @@ function NavLeaf({ item, onNavigate, nested = false }) {
         nested ? "ps-9 pe-3" : "px-3"
       } ${
         active
-          ? "bg-white/10 text-paper"
-          : "text-paper/70 hover:bg-white/5 hover:text-paper"
+          ? "bg-white/10 text-sidebarText"
+          : "text-sidebarText/70 hover:bg-white/5 hover:text-sidebarText"
       }`}
     >
       {active && (
@@ -89,8 +90,8 @@ function NavGroup({ group, open, onToggle, onNavigate }) {
         aria-expanded={open}
         className={`flex w-full items-center gap-3 rounded-control px-3 py-2.5 text-sm transition-colors ${
           holdsActive && !open
-            ? "text-paper"
-            : "text-paper/70 hover:bg-white/5 hover:text-paper"
+            ? "text-sidebarText"
+            : "text-sidebarText/70 hover:bg-white/5 hover:text-sidebarText"
         }`}
       >
         <Icon size={18} strokeWidth={2} className="shrink-0" />
@@ -179,19 +180,37 @@ function NavLinks({ items, onNavigate }) {
 function SidebarContent({ onNavigate }) {
   const { user, canRead, canWrite } = useAuth();
   const { t } = useI18n();
+  const [optional, setOptional] = useState([]);
+  useEffect(() => {
+    try { const saved = JSON.parse(localStorage.getItem(storageKey("shopSections")) || "[]");
+      setOptional(Array.isArray(saved) ? saved : []);
+    } catch { setOptional([]); }
+  }, [user?.id, user?.company, user?.branch]);
   const items = useMemo(
-    () => visibleNav(canRead, canWrite, user?.role_name, user?.business_type),
-    [canRead, canWrite, user?.role_name, user?.business_type],
+    () => visibleNav(canRead, canWrite, user?.role_name, user?.business_type, optional),
+    [canRead, canWrite, user?.role_name, user?.business_type, optional],
   );
+  const all = visibleNav(canRead, canWrite, user?.role_name, "enterprise").flatMap((item) => item.children || [item]);
+  const toggleSection = (key) => {
+    const next = optional.includes(key) ? optional.filter((k) => k !== key) : [...optional,key];
+    setOptional(next);
+    try { localStorage.setItem(storageKey("shopSections"), JSON.stringify(next)); } catch { /* usable for this session */ }
+  };
   return (
     <>
-      <div className="px-4 pt-5 font-display text-lg font-bold tracking-tight text-paper">
+      <div className="px-4 pt-5 font-display text-lg font-bold tracking-tight text-sidebarText">
         ERP
       </div>
       <WorkspaceBadge user={user} />
       <div className="mt-1 flex min-h-0 flex-1 flex-col">
         <NavLinks items={items} onNavigate={onNavigate} />
       </div>
+      {user?.business_type === "shop" && <details className="mx-3 my-2 rounded-control bg-white/5 p-3 text-xs text-sidebarText/80">
+        <summary className="cursor-pointer">{t("improvements.optionalPages")}</summary>
+        <p className="my-2 text-sidebarText/60">{t("improvements.optionalPagesHint")}</p>
+        {all.filter((item) => SHOP_OPTIONAL.includes(item.labelKey)).map((item) =>
+          <label key={item.labelKey} className="flex items-center gap-2 py-1.5"><input type="checkbox" checked={optional.includes(item.labelKey)} onChange={() => toggleSection(item.labelKey)} />{t(item.labelKey)}</label>)}
+      </details>}
       {/* Shop mode hides seven pages. Without a marker their absence looks
           like a fault rather than a setting, and there is no trail back to the
           switch that caused it. */}
@@ -199,14 +218,14 @@ function SidebarContent({ onNavigate }) {
         <Link
           href="/settings"
           onClick={onNavigate}
-          className="mx-3 mb-1 flex items-center gap-2 rounded-control bg-white/5 px-3 py-2 text-xs text-paper/70 hover:bg-white/10 hover:text-paper"
+          className="mx-3 mb-1 flex items-center gap-2 rounded-control bg-white/5 px-3 py-2 text-xs text-sidebarText/70 hover:bg-white/10 hover:text-sidebarText"
         >
           <Store size={14} className="shrink-0" />
           <span className="min-w-0 flex-1 truncate">{t("shell.shopMode")}</span>
-          <span className="text-paper/40">{t("shell.change")}</span>
+          <span className="text-sidebarText/40">{t("shell.change")}</span>
         </Link>
       )}
-      <div className="p-3 text-xs text-paper/40">
+      <div className="p-3 text-xs text-sidebarText/40">
         v1 · {countLeaves(items)} {t("shell.sections")}
       </div>
     </>
@@ -253,6 +272,7 @@ function Topbar({ onOpenMenu }) {
         </button>
         <button
           onClick={logout}
+          aria-label={t("common.signOut")}
           className="flex h-10 items-center gap-1.5 rounded-control px-2.5 text-sm text-muted hover:bg-paper hover:text-danger"
         >
           <LogOut size={16} />
@@ -296,7 +316,7 @@ export default function AppShell({ children }) {
         />
       )}
       {/* Desktop sidebar */}
-      <aside className="hidden w-60 shrink-0 flex-col bg-ink lg:flex">
+      <aside className="hidden w-60 shrink-0 flex-col bg-sidebar lg:flex">
         <SidebarContent />
       </aside>
 
@@ -307,11 +327,11 @@ export default function AppShell({ children }) {
             className="absolute inset-0 bg-black/50"
             onClick={() => setMenuOpen(false)}
           />
-          <aside className="absolute inset-y-0 start-0 flex w-72 max-w-[85%] flex-col bg-ink shadow-xl">
+          <aside className="absolute inset-y-0 start-0 flex w-72 max-w-[85%] flex-col bg-sidebar shadow-xl">
             <button
               onClick={() => setMenuOpen(false)}
               aria-label={t("common.close")}
-              className="absolute end-3 top-4 grid h-9 w-9 place-items-center rounded-control text-paper/70 hover:bg-white/10"
+              className="absolute end-3 top-4 grid h-9 w-9 place-items-center rounded-control text-sidebarText/70 hover:bg-white/10"
             >
               <X size={18} />
             </button>

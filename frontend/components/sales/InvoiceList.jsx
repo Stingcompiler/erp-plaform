@@ -1,13 +1,13 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Download, Printer } from "lucide-react";
 
 import { sales } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import DocumentDrawer from "@/components/print/DocumentDrawer";
-import { Badge, Button, Card } from "@/components/ui/kit";
+import { Badge, Button, Card, Input } from "@/components/ui/kit";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -19,30 +19,43 @@ export default function InvoiceList({ refreshKey }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState(null);
+  const generation = useRef(0);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [count, setCount] = useState(0);
+  const [next, setNext] = useState(false);
+  const [error, setError] = useState(false);
+  const [overdue, setOverdue] = useState(false);
+  useEffect(() => { setOverdue(new URLSearchParams(window.location.search).get("overdue") === "1"); }, []);
 
   const load = useCallback(() => {
-    setLoading(true);
+    const id = ++generation.current;
+    setLoading(true); setError(false);
     sales
-      .invoices({ page: 1 })
-      .then((r) => setRows(r.data.results))
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-  }, []);
+      .invoices({ page, search, overdue: overdue ? "1" : undefined })
+      .then((r) => { if (id !== generation.current) return; setRows(r.data.results); setCount(r.data.count); setNext(Boolean(r.data.next)); })
+      .catch(() => { if (id === generation.current) { setError(true); setRows([]); } })
+      .finally(() => { if (id === generation.current) setLoading(false); });
+  }, [page, search, overdue]);
 
   useEffect(() => {
-    load();
+    const timer = setTimeout(load, 200);
+    return () => { clearTimeout(timer); generation.current += 1; };
   }, [load, refreshKey]);
 
   return (
     <Card>
-      <div className="flex justify-end border-b border-line px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+        <Input className="max-w-xs" type="search" aria-label={t("common.search")} placeholder={t("common.search")} value={search} onChange={(e) => { setPage(1); setSearch(e.target.value); }} />
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={overdue} onChange={(e) => { setPage(1); setOverdue(e.target.checked); }} />{t("improvements.overdue")}</label>
         <Button
           variant="outline"
-          onClick={() => window.open(sales.invoicesCsv(), "_blank")}
+          onClick={() => window.open(sales.invoicesCsv({ search, overdue: overdue ? "1" : "" }), "_blank")}
         >
           <Download size={16} /> {t("common.export")}
         </Button>
       </div>
+      {error && <div className="p-4"><p role="alert" className="text-danger">{t("improvements.loadError")}</p><Button onClick={load}>{t("improvements.retry")}</Button></div>}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -62,7 +75,7 @@ export default function InvoiceList({ refreshKey }) {
                 </td>
               </tr>
             )}
-            {!loading && rows.length === 0 && (
+            {!loading && !error && rows.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-muted">
                   {t("sales.noInvoices")}
@@ -103,6 +116,11 @@ export default function InvoiceList({ refreshKey }) {
               ))}
           </tbody>
         </table>
+      </div>
+      <div className="flex items-center justify-between gap-3 border-t border-line p-3">
+        <Button variant="outline" disabled={loading || page <= 1} onClick={() => setPage((p) => p-1)}>{t("improvements.previous")}</Button>
+        <span className="text-sm text-muted">{t("improvements.page", {page,pages:Math.max(1,Math.ceil(count/50))})}</span>
+        <Button variant="outline" disabled={loading || !next} onClick={() => setPage((p) => p+1)}>{t("improvements.next")}</Button>
       </div>
       <DocumentDrawer
         id={openId}

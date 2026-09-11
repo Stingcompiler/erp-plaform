@@ -6,6 +6,8 @@
    modifiers (e.g. text-paper/70) work against them. */
 :root {
   --ink: 18 37 59;
+  --sidebar: 18 37 59;
+  --sidebar-text: 245 247 250;
   --paper: 245 247 250;
   --surface: 255 255 255;
   --line: 228 232 238;
@@ -28,6 +30,10 @@
 }
 
 .dark {
+  color-scheme: dark;
+  --ok: 74 222 128;
+  --warn: 251 191 36;
+  --danger: 248 113 113;
   --ink: 232 237 243;
   --paper: 13 24 38;
   --surface: 18 35 58;
@@ -73,3 +79,6 @@ body {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Light accent fills need dark text in the dark palette. */
+.dark .bg-accent { color: rgb(var(--paper)); }

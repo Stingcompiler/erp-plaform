@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Lock, Plus } from "lucide-react";
 
 import { finance } from "@/lib/api";
@@ -95,111 +95,83 @@ export default function FinancePage() {
   const { canRead, canWrite } = useAuth();
   const { t, language } = useI18n();
   const writable = canWrite("finance");
-
   const [summary, setSummary] = useState(null);
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-
-  const money = (v) =>
-    Number(v ?? 0).toLocaleString(language === "ar" ? "ar" : "en", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-
-  const load = useCallback(() => {
-    setLoading(true);
-    finance.summary().then((r) => setSummary(r.data)).catch(() => setSummary(null));
-    finance
-      .expenses({ page: 1 })
-      .then((r) => setExpenses(r.data.results))
-      .catch(() => setExpenses([]))
-      .finally(() => setLoading(false));
-  }, []);
-
+  const [page, setPage] = useState(1);
+  const [count, setCount] = useState(0);
+  const [next, setNext] = useState(false);
+  const [filters, setFilters] = useState({ start: "", end: "", search: "", ordering: "-date", method: "standard" });
+  const generation = useRef(0);
+  const invalidDates = filters.start && filters.end && filters.start > filters.end;
+  const money = (v) => v == null ? "—" : Number(v).toLocaleString(language === "ar" ? "ar" : "en", {
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  });
+  const load = useCallback(async () => {
+    const id = ++generation.current;
+    setLoading(true); setError(false); setSummary(null);
+    try {
+      const [totals, rows] = await Promise.all([
+        finance.summary({ start: filters.start, end: filters.end, method: filters.method }),
+        finance.expenses({ ...filters, page }),
+      ]);
+      if (id !== generation.current) return;
+      setSummary(totals.data); setExpenses(rows.data.results);
+      setCount(rows.data.count); setNext(Boolean(rows.data.next));
+    } catch { if (id === generation.current) { setError(true); setExpenses([]); } }
+    finally { if (id === generation.current) setLoading(false); }
+  }, [filters, page]);
   useEffect(() => {
-    if (canRead("finance")) load();
-  }, [canRead, load]);
-
-  const dateFmt = (d) => (d ? new Date(d).toLocaleDateString(language === "ar" ? "ar" : "en") : "—");
-
-  if (!canRead("finance")) {
-    return (
-      <div className="mx-auto mt-16 max-w-md rounded-card border border-line bg-surface p-8 text-center">
-        <Lock className="mx-auto text-muted" />
-        <h1 className="mt-3 font-display text-xl font-semibold">{t("shell.noAccessTitle")}</h1>
-        <p className="mt-1 text-muted">{t("finance.noAccess")}</p>
-      </div>
-    );
-  }
-
-  const net = Number(summary?.net ?? 0);
-
-  return (
-    <div>
-      <PageHeader
-        title={t("finance.title")}
-        subtitle={t("finance.subtitle")}
-        actions={
-          writable && (
-            <Button onClick={() => setDrawerOpen(true)}>
-              <Plus size={16} /> {t("finance.newExpense")}
-            </Button>
-          )
-        }
-      />
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
-        <StatTile label={t("finance.revenue")} value={money(summary?.revenue)} tone="ok" hint={t("finance.revenueHint")} />
-        <StatTile label={t("finance.expenses")} value={money(summary?.expenses)} tone="danger" />
-        <StatTile label={t("finance.net")} value={money(summary?.net)} tone={net < 0 ? "danger" : "ok"} />
-      </div>
-
-      <h2 className="mb-3 mt-6 font-display text-lg font-semibold text-ink">
-        {t("finance.expensesTab")}
-      </h2>
-
-      {loading && <p className="py-8 text-center text-muted">{t("common.loading")}</p>}
-      {!loading && expenses.length === 0 && (
-        <Card className="p-8 text-center text-muted">{t("finance.noExpenses")}</Card>
-      )}
-      {!loading && expenses.length > 0 && (
-        <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
-                  <th className="px-4 py-3 text-start font-medium">{t("finance.category")}</th>
-                  <th className="px-4 py-3 text-start font-medium">{t("finance.description")}</th>
-                  <th className="px-4 py-3 text-start font-medium">{t("finance.method")}</th>
-                  <th className="px-4 py-3 text-start font-medium">{t("finance.date")}</th>
-                  <th className="px-4 py-3 text-end font-medium">{t("finance.amount")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {expenses.map((e) => (
-                  <tr key={e.id} className="border-b border-line last:border-0">
-                    <td className="px-4 py-3 text-ink">{e.category}</td>
-                    <td className="px-4 py-3 text-muted">{e.description || "—"}</td>
-                    <td className="px-4 py-3">
-                      <Badge tone="muted">{e.method_display}</Badge>
-                    </td>
-                    <td className="tabular px-4 py-3 text-muted">{dateFmt(e.date)}</td>
-                    <td className="tabular px-4 py-3 text-end text-ink">{money(e.amount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      <ExpenseDrawer
-        open={drawerOpen}
-        writable={writable}
-        onClose={() => setDrawerOpen(false)}
-        onSaved={load}
-      />
+    if (!canRead("finance") || invalidDates) return;
+    const timer = setTimeout(load, 250);
+    return () => { clearTimeout(timer); generation.current += 1; };
+  }, [canRead, load, invalidDates]);
+  const change = (key, value) => { setPage(1); setSummary(null); setLoading(true); setFilters((f) => ({ ...f, [key]: value })); };
+  if (!canRead("finance")) return <Card className="p-8 text-center"><Lock className="mx-auto" />{t("finance.noAccess")}</Card>;
+  return <div>
+    <PageHeader title={t("finance.title")} subtitle={t("finance.subtitle")}
+      actions={writable && <Button onClick={() => setDrawerOpen(true)}><Plus size={16} />{t("finance.newExpense")}</Button>} />
+    <Card className="mb-5 flex flex-wrap items-end gap-3 p-4">
+      {["start", "end"].map((key) => <Field key={key} label={t(`improvements.${key}`)}><Input type="date" value={filters[key]} onChange={(e) => change(key,e.target.value)} /></Field>)}
+      <Field label={t("reports.costingMethod")}><Select value={filters.method} onChange={(e) => change("method",e.target.value)}>
+        <option value="standard">{t("reports.standard")}</option><option value="average">{t("reports.weightedAverage")}</option><option value="fifo">{t("reports.fifo")}</option>
+      </Select></Field>
+      <Button variant="outline" onClick={() => { setPage(1); setFilters((f) => ({ ...f,start:"",end:"" })); }}>{t("improvements.allTime")}</Button>
+    </Card>
+    {invalidDates && <p role="alert" className="mb-4 text-danger">{t("improvements.invalidDates")}</p>}
+    {error && <Card className="mb-4 p-4"><p role="alert" className="mb-3 text-danger">{t("improvements.loadError")}</p><Button onClick={load}>{t("improvements.retry")}</Button></Card>}
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-busy={loading}>
+      <StatTile label={t("finance.revenue")} value={money(summary?.revenue)} hint={t("improvements.revenueHint")} />
+      <StatTile label={t("improvements.cogs")} value={money(summary?.cogs)} />
+      <StatTile label={t("finance.expenses")} value={money(summary?.expenses)} />
+      <StatTile label={t("improvements.netProfit")} value={money(summary?.net)} tone={Number(summary?.net) < 0 ? "danger" : "ok"} />
     </div>
-  );
+    <p className="mt-3 text-xs text-muted">{t("improvements.accountingNote")}</p>
+    <h2 className="mb-3 mt-6 font-display text-lg font-semibold">{t("finance.expensesTab")}</h2>
+    <div className="mb-3 flex flex-wrap gap-3">
+      <Field label={t("improvements.searchExpenses")}><Input type="search" value={filters.search} onChange={(e) => change("search",e.target.value)} /></Field>
+      <Field label={t("improvements.sort")}><Select value={filters.ordering} onChange={(e) => change("ordering",e.target.value)}>
+        <option value="-date">{t("improvements.newest")}</option><option value="date">{t("improvements.oldest")}</option><option value="-amount">{t("improvements.highest")}</option>
+      </Select></Field>
+    </div>
+    {loading && !invalidDates && <p role="status" className="py-6 text-muted">{t("common.loading")}</p>}
+    {!loading && !error && !invalidDates && <Card>
+      {expenses.length === 0 ? <p className="p-8 text-center text-muted">{t("finance.noExpenses")}</p> :
+      <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-line text-muted">
+        {["category","description","method","date","amount"].map((key) => <th key={key} scope="col" className="px-4 py-3 text-start">{t(`finance.${key}`)}</th>)}
+      </tr></thead><tbody>{expenses.map((e) => <tr key={e.id} className="border-b border-line last:border-0">
+        <td className="px-4 py-3">{e.category}</td><td className="px-4 py-3">{e.description || "—"}</td>
+        <td className="px-4 py-3"><Badge>{t(e.method === "cash" ? "finance.cash" : "finance.bankTransfer")}</Badge></td>
+        <td className="tabular whitespace-nowrap px-4 py-3">{e.date}</td><td className="tabular px-4 py-3">{money(e.amount)}</td>
+      </tr>)}</tbody></table></div>}
+      <div className="flex items-center justify-between gap-3 border-t border-line p-3">
+        <Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p-1)}>{t("improvements.previous")}</Button>
+        <span className="text-sm text-muted">{t("improvements.page", {page,pages:Math.max(1,Math.ceil(count/50))})}</span>
+        <Button variant="outline" disabled={!next} onClick={() => setPage((p) => p+1)}>{t("improvements.next")}</Button>
+      </div>
+    </Card>}
+    <ExpenseDrawer open={drawerOpen} writable={writable} onClose={() => setDrawerOpen(false)} onSaved={load} />
+  </div>;
 }

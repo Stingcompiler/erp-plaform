@@ -23,6 +23,7 @@ export default function InventoryPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
+  useEffect(() => { setLowOnly(new URLSearchParams(window.location.search).get("low_stock") === "1"); }, []);
   const [showArchived, setShowArchived] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);

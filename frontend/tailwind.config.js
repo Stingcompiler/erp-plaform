@@ -9,6 +9,8 @@ module.exports = {
     extend: {
       colors: {
         ink: withAlpha("--ink"),
+        sidebar: withAlpha("--sidebar"),
+        sidebarText: withAlpha("--sidebar-text"),
         paper: withAlpha("--paper"),
         surface: withAlpha("--surface"),
         line: withAlpha("--line"),

@@ -72,10 +72,13 @@ jobs:
           node-version: "20"
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Lint
         run: npm run lint
+
+      - name: Frontend behavior tests
+        run: npm test
 
       - name: Build
         run: npm run build
