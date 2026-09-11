@@ -146,7 +146,7 @@ function LeaveDrawer({ open, sick, employees, writable, onClose, onSaved }) {
   );
 }
 
-function PositionDrawer({ open, writable, onClose, onSaved }) {
+function PositionDrawer({ open, position, writable, onClose, onSaved }) {
   const { t } = useI18n();
   const toast = useToast();
   const [form, setForm] = useState({ title: "", description: "", base_salary: "" });
@@ -154,13 +154,14 @@ function PositionDrawer({ open, writable, onClose, onSaved }) {
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   useEffect(() => {
-    if (open) setForm({ title: "", description: "", base_salary: "" });
-  }, [open]);
+    if (open) setForm({ title: position?.title || "", description: position?.description || "", base_salary: position?.base_salary || "" });
+  }, [open, position]);
 
   async function save() {
     setSaving(true);
     try {
-      await hr.createPosition({ ...form, base_salary: form.base_salary || "0" });
+      if (position?.id) await hr.updatePosition(position.id, { ...form, base_salary: form.base_salary || "0" });
+      else await hr.createPosition({ ...form, base_salary: form.base_salary || "0" });
       toast.success(t("common.save"));
       onSaved?.();
       onClose();
@@ -175,13 +176,13 @@ function PositionDrawer({ open, writable, onClose, onSaved }) {
     <Drawer
       open={open}
       onClose={onClose}
-      title={t("hr.newPosition")}
+      title={position?.id ? t("hr.editPosition") : t("hr.newPosition")}
       footer={
         writable && (
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose}>{t("common.cancel")}</Button>
             <Button onClick={save} disabled={saving || !form.title}>
-              {saving ? t("common.saving") : t("hr.createPosition")}
+              {saving ? t("common.saving") : position?.id ? t("common.save") : t("hr.createPosition")}
             </Button>
           </div>
         )
@@ -434,7 +435,7 @@ export default function HrPage() {
 
   const [empDrawer, setEmpDrawer] = useState({ open: false, employee: null });
   const [leaveDrawer, setLeaveDrawer] = useState({ open: false, sick: false });
-  const [positionDrawerOpen, setPositionDrawerOpen] = useState(false);
+  const [positionDrawer, setPositionDrawer] = useState({ open: false, position: null });
   const [departmentDrawer, setDepartmentDrawer] = useState({ open: false, department: null });
   const [advanceDrawerOpen, setAdvanceDrawerOpen] = useState(false);
   const [policyDrawerOpen, setPolicyDrawerOpen] = useState(false);
@@ -497,7 +498,7 @@ export default function HrPage() {
     if (!writable) return null;
     const map = {
       employees: () => setEmpDrawer({ open: true, employee: null }),
-      positions: () => setPositionDrawerOpen(true),
+      positions: () => setPositionDrawer({ open: true, position: null }),
       departments: () => setDepartmentDrawer({ open: true, department: null }),
       advances: () => setAdvanceDrawerOpen(true),
       policies: () => setPolicyDrawerOpen(true),
@@ -602,7 +603,7 @@ export default function HrPage() {
             <Card className="p-8 text-center text-muted">{t("hr.noPositions")}</Card>
           )}
           {positions.map((p) => (
-            <div key={p.id} className="flex items-center gap-3 rounded-card border border-line bg-surface p-4 shadow-card">
+            <button key={p.id} onClick={() => setPositionDrawer({ open: true, position: p })} className="flex w-full items-center gap-3 rounded-card border border-line bg-surface p-4 text-start shadow-card transition-colors hover:border-accent">
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium text-ink">{p.title}</div>
                 {p.description && <div className="truncate text-sm text-muted">{p.description}</div>}
@@ -611,7 +612,7 @@ export default function HrPage() {
                 <span className="tabular text-sm text-muted">{money(p.base_salary)}</span>
               )}
               <Badge tone="muted">{p.employee_count ?? 0} {t("hr.employeesUsing")}</Badge>
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -771,9 +772,10 @@ export default function HrPage() {
         onSaved={load}
       />
       <PositionDrawer
-        open={positionDrawerOpen}
+        open={positionDrawer.open}
+        position={positionDrawer.position}
         writable={writable}
-        onClose={() => setPositionDrawerOpen(false)}
+        onClose={() => setPositionDrawer({ open: false, position: null })}
         onSaved={load}
       />
       <DepartmentDrawer open={departmentDrawer.open} department={departmentDrawer.department} writable={writable} onClose={() => setDepartmentDrawer({ open: false, department: null })} onSaved={load} />

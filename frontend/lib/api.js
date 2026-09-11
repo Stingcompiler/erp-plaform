@@ -157,6 +157,7 @@ export const hr = {
   updateEmployee: (id, body) => api.patch(`/employees/${id}/`, body),
   positions: () => api.get("/positions/"),
   createPosition: (body) => api.post("/positions/", body),
+  updatePosition: (id, body) => api.patch(`/positions/${id}/`, body),
   leave: (params) => api.get("/leave-requests/", { params }),
   createLeave: (body) => api.post("/leave-requests/", body),
   // Sick-leave with a medical report is sent as multipart form data.
