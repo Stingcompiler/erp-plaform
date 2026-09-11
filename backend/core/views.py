@@ -259,6 +259,22 @@ def dashboard(request):
             ),
         }
 
+    # HR submits and follows up salary-advance requests but cannot decide
+    # them. Give HR a concise status summary so the team knows whether action
+    # is still pending with finance or a decision has been made.
+    if (
+        company_id
+        and role_can(user, "hr", write=True)
+        and not can_approve_high_value(user)
+    ):
+        from hr.models import SalaryAdvance
+        advance_requests = SalaryAdvance.objects.filter(company_id=company_id)
+        sections["advance_requests"] = {
+            "pending_count": advance_requests.filter(status=SalaryAdvance.PENDING).count(),
+            "approved_count": advance_requests.filter(status=SalaryAdvance.APPROVED).count(),
+            "rejected_count": advance_requests.filter(status=SalaryAdvance.REJECTED).count(),
+        }
+
     if role_can(user, "finance", write=False):
         from finance.metrics import operating_summary
         figures = operating_summary(company_id)

@@ -141,3 +141,19 @@ class DashboardTests(RBACBase):
         cfo_client.force_authenticate(cfo)
         alert = cfo_client.get(reverse("dashboard")).data["sections"]["salary_advances"]
         self.assertEqual(alert, {"pending_count": 1, "pending_total": "800"})
+
+    def test_hr_receives_salary_advance_status_summary_without_financial_alert(self):
+        from hr.models import Employee, SalaryAdvance
+
+        employee = Employee.objects.create(company=self.company, full_name="Amina Ali")
+        for state in (SalaryAdvance.PENDING, SalaryAdvance.APPROVED, SalaryAdvance.REJECTED):
+            SalaryAdvance.objects.create(
+                company=self.company, employee=employee, amount="100", status=state
+            )
+        hr_client = self.as_role("HR Officer", email="hr-status@alpha.test")
+        sections = hr_client.get(reverse("dashboard")).data["sections"]
+        self.assertEqual(
+            sections["advance_requests"],
+            {"pending_count": 1, "approved_count": 1, "rejected_count": 1},
+        )
+        self.assertNotIn("salary_advances", sections)

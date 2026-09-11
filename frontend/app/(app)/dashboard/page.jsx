@@ -131,6 +131,25 @@ export default function DashboardPage() {
               <span className="shrink-0 text-sm font-semibold text-warn">{t("dashboard.reviewAdvances")}</span>
             </Link>
           )}
+          {sections.advance_requests && (
+            <Link
+              href="/hr?tab=advances"
+              className="mb-6 flex items-center justify-between gap-4 rounded-card border border-accent/25 bg-accent/5 p-5 transition-colors hover:border-accent/50"
+            >
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-accent/10 text-accent">
+                  <Wallet size={20} />
+                </span>
+                <div>
+                  <h2 className="font-display text-base font-bold text-ink">{t("dashboard.advanceRequestStatus")}</h2>
+                  <p className="mt-1 text-sm text-muted">
+                    {t("dashboard.advanceRequestMessage", sections.advance_requests)}
+                  </p>
+                </div>
+              </div>
+              <span className="shrink-0 text-sm font-semibold text-accent">{t("dashboard.viewAdvanceRequests")}</span>
+            </Link>
+          )}
           {sections.sales && <div className="mb-6 grid grid-cols-2 gap-3">
             <Link href="/sales?tab=invoices"><Stat icon={Receipt} label={t("improvements.todaySales")} value={money(sections.sales.today_total)} sub={data.currency} tone="accent" /></Link>
             <Link href="/sales?tab=invoices&overdue=1"><Stat icon={CalendarClock} label={t("improvements.overdue")} value={sections.sales.overdue_count} /></Link>
