@@ -6,6 +6,8 @@ from sales.views import (
     CashShiftViewSet,
     CompanyBankAccountViewSet,
     CustomerViewSet,
+    DebtCustomerListView,
+    DebtSummaryView,
     InvoiceViewSet,
     PaymentViewSet,
     POSCheckoutView,
@@ -27,5 +29,7 @@ router.register(
 
 urlpatterns = [
     path("pos/checkout/", POSCheckoutView.as_view(), name="pos-checkout"),
+    path("debts/customers/", DebtCustomerListView.as_view(), name="debt-customer-list"),
+    path("debts/summary/", DebtSummaryView.as_view(), name="debt-summary"),
     path("", include(router.urls)),
 ]

@@ -66,6 +66,9 @@ export const sales = {
   payments: (params) => api.get("/payments/", { params }),
   paymentDocument: (id) => api.get(`/payments/${id}/document/`),
   customers: (params) => api.get("/customers/", { params }),
+  debtCustomers: (params) => api.get("/debts/customers/", { params }),
+  debtSummary: () => api.get("/debts/summary/"),
+  debtStatement: (id, params) => api.get(`/customers/${id}/debt-statement/`, { params }),
   customerRecords: (id, params) => api.get(`/customers/${id}/records/`, { params }),
   customerRecordsCsv: (id, params) =>
     `${API_BASE}/customers/${id}/records/?${new URLSearchParams({ ...params, format: "csv" })}`,

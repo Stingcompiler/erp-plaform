@@ -34,6 +34,7 @@ from sales.models import (
     SalesOrder,
     SalesOrderLine,
 )
+from sales.debt_queries import customer_debts, debt_summary, statement_for_period
 from sales.serializers import (
     CashDrawerMovementSerializer,
     CashShiftSerializer,
@@ -144,6 +145,47 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
             entity_id=customer.pk, metadata={"view": "records"},
         )
         return Response({"customer": profile, "events": events})
+
+    @action(detail=True, methods=["get"], url_path="debt-statement")
+    def debt_statement(self, request, pk=None):
+        """A derived receivables statement for one customer.
+
+        This deliberately reads the same invoices, payments and credit notes as
+        the debt list. There is no editable balance to drift from the source
+        documents, and ``get_object`` preserves company isolation.
+        """
+        customer = self.get_object()
+        payload = statement_for_period(request.user, customer, request.query_params)
+        payload["customer"] = {
+            "id": customer.id,
+            "name": customer.name,
+            "phone": customer.phone,
+        }
+        log_activity(
+            action="view", request=request, entity_type="Customer",
+            entity_id=customer.pk, metadata={"view": "debt_statement"},
+        )
+        return Response(payload)
+
+
+class DebtCustomerListView(APIView):
+    """Read-only customer receivables list, derived from financial documents."""
+
+    permission_classes = [IsAuthenticated, RoleModuleAccess]
+    rbac_module = "sales"
+
+    def get(self, request):
+        return Response(customer_debts(request.user, request.query_params))
+
+
+class DebtSummaryView(APIView):
+    """Headline receivables figures used by the debt ledger screen."""
+
+    permission_classes = [IsAuthenticated, RoleModuleAccess]
+    rbac_module = "sales"
+
+    def get(self, request):
+        return Response(debt_summary(request.user))
 
 
 class CompanyBankAccountViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):

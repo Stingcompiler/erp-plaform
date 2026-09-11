@@ -1,4 +1,5 @@
 import { improvementsEn, improvementsAr } from "./improvementsI18n.js";
+import { debtEn, debtAr } from "./debtI18n.js";
 // Central translation catalog. Keys are dot-namespaced by surface. `t(key)`
 // (from useI18n) looks a key up in the active language, falling back to English,
 // then to the raw key — so a missing translation is visible, never a crash.
@@ -74,6 +75,7 @@ const en = {
     dashboard: "Dashboard",
     inventory: "Inventory",
     sales: "Sales",
+    debts: "Debt ledger",
     customerRecords: "Customer records",
     labels: "Barcode labels",
     purchasing: "Purchasing",
@@ -1172,6 +1174,7 @@ const ar = {
     dashboard: "لوحة التحكم",
     inventory: "المخزون",
     sales: "المبيعات",
+    debts: "دفتر الديون",
     customerRecords: "سجلات العملاء",
     labels: "ملصقات الباركود",
     purchasing: "المشتريات",
@@ -2208,6 +2211,8 @@ const ar = {
 
 en.improvements = improvementsEn;
 ar.improvements = improvementsAr;
+en.debts = debtEn;
+ar.debts = debtAr;
 const CATALOG = { en, ar };
 
 function lookup(obj, path) {
