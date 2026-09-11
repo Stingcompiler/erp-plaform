@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.conf import settings
 from django.utils import timezone
 from django.db import connection
 from django.db.models import Q, Sum
@@ -84,6 +85,36 @@ def health_check(request):
             "status": "ok",
             "service": "erp-api",
             "database": "ok" if db_ok else "unreachable",
+        },
+        status=200,
+    )
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_index(request):
+    """
+    Root of the Django service. The REST API lives under /api/ and the UI is a
+    separate Next.js app — in development that app runs on its own origin
+    (the first CORS_ALLOWED_ORIGINS entry, normally http://localhost:3000),
+    and in production the exported build is served from this same origin by
+    core/frontend.py.
+
+    This view is wired in only when DEBUG is True (see config/urls.py), so
+    production's "/" still resolves to the served frontend index.html. Its only
+    job is to answer a hand-typed API-root request with a useful pointer
+    instead of a bare Django 404.
+    """
+    dev_origin = next(iter(settings.CORS_ALLOWED_ORIGINS), None)
+    return Response(
+        {
+            "service": "erp-api",
+            "status": "ok",
+            "api_root": request.build_absolute_uri("/api/"),
+            "health": request.build_absolute_uri("/api/health/"),
+            "admin": request.build_absolute_uri("/admin/"),
+            # In dev the UI is not served here — point at the Next.js app.
+            "ui": dev_origin or "served from this origin",
         },
         status=200,
     )
