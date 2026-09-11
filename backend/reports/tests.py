@@ -106,12 +106,12 @@ class AgingTests(ReportsBase):
 
 class ReportsRBACTests(ReportsBase):
     def test_landing_page_manager_denied_reports(self):
-        User.objects.create_user(
+        lpm_user = User.objects.create_user(
             email="lpm@alpha.test", password="passw0rd123",
             company=self.company, role=self.lpm,
         )
         c = self.client_class()
-        c.post(reverse("auth-login"), {"email": "lpm@alpha.test", "password": "passw0rd123"})
+        c.force_authenticate(lpm_user)
         resp = c.get(reverse("report-sales-summary"))
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 

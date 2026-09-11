@@ -61,8 +61,10 @@ class HrSummaryReport(ReportView):
 
     def get(self, request):
         from hr.models import Attendance, Deduction, Employee, LeaveRequest, SalaryAdvance
+        from hr.leave_sync import refresh_employee_leave_statuses
 
         cid = self.company_id(request)
+        refresh_employee_leave_statuses(cid)
         start, end = self.date_range(request)
         employees = Employee.objects.filter(company_id=cid)
         attendance = Attendance.objects.filter(company_id=cid)

@@ -3,6 +3,7 @@ from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 
 from core.activity import log_activity
 from core.deletion import ArchiveOnDeleteMixin, NoDeleteMixin
@@ -17,6 +18,11 @@ from hr.models import (
     Position,
     SalaryAdvance,
     WorkPolicy,
+)
+from hr.leave_sync import (
+    apply_approved_leave,
+    attendance_conflicts,
+    refresh_employee_leave_statuses,
 )
 from hr.serializers import (
     AttendanceSerializer,
@@ -103,6 +109,7 @@ class LeaveRequestViewSet(CompanyScopedModelViewSet):
     parser_classes = [JSONParser, FormParser, MultiPartParser]
 
     def get_queryset(self):
+        refresh_employee_leave_statuses(self.request.user.company_id)
         qs = super().get_queryset()
         status = self.request.query_params.get("status")
         if status:
@@ -125,11 +132,19 @@ class LeaveRequestViewSet(CompanyScopedModelViewSet):
 
     def _decide(self, request, status_value):
         instance = self.get_object()
+        if status_value == LeaveRequest.APPROVED:
+            conflicts = attendance_conflicts(instance)
+            if conflicts.exists():
+                raise ValidationError({
+                    "detail": "Correct existing attendance records before approving this leave."
+                })
         serializer = self.get_serializer(
             instance, data={"status": status_value}, partial=True
         )
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+        if status_value == LeaveRequest.APPROVED:
+            apply_approved_leave(instance)
         return Response(serializer.data)
 
     @action(detail=True, methods=["get"])

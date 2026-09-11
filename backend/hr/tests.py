@@ -1,4 +1,5 @@
 from django.urls import reverse
+from datetime import date, timedelta
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -21,11 +22,7 @@ class HrBase(APITestCase):
             company=self.company_a, full_name="Amina Ali", position=self.pos_a
         )
         self.emp_b = Employee.objects.create(company=self.company_b, full_name="Beta Person")
-        r = self.client.post(
-            reverse("auth-login"),
-            {"email": "a@alpha.test", "password": "passw0rd123"},
-        )
-        assert r.status_code == 200, r.content
+        self.client.force_authenticate(self.user_a)
 
 
 class EmployeeTests(HrBase):
@@ -64,9 +61,10 @@ class AttendanceLeavePerfTests(HrBase):
         self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_leave_request_approve_action(self):
+        today = date.today()
         create = self.client.post(
             reverse("leaverequest-list"),
-            {"employee": self.emp_a.id, "start_date": "2026-08-10", "end_date": "2026-08-12"},
+            {"employee": self.emp_a.id, "start_date": today, "end_date": today + timedelta(days=2)},
             format="json",
         )
         self.assertEqual(create.status_code, 201, create.content)
@@ -77,6 +75,9 @@ class AttendanceLeavePerfTests(HrBase):
         self.assertEqual(lr.status, "approved")
         self.assertIsNotNone(lr.reviewed_at)
         self.assertEqual(lr.reviewed_by_id, self.user_a.id)
+        self.assertEqual(self.emp_a.attendance.filter(status="leave").count(), 3)
+        self.emp_a.refresh_from_db()
+        self.assertEqual(self.emp_a.status, Employee.STATUS_ON_LEAVE)
 
     def test_leave_rejects_bad_date_range(self):
         resp = self.client.post(
@@ -110,12 +111,12 @@ class HrRbacTests(HrBase):
     def test_sales_officer_denied_hr(self):
         # A non-HR role must not reach HR endpoints (RBAC matrix).
         sales_role = Role.objects.create(name="Sales Officer", scope_level=Role.SCOPE_BRANCH)
-        User.objects.create_user(
+        sales_user = User.objects.create_user(
             email="s@alpha.test", password="passw0rd123",
             company=self.company_a, role=sales_role,
         )
         client = self.client_class()
-        client.post(reverse("auth-login"), {"email": "s@alpha.test", "password": "passw0rd123"})
+        client.force_authenticate(sales_user)
         resp = client.get(reverse("employee-list"))
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
