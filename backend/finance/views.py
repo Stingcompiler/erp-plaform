@@ -3,6 +3,8 @@ from decimal import Decimal
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
 from rest_framework.decorators import action
+from rest_framework.filters import SearchFilter, OrderingFilter
+from finance.metrics import date_range, in_range, operating_summary
 from rest_framework.response import Response
 
 from django.utils import timezone
@@ -30,6 +32,10 @@ class ExpenseViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
     queryset = Expense.objects.select_related("company", "recorded_by").all()
     serializer_class = ExpenseSerializer
     activity_entity_type = "Expense"
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ["category", "description"]
+    ordering_fields = ["date", "amount", "category"]
+    ordering = ["-date", "-id"]
     delete_denied_detail = (
         "An expense cannot be deleted because it feeds the income statement "
         "and budget variance. Record an offsetting negative expense instead."
@@ -37,12 +43,8 @@ class ExpenseViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        start = self.request.query_params.get("start")
-        end = self.request.query_params.get("end")
-        if start:
-            qs = qs.filter(date__gte=start)
-        if end:
-            qs = qs.filter(date__lte=end)
+        start, end = date_range(self.request.query_params)
+        qs = in_range(qs, "date", start, end)
         category = self.request.query_params.get("category")
         if category:
             qs = qs.filter(category=category)
@@ -50,29 +52,12 @@ class ExpenseViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
 
     @action(detail=False, methods=["get"])
     def summary(self, request):
-        """Company funds overview: revenue (derived from sales) vs. recorded
-        expenses, and the net. Same company scoping as the list."""
-        company_id = getattr(request.user, "company_id", None)
-        expenses = self.filter_queryset(self.get_queryset())
-        total_expenses = expenses.aggregate(
-            t=Coalesce(Sum("amount"), Decimal("0"))
-        )["t"]
-
-        from sales.models import Invoice
-
-        revenue = Invoice.objects.filter(company_id=company_id).aggregate(
-            t=Coalesce(Sum("total"), Decimal("0"))
-        )["t"]
-
-        cents = Decimal("0.01")
-        return Response(
-            {
-                "revenue": str(revenue.quantize(cents)),
-                "expenses": str(total_expenses.quantize(cents)),
-                "net": str((revenue - total_expenses).quantize(cents)),
-                "expense_count": expenses.count(),
-            }
+        start, end = date_range(request.query_params)
+        data = operating_summary(
+            getattr(request.user, "company_id", None), start, end,
+            request.query_params.get("method", "standard"),
         )
+        return Response({**data, "expenses": data["total_expenses"], "net": data["net_profit"]})
 
 
 class BudgetViewSet(CompanyScopedModelViewSet):

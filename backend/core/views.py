@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.utils import timezone
 from django.db import connection
 from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
@@ -131,7 +132,8 @@ def dashboard(request):
 
     if role_can(user, "sales", write=False):
         from sales.models import Invoice
-        inv = _scope_branch(Invoice.objects.filter(company_id=company_id), branch_id)
+        from sales.querysets import overdue_invoices
+        inv = _scope_branch(Invoice.objects.filter(company_id=company_id, is_void=False), branch_id)
         # Top products by revenue — powers the dashboard chart, scoped the same
         # way as the totals above it.
         top = (
@@ -142,6 +144,9 @@ def dashboard(request):
         )
         sections["sales"] = {
             "invoice_count": inv.count(),
+            "today_total": str(inv.filter(issued_at__date=timezone.localdate()).aggregate(
+                t=Coalesce(Sum("total"), Decimal("0")))["t"]),
+            "overdue_count": overdue_invoices(inv).count(),
             "revenue_total": str(
                 inv.aggregate(t=Coalesce(Sum("total"), Decimal("0")))["t"]
             ),
@@ -205,18 +210,10 @@ def dashboard(request):
         }
 
     if role_can(user, "finance", write=False):
-        from finance.models import Expense
-        from sales.models import Invoice
-        revenue = Invoice.objects.filter(company_id=company_id).aggregate(
-            t=Coalesce(Sum("total"), Decimal("0"))
-        )["t"]
-        expenses = Expense.objects.filter(company_id=company_id).aggregate(
-            t=Coalesce(Sum("amount"), Decimal("0"))
-        )["t"]
+        from finance.metrics import operating_summary
+        figures = operating_summary(company_id)
         sections["finance"] = {
-            "revenue": str(revenue),
-            "expenses": str(expenses),
-            "net": str(revenue - expenses),
+            **figures, "expenses": figures["total_expenses"], "net": figures["net_profit"],
         }
 
     if role_can(user, "website", write=False):
@@ -230,4 +227,51 @@ def dashboard(request):
             ),
         }
 
-    return Response({"role": getattr(user.role, "name", None), "sections": sections})
+    setup = []
+    if company_id and role_can(user, "settings", write=True):
+        from accounts.models import User
+        from inventory.models import Product, StockMovement, Warehouse
+        from sales.models import Invoice
+        company = user.company
+        checks = [
+            ("companyStep",
+             "/settings",
+             bool(
+                 company.name and company.currency and (
+                     company.phone or company.email)),
+                "settings"),
+            ("warehouseStep",
+             "/org",
+             Warehouse.objects.filter(
+                 company_id=company_id,
+                 is_active=True).exists(),
+                "org"),
+            ("productStep",
+             "/inventory",
+             Product.objects.filter(
+                 company_id=company_id,
+                 is_active=True).exists() and (
+                 StockMovement.objects.filter(
+                     company_id=company_id,
+                     quantity__gt=0).exists() or not Product.objects.filter(
+                     company_id=company_id,
+                     is_active=True,
+                     is_stock_tracked=True).exists()),
+             "inventory"),
+            ("userStep",
+             "/users",
+             User.objects.filter(
+                 company_id=company_id,
+                 is_active=True).exists(),
+             "users"),
+            ("saleStep",
+             "/sales",
+             Invoice.objects.filter(
+                 company_id=company_id,
+                 is_void=False).exists(),
+             "sales"),
+        ]
+        setup = [{"key": key, "href": href, "done": done} for key, href, done, module in checks
+                 if role_can(user, module, write=True)]
+    return Response({"role": getattr(user.role, "name", None), "sections": sections,
+                     "setup": setup, "currency": user.company.currency if company_id else None})

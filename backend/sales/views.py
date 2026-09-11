@@ -417,6 +417,21 @@ class InvoiceViewSet(
     ).all()
     serializer_class = InvoiceSerializer
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.request.query_params.get("overdue") == "1":
+            from sales.querysets import overdue_invoices
+            qs = overdue_invoices(qs)
+        search = self.request.query_params.get("search", "").strip()
+        if search:
+            from django.db.models import Q
+            condition = Q(customer__name__icontains=search)
+            number = search.upper().removeprefix("INV-")
+            if number.isdigit():
+                condition |= Q(number=int(number))
+            qs = qs.filter(condition)
+        return qs.order_by("-issued_at", "-pk")
+
     @action(detail=False, methods=["get"])
     def export(self, request):
         """

@@ -11,18 +11,16 @@ from decimal import Decimal
 from django.db.models import (
     Count,
     DecimalField,
-    ExpressionWrapper,
-    F,
     Sum,
 )
 from django.db.models.functions import Coalesce, TruncDate
 from django.http import HttpResponse
-from django.utils.dateparse import parse_date
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.rbac import RoleModuleAccess
+from finance.metrics import date_range, operating_summary
 
 ZERO = Decimal("0")
 MONEY = DecimalField(max_digits=20, decimal_places=2)
@@ -36,9 +34,7 @@ class ReportView(APIView):
         return getattr(request.user, "company_id", None)
 
     def date_range(self, request):
-        start = parse_date(request.query_params.get("start", "") or "")
-        end = parse_date(request.query_params.get("end", "") or "")
-        return start, end
+        return date_range(request.query_params)
 
     def apply_range(self, qs, field, start, end):
         if start:
@@ -274,47 +270,11 @@ class PurchasesSummaryReport(ReportView):
 
 class ProfitSummaryReport(ReportView):
     def get(self, request):
-        from inventory.costing import METHODS, company_totals
-        from sales.models import InvoiceLine
-        cid = self.company_id(request)
         start, end = self.date_range(request)
-        method = request.query_params.get("method", "standard")
-        if method not in METHODS:
-            method = "standard"
-
-        qs = InvoiceLine.objects.filter(
-            invoice__company_id=cid, invoice__is_void=False
-        )
-        qs = self.apply_range(qs, "invoice__issued_at", start, end)
-        revenue = qs.aggregate(
-            revenue=Coalesce(Sum("line_subtotal"), ZERO, output_field=MONEY),
-        )["revenue"]
-
-        if method == "standard":
-            cogs = qs.aggregate(
-                cogs=Coalesce(
-                    Sum(
-                        ExpressionWrapper(
-                            F("quantity") * F("product__cost_price"),
-                            output_field=MONEY,
-                        )
-                    ),
-                    ZERO, output_field=MONEY,
-                ),
-            )["cogs"]
-            note = "COGS uses standard (current) product cost."
-        else:
-            cogs = company_totals(cid, method=method, start=start, end=end)["cogs"]
-            note = f"COGS uses {method} costing over the movement ledger."
-
-        return Response({
-            "method": method,
-            "revenue": str(revenue),
-            "cogs": str(cogs),
-            "cogs_standard_cost": str(cogs),  # back-compat alias
-            "gross_profit": str(revenue - cogs),
-            "note": note,
-        })
+        data = operating_summary(self.company_id(request), start, end,
+                                 request.query_params.get("method", "standard"))
+        return Response({**data, "cogs_standard_cost": data["cogs"],
+                         "note": f"COGS uses {data['method']} costing."})
 
 
 class IncomeStatementReport(ReportView):
@@ -326,80 +286,18 @@ class IncomeStatementReport(ReportView):
     """
 
     def get(self, request):
-        from finance.models import Expense
-        from inventory.costing import METHODS, company_totals
-        from sales.models import InvoiceLine
-
-        cid = self.company_id(request)
         start, end = self.date_range(request)
-        method = request.query_params.get("method", "standard")
-        if method not in METHODS:
-            method = "standard"
-
-        lines = InvoiceLine.objects.filter(
-            invoice__company_id=cid, invoice__is_void=False
-        )
-        lines = self.apply_range(lines, "invoice__issued_at", start, end)
-        revenue = lines.aggregate(
-            t=Coalesce(Sum("line_subtotal"), ZERO, output_field=MONEY)
-        )["t"]
-
-        if method == "standard":
-            cogs = lines.aggregate(
-                t=Coalesce(
-                    Sum(
-                        ExpressionWrapper(
-                            F("quantity") * F("product__cost_price"),
-                            output_field=MONEY,
-                        )
-                    ),
-                    ZERO, output_field=MONEY,
-                )
-            )["t"]
-        else:
-            cogs = company_totals(cid, method=method, start=start, end=end)["cogs"]
-
-        # Expense.date is a DateField, so it filters directly (no __date lookup).
-        expenses = Expense.objects.filter(company_id=cid)
-        if start:
-            expenses = expenses.filter(date__gte=start)
-        if end:
-            expenses = expenses.filter(date__lte=end)
-        by_category = [
-            {"category": row["category"], "amount": str(row["total"])}
-            for row in expenses.values("category")
-            .annotate(total=Coalesce(Sum("amount"), ZERO, output_field=MONEY))
-            .order_by("-total")
-        ]
-        total_expenses = expenses.aggregate(
-            t=Coalesce(Sum("amount"), ZERO, output_field=MONEY)
-        )["t"]
-
-        gross_profit = revenue - cogs
-        net_profit = gross_profit - total_expenses
-
+        data = operating_summary(self.company_id(request), start, end,
+                                 request.query_params.get("method", "standard"))
         if self.wants_csv(request):
-            rows = [
-                ["Revenue", str(revenue)],
-                ["COGS", str(cogs)],
-                ["Gross profit", str(gross_profit)],
-                *[[f"Expense — {e['category']}", e["amount"]] for e in by_category],
-                ["Total expenses", str(total_expenses)],
-                ["Net profit", str(net_profit)],
-            ]
-            return self.csv_response(
-                "income-statement.csv", ["Line", "Amount"], rows
-            )
-
-        return Response({
-            "method": method,
-            "revenue": str(revenue),
-            "cogs": str(cogs),
-            "gross_profit": str(gross_profit),
-            "expenses_by_category": by_category,
-            "total_expenses": str(total_expenses),
-            "net_profit": str(net_profit),
-        })
+            rows = [["Revenue", data["revenue"]], ["COGS", data["cogs"]],
+                    ["Gross profit", data["gross_profit"]],
+                    *[[f"Expense — {e['category']}", e["amount"]]
+                      for e in data["expenses_by_category"]],
+                    ["Total expenses", data["total_expenses"]],
+                    ["Net profit", data["net_profit"]]]
+            return self.csv_response("income-statement.csv", ["Line", "Amount"], rows)
+        return Response(data)
 
 
 class ReceivablesDueReport(ReportView):
@@ -542,50 +440,16 @@ class CfoKpiReport(ReportView):
     """
 
     def get(self, request):
-        from finance.models import Expense
-        from inventory.costing import METHODS, company_totals
-        from purchasing.models import Bill
-        from sales.models import Invoice, InvoiceLine, Payment
-        from purchasing.models import SupplierPayment
-
+        from purchasing.models import Bill, SupplierPayment
+        from sales.models import Invoice, Payment
         cid = self.company_id(request)
         start, end = self.date_range(request)
-        method = request.query_params.get("method", "standard")
-        if method not in METHODS:
-            method = "standard"
-
-        # --- Profitability -------------------------------------------------
-        lines = self.apply_range(
-            InvoiceLine.objects.filter(
-                invoice__company_id=cid, invoice__is_void=False
-            ),
-            "invoice__issued_at", start, end,
+        data = operating_summary(cid, start, end, request.query_params.get("method", "standard"))
+        method = data["method"]
+        revenue, cogs, opex, gross_profit, net_profit = (
+            Decimal(data[key]) for key in
+            ("revenue", "cogs", "total_expenses", "gross_profit", "net_profit")
         )
-        revenue = lines.aggregate(
-            t=Coalesce(Sum("line_subtotal"), ZERO, output_field=MONEY)
-        )["t"]
-        if method == "standard":
-            cogs = lines.aggregate(
-                t=Coalesce(
-                    Sum(ExpressionWrapper(
-                        F("quantity") * F("product__cost_price"), output_field=MONEY
-                    )), ZERO, output_field=MONEY,
-                )
-            )["t"]
-        else:
-            cogs = company_totals(cid, method=method, start=start, end=end)["cogs"]
-
-        expenses_qs = Expense.objects.filter(company_id=cid)
-        if start:
-            expenses_qs = expenses_qs.filter(date__gte=start)
-        if end:
-            expenses_qs = expenses_qs.filter(date__lte=end)
-        opex = expenses_qs.aggregate(
-            t=Coalesce(Sum("amount"), ZERO, output_field=MONEY)
-        )["t"]
-
-        gross_profit = revenue - cogs
-        net_profit = gross_profit - opex
 
         # --- Liquidity / working capital ------------------------------------
         receivable = sum(
@@ -735,7 +599,7 @@ class CashFlowReport(ReportView):
                 .order_by("-total")
             ]
 
-        total = lambda qs: qs.aggregate(  # noqa: E731
+        def total(qs): return qs.aggregate(  # noqa: E731
             t=Coalesce(Sum("amount"), ZERO, output_field=MONEY)
         )["t"]
 
