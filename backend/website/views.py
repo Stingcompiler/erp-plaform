@@ -1,20 +1,51 @@
+from django.db import models
 from django.utils import timezone
+from rest_framework import mixins, viewsets
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.activity import log_activity
+from core.permissions import IsPlatformAdmin
 from core.rbac import RoleModuleAccess
 from core.scoping import CompanyScopedModelViewSet
 from org.models import Company
-from website.models import FeaturedProduct, Section, Website
+from website.models import FeaturedProduct, PlatformLead, Section, Website
 from website.serializers import (
     FeaturedProductSerializer,
+    PlatformLeadSerializer,
     PublicSiteSerializer,
     SectionSerializer,
     WebsiteSerializer,
 )
+
+
+class PlatformLeadViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Platform sales inbox, kept separate from every tenant CRM."""
+
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    serializer_class = PlatformLeadSerializer
+    queryset = PlatformLead.objects.all()
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        status_value = self.request.query_params.get("status")
+        search = self.request.query_params.get("search", "").strip()
+        if status_value:
+            queryset = queryset.filter(status=status_value)
+        if search:
+            queryset = queryset.filter(
+                models.Q(name__icontains=search)
+                | models.Q(email__icontains=search)
+                | models.Q(message__icontains=search)
+            )
+        return queryset
 
 
 class WebsiteView(APIView):

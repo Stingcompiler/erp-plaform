@@ -1,6 +1,8 @@
 from uuid import uuid4
 from django.urls import reverse
 from rest_framework.test import APITestCase
+from accounts.models import User
+from org.models import Company
 from website.models import PlatformLead
 
 
@@ -34,3 +36,24 @@ class DemoRequestTests(APITestCase):
             self.client.post(reverse("demo-request"), self.body, format="json")
         response = self.client.post(reverse("demo-request"), self.body, format="json")
         self.assertEqual(response.status_code, 429)
+
+    def test_platform_admin_can_manage_inbox_but_tenant_user_cannot(self):
+        lead = PlatformLead.objects.create(
+            request_uuid=uuid4(), name="Prospect", email="prospect@example.test"
+        )
+        tenant = Company.objects.create(name="Tenant")
+        member = User.objects.create_user("member@example.test", "pass", company=tenant)
+        self.client.force_authenticate(member)
+        self.assertEqual(self.client.get("/api/platform/leads/").status_code, 403)
+
+        admin = User.objects.create_superuser("admin@example.test", "pass")
+        self.client.force_authenticate(admin)
+        response = self.client.get("/api/platform/leads/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["results"][0]["email"], lead.email)
+        response = self.client.patch(
+            f"/api/platform/leads/{lead.pk}/", {"status": "contacted"}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        lead.refresh_from_db()
+        self.assertEqual(lead.status, "contacted")

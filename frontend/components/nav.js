@@ -5,6 +5,7 @@ import {
   ClipboardList,
   Contact,
   Globe,
+  Inbox,
   LayoutDashboard,
   Package,
   RotateCcw,
@@ -115,6 +116,13 @@ export const NAV = [
     labelKey: "nav.groups.admin",
     icon: ShieldCheck,
     children: [
+      {
+        labelKey: "nav.platformLeads",
+        href: "/platform-leads",
+        module: null,
+        platformOnly: true,
+        icon: Inbox,
+      },
       { labelKey: "nav.org", href: "/org", module: "org", icon: Building2 },
       { labelKey: "nav.users", href: "/users", module: "users", icon: Users },
       { labelKey: "nav.website", href: "/website", module: "website", icon: Globe },
@@ -171,12 +179,13 @@ export const SHOP_OPTIONAL = [
 ];
 const SHOP_HIDDEN = new Set(SHOP_OPTIONAL);
 
-export function visibleNav(canRead, canWrite, roleName, businessType, optional = []) {
+export function visibleNav(canRead, canWrite, roleName, businessType, optional = [], isPlatformAdmin = false) {
   const shopMode = businessType === "shop";
   // `altModule` covers a page that serves two modules at once (Returns holds
   // both the sales and purchasing sides): holding either one is enough to see
   // the link, and the page gates its own tabs from there.
   const allowed = (item) => {
+    if (item.platformOnly) return isPlatformAdmin;
     if (shopMode && SHOP_HIDDEN.has(item.labelKey) && !optional.includes(item.labelKey)) return false;
     if (item.auditViewer) {
       return (

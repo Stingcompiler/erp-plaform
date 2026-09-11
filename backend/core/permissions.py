@@ -67,3 +67,16 @@ class IsPlatformAdminOrReadOnly(BasePermission):
             and request.user.is_authenticated
             and getattr(request.user, "is_platform_admin", False)
         )
+
+
+class IsPlatformAdmin(BasePermission):
+    """Allow access only to administrators who operate the Vezano platform."""
+
+    message = "This area is restricted to platform administrators."
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and getattr(request.user, "is_platform_admin", False)
+        )

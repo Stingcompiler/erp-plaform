@@ -188,10 +188,10 @@ function SidebarContent({ onNavigate }) {
     } catch { setOptional([]); }
   }, [user?.id, user?.company, user?.branch]);
   const items = useMemo(
-    () => visibleNav(canRead, canWrite, user?.role_name, user?.business_type, optional),
-    [canRead, canWrite, user?.role_name, user?.business_type, optional],
+    () => visibleNav(canRead, canWrite, user?.role_name, user?.business_type, optional, user?.is_platform_admin),
+    [canRead, canWrite, user?.role_name, user?.business_type, optional, user?.is_platform_admin],
   );
-  const all = visibleNav(canRead, canWrite, user?.role_name, "enterprise").flatMap((item) => item.children || [item]);
+  const all = visibleNav(canRead, canWrite, user?.role_name, "enterprise", [], user?.is_platform_admin).flatMap((item) => item.children || [item]);
   const toggleSection = (key) => {
     const next = optional.includes(key) ? optional.filter((k) => k !== key) : [...optional,key];
     setOptional(next);

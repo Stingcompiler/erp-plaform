@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 from website.views import (
     FeaturedProductViewSet,
     DemoRequestView,
+    PlatformLeadViewSet,
     PublicSiteView,
     SectionViewSet,
     WebsitePublishView,
@@ -15,6 +16,7 @@ router.register("website/sections", SectionViewSet, basename="section")
 router.register(
     "website/featured-products", FeaturedProductViewSet, basename="featuredproduct"
 )
+router.register("platform/leads", PlatformLeadViewSet, basename="platform-lead")
 
 urlpatterns = [
     path("public/demo-requests/", DemoRequestView.as_view(), name="demo-request"),

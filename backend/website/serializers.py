@@ -112,5 +112,5 @@ class DemoRequestSerializer(serializers.Serializer):
 class PlatformLeadSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlatformLead
-        fields = ["request_uuid", "name", "email", "message", "status", "source", "created_at"]
-        read_only_fields = ["status", "source", "created_at"]
+        fields = ["id", "request_uuid", "name", "email", "message", "status", "source", "created_at"]
+        read_only_fields = ["id", "request_uuid", "name", "email", "message", "source", "created_at"]

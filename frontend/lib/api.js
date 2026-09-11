@@ -243,3 +243,8 @@ export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhos
 export default api;
 
 export const demoRequests = { create: (body) => api.post("/public/demo-requests/", body) };
+
+export const platformLeads = {
+  list: (params) => api.get("/platform/leads/", { params }),
+  update: (id, body) => api.patch(`/platform/leads/${id}/`, body),
+};
