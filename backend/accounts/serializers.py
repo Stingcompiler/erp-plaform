@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from accounts.models import Permission, Role, User
+from org.store_mode import is_system_mode_owner
 
 
 class PermissionSerializer(serializers.ModelSerializer):
@@ -92,6 +93,7 @@ class MeSerializer(serializers.ModelSerializer):
     # Drives the one-time setup prompt. Sent with the identity call so the
     # shell can ask on first paint rather than after a second round trip.
     business_type_chosen = serializers.SerializerMethodField()
+    can_manage_system_mode = serializers.SerializerMethodField()
 
     def get_company_name(self, obj):
         return obj.company.name if obj.company_id else None
@@ -103,6 +105,9 @@ class MeSerializer(serializers.ModelSerializer):
         # A user with no company has nothing to configure, so nothing to ask.
         return obj.company.business_type_chosen if obj.company_id else True
 
+    def get_can_manage_system_mode(self, obj):
+        return is_system_mode_owner(obj)
+
     class Meta:
         model = User
         fields = [
@@ -113,6 +118,7 @@ class MeSerializer(serializers.ModelSerializer):
             "company_name",
             "business_type",
             "business_type_chosen",
+            "can_manage_system_mode",
             "branch",
             "role",
             "role_name",

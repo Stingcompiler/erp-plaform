@@ -1,5 +1,8 @@
 from django.conf import settings
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.exceptions import AuthenticationFailed
+
+from org.store_mode import is_store_mode_allowed
 
 
 class CookieJWTAuthentication(JWTAuthentication):
@@ -17,4 +20,10 @@ class CookieJWTAuthentication(JWTAuthentication):
         if not raw_token:
             return None
         validated_token = self.get_validated_token(raw_token)
-        return self.get_user(validated_token), validated_token
+        user = self.get_user(validated_token)
+        if not is_store_mode_allowed(user):
+            raise AuthenticationFailed(
+                "The system is currently operating in shop mode.",
+                code="store_mode_restricted",
+            )
+        return user, validated_token

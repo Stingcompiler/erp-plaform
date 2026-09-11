@@ -288,7 +288,7 @@ function Topbar({ onOpenMenu }) {
 
 export default function AppShell({ children }) {
   const { t } = useI18n();
-  const { user, canWrite, refresh } = useAuth();
+  const { user, refresh } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [answered, setAnswered] = useState(false);
   const pathname = usePathname();
@@ -304,7 +304,7 @@ export default function AppShell({ children }) {
     !answered &&
     user?.company &&
     user?.business_type_chosen === false &&
-    canWrite("settings");
+    user?.can_manage_system_mode;
 
   return (
     <div className="flex min-h-screen">

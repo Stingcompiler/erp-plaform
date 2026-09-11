@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [ownerContact, setOwnerContact] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -28,8 +29,14 @@ export default function LoginPage() {
     try {
       await login(email, password);
       router.replace("/dashboard");
-    } catch {
-      setError(t("auth.invalid"));
+    } catch (err) {
+      const data = err?.response?.data;
+      if (data?.code === "store_mode_restricted") {
+        setError(t("auth.storeModeRestricted"));
+        setOwnerContact(data.owner_contact || "");
+      } else {
+        setError(t("auth.invalid"));
+      }
       setSubmitting(false);
     }
   }
@@ -90,9 +97,10 @@ export default function LoginPage() {
           />
 
           {error && (
-            <p className="mt-3 text-sm text-danger" role="alert">
-              {error}
-            </p>
+            <div className="mt-3 rounded-control border border-warn/30 bg-warn/10 p-3 text-sm text-ink" role="alert">
+              <p className="font-semibold">{error}</p>
+              {ownerContact && <a className="mt-2 inline-block font-medium text-accent hover:underline" href={`mailto:${ownerContact}`}>{t("auth.contactOwner")}</a>}
+            </div>
           )}
 
           <button

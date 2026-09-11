@@ -6,6 +6,7 @@ from org.views import (
     CompanyProfileView,
     CompanyViewSet,
     DepartmentViewSet,
+    StoreModeSettingsView,
 )
 
 router = DefaultRouter()
@@ -17,5 +18,6 @@ urlpatterns = [
     path(
         "company/profile/", CompanyProfileView.as_view(), name="company-profile"
     ),
+    path("company/store-mode/", StoreModeSettingsView.as_view(), name="store-mode-settings"),
     path("", include(router.urls)),
 ]

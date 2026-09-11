@@ -19,6 +19,7 @@ from accounts.serializers import (
 from core.activity import log_activity
 from core.deletion import ArchiveOnDeleteMixin
 from core.scoping import CompanyScopedModelViewSet
+from org.store_mode import is_store_mode_allowed
 
 
 class LoginView(APIView):
@@ -31,6 +32,22 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
+        if not is_store_mode_allowed(user):
+            owner = User.objects.filter(
+                company_id=user.company_id, role__name="Business Owner", is_active=True
+            ).first()
+            log_activity(
+                action="login_blocked", user=user, request=request,
+                metadata={"reason": "store_mode_restricted"},
+            )
+            return Response(
+                {
+                    "code": "store_mode_restricted",
+                    "detail": "The system is currently operating in shop mode.",
+                    "owner_contact": owner.email if owner else "",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         refresh = RefreshToken.for_user(user)
         access = refresh.access_token

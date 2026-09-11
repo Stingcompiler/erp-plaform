@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Database, Lock } from "lucide-react";
 
-import { settings } from "@/lib/api";
+import { settings, users } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
@@ -11,7 +11,7 @@ import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/compone
 const bytes = (n) => (n > 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
 
 export default function SettingsPage() {
-  const { canRead, canWrite } = useAuth();
+  const { user, canRead, canWrite, refresh } = useAuth();
   const { t, language } = useI18n();
   const writable = canWrite("settings");
   const [profile, setProfile] = useState(null);
@@ -23,6 +23,14 @@ export default function SettingsPage() {
   const [companyMsg, setCompanyMsg] = useState("");
   const [backingUp, setBackingUp] = useState(false);
   const [msg, setMsg] = useState("");
+  const [storeMode, setStoreMode] = useState(null);
+  const [exceptionUsers, setExceptionUsers] = useState([]);
+  const [exceptionRoles, setExceptionRoles] = useState([]);
+  const [modeUsers, setModeUsers] = useState([]);
+  const [modeRoles, setModeRoles] = useState([]);
+  const [pendingMode, setPendingMode] = useState(null);
+  const [savingMode, setSavingMode] = useState(false);
+  const ownerControlsMode = Boolean(user?.can_manage_system_mode);
 
   const loadBackups = () =>
     settings.backups().then((r) => setBackups(r.data)).catch(() => setBackups([]));
@@ -34,6 +42,17 @@ export default function SettingsPage() {
     settings.companyProfile().then((r) => setCompany(r.data)).catch(() => setCompany(null));
     loadBackups();
   }, [canRead]);
+
+  useEffect(() => {
+    if (!ownerControlsMode) return;
+    settings.storeMode().then((r) => {
+      setStoreMode(r.data);
+      setExceptionUsers(r.data.additional_user_ids || []);
+      setExceptionRoles(r.data.additional_role_ids || []);
+    }).catch(() => setStoreMode(null));
+    users.list({ page_size: 100 }).then((r) => setModeUsers(r.data.results || r.data || [])).catch(() => setModeUsers([]));
+    users.roles().then((r) => setModeRoles(r.data.results || r.data || [])).catch(() => setModeRoles([]));
+  }, [ownerControlsMode]);
 
   if (!canRead("settings")) {
     return (
@@ -78,7 +97,16 @@ export default function SettingsPage() {
     setCompanyMsg("");
     setSavingCompany(true);
     try {
-      const r = await settings.updateCompanyProfile(company);
+      const r = await settings.updateCompanyProfile({
+        name: company.name,
+        legal_name: company.legal_name,
+        address: company.address,
+        phone: company.phone,
+        email: company.email,
+        tax_number: company.tax_number,
+        registration_number: company.registration_number,
+        currency: company.currency,
+      });
       setCompany(r.data);
       setCompanyMsg(t("settings.companySaved"));
     } catch (err) {
@@ -100,6 +128,48 @@ export default function SettingsPage() {
       await loadBackups();
     } finally {
       setBackingUp(false);
+    }
+  }
+
+  const toggle = (setter, id) => () => setter((current) =>
+    current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+  );
+
+  async function saveStoreMode() {
+    setSavingMode(true);
+    try {
+      const [config, profile] = await Promise.all([
+        settings.updateStoreMode({
+          additional_user_ids: exceptionUsers,
+          additional_role_ids: exceptionRoles,
+        }),
+        settings.updateCompanyProfile({ business_type: pendingMode }),
+      ]);
+      setStoreMode(config.data);
+      setCompany(profile.data);
+      setPendingMode(null);
+      await refresh?.();
+    } catch (err) {
+      const data = err?.response?.data;
+      setCompanyMsg(typeof data === "object" && data ? Object.values(data).flat().join(" ") : t("settings.saveFailed"));
+    } finally {
+      setSavingMode(false);
+    }
+  }
+
+  async function saveExceptions() {
+    setSavingMode(true);
+    try {
+      const response = await settings.updateStoreMode({
+        additional_user_ids: exceptionUsers,
+        additional_role_ids: exceptionRoles,
+      });
+      setStoreMode(response.data);
+      setCompanyMsg(t("settings.storeModeExceptionsSaved"));
+    } catch {
+      setCompanyMsg(t("settings.saveFailed"));
+    } finally {
+      setSavingMode(false);
     }
   }
 
@@ -149,19 +219,6 @@ export default function SettingsPage() {
                 />
               </Field>
             </div>
-            <Field
-              label={t("settings.businessType")}
-              hint={t("settings.businessTypeHint")}
-            >
-              <Select
-                value={company.business_type || "enterprise"}
-                onChange={setCo("business_type")}
-                disabled={!writable}
-              >
-                <option value="shop">{t("settings.typeShop")}</option>
-                <option value="enterprise">{t("settings.typeEnterprise")}</option>
-              </Select>
-            </Field>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label={t("doc.taxNumber")} hint={t("settings.taxNumberHint")}>
                 <Input
@@ -187,6 +244,28 @@ export default function SettingsPage() {
           </div>
         )}
       </Card>
+
+      {ownerControlsMode && (
+        <Card className="mb-6 p-6">
+          <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">{t("settings.systemMode")}</h2>
+          <p className="mt-1 text-sm text-muted">{t("settings.systemModeHint")}</p>
+          {!storeMode ? <p className="mt-4 text-sm text-muted">{t("common.loading")}</p> : <>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <button onClick={() => setPendingMode("shop")} className={`rounded-control border p-4 text-start ${company?.business_type === "shop" ? "border-accent bg-accent/5" : "border-line hover:border-accent/50"}`}><div className="font-semibold">{t("settings.typeShop")}</div><p className="mt-1 text-xs text-muted">{t("settings.shopModeEffect")}</p></button>
+              <button onClick={() => setPendingMode("enterprise")} className={`rounded-control border p-4 text-start ${company?.business_type === "enterprise" ? "border-accent bg-accent/5" : "border-line hover:border-accent/50"}`}><div className="font-semibold">{t("settings.typeEnterprise")}</div><p className="mt-1 text-xs text-muted">{t("settings.companyModeEffect")}</p></button>
+            </div>
+            <div className="mt-6 border-t border-line pt-5">
+              <h3 className="font-semibold text-ink">{t("settings.additionalRequirements")}</h3>
+              <p className="mt-1 text-sm text-muted">{t("settings.additionalRequirementsHint")}</p>
+              <div className="mt-4 grid gap-5 lg:grid-cols-2">
+                <div><p className="mb-2 text-sm font-medium">{t("settings.allowedRoles")}</p><div className="max-h-48 space-y-2 overflow-y-auto rounded-control border border-line p-3">{modeRoles.map((role) => <label key={role.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={exceptionRoles.includes(role.id)} onChange={toggle(setExceptionRoles, role.id)} />{role.name}</label>)}</div></div>
+                <div><p className="mb-2 text-sm font-medium">{t("settings.allowedUsers")}</p><div className="max-h-48 space-y-2 overflow-y-auto rounded-control border border-line p-3">{modeUsers.map((modeUser) => <label key={modeUser.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={exceptionUsers.includes(modeUser.id)} onChange={toggle(setExceptionUsers, modeUser.id)} />{modeUser.full_name || modeUser.email}<span className="text-xs text-muted">{modeUser.role_name}</span></label>)}</div></div>
+              </div>
+              <Button className="mt-4" variant="outline" onClick={saveExceptions} disabled={savingMode}>{savingMode ? t("common.saving") : t("settings.saveAdditionalRequirements")}</Button>
+            </div>
+          </>}
+        </Card>
+      )}
 
       {/* Tax profile */}
       <Card className="p-6">
@@ -237,6 +316,8 @@ export default function SettingsPage() {
           </div>
         )}
       </Card>
+
+      {pendingMode && <div className="fixed inset-0 z-50 grid place-items-center bg-ink/50 p-4"><Card className="w-full max-w-lg p-6"><h2 className="font-display text-xl font-bold">{pendingMode === "shop" ? t("settings.confirmShopModeTitle") : t("settings.confirmCompanyModeTitle")}</h2><p className="mt-3 text-sm leading-6 text-muted">{pendingMode === "shop" ? t("settings.confirmShopModeBody") : t("settings.confirmCompanyModeBody")}</p><div className="mt-6 flex justify-end gap-2"><Button variant="ghost" onClick={() => setPendingMode(null)}>{t("common.cancel")}</Button><Button onClick={saveStoreMode} disabled={savingMode}>{savingMode ? t("common.saving") : pendingMode === "shop" ? t("settings.activateShopMode") : t("settings.activateCompanyMode")}</Button></div></Card></div>}
 
       {/* Backups */}
       <Card className="mt-6 p-6">

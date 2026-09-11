@@ -219,6 +219,8 @@ export const settings = {
   // caller's own company server-side — no id is passed or trusted.
   companyProfile: () => api.get("/company/profile/"),
   updateCompanyProfile: (body) => api.patch("/company/profile/", body),
+  storeMode: () => api.get("/company/store-mode/"),
+  updateStoreMode: (body) => api.patch("/company/store-mode/", body),
   taxHandlers: () => api.get("/tax/handlers/"),
   backups: () => api.get("/ops/backups/"),
   createBackup: () => api.post("/ops/backups/"),

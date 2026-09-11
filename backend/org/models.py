@@ -84,6 +84,49 @@ class Company(models.Model):
         TaxProfile.objects.get_or_create(company=self)
 
 
+class StoreModeAccessException(models.Model):
+    """A user or role the owner additionally permits in shop mode.
+
+    This is configuration, not a mutation of a user account.  A rule matters
+    only while the company is in shop mode and leaves all previous roles and
+    permissions intact when company mode is restored.
+    """
+
+    company = models.ForeignKey(
+        Company, on_delete=models.CASCADE, related_name="store_mode_exceptions"
+    )
+    user = models.ForeignKey(
+        "accounts.User", on_delete=models.CASCADE, null=True, blank=True,
+        related_name="store_mode_exceptions",
+    )
+    role = models.ForeignKey(
+        "accounts.Role", on_delete=models.CASCADE, null=True, blank=True,
+        related_name="store_mode_exceptions",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(user__isnull=False, role__isnull=True)
+                    | models.Q(user__isnull=True, role__isnull=False)
+                ),
+                name="store_mode_exception_exactly_one_subject",
+            ),
+            models.UniqueConstraint(
+                fields=["company", "user"],
+                condition=models.Q(user__isnull=False),
+                name="uniq_store_mode_exception_user",
+            ),
+            models.UniqueConstraint(
+                fields=["company", "role"],
+                condition=models.Q(role__isnull=False),
+                name="uniq_store_mode_exception_role",
+            ),
+        ]
+
+
 class TaxProfile(models.Model):
     """
     Jurisdiction-pluggable tax/invoice config (PROJECT_RULES Rule #7).

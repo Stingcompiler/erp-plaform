@@ -6,7 +6,8 @@ from core.scoping import (
     ActivityLoggingMixin,
     CompanyScopedModelViewSet,
 )
-from org.models import Branch, Company, Department
+from org.models import Branch, Company, Department, StoreModeAccessException
+from org.store_mode import STORE_DEFAULT_ROLE_NAMES, is_system_mode_owner
 from org.serializers import (
     BranchSerializer,
     CompanySerializer,
@@ -95,6 +96,11 @@ class CompanyProfileView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         changed = []
+        if "business_type" in request.data and not is_system_mode_owner(request.user):
+            return Response(
+                {"detail": "Only the Business Owner may change the operating mode."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         for field in self.EDITABLE:
             if field in request.data:
                 value = request.data[field]
@@ -125,6 +131,76 @@ class CompanyProfileView(APIView):
                 action="update", request=request, entity_type="Company",
                 entity_id=company.id, metadata={"fields": changed},
             )
+        return Response(self._serialize(company))
+
+
+class StoreModeSettingsView(APIView):
+    """Owner-only configuration for company/shop switching and exemptions."""
+
+    permission_classes = [IsAuthenticated]
+
+    def _company(self, request):
+        if not is_system_mode_owner(request.user):
+            return None
+        return Company.objects.filter(pk=request.user.company_id).first()
+
+    def _serialize(self, company):
+        rules = StoreModeAccessException.objects.filter(company=company)
+        return {
+            "business_type": company.business_type,
+            "default_allowed_roles": sorted(STORE_DEFAULT_ROLE_NAMES),
+            "additional_user_ids": list(
+                rules.filter(user__isnull=False).values_list("user_id", flat=True)
+            ),
+            "additional_role_ids": list(
+                rules.filter(role__isnull=False).values_list("role_id", flat=True)
+            ),
+        }
+
+    def get(self, request):
+        company = self._company(request)
+        if company is None:
+            return Response(
+                {"detail": "Only the Business Owner may manage operating mode."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return Response(self._serialize(company))
+
+    def patch(self, request):
+        company = self._company(request)
+        if company is None:
+            return Response(
+                {"detail": "Only the Business Owner may manage operating mode."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        user_ids = request.data.get("additional_user_ids", [])
+        role_ids = request.data.get("additional_role_ids", [])
+        if not isinstance(user_ids, list) or not isinstance(role_ids, list):
+            return Response(
+                {"detail": "Exception lists must be arrays."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        from accounts.models import Role, User
+        users = User.objects.filter(company=company, id__in=user_ids)
+        roles = Role.objects.filter(id__in=role_ids)
+        if users.count() != len(set(user_ids)) or roles.count() != len(set(role_ids)):
+            return Response(
+                {"detail": "An exception must refer to a company user or known role."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        StoreModeAccessException.objects.filter(company=company).delete()
+        StoreModeAccessException.objects.bulk_create([
+            *[StoreModeAccessException(company=company, user=user) for user in users],
+            *[StoreModeAccessException(company=company, role=role) for role in roles],
+        ])
+        log_activity(
+            action="update", request=request, entity_type="Company",
+            entity_id=company.id,
+            metadata={
+                "store_mode_exception_users": len(user_ids),
+                "store_mode_exception_roles": len(role_ids),
+            },
+        )
         return Response(self._serialize(company))
 
 
