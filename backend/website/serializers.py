@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from website.models import FeaturedProduct, Section, Website
+from website.models import FeaturedProduct, PlatformLead, Section, Website
 
 
 class WebsiteSerializer(serializers.ModelSerializer):
@@ -107,3 +107,10 @@ class DemoRequestSerializer(serializers.Serializer):
         if value:
             raise serializers.ValidationError("Leave this field empty.")
         return value
+
+
+class PlatformLeadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PlatformLead
+        fields = ["request_uuid", "name", "email", "message", "status", "source", "created_at"]
+        read_only_fields = ["status", "source", "created_at"]

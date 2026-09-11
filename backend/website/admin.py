@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from website.models import FeaturedProduct, Section, Website
+from website.models import FeaturedProduct, PlatformLead, Section, Website
+
+
+@admin.register(PlatformLead)
+class PlatformLeadAdmin(admin.ModelAdmin):
+    list_display = ["name", "email", "status", "source", "created_at"]
+    list_filter = ["status", "source", "created_at"]
+    search_fields = ["name", "email", "message"]
+    readonly_fields = ["request_uuid", "created_at", "updated_at"]
 
 
 class SectionInline(admin.TabularInline):

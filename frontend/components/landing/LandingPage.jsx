@@ -23,6 +23,7 @@ import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 
 import { demoRequests } from "@/lib/api";
+import { DEMO_URL } from "@/lib/demo";
 import VezanoMark from "@/components/brand/VezanoMark";
 
 const FEATURES = [
@@ -92,6 +93,14 @@ function Header() {
         <div className="flex items-center gap-1">
           <LangToggle />
           <ThemeToggle />
+          <a
+            href={DEMO_URL}
+            target={DEMO_URL.startsWith("http") ? "_blank" : undefined}
+            rel={DEMO_URL.startsWith("http") ? "noreferrer" : undefined}
+            className="ms-1 hidden rounded-control border border-line bg-surface px-3.5 py-2 text-sm font-medium text-ink hover:border-accent sm:inline-flex"
+          >
+            {t("landing.heroCtaDemo")}
+          </a>
           <Link
             href={user ? "/dashboard" : "/login"}
             className="ms-1 rounded-control bg-accent px-3.5 py-2 text-sm font-medium text-white hover:bg-accent-strong"
@@ -127,6 +136,14 @@ function Hero() {
               className="w-full rounded-control bg-accent px-6 py-3 text-center font-medium text-white hover:bg-accent-strong sm:w-auto"
             >
               {t("landing.heroCtaPrimary")}
+            </a>
+            <a
+              href={DEMO_URL}
+              target={DEMO_URL.startsWith("http") ? "_blank" : undefined}
+              rel={DEMO_URL.startsWith("http") ? "noreferrer" : undefined}
+              className="w-full rounded-control border border-line bg-surface px-6 py-3 text-center font-medium text-ink hover:border-accent sm:w-auto"
+            >
+              {t("landing.heroCtaDemo")}
             </a>
             <Link
               href={user ? "/dashboard" : "/login"}

@@ -1,4 +1,40 @@
+import uuid
+
 from django.db import models
+
+
+class PlatformLead(models.Model):
+    """A prospective Vezano customer captured from the public platform site.
+
+    This is deliberately separate from CRM leads, which belong to a tenant and
+    represent that tenant's own customers.
+    """
+
+    STATUS_NEW = "new"
+    STATUS_CONTACTED = "contacted"
+    STATUS_QUALIFIED = "qualified"
+    STATUS_CLOSED = "closed"
+    STATUS_CHOICES = [
+        (STATUS_NEW, "New"),
+        (STATUS_CONTACTED, "Contacted"),
+        (STATUS_QUALIFIED, "Qualified"),
+        (STATUS_CLOSED, "Closed"),
+    ]
+
+    request_uuid = models.UUIDField(default=uuid.uuid4, unique=True)
+    name = models.CharField(max_length=255)
+    email = models.EmailField(max_length=254)
+    message = models.TextField(blank=True)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_NEW)
+    source = models.CharField(max_length=64, default="platform-website")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name} <{self.email}>"
 
 
 class Website(models.Model):
