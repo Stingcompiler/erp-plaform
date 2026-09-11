@@ -388,10 +388,18 @@ const TABS = [
 ];
 
 export default function HrPage() {
-  const { canRead, canWrite } = useAuth();
+  const { user, canRead, canWrite } = useAuth();
   const { t, language } = useI18n();
   const toast = useToast();
   const writable = canWrite("hr");
+  const canApproveAdvances = Boolean(
+    user?.is_platform_admin || [
+      "Chief Financial Officer",
+      "Business Owner",
+      "General Manager",
+      "Super Administrator",
+    ].includes(user?.role_name)
+  );
 
   const [tab, setTab] = useState("employees");
   const [employees, setEmployees] = useState([]);
@@ -622,7 +630,7 @@ export default function HrPage() {
                 </div>
               </div>
               <Badge tone={APPROVAL_TONE[a.status]}>{t(APPROVAL_KEY[a.status])}</Badge>
-              {writable && a.status === "pending" && (
+              {canApproveAdvances && a.status === "pending" && (
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => decide("approve", a.id, hr.approveAdvance, hr.rejectAdvance)}>
                     <Check size={15} /> {t("hr.approve")}

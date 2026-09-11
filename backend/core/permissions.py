@@ -1,6 +1,6 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
-from core.rbac import can_view_audit_log, report_areas_for, role_can
+from core.rbac import can_approve_high_value, can_view_audit_log, report_areas_for, role_can
 
 
 class IsAuditViewer(BasePermission):
@@ -49,6 +49,21 @@ class CanVerifyPayment(BasePermission):
         return role_can(user, "finance", write=True) or (
             bool(own_module) and role_can(user, own_module, write=True)
         )
+
+
+class CanApproveSalaryAdvance(BasePermission):
+    """Keep salary-advance decisions with financial approval authority.
+
+    HR records and follows up the employee's request, but approving or
+    rejecting it creates a financial obligation.  The same supervisory roles
+    that approve high-value financial operations may therefore decide it.
+    """
+
+    message = "Only the financial manager or an authorised executive may decide a salary advance."
+
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(user and user.is_authenticated and can_approve_high_value(user))
 
 
 class IsPlatformAdminOrReadOnly(BasePermission):

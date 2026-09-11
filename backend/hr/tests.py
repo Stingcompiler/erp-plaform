@@ -152,7 +152,20 @@ class HrExpansionTests(HrBase):
         )
         self.assertEqual(create.status_code, 201, create.content)
         adv_id = create.data["id"]
-        approve = self.client.post(reverse("salaryadvance-approve", args=[adv_id]))
+        # HR creates the request but cannot decide an obligation against salary.
+        denied = self.client.post(reverse("salaryadvance-approve", args=[adv_id]))
+        self.assertEqual(denied.status_code, status.HTTP_403_FORBIDDEN)
+
+        cfo_role = Role.objects.create(
+            name="Chief Financial Officer", scope_level=Role.SCOPE_BUSINESS
+        )
+        cfo = User.objects.create_user(
+            email="cfo@alpha.test", password="passw0rd123",
+            company=self.company_a, role=cfo_role,
+        )
+        cfo_client = self.client_class()
+        cfo_client.force_authenticate(cfo)
+        approve = cfo_client.post(reverse("salaryadvance-approve", args=[adv_id]))
         self.assertEqual(approve.status_code, 200, approve.content)
         self.assertEqual(approve.data["status"], "approved")
 

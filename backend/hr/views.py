@@ -7,6 +7,7 @@ from rest_framework.exceptions import ValidationError
 
 from core.activity import log_activity
 from core.deletion import ArchiveOnDeleteMixin, NoDeleteMixin
+from core.permissions import CanApproveSalaryAdvance
 from core.scoping import CompanyScopedModelViewSet
 from hr.models import (
     Attendance,
@@ -191,11 +192,11 @@ class SalaryAdvanceViewSet(CompanyScopedModelViewSet):
             qs = qs.filter(employee_id=employee)
         return qs
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], permission_classes=[CanApproveSalaryAdvance])
     def approve(self, request, pk=None):
         return self._decide(request, SalaryAdvance.APPROVED)
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], permission_classes=[CanApproveSalaryAdvance])
     def reject(self, request, pk=None):
         return self._decide(request, SalaryAdvance.REJECTED)
 
