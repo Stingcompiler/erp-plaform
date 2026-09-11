@@ -66,7 +66,7 @@ ROLE_MODULE_MATRIX = {
         **_all(NONE),
         "inventory": WRITE, "sales": WRITE, "purchasing": WRITE,
         "sales_returns": WRITE, "purchase_returns": WRITE,
-        "crm": WRITE, "reports": READ, "hr": READ,
+        "crm": WRITE, "hr": READ,
     },
     "Inventory Officer": {
         **_all(NONE),
@@ -89,7 +89,7 @@ ROLE_MODULE_MATRIX = {
         "purchasing": WRITE, "purchase_returns": WRITE, "inventory": READ,
         "reports": READ,
     },
-    "HR Officer": {**_all(NONE), "hr": WRITE, "reports": READ},
+    "HR Officer": {**_all(NONE), "hr": WRITE},
     "CRM Officer": {**_all(NONE), "crm": WRITE, "sales": READ, "reports": READ},
     # Operational finance: records expenses and moves money day to day.
     "Finance Department": {
@@ -109,7 +109,7 @@ ROLE_MODULE_MATRIX = {
         **_all(NONE),
         "inventory": READ, "sales": READ, "purchasing": READ,
         "sales_returns": READ, "purchase_returns": READ,
-        "reports": READ, "crm": READ,
+        "crm": READ,
     },
 }
 
@@ -160,6 +160,29 @@ def access_map(user):
     if getattr(user, "is_platform_admin", False):
         return _all(WRITE)
     return {m: level_for(getattr(user, "role", None), m) for m in MODULES}
+
+
+REPORT_AREAS = {"sales", "inventory", "purchasing", "finance"}
+FULL_REPORT_ROLES = {
+    "Business Owner", "General Manager", "Chief Financial Officer",
+    "Finance Department", "Super Administrator",
+}
+ROLE_REPORT_AREAS = {
+    "Sales Officer": {"sales"},
+    "CRM Officer": {"sales"},
+    "Inventory Officer": {"inventory"},
+    "Purchasing Officer": {"purchasing"},
+}
+
+
+def report_areas_for(user):
+    """Report families visible to a role; report endpoints enforce the same map."""
+    if getattr(user, "is_platform_admin", False):
+        return sorted(REPORT_AREAS)
+    role = getattr(user, "role", None)
+    if role and role.name in FULL_REPORT_ROLES:
+        return sorted(REPORT_AREAS)
+    return sorted(ROLE_REPORT_AREAS.get(getattr(role, "name", None), set()))
 
 
 # Roles carrying financial approval authority. A payment above the company's

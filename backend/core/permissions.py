@@ -1,6 +1,6 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
-from core.rbac import can_view_audit_log, role_can
+from core.rbac import can_view_audit_log, report_areas_for, role_can
 
 
 class IsAuditViewer(BasePermission):
@@ -80,3 +80,12 @@ class IsPlatformAdmin(BasePermission):
             and request.user.is_authenticated
             and getattr(request.user, "is_platform_admin", False)
         )
+
+
+class ReportAreaAccess(BasePermission):
+    """Restrict each report endpoint to the department family it belongs to."""
+
+    message = "Your role does not permit this report."
+
+    def has_permission(self, request, view):
+        return getattr(view, "report_area", None) in report_areas_for(request.user)

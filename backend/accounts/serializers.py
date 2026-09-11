@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from accounts.models import Permission, Role, User
+from core.rbac import report_areas_for
 from org.store_mode import is_system_mode_owner
 
 
@@ -82,6 +83,10 @@ class MeSerializer(serializers.ModelSerializer):
     role_name = serializers.SerializerMethodField()
     company_name = serializers.SerializerMethodField()
     is_platform_admin = serializers.BooleanField(read_only=True)
+    report_areas = serializers.SerializerMethodField()
+
+    def get_report_areas(self, obj):
+        return report_areas_for(obj)
 
     def get_role_name(self, obj):
         return obj.role.name if obj.role_id else None
@@ -123,6 +128,7 @@ class MeSerializer(serializers.ModelSerializer):
             "role",
             "role_name",
             "is_platform_admin",
+            "report_areas",
         ]
 
 

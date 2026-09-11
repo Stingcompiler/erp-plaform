@@ -99,6 +99,7 @@ class AccessMapTests(RBACBase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["hr"], "write")
         self.assertEqual(resp.data["sales"], "none")
+        self.assertEqual(resp.data["reports"], "none")
 
 
 class DashboardTests(RBACBase):

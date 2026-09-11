@@ -34,8 +34,13 @@ function SectionCard({ title, action, children }) {
 }
 
 export default function ReportsPage() {
-  const { canRead } = useAuth();
+  const { canRead, user } = useAuth();
   const { t, language } = useI18n();
+  const reportAreas = user?.report_areas || [];
+  const salesReports = reportAreas.includes("sales");
+  const inventoryReports = reportAreas.includes("inventory");
+  const purchasingReports = reportAreas.includes("purchasing");
+  const financeReports = reportAreas.includes("finance");
   const money = (v) =>
     Number(v ?? 0).toLocaleString(language === "ar" ? "ar" : "en", {
       minimumFractionDigits: 2,
@@ -75,19 +80,27 @@ export default function ReportsPage() {
     const settle = (promise, setter, fallback) =>
       promise.then((r) => setter(r.data)).catch(() => setter(fallback));
     await Promise.all([
-      settle(reports.salesSummary(p), setSummary, null),
-      settle(reports.salesByProduct(p), setByProduct, []),
-      settle(reports.inventoryValuation({ method: costMethod }), setValuation, null),
-      settle(reports.arAging(), setAging, []),
-      settle(reports.profitSummary({ ...p, method: costMethod }), setProfit, null),
-      settle(reports.incomeStatement({ ...p, method: costMethod }), setIncome, null),
-      settle(reports.cashFlow(p), setCash, null),
-      settle(reports.receivablesDue(), setCollections, null),
-      settle(reports.cfoKpis({ ...p, method: costMethod }), setKpis, null),
-      settle(reports.payablesDue(), setPayables, null),
+      ...(salesReports ? [
+        settle(reports.salesSummary(p), setSummary, null),
+        settle(reports.salesByProduct(p), setByProduct, []),
+        settle(reports.arAging(), setAging, []),
+        settle(reports.receivablesDue(), setCollections, null),
+      ] : []),
+      ...(inventoryReports ? [
+        settle(reports.inventoryValuation({ method: costMethod }), setValuation, null),
+      ] : []),
+      ...(purchasingReports ? [
+        settle(reports.payablesDue(), setPayables, null),
+      ] : []),
+      ...(financeReports ? [
+        settle(reports.profitSummary({ ...p, method: costMethod }), setProfit, null),
+        settle(reports.incomeStatement({ ...p, method: costMethod }), setIncome, null),
+        settle(reports.cashFlow(p), setCash, null),
+        settle(reports.cfoKpis({ ...p, method: costMethod }), setKpis, null),
+      ] : []),
     ]);
     setLoading(false);
-  }, [range.start, range.end, costMethod]);
+  }, [range.start, range.end, costMethod, salesReports, inventoryReports, purchasingReports, financeReports]);
 
   useEffect(() => {
     load();
@@ -141,7 +154,7 @@ export default function ReportsPage() {
           <Button variant="outline" onClick={() => setRange({ start: "", end: "" })}>
             {t("reports.allTime")}
           </Button>
-          <div className="ms-auto">
+          {(inventoryReports || financeReports) && <div className="ms-auto">
             <Field label={t("reports.costingMethod")}>
               <Select value={costMethod} onChange={(e) => setCostMethod(e.target.value)}>
                 <option value="standard">{t("reports.standardCost")}</option>
@@ -149,7 +162,7 @@ export default function ReportsPage() {
                 <option value="fifo">{t("reports.fifo")}</option>
               </Select>
             </Field>
-          </div>
+          </div>}
         </div>
       </Card>
 
@@ -159,14 +172,14 @@ export default function ReportsPage() {
         <div className="space-y-6">
           {/* Headline KPIs */}
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Kpi label={t("reports.invoices")} value={summary?.totals?.invoice_count ?? "—"} />
-            <Kpi label={t("reports.revenue")} tone="accent" value={money(summary?.totals?.total)} />
-            <Kpi label={t("reports.grossProfit")} tone="ok" value={money(profit?.gross_profit)} />
-            <Kpi label={t("reports.inventoryValue")} value={money(valuation?.total_value)} />
+            {salesReports && <Kpi label={t("reports.invoices")} value={summary?.totals?.invoice_count ?? "—"} />}
+            {salesReports && <Kpi label={t("reports.revenue")} tone="accent" value={money(summary?.totals?.total)} />}
+            {financeReports && <Kpi label={t("reports.grossProfit")} tone="ok" value={money(profit?.gross_profit)} />}
+            {inventoryReports && <Kpi label={t("reports.inventoryValue")} value={money(valuation?.total_value)} />}
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <SectionCard
+            {salesReports && <SectionCard
               title={t("reports.topProducts")}
               action={
                 <a href={csv("/reports/sales-by-product/")}>
@@ -177,9 +190,9 @@ export default function ReportsPage() {
               }
             >
               <BarList items={productBars} />
-            </SectionCard>
+            </SectionCard>}
 
-            <SectionCard
+            {inventoryReports && <SectionCard
               title={t("reports.invValueByProduct")}
               action={
                 <a href={csv("/reports/inventory-valuation/", { method: costMethod })}>
@@ -190,11 +203,11 @@ export default function ReportsPage() {
               }
             >
               <BarList items={valuationBars} />
-            </SectionCard>
+            </SectionCard>}
           </div>
 
           {/* Profit breakdown */}
-          <SectionCard
+          {financeReports && <SectionCard
             title={t("reports.profitTitle", {
               method: {
                 standard: t("reports.standardCost"),
@@ -209,10 +222,10 @@ export default function ReportsPage() {
               <Kpi label={t("reports.grossProfit")} tone="ok" value={money(profit?.gross_profit)} />
             </div>
             {profit?.note && <p className="mt-3 text-xs text-muted">{profit.note}</p>}
-          </SectionCard>
+          </SectionCard>}
 
           {/* CFO financial KPIs — liquidity + profitability ratios */}
-          {kpis && (
+          {financeReports && kpis && (
             <SectionCard title={t("reports.cfoTitle")}>
               <p className="mb-3 text-xs text-muted">{t("reports.cfoHint")}</p>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -254,7 +267,7 @@ export default function ReportsPage() {
           )}
 
           {/* Obligations due (AP side of the worklist) */}
-          {payables && (
+          {purchasingReports && payables && (
             <SectionCard
               title={t("reports.payablesDue")}
               action={
@@ -306,7 +319,7 @@ export default function ReportsPage() {
           )}
 
           {/* Income statement (P&L) */}
-          {income && (
+          {financeReports && income && (
             <SectionCard
               title={t("reports.incomeStatement")}
               action={
@@ -345,7 +358,7 @@ export default function ReportsPage() {
           )}
 
           {/* Cash flow (direct method) */}
-          {cash && (
+          {financeReports && cash && (
             <SectionCard
               title={t("reports.cashFlow")}
               action={
@@ -370,7 +383,7 @@ export default function ReportsPage() {
           )}
 
           {/* Collections worklist */}
-          {collections && (
+          {salesReports && collections && (
             <SectionCard
               title={t("reports.collections")}
               action={
@@ -422,7 +435,7 @@ export default function ReportsPage() {
           )}
 
           {/* AR aging */}
-          <SectionCard title={t("reports.arAgingTitle")}>
+          {salesReports && <SectionCard title={t("reports.arAgingTitle")}>
             {aging.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted">{t("reports.nothingOutstanding")}</p>
             ) : (
@@ -457,7 +470,7 @@ export default function ReportsPage() {
                 </table>
               </div>
             )}
-          </SectionCard>
+          </SectionCard>}
         </div>
       )}
     </div>

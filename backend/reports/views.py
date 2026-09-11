@@ -19,6 +19,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from core.permissions import ReportAreaAccess
 from core.rbac import RoleModuleAccess
 from finance.metrics import date_range, operating_summary
 
@@ -27,7 +28,7 @@ MONEY = DecimalField(max_digits=20, decimal_places=2)
 
 
 class ReportView(APIView):
-    permission_classes = [IsAuthenticated, RoleModuleAccess]
+    permission_classes = [IsAuthenticated, RoleModuleAccess, ReportAreaAccess]
     rbac_module = "reports"
 
     def company_id(self, request):
@@ -56,6 +57,7 @@ class ReportView(APIView):
 
 
 class SalesSummaryReport(ReportView):
+    report_area = "sales"
     def get(self, request):
         from sales.models import Invoice
         cid = self.company_id(request)
@@ -91,6 +93,7 @@ class SalesSummaryReport(ReportView):
 
 
 class SalesByProductReport(ReportView):
+    report_area = "sales"
     def get(self, request):
         from sales.models import InvoiceLine
         cid = self.company_id(request)
@@ -123,6 +126,7 @@ class SalesByProductReport(ReportView):
 
 
 class InventoryValuationReport(ReportView):
+    report_area = "inventory"
     def get(self, request):
         from inventory.costing import METHODS, company_totals
         from inventory.models import Product
@@ -181,6 +185,7 @@ def _bucket(days):
 
 
 class ARAgingReport(ReportView):
+    report_area = "sales"
     def get(self, request):
         from sales.models import Invoice
         cid = self.company_id(request)
@@ -214,6 +219,7 @@ class ARAgingReport(ReportView):
 
 
 class APAgingReport(ReportView):
+    report_area = "purchasing"
     def get(self, request):
         from purchasing.models import Bill
         cid = self.company_id(request)
@@ -245,6 +251,7 @@ class APAgingReport(ReportView):
 
 
 class PurchasesSummaryReport(ReportView):
+    report_area = "purchasing"
     def get(self, request):
         from purchasing.models import Bill, GoodsReceipt
         cid = self.company_id(request)
@@ -269,6 +276,7 @@ class PurchasesSummaryReport(ReportView):
 
 
 class ProfitSummaryReport(ReportView):
+    report_area = "finance"
     def get(self, request):
         start, end = self.date_range(request)
         data = operating_summary(self.company_id(request), start, end,
@@ -278,6 +286,7 @@ class ProfitSummaryReport(ReportView):
 
 
 class IncomeStatementReport(ReportView):
+    report_area = "finance"
     """
     Profit & Loss for a period. Built entirely from source documents — invoice
     lines for revenue, the costing engine for COGS, recorded expenses for
@@ -301,6 +310,7 @@ class IncomeStatementReport(ReportView):
 
 
 class ReceivablesDueReport(ReportView):
+    report_area = "sales"
     """
     Collections worklist: invoices already overdue or falling due soon, worst
     first. This is what a reminder would be built on — surfaced in-app because
@@ -350,6 +360,7 @@ class ReceivablesDueReport(ReportView):
 
 
 class CashFlowForecastReport(ReportView):
+    report_area = "finance"
     """
     Forward-looking cash position, bucketed by week.
 
@@ -429,6 +440,7 @@ class CashFlowForecastReport(ReportView):
 
 
 class CfoKpiReport(ReportView):
+    report_area = "finance"
     """
     Headline financial KPIs for the finance dashboard — liquidity, profitability
     and working-capital position in one call, so the UI makes a single request
@@ -510,6 +522,7 @@ class CfoKpiReport(ReportView):
 
 
 class PayablesDueReport(ReportView):
+    report_area = "purchasing"
     """
     The obligations side of the collections worklist: supplier bills already
     overdue or falling due soon, worst first. Lets the CFO see committed cash
@@ -565,6 +578,7 @@ class PayablesDueReport(ReportView):
 
 
 class CashFlowReport(ReportView):
+    report_area = "finance"
     """
     Direct-method cash flow: actual money received and paid in the period.
     Inflows are customer payments; outflows are supplier payments plus recorded

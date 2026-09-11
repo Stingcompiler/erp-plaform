@@ -49,10 +49,7 @@ class ReportsBase(APITestCase):
             company=self.company, product=self.product, warehouse=self.wh,
             movement_type=StockMovement.SALE_OUT, quantity=Decimal("-5"),
         )
-        r = self.client.post(
-            reverse("auth-login"), {"email": "owner@alpha.test", "password": "passw0rd123"}
-        )
-        assert r.status_code == 200, r.content
+        self.client.force_authenticate(self.user)
 
 
 class SalesReportTests(ReportsBase):
@@ -128,3 +125,35 @@ class ReportsRBACTests(ReportsBase):
         )
         resp = self.client.get(reverse("report-sales-summary"))
         self.assertEqual(Decimal(resp.data["totals"]["total"]), Decimal("50"))
+
+    def client_for_role(self, role_name):
+        role = Role.objects.create(name=role_name, scope_level=Role.SCOPE_BRANCH)
+        user = User.objects.create_user(
+            email=f"{role_name.lower().replace(' ', '-')}@alpha.test",
+            password="passw0rd123", company=self.company, role=role,
+        )
+        client = self.client_class()
+        client.force_authenticate(user)
+        return client
+
+    def test_hr_cannot_read_company_financial_reports(self):
+        client = self.client_for_role("HR Officer")
+        for name in (
+            "report-sales-summary", "report-inventory-valuation",
+            "report-purchases-summary", "report-income-statement",
+            "report-cash-flow", "report-cfo-kpis",
+        ):
+            with self.subTest(report=name):
+                self.assertEqual(client.get(reverse(name)).status_code, 403)
+
+    def test_operational_roles_only_read_their_report_family(self):
+        cases = {
+            "Sales Officer": ("report-sales-summary", "report-inventory-valuation"),
+            "Inventory Officer": ("report-inventory-valuation", "report-sales-summary"),
+            "Purchasing Officer": ("report-purchases-summary", "report-income-statement"),
+        }
+        for role_name, (allowed, denied) in cases.items():
+            with self.subTest(role=role_name):
+                client = self.client_for_role(role_name)
+                self.assertEqual(client.get(reverse(allowed)).status_code, 200)
+                self.assertEqual(client.get(reverse(denied)).status_code, 403)
