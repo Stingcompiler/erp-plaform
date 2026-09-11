@@ -101,7 +101,7 @@ def process_operation(request, op):
         ).first()
         if existing:
             return DUPLICATE, spec.model.__name__, str(existing.pk), "", client_uuid
-        payload.setdefault("client_uuid", str(client_uuid))
+        payload["client_uuid"] = str(client_uuid)
 
     try:
         with transaction.atomic():  # savepoint — isolates this op

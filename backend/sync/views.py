@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from rest_framework import status
@@ -26,6 +28,15 @@ class SyncPushView(APIView):
 
     def post(self, request):
         company_id = getattr(request.user, "company_id", None)
+        if company_id is None:
+            return Response({"detail": "A company is required."}, status=400)
+        # A second tab can replace the shared auth cookie while this tab still
+        # holds another user's cart. Never replay it under the new identity.
+        expected = {"expected_company": company_id, "expected_user": request.user.pk,
+                    "expected_branch": getattr(request.user, "branch_id", None)}
+        for field, value in expected.items():
+            if field in request.data and request.data[field] != value:
+                return Response({"detail": "The signed-in account or branch changed."}, status=409)
         batch_uuid = request.data.get("batch_uuid")
         operations = request.data.get("operations")
 
@@ -40,15 +51,35 @@ class SyncPushView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        try:
+            UUID(str(batch_uuid))
+            if len(operations) > 100:
+                raise ValueError("At most 100 operations per batch.")
+            for op in operations:
+                if not isinstance(op, dict) or not isinstance(op.get("payload"), dict):
+                    raise ValueError("Each operation requires a payload object.")
+                cu = op.get("client_uuid") or op["payload"].get("client_uuid")
+                if cu:
+                    UUID(str(cu))
+                if op.get("client_uuid") and op["payload"].get("client_uuid"):
+                    if str(op["client_uuid"]) != str(op["payload"]["client_uuid"]):
+                        raise ValueError("Operation and payload identifiers must match.")
+        except (ValueError, TypeError, AttributeError) as exc:
+            return Response({"detail": str(exc)}, status=400)
+
         # Batch-level idempotency: replaying a whole batch is a no-op.
         existing = SyncBatch.objects.filter(
             company_id=company_id, batch_uuid=batch_uuid
         ).first()
         if existing:
+            if existing.user_id != request.user.pk:
+                return Response({"detail": "Batch identifier is unavailable."}, status=409)
             return Response(
                 self._batch_response(existing, replay=True), status=status.HTTP_200_OK
             )
 
+        if SyncBatch.objects.filter(batch_uuid=batch_uuid).exists():
+            return Response({"detail": "Batch identifier is unavailable."}, status=409)
         batch = SyncBatch.objects.create(
             company_id=company_id, user=request.user,
             device_id=request.data.get("device_id", ""), batch_uuid=batch_uuid,
