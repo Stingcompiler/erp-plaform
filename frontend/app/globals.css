@@ -6,11 +6,11 @@
    modifiers (e.g. text-paper/70) work against them. */
 :root {
   --ink: 18 37 59;
-  --sidebar: 18 37 59;
+  --sidebar: 15 29 44;
   --sidebar-text: 245 247 250;
-  --paper: 245 247 250;
+  --paper: 246 248 251;
   --surface: 255 255 255;
-  --line: 228 232 238;
+  --line: 224 231 238;
   --muted: 91 107 127;
   --accent: 14 124 134;
   --accent-strong: 11 90 97;
@@ -25,7 +25,7 @@
 }
 
 [dir="rtl"] {
-  --font-body: var(--font-cairo);
+  --font-body: var(--font-tajawal);
   --font-display: var(--font-tajawal);
 }
 
@@ -35,10 +35,10 @@
   --warn: 251 191 36;
   --danger: 248 113 113;
   --ink: 232 237 243;
-  --paper: 13 24 38;
-  --surface: 18 35 58;
-  --line: 33 55 79;
-  --muted: 144 161 181;
+  --paper: 12 20 31;
+  --surface: 22 33 48;
+  --line: 43 57 75;
+  --muted: 166 181 199;
   --accent: 55 176 184;
   --accent-strong: 90 198 205;
 }
@@ -82,3 +82,37 @@ body {
 
 /* Light accent fills need dark text in the dark palette. */
 .dark .bg-accent { color: rgb(var(--paper)); }
+
+/* Shared workspace treatment; print documents keep their own layout. */
+body { line-height: 1.6; }
+::selection { background: rgb(var(--accent) / .2); }
+.workspace-main {
+  background-image: radial-gradient(ellipse at 95% 0%, rgb(var(--accent) / .055), transparent 45%);
+}
+.workspace-main > * { width: 100%; max-width: 1600px; margin-inline: auto; }
+.workspace-card { transition: border-color 160ms ease, box-shadow 160ms ease; }
+.workspace-main table { border-collapse: separate; border-spacing: 0; }
+.workspace-main thead { background: rgb(var(--paper) / .8); }
+.workspace-main th { font-size: .75rem; font-weight: 600; white-space: nowrap; }
+.workspace-main tbody tr { transition: background-color 140ms ease; }
+.workspace-main tbody tr:hover { background: rgb(var(--accent) / .035); }
+.workspace-main td { vertical-align: middle; }
+.workspace-main input::placeholder { color: rgb(var(--muted) / .8); }
+.workspace-main input[type="checkbox"] { accent-color: rgb(var(--accent)); }
+.workspace-main .tabular { letter-spacing: -.035em; }
+.dashboard-overview { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.dashboard-overview > * { min-width: 0; margin-top: 0; margin-bottom: 0; }
+.dashboard-stat { height: 100%; position: relative; overflow: hidden; }
+a:hover .dashboard-stat { border-color: rgb(var(--accent) / .5); }
+.dashboard-section { padding: 20px; border: 1px solid rgb(var(--line)); border-radius: 20px; background: rgb(var(--surface)); }
+.dashboard-section .dashboard-stat { background: rgb(var(--paper) / .65); box-shadow: none; border-color: transparent; }
+.dashboard-hero { background: linear-gradient(115deg, rgb(var(--surface)), rgb(var(--accent) / .08)); }
+@media (min-width: 1280px) {
+  .dashboard-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dashboard-overview > * { grid-column: 1 / -1; }
+  .dashboard-overview > .dashboard-section { grid-column: auto; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .workspace-main { animation: workspace-enter 220ms ease-out; }
+  @keyframes workspace-enter { from { opacity: .65; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+}

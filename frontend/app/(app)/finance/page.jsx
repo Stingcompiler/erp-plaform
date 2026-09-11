@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Lock, Plus } from "lucide-react";
+import { Lock, Plus, ArrowUpRight, Receipt, Wallet, Scale } from "lucide-react";
 
 import { finance } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
@@ -10,13 +10,12 @@ import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import Drawer from "@/components/ui/Drawer";
 
-function StatTile({ label, value, tone = "ink", hint }) {
+function StatTile({ label, value, tone = "ink", icon: Icon }) {
   const toneClass = tone === "ok" ? "text-ok" : tone === "danger" ? "text-danger" : "text-ink";
   return (
-    <Card className="p-4">
-      <div className="text-sm text-muted">{label}</div>
-      <div className={`tabular mt-1 text-2xl font-semibold ${toneClass}`}>{value}</div>
-      {hint && <div className="mt-1 text-xs text-muted">{hint}</div>}
+    <Card className={`relative overflow-hidden p-4 sm:p-5 ${tone === "ok" ? "border-accent/30 bg-accent/5" : ""}`}>
+      <div className="mb-3 flex items-center justify-between gap-2"><span className="text-sm font-medium text-muted">{label}</span><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-paper text-accent"><Icon size={17} /></span></div>
+      <div className={`tabular mt-1 break-words text-2xl font-semibold sm:text-3xl ${toneClass}`}>{value}</div>
     </Card>
   );
 }
@@ -142,13 +141,13 @@ export default function FinancePage() {
     </Card>
     {invalidDates && <p role="alert" className="mb-4 text-danger">{t("improvements.invalidDates")}</p>}
     {error && <Card className="mb-4 p-4"><p role="alert" className="mb-3 text-danger">{t("improvements.loadError")}</p><Button onClick={load}>{t("improvements.retry")}</Button></Card>}
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-busy={loading}>
-      <StatTile label={t("finance.revenue")} value={money(summary?.revenue)} hint={t("improvements.revenueHint")} />
-      <StatTile label={t("improvements.cogs")} value={money(summary?.cogs)} />
-      <StatTile label={t("finance.expenses")} value={money(summary?.expenses)} />
-      <StatTile label={t("improvements.netProfit")} value={money(summary?.net)} tone={Number(summary?.net) < 0 ? "danger" : "ok"} />
+    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-busy={loading}>
+      <StatTile label={t("finance.revenue")} value={money(summary?.revenue)} icon={ArrowUpRight} />
+      <StatTile icon={Receipt} label={t("improvements.cogs")} value={money(summary?.cogs)} />
+      <StatTile icon={Wallet} label={t("finance.expenses")} value={money(summary?.expenses)} />
+      <StatTile icon={Scale} label={t("improvements.netProfit")} value={money(summary?.net)} tone={Number(summary?.net) < 0 ? "danger" : "ok"} />
     </div>
-    <p className="mt-3 text-xs text-muted">{t("improvements.accountingNote")}</p>
+    <p className="mt-3 text-xs text-muted">{t("improvements.revenueHint")} · {t("improvements.accountingNote")}</p>
     <h2 className="mb-3 mt-6 font-display text-lg font-semibold">{t("finance.expensesTab")}</h2>
     <div className="mb-3 flex flex-wrap gap-3">
       <Field label={t("improvements.searchExpenses")}><Input type="search" value={filters.search} onChange={(e) => change("search",e.target.value)} /></Field>

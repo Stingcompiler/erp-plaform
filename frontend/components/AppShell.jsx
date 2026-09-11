@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ChevronDown,
+  Layers3,
   Languages,
   LogOut,
   Menu,
@@ -33,13 +34,13 @@ function WorkspaceBadge({ user }) {
   const name = user?.company_name || t("shell.workspace");
   const initial = name.trim().charAt(0).toUpperCase() || "•";
   return (
-    <div className="flex items-center gap-3 px-4 py-4">
+    <div className="mx-3 mb-5 mt-4 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3">
       <div className="grid h-9 w-9 shrink-0 place-items-center rounded-control bg-accent font-display text-sm font-semibold text-white">
         {initial}
       </div>
       <div className="min-w-0">
         <div className="truncate font-display text-sm font-semibold text-sidebarText">{name}</div>
-        <div className="truncate text-xs text-sidebarText/55">
+        <div className="truncate text-xs text-sidebarText/65">
           {user?.role_name ? translateRole(user.role_name, t) : t("shell.noRole")}
         </div>
       </div>
@@ -62,7 +63,7 @@ function NavLeaf({ item, onNavigate, nested = false }) {
         nested ? "ps-9 pe-3" : "px-3"
       } ${
         active
-          ? "bg-white/10 text-sidebarText"
+          ? "bg-accent/20 font-semibold text-sidebarText ring-1 ring-inset ring-white/10"
           : "text-sidebarText/70 hover:bg-white/5 hover:text-sidebarText"
       }`}
     >
@@ -159,7 +160,7 @@ function NavLinks({ items, onNavigate }) {
   };
 
   return (
-    <nav className="flex-1 space-y-0.5 overflow-y-auto px-2">
+    <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
       {items.map((item) =>
         item.children ? (
           <NavGroup
@@ -198,8 +199,9 @@ function SidebarContent({ onNavigate }) {
   };
   return (
     <>
-      <div className="px-4 pt-5 font-display text-lg font-bold tracking-tight text-sidebarText">
-        ERP
+      <div className="flex items-center gap-2.5 px-5 pt-6 font-display text-xl font-bold tracking-tight text-sidebarText">
+        <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-white"><Layers3 size={20} /></span>
+        ERP <span className="text-xs font-medium tracking-normal text-sidebarText/60">Platform</span>
       </div>
       <WorkspaceBadge user={user} />
       <div className="mt-1 flex min-h-0 flex-1 flex-col">
@@ -239,7 +241,7 @@ function Topbar({ onOpenMenu }) {
   const ThemeIcon = theme === "dark" ? MoonStar : theme === "light" ? Sun : SunMoon;
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-2 border-b border-line bg-surface px-3 sm:px-6">
+    <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-2 border-b border-line/80 bg-surface/95 px-3 backdrop-blur-md sm:px-8">
       <div className="flex min-w-0 items-center gap-2">
         <button
           onClick={onOpenMenu}
@@ -248,8 +250,9 @@ function Topbar({ onOpenMenu }) {
         >
           <Menu size={20} />
         </button>
-        <div className="hidden truncate text-sm text-muted sm:block">
-          {t("shell.signedInAs")} <span className="text-ink">{user?.email}</span>
+        <div className="hidden min-w-0 items-center gap-3 sm:flex">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent/10 text-sm font-bold text-accent" aria-hidden="true">{(user?.email || "U").charAt(0).toUpperCase()}</span>
+          <div className="min-w-0"><div className="truncate text-sm font-semibold">{user?.company_name || t("shell.workspace")}</div><div className="truncate text-xs text-muted">{user?.email}</div></div>
         </div>
       </div>
       <div className="flex items-center gap-0.5 sm:gap-1">
@@ -316,7 +319,7 @@ export default function AppShell({ children }) {
         />
       )}
       {/* Desktop sidebar */}
-      <aside className="hidden w-60 shrink-0 flex-col bg-sidebar lg:flex">
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-e border-white/5 bg-sidebar lg:flex">
         <SidebarContent />
       </aside>
 
@@ -342,7 +345,7 @@ export default function AppShell({ children }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onOpenMenu={() => setMenuOpen(true)} />
-        <main className="flex-1 p-4 sm:p-6">{children}</main>
+        <main className="workspace-main flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

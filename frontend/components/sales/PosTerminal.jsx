@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Minus, Plus, Printer, Search, Trash2 } from "lucide-react";
+import { Check, Minus, Plus, Printer, Search, Trash2, ShoppingBag, CreditCard } from "lucide-react";
 
 import { inventory, sales } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
@@ -326,7 +326,7 @@ export default function PosTerminal({
           <Button variant="outline" onClick={() => resumeCart(row)} disabled={submitting}>{t("improvements.resume")}</Button>
         </li>)}</ul>
       </details>}
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
       {/* Catalogue / search */}
       <div>
         {/* Selling with no drawer open is allowed — blocking it would stop a
@@ -372,7 +372,8 @@ export default function PosTerminal({
 
         <Card className="mt-4">
           {cart.length === 0 ? (
-            <div className="px-4 py-12 text-center text-muted">
+            <div className="flex min-h-64 flex-col items-center justify-center gap-4 px-6 py-12 text-center text-sm text-muted">
+              <span className="grid h-16 w-16 place-items-center rounded-2xl border border-accent/15 bg-accent/5 text-accent"><ShoppingBag size={28} strokeWidth={1.5} /></span>
               {t("sales.searchToAdd")}
             </div>
           ) : (
@@ -453,7 +454,8 @@ export default function PosTerminal({
       </div>
 
       {/* Checkout panel */}
-      <Card className="h-fit p-5">
+      <Card className="h-fit border-accent/20 p-5 xl:sticky xl:top-24">
+        <div className="mb-5 flex items-center gap-2 border-b border-line pb-4 text-sm font-semibold"><CreditCard size={18} className="text-accent" />{t("sales.payment")}</div>
         <div className="space-y-4">
           {/* A shop with one store shouldn't be asked which store, on every
               single sale. The value is still sent — only the question is
@@ -486,9 +488,9 @@ export default function PosTerminal({
             </Select>
           </Field>
 
-          <div className="flex items-center justify-between border-t border-line pt-4">
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-accent/5 p-4">
             <span className="text-sm text-muted">{t("sales.subtotal")}</span>
-            <span className="tabular text-lg font-medium text-ink">{money(subtotal)}</span>
+            <span className="tabular text-2xl font-semibold text-ink">{money(subtotal)}</span>
           </div>
           <p className="text-xs text-muted">{t("sales.taxAtCheckout")}</p>
 
@@ -555,7 +557,7 @@ export default function PosTerminal({
 
           {error && <p className="text-sm text-danger">{error}</p>}
 
-          <Button className="w-full" onClick={checkout} disabled={submitting || cart.length === 0}>
+          <Button className="min-h-12 w-full" onClick={checkout} disabled={submitting || cart.length === 0}>
             {submitting ? t("sales.recording") : t("sales.completeSale")}
           </Button>
           <div className="text-center">

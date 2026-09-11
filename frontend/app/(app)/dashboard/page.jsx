@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 import Link from "next/link";
-import { Button } from "@/components/ui/kit";
+import { Button, PageHeader } from "@/components/ui/kit";
 
 import { dashboard } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
@@ -28,14 +28,14 @@ import BarList from "@/components/reports/BarList";
 
 function Stat({ icon: Icon, label, value, tone = "ink", sub }) {
   const toneClass =
-    tone === "warn" ? "text-warn" : tone === "accent" ? "text-accent" : "text-ink";
+    tone === "warn" ? "text-warn" : tone === "ok" ? "text-ok" : tone === "accent" ? "text-accent" : "text-ink";
   return (
-    <div className="rounded-card border border-line bg-surface p-5 shadow-card">
+    <div className="dashboard-stat rounded-card border border-line bg-surface p-4 shadow-card sm:p-5">
       <div className="flex items-center gap-2 text-muted">
-        <Icon size={16} />
+        <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-paper ${toneClass}`}><Icon size={17} strokeWidth={1.8} /></span>
         <span className="text-sm">{label}</span>
       </div>
-      <div className={`tabular mt-3 text-3xl font-medium ${toneClass}`}>{value}</div>
+      <div className={`tabular mt-3 break-words text-2xl font-semibold sm:text-3xl ${toneClass}`}>{value}</div>
       {sub && <div className="mt-1 text-xs text-muted">{sub}</div>}
     </div>
   );
@@ -43,11 +43,11 @@ function Stat({ icon: Icon, label, value, tone = "ink", sub }) {
 
 function Section({ title, children }) {
   return (
-    <section className="mt-8 first:mt-0">
-      <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wide text-muted">
+    <section className="dashboard-section">
+      <h2 className="mb-4 font-display text-base font-bold text-ink">
         {title}
       </h2>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{children}</div>
+      <div className="grid grid-cols-2 gap-3">{children}</div>
     </section>
   );
 }
@@ -76,9 +76,11 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div className="flex items-baseline justify-between">
-        <h1 className="font-display text-2xl font-bold">{t("dashboard.title")}</h1>
-        <span className="text-sm text-muted">{translateRole(user?.role_name, t)}</span>
+      <div className="dashboard-hero mb-6 rounded-card border border-line p-5 sm:p-7">
+        <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-accent"><span className="h-1.5 w-1.5 rounded-full bg-accent" />{user?.company_name || t("shell.workspace")}</div>
+        <PageHeader title={t("dashboard.title")}
+          subtitle={language === "ar" ? "صورة واضحة لأعمالك، وخطوتك التالية في مكان واحد." : "A clear view of your business. Your next action, all in one place."}
+          actions={<span className="rounded-full border border-line bg-surface px-3 py-1.5 text-xs text-muted">{translateRole(user?.role_name, t)}</span>} />
       </div>
 
       {error && (
@@ -90,7 +92,7 @@ export default function DashboardPage() {
       {!data && !error && <div className="mt-6 text-muted">{t("common.loading")}</div>}
 
       {data && (
-        <div className="mt-6">
+        <div className="dashboard-overview">
           {data.setup?.some((step) => !step.done) && <section className="mb-6 rounded-card border border-accent/30 bg-surface p-5">
             <h2 className="font-display text-lg font-semibold">{t("improvements.checklist")}</h2>
             <p className="mt-1 text-sm text-muted">{t("improvements.checklistHint")}</p>
@@ -103,14 +105,14 @@ export default function DashboardPage() {
           </section>}
           <section className="mb-6">
             <h2 className="mb-3 font-display text-sm font-semibold text-muted">{t("improvements.quickActions")}</h2>
-            <div className="flex flex-wrap gap-3">
-              {canWrite("sales") && <Link className="rounded-control bg-accent px-4 py-2 text-sm font-medium text-white" href="/sales?tab=pos">{t("improvements.newSale")}</Link>}
-              {canWrite("purchasing") && <Link className="rounded-control border border-line bg-surface px-4 py-2 text-sm" href="/purchasing?tab=receive">{t("improvements.receiveStock")}</Link>}
-              {canRead("inventory") && <Link className="rounded-control border border-line bg-surface px-4 py-2 text-sm" href="/inventory?low_stock=1">{t("dashboard.lowStock")} · {sections.inventory?.low_stock_count ?? "—"}</Link>}
-              {canRead("sales_returns") && <Link className="rounded-control border border-line bg-surface px-4 py-2 text-sm" href="/returns">{t("improvements.reviewReturns")} · {sections.returns?.pending_disposition_count ?? "—"}</Link>}
+            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              {canWrite("sales") && <Link className="flex min-h-12 items-center justify-center rounded-control bg-accent px-4 py-3 text-sm font-medium text-white" href="/sales?tab=pos">{t("improvements.newSale")}</Link>}
+              {canWrite("purchasing") && <Link className="flex min-h-12 items-center justify-center rounded-control border border-line bg-surface px-4 py-3 transition-colors hover:border-accent/50 hover:bg-accent/5 text-sm" href="/purchasing?tab=receive">{t("improvements.receiveStock")}</Link>}
+              {canRead("inventory") && <Link className="flex min-h-12 items-center justify-center rounded-control border border-line bg-surface px-4 py-3 transition-colors hover:border-accent/50 hover:bg-accent/5 text-sm" href="/inventory?low_stock=1">{t("dashboard.lowStock")} · {sections.inventory?.low_stock_count ?? "—"}</Link>}
+              {canRead("sales_returns") && <Link className="flex min-h-12 items-center justify-center rounded-control border border-line bg-surface px-4 py-3 transition-colors hover:border-accent/50 hover:bg-accent/5 text-sm" href="/returns">{t("improvements.reviewReturns")} · {sections.returns?.pending_disposition_count ?? "—"}</Link>}
             </div>
           </section>
-          {sections.sales && <div className="mb-6 grid gap-4 sm:grid-cols-2">
+          {sections.sales && <div className="mb-6 grid grid-cols-2 gap-3">
             <Link href="/sales?tab=invoices"><Stat icon={Receipt} label={t("improvements.todaySales")} value={money(sections.sales.today_total)} sub={data.currency} tone="accent" /></Link>
             <Link href="/sales?tab=invoices&overdue=1"><Stat icon={CalendarClock} label={t("improvements.overdue")} value={sections.sales.overdue_count} /></Link>
           </div>}
@@ -134,10 +136,10 @@ export default function DashboardPage() {
               as the sales totals above. */}
           {sections.sales?.top_products?.length > 0 && (
             <section className="mt-8">
-              <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wide text-muted">
+              <h2 className="mb-4 font-display text-base font-bold text-ink">
                 {t("reports.topProducts")}
               </h2>
-              <div className="rounded-card border border-line bg-surface p-5 shadow-card">
+              <div className="dashboard-stat rounded-card border border-line bg-surface p-4 shadow-card sm:p-5">
                 <BarList
                   items={sections.sales.top_products.map((p) => ({
                     label: p.label,

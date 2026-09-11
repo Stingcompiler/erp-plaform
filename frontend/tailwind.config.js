@@ -31,9 +31,9 @@ module.exports = {
         sans: ["var(--font-body)", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
-      borderRadius: { card: "12px", control: "8px" },
+      borderRadius: { card: "18px", control: "10px" },
       boxShadow: {
-        card: "0 1px 2px rgba(18,37,59,0.04), 0 1px 3px rgba(18,37,59,0.06)",
+        card: "0 2px 3px rgba(18,37,59,0.025), 0 8px 24px -16px rgba(18,37,59,0.14)",
       },
     },
   },
