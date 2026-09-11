@@ -35,8 +35,8 @@ const tajawal = Tajawal({
 });
 
 export const metadata = {
-  title: "ERP Platform",
-  description: "Multi-company operations, inventory, sales and purchasing.",
+  title: "VEZANO | Business Management Platform",
+  description: "Run your business. Simply.",
 };
 
 export default function RootLayout({ children }) {

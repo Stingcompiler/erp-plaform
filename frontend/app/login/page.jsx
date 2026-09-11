@@ -7,6 +7,7 @@ import { Languages } from "lucide-react";
 
 import { useAuth } from "../providers/AuthProvider";
 import { useI18n } from "../providers/I18nProvider";
+import VezanoMark from "@/components/brand/VezanoMark";
 
 export default function LoginPage() {
   const { user, loading, login } = useAuth();
@@ -43,10 +44,10 @@ export default function LoginPage() {
 
   return (
     <main className="grid min-h-screen lg:grid-cols-2">
-      {/* Brand panel — the ledger motif: a company's whole operation in one place. */}
       <section className="hidden flex-col justify-between bg-ink p-12 text-paper lg:flex">
-        <Link href="/" className="font-display text-lg font-semibold tracking-tight">
-          ERP
+        <Link href="/" className="flex items-center gap-2 font-display text-lg font-semibold tracking-tight">
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent"><VezanoMark size={20} /></span>
+          {t("common.appName")}
         </Link>
         <div>
           <h1 className="font-display text-4xl font-bold leading-tight">
@@ -69,9 +70,10 @@ export default function LoginPage() {
         <form onSubmit={onSubmit} className="w-full max-w-sm">
           <Link
             href="/"
-            className="mb-6 inline-block font-display text-lg font-bold tracking-tight lg:hidden"
+            className="mb-6 inline-flex items-center gap-2 font-display text-lg font-bold tracking-tight lg:hidden"
           >
-            ERP
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-white"><VezanoMark size={20} /></span>
+            {t("common.appName")}
           </Link>
           <h2 className="font-display text-2xl font-semibold">{t("auth.signInHeading")}</h2>
           <p className="mt-1 text-sm text-muted">{t("auth.signInSubtitle")}</p>

@@ -23,6 +23,7 @@ import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 
 import { demoRequests } from "@/lib/api";
+import VezanoMark from "@/components/brand/VezanoMark";
 
 const FEATURES = [
   { icon: Package, titleKey: "landing.feature1Title", bodyKey: "landing.feature1Body" },
@@ -79,8 +80,9 @@ function Header() {
   return (
     <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/80 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-        <Link href="/" className="font-display text-lg font-bold tracking-tight">
-          ERP
+        <Link href="/" className="flex items-center gap-2 font-display text-lg font-bold tracking-tight">
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-white"><VezanoMark size={20} /></span>
+          {t("common.appName")}
         </Link>
         <nav className="hidden items-center gap-6 text-sm text-muted md:flex">
           <a href="#features" className="hover:text-ink">{t("landing.navFeatures")}</a>
@@ -289,7 +291,10 @@ function Footer() {
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
         <div className="flex flex-col gap-8 sm:flex-row sm:justify-between">
           <div className="max-w-xs">
-            <div className="font-display text-lg font-bold tracking-tight">ERP</div>
+            <div className="flex items-center gap-2 font-display text-lg font-bold tracking-tight">
+              <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-white"><VezanoMark size={20} /></span>
+              {t("common.appName")}
+            </div>
             <p className="mt-2 text-sm text-paper/60">{t("landing.footerTagline")}</p>
           </div>
           <div className="flex gap-12">
@@ -314,7 +319,7 @@ function Footer() {
           </div>
         </div>
         <div className="mt-10 border-t border-white/10 pt-6 text-sm text-paper/50">
-          © {year} ERP. {t("landing.footerRights")}
+          © {year} {t("common.appName")}. {t("landing.footerRights")}
         </div>
       </div>
     </footer>
