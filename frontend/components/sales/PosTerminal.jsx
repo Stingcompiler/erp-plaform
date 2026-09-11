@@ -10,7 +10,8 @@ import { useSync } from "@/components/sync/SyncProvider";
 import DocumentDrawer from "@/components/print/DocumentDrawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import BarcodeScanInput from "@/components/inventory/BarcodeScanInput";
-import { cacheProducts } from "@/lib/productCache";
+import { heldCarts } from "@/lib/heldCarts";
+import { readAll, cacheProducts } from "@/lib/productCache";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -22,7 +23,7 @@ export default function PosTerminal({
   shift = null,
   onSold,
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [warehouse, setWarehouse] = useState("");
   const [customer, setCustomer] = useState("");
   const [query, setQuery] = useState("");
@@ -37,7 +38,35 @@ export default function PosTerminal({
   const [docId, setDocId] = useState(null);
   const [error, setError] = useState("");
   const toast = useToast();
-  const { online, enqueue } = useSync();
+  const [held, setHeld] = useState([]);
+  const searchRef = useRef(null);
+  const amountRef = useRef(null);
+  const restoredId = useRef(null);
+  const checkoutBusy = useRef(false);
+  const keyboardActions = useRef(null);
+  useEffect(() => {
+    try { setHeld(heldCarts.list()); } catch { setError(t("improvements.heldError")); }
+  }, [t]);
+  useEffect(() => {
+    const onKey = (e) => {
+      if (document.querySelector('[role="dialog"]')) return;
+      if (e.key === "F2") { e.preventDefault(); searchRef.current?.focus(); }
+      if (e.key === "F4") { e.preventDefault(); amountRef.current?.focus(); }
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); keyboardActions.current?.(); }
+    };
+    const unload = (e) => { if (keyboardActions.current?.hasCart) { e.preventDefault(); e.returnValue=""; } };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("beforeunload", unload);
+    return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("beforeunload", unload); };
+  }, []);
+  const { online, enqueue, confirmation } = useSync();
+  const confirmedId = receipt?.queued ? confirmation(receipt.reference)?.id : null;
+  useEffect(() => {
+    if (!confirmedId) return;
+    let cancelled = false;
+    sales.invoice(confirmedId).then((res) => { if (!cancelled) setReceipt(res.data); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [confirmedId]);
 
   // One idempotency key per sale — stable across retries, reset after success.
   const saleUuid = useRef(null);
@@ -61,7 +90,8 @@ export default function PosTerminal({
           // still resolves during an outage.
           cacheProducts(r.data.results);
         })
-        .catch(() => setResults([]));
+        .catch((err) => setResults(err?.response ? [] : readAll().filter((p) =>
+          `${p.name} ${p.sku}`.toLowerCase().includes(query.toLowerCase())).slice(0,6)));
     }, 250);
     return () => clearTimeout(timer);
   }, [query]);
@@ -116,14 +146,38 @@ export default function PosTerminal({
 
   const removeLine = (id) => setCart((c) => c.filter((l) => l.id !== id));
 
+  function holdCart() {
+    if (!cart.length || checkoutBusy.current) return;
+    try {
+      heldCarts.save({ id: restoredId.current, cart, warehouse, customer, method, amount,
+        bankAccount, reference, sale_uuid: saleUuid.current });
+      restoredId.current = null;
+      setHeld(heldCarts.list());
+      resetSale();
+      toast.info(t("improvements.heldSaved"));
+    } catch { setError(t("improvements.heldError")); }
+  }
+  function resumeCart(row) {
+    if (cart.length) return setError(t("improvements.heldConflict"));
+    setCart(row.cart); setWarehouse(row.warehouse); setCustomer(row.customer);
+    setMethod(row.method); setAmount(row.amount); setBankAccount(row.bankAccount);
+    setReference(row.reference); saleUuid.current = row.sale_uuid;
+    restoredId.current = row.id; setError("");
+    // Keep the saved copy until the sale completes or is held again.
+  }
   function resetSale() {
+    try { heldCarts.remove(restoredId.current); setHeld(heldCarts.list()); }
+    catch { toast.error(t("improvements.heldError")); }
+    restoredId.current = null;
     setCart([]);
     setAmount("");
     setCustomer("");
     saleUuid.current = null;
+    setBankAccount(""); setReference(""); setMethod("cash");
   }
 
   async function checkout() {
+    if (checkoutBusy.current || receipt) return;
     setError("");
     if (!warehouse) return setError(t("sales.selectWarehouseErr"));
     if (cart.length === 0) return setError(t("sales.addProductErr"));
@@ -171,16 +225,21 @@ export default function PosTerminal({
       ...(shift ? { shift: shift.id } : {}),
     };
 
+    checkoutBusy.current = true;
     setSubmitting(true);
+    const saveOffline = () => {
+      try {
+        const op = enqueue("pos_checkout", checkoutPayload);
+        setReceipt({ queued: true, reference: op.client_uuid, total: subtotal, subtotal, tax_amount: null });
+        resetSale(); onSold?.(); toast.info(t("sales.savedOffline"));
+      } catch { setError(t("improvements.storageSale")); toast.error(t("improvements.storageSale")); }
+    };
     try {
 
       // Offline: queue the sale (same client_uuid keeps it idempotent) and
       // let the sync layer drain it when connectivity returns.
       if (typeof navigator !== "undefined" && navigator.onLine === false) {
-        enqueue("pos_checkout", checkoutPayload);
-        resetSale();
-        onSold?.();
-        toast.info(t("sales.savedOffline"));
+        saveOffline();
         return;
       }
 
@@ -193,10 +252,7 @@ export default function PosTerminal({
       // A network error while "online" (e.g. flaky connection): fall back to
       // the offline queue rather than losing the sale.
       if (err?.code === "ERR_NETWORK" || !err?.response) {
-        enqueue("pos_checkout", checkoutPayload);
-        resetSale();
-        onSold?.();
-        toast.info(t("sales.connIssue"));
+        saveOffline();
         return;
       }
       const data = err?.response?.data;
@@ -207,9 +263,13 @@ export default function PosTerminal({
       setError(msg);
       toast.error(msg);
     } finally {
+      checkoutBusy.current = false;
       setSubmitting(false);
     }
   }
+
+  keyboardActions.current = checkout;
+  keyboardActions.current.hasCart = cart.length > 0;
 
   if (receipt) {
     return (
@@ -217,14 +277,15 @@ export default function PosTerminal({
         <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-ok/10 text-ok">
           <Check />
         </div>
-        <h2 className="mt-3 font-display text-xl font-semibold">{t("sales.saleRecorded")}</h2>
+        <h2 className="mt-3 font-display text-xl font-semibold">{t(receipt.queued ? "improvements.queuedSale" : "sales.saleRecorded")}</h2>
         <p className="mt-1 text-muted">
-          {t("sales.invoice")} <span className="tabular text-ink">{receipt.number_display || receipt.number}</span>
+          {receipt.queued ? t("improvements.queuedHint") : t("sales.invoice")}
+          <span className="tabular block break-all text-ink">{receipt.reference || receipt.number_display || receipt.number}</span>
         </p>
         <div className="tabular mt-4 text-3xl font-medium text-ink">{money(receipt.total)}</div>
-        <div className="mt-1 text-sm text-muted">
+        {!receipt.queued && <div className="mt-1 text-sm text-muted">
           {t("sales.tax")} {money(receipt.tax_amount)} · {t("sales.subtotal")} {money(receipt.subtotal)}
-        </div>
+        </div>}
         {/* An offline sale has no server id yet, so there is nothing to fetch a
             document for — the till still closes the sale, it just can't print
             until the queued invoice syncs. */}
@@ -253,7 +314,19 @@ export default function PosTerminal({
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+    <div>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Button variant="outline" onClick={holdCart} disabled={!cart.length || submitting}>{t("improvements.hold")}</Button>
+        <span className="text-xs text-muted">{t("improvements.holdHint")}</span>
+      </div>
+      {held.length > 0 && <details className="mb-4 rounded-card border border-line bg-surface p-3">
+        <summary className="cursor-pointer text-sm font-medium">{t("improvements.held")} ({held.length})</summary>
+        <ul className="mt-3 space-y-2">{held.map((row) => <li key={row.id} className="flex items-center justify-between gap-3 text-sm">
+          <span>{row.cart[0]?.name} · {row.cart.length} · {new Date(row.saved_at).toLocaleTimeString(language === "ar" ? "ar" : "en")}</span>
+          <Button variant="outline" onClick={() => resumeCart(row)} disabled={submitting}>{t("improvements.resume")}</Button>
+        </li>)}</ul>
+      </details>}
+      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
       {/* Catalogue / search */}
       <div>
         {/* Selling with no drawer open is allowed — blocking it would stop a
@@ -272,6 +345,7 @@ export default function PosTerminal({
         <div className="relative">
           <Search size={16} className="pointer-events-none absolute inset-y-0 start-3 my-auto text-muted" />
           <Input
+            ref={searchRef} aria-label={t("sales.searchToAddShort")}
             placeholder={t("sales.searchToAddShort")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -429,6 +503,7 @@ export default function PosTerminal({
               <Input
                 type="number"
                 inputMode="decimal"
+                ref={amountRef}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder={money(subtotal)}
@@ -488,6 +563,7 @@ export default function PosTerminal({
           </div>
         </div>
       </Card>
+    </div>
     </div>
   );
 }

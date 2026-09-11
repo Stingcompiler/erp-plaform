@@ -1,3 +1,4 @@
+import { improvementsEn, improvementsAr } from "./improvementsI18n.js";
 // Central translation catalog. Keys are dot-namespaced by surface. `t(key)`
 // (from useI18n) looks a key up in the active language, falling back to English,
 // then to the raw key — so a missing translation is visible, never a crash.
@@ -255,12 +256,12 @@ const en = {
     heroCtaPrimary: "Request a demo",
     heroCtaSecondary: "Sign in",
     trustedBy: "Built for retailers, wholesalers and distributors",
-    valueTitle: "Everything reconciles to one ledger",
+    valueTitle: "A connected record of daily operations",
     valueSubtitle: "No spreadsheets drifting out of sync. Every stock move, sale, payment and return posts to one auditable trail.",
     feature1Title: "Real-time inventory",
     feature1Body: "A typed stock-movement ledger means levels are always derivable and never drift — with batch and expiry tracking.",
     feature2Title: "Sales & POS, offline-first",
-    feature2Body: "Complete sales fully offline; they sync cleanly on reconnect. Manual bank-transfer and cash payments, no gateway lock-in.",
+    feature2Body: "Keep selling from an open till using cached products during an outage. Review saved operations and resolve any issues after reconnecting.",
     feature3Title: "Purchasing & returns",
     feature3Body: "Receive stock, track supplier balances, and handle returns with enforced credit/debit notes and disposition control.",
     feature4Title: "CRM pipeline",
@@ -1351,12 +1352,12 @@ const ar = {
     heroCtaPrimary: "اطلب عرضًا توضيحيًا",
     heroCtaSecondary: "تسجيل الدخول",
     trustedBy: "مصمم لتجار التجزئة والجملة والموزعين",
-    valueTitle: "كل شيء يتوافق مع دفتر واحد",
+    valueTitle: "سجل مترابط لعملياتك اليومية",
     valueSubtitle: "لا مزيد من الجداول التي تفقد التزامن. كل حركة مخزون وبيع ودفعة ومرتجع تُسجَّل في سجل واحد قابل للتدقيق.",
     feature1Title: "مخزون لحظي",
     feature1Body: "سجل حركات مخزون مصنّف يجعل المستويات قابلة للاشتقاق دائمًا ولا تنحرف — مع تتبّع الدفعات وتواريخ الانتهاء.",
     feature2Title: "مبيعات ونقاط بيع تعمل دون اتصال",
-    feature2Body: "أكمل المبيعات دون اتصال بالكامل؛ وتتزامن بسلاسة عند العودة. مدفوعات نقدية وتحويلات بنكية يدوية دون قيود بوابات الدفع.",
+    feature2Body: "تابع البيع من نقطة البيع المفتوحة بالمنتجات المحفوظة عند انقطاع الاتصال. راجع العمليات المحفوظة وعالج أي مشكلة عند عودة الشبكة.",
     feature3Title: "المشتريات والمرتجعات",
     feature3Body: "استلم المخزون، وتابع أرصدة الموردين، وعالج المرتجعات مع إشعارات دائن/مدين وضبط للتصرّف.",
     feature4Title: "مسار إدارة العملاء",
@@ -2205,6 +2206,8 @@ const ar = {
   },
 };
 
+en.improvements = improvementsEn;
+ar.improvements = improvementsAr;
 const CATALOG = { en, ar };
 
 function lookup(obj, path) {

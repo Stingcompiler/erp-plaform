@@ -5,7 +5,7 @@ import { ScanLine } from "lucide-react";
 
 import { inventory } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
-import { findCachedByBarcode } from "@/lib/productCache";
+import { cacheProducts, findCachedByBarcode } from "@/lib/productCache";
 import { Input } from "@/components/ui/kit";
 
 /**
@@ -38,6 +38,7 @@ export default function BarcodeScanInput({ onScan, autoFocus = true, disabled })
       setStatus({ tone: "muted", text: t("inventory.scanning") });
       try {
         const res = await inventory.byBarcode(value);
+        cacheProducts([res.data]);
         onScan(res.data);
         setStatus({ tone: "ok", text: t("inventory.scanFound", { name: res.data.name }) });
       } catch (err) {

@@ -58,10 +58,11 @@ export const inventory = {
 };
 
 export const sales = {
-  checkout: (body) => api.post("/pos/checkout/", body),
+  checkout: (body) => api.post("/pos/checkout/", body, { timeout: 15000 }),
+  invoice: (id) => api.get(`/invoices/${id}/`),
   invoices: (params) => api.get("/invoices/", { params }),
   invoiceDocument: (id) => api.get(`/invoices/${id}/document/`),
-  invoicesCsv: () => `${API_BASE}/invoices/export/`,
+  invoicesCsv: (params) => `${API_BASE}/invoices/export/?${new URLSearchParams(params || {})}`,
   payments: (params) => api.get("/payments/", { params }),
   paymentDocument: (id) => api.get(`/payments/${id}/document/`),
   customers: (params) => api.get("/customers/", { params }),
@@ -235,3 +236,5 @@ export const org = {
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
 export default api;
+
+export const demoRequests = { create: (body) => api.post("/public/demo-requests/", body) };

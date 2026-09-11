@@ -2,6 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
+import { setLocalIdentity } from "@/lib/localIdentity";
+
 import { auth, prefs, rbac } from "@/lib/api";
 import { useI18n } from "./I18nProvider";
 
@@ -16,6 +18,7 @@ export function AuthProvider({ children }) {
   const loadSession = useCallback(async () => {
     try {
       const [meRes, accessRes] = await Promise.all([auth.me(), rbac.access()]);
+      setLocalIdentity(meRes.data);
       setUser(meRes.data);
       setAccess(accessRes.data || {});
       // Locale/theme are client-owned (I18nProvider); a fresh session hydrates
@@ -27,6 +30,7 @@ export function AuthProvider({ children }) {
         /* no stored prefs / not critical */
       }
     } catch {
+      setLocalIdentity(null);
       setUser(null);
       setAccess({});
     } finally {
@@ -51,6 +55,7 @@ export function AuthProvider({ children }) {
     try {
       await auth.logout();
     } finally {
+      setLocalIdentity(null);
       setUser(null);
       setAccess({});
     }

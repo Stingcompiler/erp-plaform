@@ -1,49 +1,58 @@
-"use client";
+import { storageKey } from "./localIdentity.js";
 
-// A small offline-first queue for write operations that couldn't reach the
-// server. Operations are shaped like sync API operations
-// ({ op_type, client_uuid, payload }) and persisted to localStorage so they
-// survive reloads. Draining batches them to POST /api/sync/push/.
-//
-// Note: this is a real (self-hosted) Next.js app, so localStorage is the
-// appropriate persistence layer for offline-first behaviour.
-
-const KEY = "erp.sync.queue.v1";
-
-function read() {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(window.localStorage.getItem(KEY) || "[]");
-  } catch {
-    return [];
+// One key per operation avoids one tab overwriting another tab's entire queue.
+// A failed write MUST throw: the caller keeps the sale on screen until durable.
+function prefix(scope) { return `${storageKey("sync", scope)}:`; }
+function list(scope) {
+  const keyPrefix = prefix(scope);
+  const rows = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith(keyPrefix)) {
+      const row = JSON.parse(localStorage.getItem(key));
+      if (!row?.client_uuid || !row.payload) throw new Error("Invalid saved operation.");
+      rows.push(row);
+    }
   }
+  return rows.sort((a, b) => a.queued_at - b.queued_at);
 }
-
-function write(list) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(KEY, JSON.stringify(list));
-  } catch {
-    /* storage full or unavailable — nothing else we can do */
-  }
-}
-
-function uuid() {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
-  return "xxxxxxxxxxxx".replace(/x/g, () => ((Math.random() * 16) | 0).toString(16));
-}
-
 export const queue = {
-  list: read,
-  count: () => read().length,
-  clear: () => write([]),
-  enqueue(opType, payload) {
-    const op = { op_type: opType, client_uuid: uuid(), payload, queued_at: Date.now() };
-    write([...read(), op]);
+  list,
+  count: (scope) => list(scope).length,
+  hasLegacy: () => Boolean(localStorage.getItem("erp.sync.queue.v1") &&
+    localStorage.getItem("erp.sync.queue.v1") !== "[]"),
+  enqueue(opType, payload, scope) {
+    const id = payload.client_uuid || crypto.randomUUID();
+    const key = prefix(scope) + id;
+    // Keep the original body if an uncertain network request is retried.
+    const previous = localStorage.getItem(key);
+    if (previous) return JSON.parse(previous);
+    const op = { op_type: opType, client_uuid: id,
+      payload: { ...payload, client_uuid: id }, queued_at: Date.now(), error: null };
+    localStorage.setItem(key, JSON.stringify(op));
     return op;
   },
-  removeByUuids(uuids) {
-    const set = new Set(uuids);
-    write(read().filter((op) => !set.has(op.client_uuid)));
+  confirmation(id, scope) {
+    try { return JSON.parse(localStorage.getItem(`${storageKey("syncReceipt", scope)}:${id}`) || "null"); }
+    catch { return null; }
+  },
+  acknowledge(sent, results, scope) {
+    if (!Array.isArray(results)) throw new Error("Missing synchronization results.");
+    const accepted = new Map(results.map((r) => [r.client_uuid, r]));
+    for (const op of sent) {
+      const result = accepted.get(op.client_uuid);
+      const key = prefix(scope) + op.client_uuid;
+      if (result?.status === "applied" || result?.status === "duplicate") {
+        if (op.op_type === "pos_checkout" && result.id) {
+          localStorage.setItem(`${storageKey("syncReceipt", scope)}:${op.client_uuid}`,
+            JSON.stringify({ id: result.id, confirmed_at: Date.now() }));
+        }
+        localStorage.removeItem(key);
+      } else {
+        const current = localStorage.getItem(key);
+        if (current) localStorage.setItem(key, JSON.stringify({ ...JSON.parse(current),
+          error: result?.error || "No confirmation received for this operation." }));
+      }
+    }
   },
 };

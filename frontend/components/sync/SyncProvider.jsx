@@ -1,90 +1,95 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
-
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { sync } from "@/lib/api";
 import { queue } from "@/lib/syncQueue";
+import { identityScope } from "@/lib/localIdentity";
+import { useAuth } from "../../app/providers/AuthProvider";
 
 const SyncContext = createContext(null);
-
-const NOOP = {
-  online: true,
-  pending: 0,
-  flushing: false,
-  enqueue: () => {},
-  flush: async () => {},
-  refresh: () => {},
-};
-
 export function useSync() {
-  return useContext(SyncContext) || NOOP;
-}
-
-function uuid() {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
-  return "xxxxxxxxxxxx".replace(/x/g, () => ((Math.random() * 16) | 0).toString(16));
+  const context = useContext(SyncContext);
+  if (!context) throw new Error("SyncProvider is required.");
+  return context;
 }
 
 export function SyncProvider({ children }) {
+  const { user } = useAuth();
+  const scope = identityScope(user);
   const [online, setOnline] = useState(true);
-  const [pending, setPending] = useState(0);
+  const [operations, setOperations] = useState([]);
   const [flushing, setFlushing] = useState(false);
+  const [error, setError] = useState("");
+  const [legacy, setLegacy] = useState(false);
+  const busy = useRef(false);
+  const retryAt = useRef(0);
+  const failures = useRef(0);
+  const refresh = useCallback(() => {
+    try {
+      setOperations(scope ? queue.list(scope) : []);
+      setLegacy(queue.hasLegacy());
+    } catch { setError("storage"); }
+  }, [scope]);
 
-  const refresh = useCallback(() => setPending(queue.count()), []);
+  const flush = useCallback(async (manual = true) => {
+    if (!scope || busy.current || !navigator.onLine) return;
+    if (!manual && Date.now() < retryAt.current) return;
+    busy.current = true;
+    setFlushing(true);
+    const run = async () => {
+      let ops;
+      try {
+        ops = queue.list(scope).filter((op) => manual || !op.error).slice(0, 100);
+        if (!ops.length) return;
+      } catch { setError("storage"); return; }
+      try {
+        const res = await sync.push({
+          batch_uuid: crypto.randomUUID(), device_id: "web",
+          expected_company: user.company, expected_user: user.id,
+          expected_branch: user.branch ?? null,
+          operations: ops.map(({ op_type, client_uuid, payload }) => ({ op_type, client_uuid, payload })),
+        });
+        try {
+          queue.acknowledge(ops, res.data.results, scope);
+          setError("");
+          failures.current = 0;
+          retryAt.current = 0;
+        } catch { setError("storage"); retryAt.current = Date.now() + 60000; }
+      } catch (err) {
+        setError(err?.response?.status === 409 ? "identity" : "network");
+        failures.current += 1;
+        retryAt.current = Date.now() + Math.min(300000, 15000 * 2 ** failures.current);
+      }
+    };
+    try {
+      if (navigator.locks) await navigator.locks.request(`erp-sync:${scope}`, run);
+      else await run();
+    } finally { busy.current = false; setFlushing(false); refresh(); }
+  }, [scope, user?.company, user?.id, user?.branch, refresh]);
 
   useEffect(() => {
     refresh();
-    setOnline(typeof navigator === "undefined" ? true : navigator.onLine);
-    const up = () => setOnline(true);
+    setOnline(navigator.onLine);
+    const up = () => { setOnline(true); retryAt.current = 0; flush(false); };
     const down = () => setOnline(false);
     window.addEventListener("online", up);
     window.addEventListener("offline", down);
+    window.addEventListener("storage", refresh);
+    const timer = setInterval(() => flush(false), 15000);
+    flush(false);
     return () => {
+      clearInterval(timer);
       window.removeEventListener("online", up);
       window.removeEventListener("offline", down);
+      window.removeEventListener("storage", refresh);
     };
-  }, [refresh]);
+  }, [flush, refresh]);
 
-  const flush = useCallback(async () => {
-    const ops = queue.list();
-    if (ops.length === 0 || flushing) return;
-    setFlushing(true);
-    try {
-      const res = await sync.push({
-        batch_uuid: uuid(),
-        device_id: "web",
-        operations: ops.map((o) => ({
-          op_type: o.op_type,
-          client_uuid: o.client_uuid,
-          payload: o.payload,
-        })),
-      });
-      // On a successful push (applied, duplicate, or replay) the batch is
-      // durably recorded server-side, so clear what we sent.
-      if (res?.status === 200 || res?.status === 201) {
-        queue.removeByUuids(ops.map((o) => o.client_uuid));
-      }
-    } catch {
-      /* still offline or server error — keep the queue for the next attempt */
-    } finally {
-      refresh();
-      setFlushing(false);
-    }
-  }, [flushing, refresh]);
+  const enqueue = useCallback((type, payload) => {
+    try { const op = queue.enqueue(type, payload, scope); refresh(); return op; }
+    catch (err) { setError("storage"); throw err; }
+  }, [scope, refresh]);
 
-  // Auto-drain whenever we come (back) online and there's a backlog.
-  useEffect(() => {
-    if (online && pending > 0) flush();
-  }, [online, pending, flush]);
-
-  const enqueue = useCallback(
-    (opType, payload) => {
-      queue.enqueue(opType, payload);
-      refresh();
-    },
-    [refresh]
-  );
-
-  const value = { online, pending, flushing, enqueue, flush, refresh };
-  return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>;
+  return <SyncContext.Provider value={{ online, pending: operations.length, operations,
+    flushing, error, legacy, enqueue, flush, refresh, confirmation: (id) => queue.confirmation(id, scope) }}>{children}</SyncContext.Provider>;
 }

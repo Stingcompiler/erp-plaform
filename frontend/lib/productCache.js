@@ -6,8 +6,7 @@
 // it. This is a read-only convenience mirror: the server stays the source of
 // truth, and nothing here is ever written back.
 
-const KEY = "erp.productCache.v1";
-const STAMP = "erp.productCache.stamp";
+import { localScope, storageKey } from "./localIdentity.js";
 
 // Only what a scan needs to build a cart line — keeps the payload small.
 function slim(p) {
@@ -18,11 +17,13 @@ function slim(p) {
     barcode: p.barcode || "",
     sale_price: p.sale_price,
     track_batches: p.track_batches,
+    unit_name: p.unit_name,
+    is_stock_tracked: p.is_stock_tracked,
   };
 }
 
 export function cacheProducts(products) {
-  if (typeof window === "undefined" || !Array.isArray(products)) return;
+  if (typeof window === "undefined" || !Array.isArray(products) || !localScope()) return;
   try {
     const withBarcodes = products.filter((p) => p && p.barcode);
     if (withBarcodes.length === 0) return;
@@ -31,8 +32,8 @@ export function cacheProducts(products) {
     const existing = readAll();
     const merged = new Map(existing.map((p) => [p.barcode, p]));
     withBarcodes.forEach((p) => merged.set(p.barcode, slim(p)));
-    window.localStorage.setItem(KEY, JSON.stringify([...merged.values()]));
-    window.localStorage.setItem(STAMP, new Date().toISOString());
+    window.localStorage.setItem(storageKey("productCache"), JSON.stringify([...merged.values()]));
+    window.localStorage.setItem(storageKey("productCacheStamp"), new Date().toISOString());
   } catch {
     // Quota or private-mode failures must never break the sale.
   }
@@ -41,7 +42,7 @@ export function cacheProducts(products) {
 export function readAll() {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(KEY);
+    const raw = window.localStorage.getItem(storageKey("productCache"));
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -57,7 +58,7 @@ export function findCachedByBarcode(code) {
 export function cachedAt() {
   if (typeof window === "undefined") return null;
   try {
-    return window.localStorage.getItem(STAMP);
+    return window.localStorage.getItem(storageKey("productCacheStamp"));
   } catch {
     return null;
   }
