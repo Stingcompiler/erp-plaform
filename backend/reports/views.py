@@ -56,6 +56,61 @@ class ReportView(APIView):
         return request.query_params.get("format") == "csv"
 
 
+class HrSummaryReport(ReportView):
+    report_area = "hr"
+
+    def get(self, request):
+        from hr.models import Attendance, Deduction, Employee, LeaveRequest, SalaryAdvance
+
+        cid = self.company_id(request)
+        start, end = self.date_range(request)
+        employees = Employee.objects.filter(company_id=cid)
+        attendance = Attendance.objects.filter(company_id=cid)
+        leave = LeaveRequest.objects.filter(company_id=cid)
+        advances = SalaryAdvance.objects.filter(company_id=cid)
+        deductions = Deduction.objects.filter(company_id=cid)
+
+        if start:
+            attendance = attendance.filter(date__gte=start)
+            leave = leave.filter(end_date__gte=start)
+            advances = advances.filter(created_at__date__gte=start)
+            deductions = deductions.filter(models.Q(date__gte=start) | models.Q(date__isnull=True, created_at__date__gte=start))
+        if end:
+            attendance = attendance.filter(date__lte=end)
+            leave = leave.filter(start_date__lte=end)
+            advances = advances.filter(created_at__date__lte=end)
+            deductions = deductions.filter(models.Q(date__lte=end) | models.Q(date__isnull=True, created_at__date__lte=end))
+
+        def counts(queryset, field="status"):
+            return {row[field]: row["count"] for row in queryset.values(field).annotate(count=Count("id"))}
+
+        advance_total = advances.filter(status=SalaryAdvance.APPROVED).aggregate(
+            total=Coalesce(Sum("amount"), ZERO, output_field=MONEY)
+        )["total"]
+        deduction_total = deductions.aggregate(
+            total=Coalesce(Sum("amount"), ZERO, output_field=MONEY)
+        )["total"]
+        departments = list(
+            employees.exclude(department__isnull=True)
+            .values("department__name")
+            .annotate(count=Count("id"))
+            .order_by("department__name")
+        )
+
+        return Response({
+            "employees": counts(employees),
+            "employee_total": employees.count(),
+            "attendance": counts(attendance),
+            "leave": counts(leave),
+            "advances": {**counts(advances), "approved_total": str(advance_total)},
+            "deductions": {"count": deductions.count(), "total": str(deduction_total)},
+            "departments": [
+                {"name": row["department__name"], "count": row["count"]}
+                for row in departments
+            ],
+        })
+
+
 class SalesSummaryReport(ReportView):
     report_area = "sales"
     def get(self, request):

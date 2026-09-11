@@ -8,6 +8,7 @@ from reports.views import (
     CfoKpiReport,
     PayablesDueReport,
     IncomeStatementReport,
+    HrSummaryReport,
     InventoryValuationReport,
     ReceivablesDueReport,
     ProfitSummaryReport,
@@ -17,6 +18,7 @@ from reports.views import (
 )
 
 urlpatterns = [
+    path("reports/hr-summary/", HrSummaryReport.as_view(), name="report-hr-summary"),
     path(
         "reports/sales-summary/",
         SalesSummaryReport.as_view(), name="report-sales-summary",

@@ -146,6 +146,24 @@ class ReportsRBACTests(ReportsBase):
             with self.subTest(report=name):
                 self.assertEqual(client.get(reverse(name)).status_code, 403)
 
+    def test_hr_reads_only_hr_summary(self):
+        from hr.models import Attendance, Employee, LeaveRequest
+
+        employee = Employee.objects.create(company=self.company, full_name="HR Person")
+        Attendance.objects.create(
+            company=self.company, employee=employee, date="2026-09-11", status="present"
+        )
+        LeaveRequest.objects.create(
+            company=self.company, employee=employee,
+            start_date="2026-09-12", end_date="2026-09-13",
+        )
+        client = self.client_for_role("HR Officer")
+        response = client.get(reverse("report-hr-summary"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["employee_total"], 1)
+        self.assertEqual(response.data["attendance"]["present"], 1)
+        self.assertEqual(response.data["leave"]["pending"], 1)
+
     def test_operational_roles_only_read_their_report_family(self):
         cases = {
             "Sales Officer": ("report-sales-summary", "report-inventory-valuation"),

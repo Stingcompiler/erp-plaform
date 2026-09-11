@@ -89,7 +89,7 @@ ROLE_MODULE_MATRIX = {
         "purchasing": WRITE, "purchase_returns": WRITE, "inventory": READ,
         "reports": READ,
     },
-    "HR Officer": {**_all(NONE), "hr": WRITE},
+    "HR Officer": {**_all(NONE), "hr": WRITE, "reports": READ},
     "CRM Officer": {**_all(NONE), "crm": WRITE, "sales": READ, "reports": READ},
     # Operational finance: records expenses and moves money day to day.
     "Finance Department": {
@@ -162,16 +162,18 @@ def access_map(user):
     return {m: level_for(getattr(user, "role", None), m) for m in MODULES}
 
 
-REPORT_AREAS = {"sales", "inventory", "purchasing", "finance"}
+REPORT_AREAS = {"sales", "inventory", "purchasing", "finance", "hr"}
 FULL_REPORT_ROLES = {
-    "Business Owner", "General Manager", "Chief Financial Officer",
-    "Finance Department", "Super Administrator",
+    "Business Owner", "General Manager", "Super Administrator",
 }
 ROLE_REPORT_AREAS = {
     "Sales Officer": {"sales"},
     "CRM Officer": {"sales"},
     "Inventory Officer": {"inventory"},
     "Purchasing Officer": {"purchasing"},
+    "HR Officer": {"hr"},
+    "Finance Department": {"sales", "inventory", "purchasing", "finance"},
+    "Chief Financial Officer": {"sales", "inventory", "purchasing", "finance"},
 }
 
 

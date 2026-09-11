@@ -41,6 +41,8 @@ export default function ReportsPage() {
   const inventoryReports = reportAreas.includes("inventory");
   const purchasingReports = reportAreas.includes("purchasing");
   const financeReports = reportAreas.includes("finance");
+  const hrReports = reportAreas.includes("hr");
+  const onlyHrReports = hrReports && reportAreas.length === 1;
   const money = (v) =>
     Number(v ?? 0).toLocaleString(language === "ar" ? "ar" : "en", {
       minimumFractionDigits: 2,
@@ -66,6 +68,7 @@ export default function ReportsPage() {
   const [collections, setCollections] = useState(null);
   const [kpis, setKpis] = useState(null);
   const [payables, setPayables] = useState(null);
+  const [hrSummary, setHrSummary] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const params = {};
@@ -98,9 +101,10 @@ export default function ReportsPage() {
         settle(reports.cashFlow(p), setCash, null),
         settle(reports.cfoKpis({ ...p, method: costMethod }), setKpis, null),
       ] : []),
+      ...(hrReports ? [settle(reports.hrSummary(p), setHrSummary, null)] : []),
     ]);
     setLoading(false);
-  }, [range.start, range.end, costMethod, salesReports, inventoryReports, purchasingReports, financeReports]);
+  }, [range.start, range.end, costMethod, salesReports, inventoryReports, purchasingReports, financeReports, hrReports]);
 
   useEffect(() => {
     load();
@@ -170,13 +174,45 @@ export default function ReportsPage() {
 
       {!loading && (
         <div className="space-y-6">
+          {hrReports && hrSummary && (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Kpi label={t("reports.hrEmployees")} value={hrSummary.employee_total} />
+                <Kpi label={t("reports.hrActive")} tone="ok" value={hrSummary.employees.active || 0} />
+                <Kpi label={t("reports.hrPendingLeave")} value={hrSummary.leave.pending || 0} />
+                <Kpi label={t("reports.hrAbsent")} value={hrSummary.attendance.absent || 0} />
+              </div>
+              <div className="grid gap-6 lg:grid-cols-2">
+                <SectionCard title={t("reports.hrAttendance")}>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Kpi label={t("reports.hrPresent")} tone="ok" value={hrSummary.attendance.present || 0} />
+                    <Kpi label={t("reports.hrAbsent")} value={hrSummary.attendance.absent || 0} />
+                    <Kpi label={t("reports.hrOnLeave")} value={hrSummary.attendance.leave || 0} />
+                    <Kpi label={t("reports.hrHalfDay")} value={hrSummary.attendance.half_day || 0} />
+                  </div>
+                </SectionCard>
+                <SectionCard title={t("reports.hrFinancialActions")}>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Kpi label={t("reports.hrPendingAdvances")} value={hrSummary.advances.pending || 0} />
+                    <Kpi label={t("reports.hrApprovedAdvances")} value={money(hrSummary.advances.approved_total)} />
+                    <Kpi label={t("reports.hrDeductionsCount")} value={hrSummary.deductions.count || 0} />
+                    <Kpi label={t("reports.hrDeductionsTotal")} value={money(hrSummary.deductions.total)} />
+                  </div>
+                </SectionCard>
+              </div>
+              <SectionCard title={t("reports.hrByDepartment")}>
+                <BarList items={hrSummary.departments.map((row) => ({ label: row.name, value: row.count }))} />
+              </SectionCard>
+            </>
+          )}
+
           {/* Headline KPIs */}
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {!onlyHrReports && <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {salesReports && <Kpi label={t("reports.invoices")} value={summary?.totals?.invoice_count ?? "—"} />}
             {salesReports && <Kpi label={t("reports.revenue")} tone="accent" value={money(summary?.totals?.total)} />}
             {financeReports && <Kpi label={t("reports.grossProfit")} tone="ok" value={money(profit?.gross_profit)} />}
             {inventoryReports && <Kpi label={t("reports.inventoryValue")} value={money(valuation?.total_value)} />}
-          </div>
+          </div>}
 
           <div className="grid gap-6 lg:grid-cols-2">
             {salesReports && <SectionCard
