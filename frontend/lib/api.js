@@ -93,6 +93,7 @@ export const bankAccounts = {
 
 export const reports = {
   hrSummary: (params) => api.get("/reports/hr-summary/", { params }),
+  payroll: (params) => api.get("/reports/payroll/", { params }),
   incomeStatement: (params) => api.get("/reports/income-statement/", { params }),
   cashFlow: (params) => api.get("/reports/cash-flow/", { params }),
   receivablesDue: (params) => api.get("/reports/receivables-due/", { params }),

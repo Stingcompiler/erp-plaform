@@ -72,6 +72,22 @@ class SalesReportTests(ReportsBase):
         self.assertEqual(resp["Content-Type"], "text/csv")
         self.assertIn("SKU1", resp.content.decode())
 
+    def test_payroll_report_returns_company_payroll_entries(self):
+        from hr.models import Employee, PayrollEntry, PayrollRun, Position
+
+        position = Position.objects.create(company=self.company, title="Cashier", base_salary="1000.00")
+        employee = Employee.objects.create(company=self.company, full_name="Amina Ali", position=position)
+        run = PayrollRun.objects.create(company=self.company, period="2026-09-01")
+        PayrollEntry.objects.create(
+            payroll_run=run, employee=employee, employee_name=employee.full_name,
+            position_title="Cashier", base_salary="1000.00", deductions_total="50.00",
+            advances_total="100.00", net_salary="850.00",
+        )
+        response = self.client.get(reverse("report-payroll"))
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data[0]["net_total"], "850.00")
+        self.assertEqual(response.data[0]["entries"][0]["employee_name"], "Amina Ali")
+
 
 class ValuationAndProfitTests(ReportsBase):
     def test_inventory_valuation(self):
@@ -163,6 +179,19 @@ class ReportsRBACTests(ReportsBase):
         self.assertEqual(response.data["employee_total"], 1)
         self.assertEqual(response.data["attendance"]["present"], 1)
         self.assertEqual(response.data["leave"]["pending"], 1)
+
+    def test_cfo_can_read_payroll_without_access_to_hr_summary(self):
+        cfo_role = Role.objects.create(
+            name="Chief Financial Officer", scope_level=Role.SCOPE_BUSINESS
+        )
+        cfo = User.objects.create_user(
+            email="cfo@alpha.test", password="passw0rd123",
+            company=self.company, role=cfo_role,
+        )
+        client = self.client_class()
+        client.force_authenticate(cfo)
+        self.assertEqual(client.get(reverse("report-payroll")).status_code, 200)
+        self.assertEqual(client.get(reverse("report-hr-summary")).status_code, 403)
 
     def test_operational_roles_only_read_their_report_family(self):
         cases = {

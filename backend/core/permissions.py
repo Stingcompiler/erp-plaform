@@ -104,3 +104,12 @@ class ReportAreaAccess(BasePermission):
 
     def has_permission(self, request, view):
         return getattr(view, "report_area", None) in report_areas_for(request.user)
+
+
+class PayrollReportAccess(BasePermission):
+    """Payroll is shared oversight for HR and finance, but no other area."""
+
+    message = "Your role does not permit this payroll report."
+
+    def has_permission(self, request, view):
+        return bool({"hr", "finance"}.intersection(report_areas_for(request.user)))

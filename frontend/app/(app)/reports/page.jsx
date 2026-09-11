@@ -42,6 +42,7 @@ export default function ReportsPage() {
   const purchasingReports = reportAreas.includes("purchasing");
   const financeReports = reportAreas.includes("finance");
   const hrReports = reportAreas.includes("hr");
+  const payrollReports = hrReports || financeReports;
   const onlyHrReports = hrReports && reportAreas.length === 1;
   const money = (v) =>
     Number(v ?? 0).toLocaleString(language === "ar" ? "ar" : "en", {
@@ -69,6 +70,7 @@ export default function ReportsPage() {
   const [kpis, setKpis] = useState(null);
   const [payables, setPayables] = useState(null);
   const [hrSummary, setHrSummary] = useState(null);
+  const [payroll, setPayroll] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const params = {};
@@ -102,9 +104,10 @@ export default function ReportsPage() {
         settle(reports.cfoKpis({ ...p, method: costMethod }), setKpis, null),
       ] : []),
       ...(hrReports ? [settle(reports.hrSummary(p), setHrSummary, null)] : []),
+      ...(payrollReports ? [settle(reports.payroll(p), setPayroll, [])] : []),
     ]);
     setLoading(false);
-  }, [range.start, range.end, costMethod, salesReports, inventoryReports, purchasingReports, financeReports, hrReports]);
+  }, [range.start, range.end, costMethod, salesReports, inventoryReports, purchasingReports, financeReports, hrReports, payrollReports]);
 
   useEffect(() => {
     load();
@@ -205,6 +208,10 @@ export default function ReportsPage() {
               </SectionCard>
             </>
           )}
+
+          {payrollReports && <SectionCard title={t("reports.payrollTitle")} action={<a href={csv("/reports/payroll/")}><Button variant="ghost"><Download size={15} /> CSV</Button></a>}>
+            {payroll.length === 0 ? <p className="text-sm text-muted">{t("reports.noPayroll")}</p> : <div className="space-y-4">{payroll.map((run) => <div key={run.id} className="rounded-control border border-line p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="font-medium text-ink">{t("reports.payrollFor", { period: run.period.slice(0, 7) })}</div><Badge tone={run.status === "approved" ? "ok" : "warn"}>{run.status === "approved" ? t("hr.approved") : t("hr.pending")}</Badge></div><div className="grid gap-3 sm:grid-cols-4"><Kpi label={t("reports.payrollEmployees")} value={run.employee_count} /><Kpi label={t("reports.payrollBase")} value={money(run.base_total)} /><Kpi label={t("reports.payrollDeductions")} value={money(run.deductions_total)} /><Kpi label={t("reports.payrollNet")} tone="ok" value={money(run.net_total)} /></div><div className="mt-3 divide-y divide-line text-sm">{run.entries.map((entry) => <div key={`${run.id}-${entry.employee_name}`} className="flex flex-wrap items-center justify-between gap-2 py-2"><span className="text-ink">{entry.employee_name} <span className="text-muted">· {entry.department_name || "—"} · {entry.position_title || "—"}</span></span><span className="tabular font-medium">{money(entry.net_salary)}</span></div>)}</div></div>)}</div>}
+          </SectionCard>}
 
           {/* Headline KPIs */}
           {!onlyHrReports && <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

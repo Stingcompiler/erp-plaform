@@ -19,7 +19,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.permissions import ReportAreaAccess
+from core.permissions import PayrollReportAccess, ReportAreaAccess
 from core.rbac import RoleModuleAccess
 from finance.metrics import date_range, operating_summary
 
@@ -111,6 +111,54 @@ class HrSummaryReport(ReportView):
                 for row in departments
             ],
         })
+
+
+class PayrollReport(ReportView):
+    """Monthly payroll snapshots, available to the HR reporting area."""
+
+    report_area = "hr"
+    permission_classes = [IsAuthenticated, RoleModuleAccess, PayrollReportAccess]
+
+    def get(self, request):
+        from hr.models import PayrollRun
+
+        cid = self.company_id(request)
+        start, end = self.date_range(request)
+        runs = PayrollRun.objects.filter(company_id=cid).prefetch_related("entries")
+        if start:
+            runs = runs.filter(period__gte=start.replace(day=1))
+        if end:
+            runs = runs.filter(period__lte=end.replace(day=1))
+
+        rows = []
+        for run in runs:
+            entries = list(run.entries.all())
+            rows.append({
+                "id": run.id,
+                "period": run.period.isoformat(),
+                "status": run.status,
+                "employee_count": len(entries),
+                "base_total": str(sum((entry.base_salary for entry in entries), ZERO)),
+                "deductions_total": str(sum((entry.deductions_total for entry in entries), ZERO)),
+                "advances_total": str(sum((entry.advances_total for entry in entries), ZERO)),
+                "net_total": str(sum((entry.net_salary for entry in entries), ZERO)),
+                "entries": [{
+                    "employee_name": entry.employee_name,
+                    "department_name": entry.department_name,
+                    "position_title": entry.position_title,
+                    "base_salary": str(entry.base_salary),
+                    "deductions_total": str(entry.deductions_total),
+                    "advances_total": str(entry.advances_total),
+                    "net_salary": str(entry.net_salary),
+                } for entry in entries],
+            })
+        if self.wants_csv(request):
+            return self.csv_response(
+                "payroll_report.csv",
+                ["period", "status", "employee", "department", "position", "base_salary", "deductions", "advances", "net_salary"],
+                [[row["period"], row["status"], item["employee_name"], item["department_name"], item["position_title"], item["base_salary"], item["deductions_total"], item["advances_total"], item["net_salary"]] for row in rows for item in row["entries"]],
+            )
+        return Response(rows)
 
 
 class SalesSummaryReport(ReportView):
