@@ -1,7 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
 from django.http import FileResponse, Http404
 from django.utils import timezone
@@ -242,7 +242,15 @@ class PayrollRunViewSet(CompanyScopedModelViewSet):
         entries = []
         for employee in employees:
             base = employee.position.base_salary if employee.position_id else Decimal("0")
-            deductions = Deduction.objects.filter(company_id=request.user.company_id, employee=employee, date__gte=period, date__lt=month_end).aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
+            # Earlier deductions did not require an explicit effective date.
+            # Treat those as belonging to the month in which HR recorded them,
+            # while keeping dated deductions tied to their stated payroll month.
+            deductions = Deduction.objects.filter(
+                company_id=request.user.company_id, employee=employee
+            ).filter(
+                Q(date__gte=period, date__lt=month_end)
+                | Q(date__isnull=True, created_at__date__gte=period, created_at__date__lt=month_end)
+            ).aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
             advances = SalaryAdvance.objects.filter(company_id=request.user.company_id, employee=employee, status=SalaryAdvance.APPROVED, reviewed_at__date__gte=period, reviewed_at__date__lt=month_end).aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
             entries.append(PayrollEntry(payroll_run=run, employee=employee, employee_name=employee.full_name, department_name=getattr(employee.department, "name", "") or "", position_title=getattr(employee.position, "title", "") or "", base_salary=base, deductions_total=deductions, advances_total=advances, net_salary=max(Decimal("0"), base - deductions - advances)))
         PayrollEntry.objects.bulk_create(entries)

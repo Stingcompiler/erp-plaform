@@ -1,5 +1,6 @@
 from django.urls import reverse
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -190,6 +191,16 @@ class HrExpansionTests(HrBase):
         approved = client.post(reverse("payrollrun-approve", args=[create.data["id"]]))
         self.assertEqual(approved.status_code, status.HTTP_200_OK, approved.content)
         self.assertEqual(PayrollRun.objects.get(pk=create.data["id"]).status, PayrollRun.APPROVED)
+
+    def test_payroll_includes_undated_deduction_in_its_recorded_month(self):
+        self.pos_a.base_salary = "1000.00"
+        self.pos_a.save(update_fields=["base_salary"])
+        from hr.models import Deduction
+        deduction = Deduction.objects.create(company=self.company_a, employee=self.emp_a, amount="75.00")
+        Deduction.objects.filter(pk=deduction.pk).update(created_at=timezone.make_aware(datetime(2026, 9, 12)))
+        create = self.client.post(reverse("payrollrun-list"), {"period": "2026-09"}, format="json")
+        self.assertEqual(create.status_code, status.HTTP_201_CREATED, create.content)
+        self.assertEqual(create.data["entries"][0]["net_salary"], "925.00")
 
     def test_work_policy_and_deduction(self):
         pol = self.client.post(
