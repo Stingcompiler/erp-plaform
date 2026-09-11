@@ -163,6 +163,7 @@ def dashboard(request):
 
     if role_can(user, "sales", write=False):
         from sales.models import Invoice
+        from sales.debt_queries import debt_summary
         from sales.querysets import overdue_invoices
         inv = _scope_branch(Invoice.objects.filter(company_id=company_id, is_void=False), branch_id)
         # Top products by revenue — powers the dashboard chart, scoped the same
@@ -186,6 +187,9 @@ def dashboard(request):
                 for r in top
             ],
         }
+        # Receivables use the same derived calculation as the debt ledger so
+        # the overview can never show a balance that disagrees with its detail.
+        sections["debts"] = debt_summary(user)
 
     if role_can(user, "inventory", write=False):
         from django.db.models import F

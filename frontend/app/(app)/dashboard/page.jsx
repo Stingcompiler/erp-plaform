@@ -132,6 +132,21 @@ export default function DashboardPage() {
             </Section>
           )}
 
+          {sections.debts && (
+            <section className="mt-8">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="font-display text-base font-bold text-ink">{t("dashboard.debtLedger")}</h2>
+                <Link href="/debts" className="text-sm font-medium text-accent hover:underline">{t("common.view")}</Link>
+              </div>
+              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                <Link href="/debts"><Stat icon={Wallet} label={t("dashboard.outstandingReceivables")} tone="accent" value={money(sections.debts.outstanding)} /></Link>
+                <Link href="/debts?status=overdue"><Stat icon={AlertTriangle} label={t("dashboard.overdueReceivables")} tone={Number(sections.debts.overdue) > 0 ? "warn" : "ink"} value={money(sections.debts.overdue)} /></Link>
+                <Link href="/debts?status=owing"><Stat icon={UsersRound} label={t("dashboard.customersOwing")} value={sections.debts.debtor_count} /></Link>
+                <Link href="/debts?status=credit"><Stat icon={Wallet} label={t("dashboard.customerCredit")} tone="ok" value={money(sections.debts.credit_balance)} /></Link>
+              </div>
+            </section>
+          )}
+
           {/* Chart — top products by revenue, scoped to the same company/branch
               as the sales totals above. */}
           {sections.sales?.top_products?.length > 0 && (

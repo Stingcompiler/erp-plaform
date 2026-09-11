@@ -127,6 +127,19 @@ class DebtLedgerTestCase(APITestCase):
             400,
         )
 
+    def test_dashboard_uses_the_same_debt_summary(self):
+        invoice = self.invoice("100", due_date=timezone.localdate() - timedelta(days=1))
+        Payment.objects.create(
+            company=self.company, invoice=invoice, method=Payment.CASH,
+            amount=Decimal("30"), recorded_by=self.user,
+        )
+        response = self.secure_get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["sections"]["debts"], {
+            "outstanding": "70.00", "overdue": "70.00",
+            "credit_balance": "0.00", "debtor_count": 1,
+        })
+
     def test_branch_user_sees_only_own_branch_invoices(self):
         own_branch = Branch.objects.create(company=self.company, name="North")
         other_branch = Branch.objects.create(company=self.company, name="South")
