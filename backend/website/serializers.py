@@ -94,3 +94,16 @@ class PublicSiteSerializer(serializers.ModelSerializer):
             "order", "id"
         )
         return PublicFeaturedProductSerializer(featured, many=True).data
+
+
+class DemoRequestSerializer(serializers.Serializer):
+    request_uuid = serializers.UUIDField()
+    name = serializers.CharField(max_length=255)
+    email = serializers.EmailField(max_length=254)
+    message = serializers.CharField(max_length=4000, required=False, allow_blank=True)
+    website = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+    def validate_website(self, value):
+        if value:
+            raise serializers.ValidationError("Leave this field empty.")
+        return value

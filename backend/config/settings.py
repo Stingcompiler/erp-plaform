@@ -277,3 +277,6 @@ if FORCE_HTTPS:
     SECURE_HSTS_PRELOAD = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
+# Public enquiries are routed only to this explicitly configured platform tenant.
+DEMO_REQUEST_COMPANY_SLUG = env("DEMO_REQUEST_COMPANY_SLUG", default="")

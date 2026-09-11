@@ -136,3 +136,58 @@ class PublicSiteView(APIView):
                 {"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND
             )
         return Response(PublicSiteSerializer(site).data)
+
+
+class DemoRequestView(APIView):
+    """Save platform enquiries to the explicitly configured owner's CRM.
+
+    No tenant ID is accepted from visitors. Retries reuse the request UUID;
+    nothing is returned other than that public reference.
+    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get_throttles(self):
+        from rest_framework.throttling import AnonRateThrottle
+
+        class DemoThrottle(AnonRateThrottle):
+            scope = "demo_request"
+            rate = "5/hour"
+
+        return [DemoThrottle()]
+
+    def post(self, request):
+        from django.conf import settings
+        from django.db import transaction
+        from crm.models import Lead, Note
+        from website.serializers import DemoRequestSerializer
+
+        serializer = DemoRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        owner_slug = getattr(settings, "DEMO_REQUEST_COMPANY_SLUG", "")
+        if not owner_slug:
+            return Response({"detail": "Demo requests are not configured."}, status=503)
+        with transaction.atomic():
+            owner = Company.objects.select_for_update().filter(
+                slug=owner_slug, is_active=True,
+            ).first()
+            if owner is None:
+                return Response({"detail": "Demo requests are not configured."}, status=503)
+            reference = str(data["request_uuid"])
+            source = f"platform-demo:{reference}"
+            lead = Lead.objects.filter(company=owner, source=source).first()
+            if lead is None:
+                lead = Lead.objects.create(
+                    company=owner,
+                    source=source,
+                    name=data["name"],
+                    contact_name=data["name"],
+                    email=data["email"])
+                log_activity(action="create", company=owner, request=request,
+                             entity_type="Lead", entity_id=lead.pk)
+                if data.get("message"):
+                    note = Note.objects.create(company=owner, lead=lead, body=data["message"])
+                    log_activity(action="create", company=owner, request=request,
+                                 entity_type="Note", entity_id=note.pk)
+        return Response({"reference": reference, "status": "saved"}, status=201)

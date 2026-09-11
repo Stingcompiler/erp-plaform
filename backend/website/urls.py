@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from website.views import (
     FeaturedProductViewSet,
+    DemoRequestView,
     PublicSiteView,
     SectionViewSet,
     WebsitePublishView,
@@ -16,6 +17,7 @@ router.register(
 )
 
 urlpatterns = [
+    path("public/demo-requests/", DemoRequestView.as_view(), name="demo-request"),
     path("website/page/", WebsiteView.as_view(), name="website-page"),
     path("website/page/publish/", WebsitePublishView.as_view(), name="website-publish"),
     # Public, unauthenticated read-only site by company slug.
