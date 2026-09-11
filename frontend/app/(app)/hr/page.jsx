@@ -433,6 +433,11 @@ export default function HrPage() {
     if (canRead("hr")) load();
   }, [canRead, load]);
 
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    if (TABS.some(([key]) => key === requested)) setTab(requested);
+  }, []);
+
   const stats = useMemo(() => {
     const active = employees.filter((e) => e.status === "active").length;
     const onLeave = employees.filter((e) => e.status === "on_leave").length;

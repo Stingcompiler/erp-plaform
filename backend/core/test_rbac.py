@@ -118,3 +118,26 @@ class DashboardTests(RBACBase):
         self.assertIn("sales", resp.data["sections"])
         self.assertIn("inventory", resp.data["sections"])  # read access
         self.assertNotIn("purchasing", resp.data["sections"])
+
+    def test_pending_salary_advance_alert_is_limited_to_financial_approvers(self):
+        from hr.models import Employee, SalaryAdvance
+
+        employee = Employee.objects.create(company=self.company, full_name="Amina Ali")
+        SalaryAdvance.objects.create(
+            company=self.company, employee=employee, amount="800.00",
+            status=SalaryAdvance.PENDING,
+        )
+        hr_client = self.as_role("HR Officer", email="hr-alert@alpha.test")
+        self.assertNotIn("salary_advances", hr_client.get(reverse("dashboard")).data["sections"])
+
+        cfo_role = Role.objects.create(
+            name="Chief Financial Officer", scope_level=Role.SCOPE_BUSINESS
+        )
+        cfo = User.objects.create_user(
+            email="cfo-alert@alpha.test", password="passw0rd123",
+            company=self.company, role=cfo_role,
+        )
+        cfo_client = self.client_class()
+        cfo_client.force_authenticate(cfo)
+        alert = cfo_client.get(reverse("dashboard")).data["sections"]["salary_advances"]
+        self.assertEqual(alert, {"pending_count": 1, "pending_total": "800"})

@@ -12,7 +12,7 @@ from rest_framework.response import Response
 
 from core.models import ActivityLog
 from core.permissions import IsAuditViewer
-from core.rbac import access_map, role_can
+from core.rbac import access_map, can_approve_high_value, role_can
 from core.serializers import ActivityLogSerializer
 
 
@@ -242,6 +242,21 @@ def dashboard(request):
             "pending_leave_count": LeaveRequest.objects.filter(
                 company_id=company_id, status=LeaveRequest.PENDING
             ).count(),
+        }
+
+    # Salary advances remain HR requests, but the financial decision belongs
+    # to the CFO/executive approver. Keep this alert out of every other
+    # dashboard so a request's amount and count do not leak across roles.
+    if company_id and can_approve_high_value(user):
+        from hr.models import SalaryAdvance
+        pending_advances = SalaryAdvance.objects.filter(
+            company_id=company_id, status=SalaryAdvance.PENDING
+        )
+        sections["salary_advances"] = {
+            "pending_count": pending_advances.count(),
+            "pending_total": str(
+                pending_advances.aggregate(t=Coalesce(Sum("amount"), Decimal("0")))["t"]
+            ),
         }
 
     if role_can(user, "finance", write=False):

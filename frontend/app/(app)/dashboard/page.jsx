@@ -112,6 +112,25 @@ export default function DashboardPage() {
               {canRead("sales_returns") && <Link className="flex min-h-12 items-center justify-center rounded-control border border-line bg-surface px-4 py-3 transition-colors hover:border-accent/50 hover:bg-accent/5 text-sm" href="/returns">{t("improvements.reviewReturns")} · {sections.returns?.pending_disposition_count ?? "—"}</Link>}
             </div>
           </section>
+          {sections.salary_advances?.pending_count > 0 && (
+            <Link
+              href="/hr?tab=advances"
+              className="mb-6 flex items-center justify-between gap-4 rounded-card border border-warn/30 bg-warn/10 p-5 transition-colors hover:border-warn/60"
+            >
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-warn/20 text-warn">
+                  <AlertTriangle size={20} />
+                </span>
+                <div>
+                  <h2 className="font-display text-base font-bold text-ink">{t("dashboard.pendingAdvancesTitle")}</h2>
+                  <p className="mt-1 text-sm text-muted">
+                    {t("dashboard.pendingAdvancesMessage", { count: sections.salary_advances.pending_count })}
+                  </p>
+                </div>
+              </div>
+              <span className="shrink-0 text-sm font-semibold text-warn">{t("dashboard.reviewAdvances")}</span>
+            </Link>
+          )}
           {sections.sales && <div className="mb-6 grid grid-cols-2 gap-3">
             <Link href="/sales?tab=invoices"><Stat icon={Receipt} label={t("improvements.todaySales")} value={money(sections.sales.today_total)} sub={data.currency} tone="accent" /></Link>
             <Link href="/sales?tab=invoices&overdue=1"><Stat icon={CalendarClock} label={t("improvements.overdue")} value={sections.sales.overdue_count} /></Link>
