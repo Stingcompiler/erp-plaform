@@ -218,3 +218,6 @@ class DepartmentViewSet(CompanyScopedModelViewSet):
     queryset = Department.objects.select_related("company", "branch").all()
     serializer_class = DepartmentSerializer
     activity_entity_type = "Department"
+    # Departments are maintained by HR; this lets an HR manager organise the
+    # workforce without granting access to company-wide settings.
+    rbac_module = "hr"

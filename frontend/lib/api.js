@@ -173,6 +173,9 @@ export const hr = {
   createSalaryAdvance: (body) => api.post("/salary-advances/", body),
   approveAdvance: (id) => api.post(`/salary-advances/${id}/approve/`),
   rejectAdvance: (id) => api.post(`/salary-advances/${id}/reject/`),
+  payrollRuns: () => api.get("/payroll-runs/"),
+  createPayrollRun: (period) => api.post("/payroll-runs/", { period }),
+  approvePayrollRun: (id) => api.post(`/payroll-runs/${id}/approve/`),
   policies: () => api.get("/work-policies/"),
   createPolicy: (body) => api.post("/work-policies/", body),
   deductions: (params) => api.get("/deductions/", { params }),
@@ -236,6 +239,9 @@ export const org = {
   branches: () => api.get("/branches/"),
   createBranch: (body) => api.post("/branches/", body),
   updateBranch: (id, body) => api.patch(`/branches/${id}/`, body),
+  departments: () => api.get("/departments/"),
+  createDepartment: (body) => api.post("/departments/", body),
+  updateDepartment: (id, body) => api.patch(`/departments/${id}/`, body),
 };
 
 // Absolute API base, for links the browser navigates to directly (CSV export).

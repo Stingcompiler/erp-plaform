@@ -14,11 +14,12 @@ const EMPTY = {
   email: "",
   phone: "",
   position: "",
+  department: "",
   hire_date: "",
   status: "active",
 };
 
-export default function EmployeeDrawer({ open, employee, positions, writable, onClose, onSaved }) {
+export default function EmployeeDrawer({ open, employee, positions, departments, writable, onClose, onSaved }) {
   const { t } = useI18n();
   const toast = useToast();
   const editing = Boolean(employee?.id);
@@ -36,6 +37,7 @@ export default function EmployeeDrawer({ open, employee, positions, writable, on
         email: employee.email || "",
         phone: employee.phone || "",
         position: employee.position ?? "",
+        department: employee.department ?? "",
         hire_date: employee.hire_date || "",
         status: employee.status || "active",
       });
@@ -49,6 +51,7 @@ export default function EmployeeDrawer({ open, employee, positions, writable, on
     const payload = {
       ...form,
       position: form.position === "" ? null : form.position,
+      department: form.department === "" ? null : form.department,
       hire_date: form.hire_date === "" ? null : form.hire_date,
     };
     try {
@@ -94,6 +97,12 @@ export default function EmployeeDrawer({ open, employee, positions, writable, on
               {(positions || []).map((p) => (
                 <option key={p.id} value={p.id}>{p.title}</option>
               ))}
+            </Select>
+          </Field>
+          <Field label={t("hr.department")}>
+            <Select value={form.department} onChange={(e) => set("department", e.target.value)} disabled={!writable}>
+              <option value="">—</option>
+              {(departments || []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </Select>
           </Field>
           <Field label={t("common.email")}>

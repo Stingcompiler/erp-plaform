@@ -313,6 +313,44 @@ class SalaryAdvance(models.Model):
         return f"Advance<{self.employee_id}: {self.amount}>"
 
 
+class PayrollRun(models.Model):
+    """A monthly payroll snapshot produced by HR and approved by finance."""
+
+    DRAFT = "draft"
+    APPROVED = "approved"
+    STATUS_CHOICES = [(DRAFT, "Draft"), (APPROVED, "Approved")]
+
+    company = models.ForeignKey("org.Company", on_delete=models.CASCADE, related_name="payroll_runs")
+    period = models.DateField(help_text="First day of the payroll month")
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=DRAFT)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="created_payroll_runs")
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="approved_payroll_runs")
+    approved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-period"]
+        constraints = [models.UniqueConstraint(fields=["company", "period"], name="uniq_payroll_run_per_month")]
+
+
+class PayrollEntry(models.Model):
+    """Immutable salary calculation for one employee within a payroll run."""
+
+    payroll_run = models.ForeignKey(PayrollRun, on_delete=models.CASCADE, related_name="entries")
+    employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="payroll_entries")
+    employee_name = models.CharField(max_length=255)
+    department_name = models.CharField(max_length=255, blank=True)
+    position_title = models.CharField(max_length=255, blank=True)
+    base_salary = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0"))
+    deductions_total = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0"))
+    advances_total = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0"))
+    net_salary = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0"))
+
+    class Meta:
+        ordering = ["employee_name"]
+        constraints = [models.UniqueConstraint(fields=["payroll_run", "employee"], name="uniq_payroll_entry_per_employee")]
+
+
 class WorkPolicy(models.Model):
     """A workplace rule/policy an employee can violate (misconduct, absence,
     tardiness, …). Deductions reference the policy that was breached."""

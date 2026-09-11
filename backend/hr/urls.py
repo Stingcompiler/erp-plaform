@@ -10,6 +10,7 @@ from hr.views import (
     PerformanceRecordViewSet,
     PositionViewSet,
     SalaryAdvanceViewSet,
+    PayrollRunViewSet,
     WorkPolicyViewSet,
 )
 
@@ -21,6 +22,7 @@ router.register("leave-requests", LeaveRequestViewSet, basename="leaverequest")
 router.register("performance-records", PerformanceRecordViewSet, basename="performancerecord")
 router.register("employee-documents", EmployeeDocumentViewSet, basename="employeedocument")
 router.register("salary-advances", SalaryAdvanceViewSet, basename="salaryadvance")
+router.register("payroll-runs", PayrollRunViewSet, basename="payrollrun")
 router.register("work-policies", WorkPolicyViewSet, basename="workpolicy")
 router.register("deductions", DeductionViewSet, basename="deduction")
 

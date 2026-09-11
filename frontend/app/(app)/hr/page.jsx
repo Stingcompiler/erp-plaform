@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, FileText, Lock, Plus, Stethoscope, X } from "lucide-react";
 
-import { hr } from "@/lib/api";
+import { hr, org } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
@@ -202,6 +202,23 @@ function PositionDrawer({ open, writable, onClose, onSaved }) {
   );
 }
 
+function DepartmentDrawer({ open, department, writable, onClose, onSaved }) {
+  const { t } = useI18n();
+  const toast = useToast();
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { if (open) setName(department?.name || ""); }, [open, department]);
+  async function save() {
+    setSaving(true);
+    try {
+      if (department?.id) await org.updateDepartment(department.id, { name });
+      else await org.createDepartment({ name });
+      toast.success(t("common.save")); onSaved?.(); onClose();
+    } catch { toast.error(t("common.loadError")); } finally { setSaving(false); }
+  }
+  return <Drawer open={open} onClose={onClose} title={department?.id ? t("hr.editDepartment") : t("hr.newDepartment")} footer={writable && <div className="flex justify-end gap-2"><Button variant="outline" onClick={onClose}>{t("common.cancel")}</Button><Button onClick={save} disabled={saving || !name.trim()}>{saving ? t("common.saving") : t("common.save")}</Button></div>}><Field label={t("hr.departmentName")}><Input value={name} onChange={(e) => setName(e.target.value)} disabled={!writable} /></Field></Drawer>;
+}
+
 function AdvanceDrawer({ open, employees, writable, onClose, onSaved }) {
   const { t } = useI18n();
   const toast = useToast();
@@ -381,8 +398,10 @@ function DeductionDrawer({ open, employees, policies, writable, onClose, onSaved
 const TABS = [
   ["employees", "hr.employees"],
   ["positions", "hr.positions"],
+  ["departments", "hr.departments"],
   ["leave", "hr.leaveRequests"],
   ["advances", "hr.salaryAdvances"],
+  ["payroll", "hr.payroll"],
   ["policies", "hr.workPolicies"],
   ["deductions", "hr.deductions"],
 ];
@@ -408,11 +427,15 @@ export default function HrPage() {
   const [advances, setAdvances] = useState([]);
   const [policies, setPolicies] = useState([]);
   const [deductions, setDeductions] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [payrollRuns, setPayrollRuns] = useState([]);
+  const [payrollPeriod, setPayrollPeriod] = useState(() => new Date().toISOString().slice(0, 7));
   const [loading, setLoading] = useState(true);
 
   const [empDrawer, setEmpDrawer] = useState({ open: false, employee: null });
   const [leaveDrawer, setLeaveDrawer] = useState({ open: false, sick: false });
   const [positionDrawerOpen, setPositionDrawerOpen] = useState(false);
+  const [departmentDrawer, setDepartmentDrawer] = useState({ open: false, department: null });
   const [advanceDrawerOpen, setAdvanceDrawerOpen] = useState(false);
   const [policyDrawerOpen, setPolicyDrawerOpen] = useState(false);
   const [deductionDrawerOpen, setDeductionDrawerOpen] = useState(false);
@@ -426,6 +449,8 @@ export default function HrPage() {
       hr.salaryAdvances({ page: 1 }).then((r) => setAdvances(r.data.results)).catch(() => setAdvances([])),
       hr.policies().then((r) => setPolicies(r.data.results)).catch(() => setPolicies([])),
       hr.deductions({ page: 1 }).then((r) => setDeductions(r.data.results)).catch(() => setDeductions([])),
+      org.departments().then((r) => setDepartments(r.data.results || r.data)).catch(() => setDepartments([])),
+      hr.payrollRuns().then((r) => setPayrollRuns(r.data.results || r.data)).catch(() => setPayrollRuns([])),
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -458,11 +483,22 @@ export default function HrPage() {
     }
   }
 
+  async function createPayroll() {
+    try {
+      await hr.createPayrollRun(payrollPeriod);
+      toast.success(t("common.save"));
+      load();
+    } catch {
+      toast.error(t("common.loadError"));
+    }
+  }
+
   function headerAction() {
     if (!writable) return null;
     const map = {
       employees: () => setEmpDrawer({ open: true, employee: null }),
       positions: () => setPositionDrawerOpen(true),
+      departments: () => setDepartmentDrawer({ open: true, department: null }),
       advances: () => setAdvanceDrawerOpen(true),
       policies: () => setPolicyDrawerOpen(true),
       deductions: () => setDeductionDrawerOpen(true),
@@ -470,6 +506,7 @@ export default function HrPage() {
     const label = {
       employees: "hr.newEmployee",
       positions: "hr.newPosition",
+      departments: "hr.newDepartment",
       advances: "hr.newAdvance",
       policies: "hr.newPolicy",
       deductions: "hr.newDeduction",
@@ -485,6 +522,9 @@ export default function HrPage() {
           </Button>
         </div>
       );
+    }
+    if (tab === "payroll") {
+      return <div className="flex gap-2"><Input type="month" value={payrollPeriod} onChange={(e) => setPayrollPeriod(e.target.value)} /><Button onClick={createPayroll}><Plus size={16} /> {t("hr.createPayroll")}</Button></div>;
     }
     return (
       <Button onClick={map[tab]}>
@@ -546,7 +586,7 @@ export default function HrPage() {
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium text-ink">{e.full_name}</div>
                 <div className="truncate text-sm text-muted">
-                  {e.position_title || e.department_name || e.email || "—"}
+                  {[e.department_name, e.position_title].filter(Boolean).join(" · ") || e.email || "—"}
                 </div>
               </div>
               <Badge tone={EMP_STATUS_TONE[e.status]}>{t(EMP_STATUS_KEY[e.status])}</Badge>
@@ -572,6 +612,30 @@ export default function HrPage() {
               )}
               <Badge tone="muted">{p.employee_count ?? 0} {t("hr.employeesUsing")}</Badge>
             </div>
+          ))}
+        </div>
+      )}
+
+      {!loading && tab === "departments" && (
+        <div className="mt-4 space-y-2">
+          {departments.length === 0 && <Card className="p-8 text-center text-muted">{t("hr.noDepartments")}</Card>}
+          {departments.map((department) => <button key={department.id} onClick={() => setDepartmentDrawer({ open: true, department })} className="flex w-full items-center justify-between rounded-card border border-line bg-surface p-4 text-start shadow-card transition-colors hover:border-accent"><span className="font-medium text-ink">{department.name}</span><Badge tone={department.is_active ? "ok" : "muted"}>{department.is_active ? t("common.active") : t("common.inactive")}</Badge></button>)}
+        </div>
+      )}
+
+      {!loading && tab === "payroll" && (
+        <div className="mt-4 space-y-3">
+          {payrollRuns.length === 0 && <Card className="p-8 text-center text-muted">{t("hr.noPayroll")}</Card>}
+          {payrollRuns.map((run) => (
+            <Card key={run.id} className="p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div><div className="font-medium text-ink">{t("hr.payrollFor", { period: run.period?.slice(0, 7) })}</div><div className="text-sm text-muted">{t("hr.payrollEmployees", { count: run.employee_count })}</div></div>
+                <div className="flex items-center gap-2"><Badge tone={run.status === "approved" ? "ok" : "warn"}>{run.status === "approved" ? t("hr.approved") : t("hr.pending")}</Badge>{canApproveAdvances && run.status === "draft" && <Button variant="outline" onClick={() => decide("approve", run.id, hr.approvePayrollRun, hr.approvePayrollRun)}><Check size={15} /> {t("hr.approve")}</Button>}</div>
+              </div>
+              <div className="mt-3 divide-y divide-line border-t border-line">
+                {(run.entries || []).map((entry) => <div key={entry.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"><div><span className="font-medium text-ink">{entry.employee_name}</span><span className="text-muted"> · {entry.department_name || "—"} · {entry.position_title || "—"}</span></div><div className="tabular text-ink">{money(entry.net_salary)}</div></div>)}
+              </div>
+            </Card>
           ))}
         </div>
       )}
@@ -693,6 +757,7 @@ export default function HrPage() {
         open={empDrawer.open}
         employee={empDrawer.employee}
         positions={positions}
+        departments={departments}
         writable={writable}
         onClose={() => setEmpDrawer({ open: false, employee: null })}
         onSaved={load}
@@ -711,6 +776,7 @@ export default function HrPage() {
         onClose={() => setPositionDrawerOpen(false)}
         onSaved={load}
       />
+      <DepartmentDrawer open={departmentDrawer.open} department={departmentDrawer.department} writable={writable} onClose={() => setDepartmentDrawer({ open: false, department: null })} onSaved={load} />
       <AdvanceDrawer
         open={advanceDrawerOpen}
         employees={employees}

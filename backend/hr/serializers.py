@@ -20,6 +20,8 @@ from hr.models import (
     PerformanceRecord,
     Position,
     SalaryAdvance,
+    PayrollRun,
+    PayrollEntry,
     WorkPolicy,
 )
 
@@ -196,6 +198,23 @@ class SalaryAdvanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer
             if request is not None:
                 validated_data["reviewed_by"] = request.user
         return super().update(instance, validated_data)
+
+
+class PayrollEntrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PayrollEntry
+        fields = ["id", "employee", "employee_name", "department_name", "position_title", "base_salary", "deductions_total", "advances_total", "net_salary"]
+        read_only_fields = fields
+
+
+class PayrollRunSerializer(serializers.ModelSerializer):
+    entries = PayrollEntrySerializer(many=True, read_only=True)
+    employee_count = serializers.IntegerField(source="entries.count", read_only=True)
+
+    class Meta:
+        model = PayrollRun
+        fields = ["id", "period", "status", "employee_count", "created_at", "approved_at", "entries"]
+        read_only_fields = fields
 
 
 class WorkPolicySerializer(serializers.ModelSerializer):

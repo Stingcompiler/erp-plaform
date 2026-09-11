@@ -169,6 +169,28 @@ class HrExpansionTests(HrBase):
         self.assertEqual(approve.status_code, 200, approve.content)
         self.assertEqual(approve.data["status"], "approved")
 
+    def test_hr_can_generate_payroll_and_cfo_can_approve_it(self):
+        self.pos_a.base_salary = "1000.00"
+        self.pos_a.save(update_fields=["base_salary"])
+        from hr.models import Deduction, PayrollRun
+        Deduction.objects.create(company=self.company_a, employee=self.emp_a, amount="50.00", date=date(2026, 9, 10))
+        create = self.client.post(reverse("payrollrun-list"), {"period": "2026-09"}, format="json")
+        self.assertEqual(create.status_code, status.HTTP_201_CREATED, create.content)
+        entry = create.data["entries"][0]
+        self.assertEqual(entry["base_salary"], "1000.00")
+        self.assertEqual(entry["deductions_total"], "50.00")
+        self.assertEqual(entry["net_salary"], "950.00")
+
+        denied = self.client.post(reverse("payrollrun-approve", args=[create.data["id"]]))
+        self.assertEqual(denied.status_code, status.HTTP_403_FORBIDDEN)
+        cfo_role = Role.objects.create(name="Chief Financial Officer", scope_level=Role.SCOPE_BUSINESS)
+        cfo = User.objects.create_user(email="payroll-cfo@alpha.test", password="passw0rd123", company=self.company_a, role=cfo_role)
+        client = self.client_class()
+        client.force_authenticate(cfo)
+        approved = client.post(reverse("payrollrun-approve", args=[create.data["id"]]))
+        self.assertEqual(approved.status_code, status.HTTP_200_OK, approved.content)
+        self.assertEqual(PayrollRun.objects.get(pk=create.data["id"]).status, PayrollRun.APPROVED)
+
     def test_work_policy_and_deduction(self):
         pol = self.client.post(
             reverse("workpolicy-list"),
