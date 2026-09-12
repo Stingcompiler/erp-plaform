@@ -37,3 +37,36 @@ def check_leave_balance(leave):
         used = usage(leave.employee_id, leave.company_id, year, leave.leave_type, exclude=leave.pk)
         if used + days_in_year(leave.start_date, leave.end_date, year) > allowance.entitled_days + allowance.carried_days:
             raise ValidationError({"detail": "Insufficient configured leave balance.", "code": "insufficient_leave_balance", "year": year})
+
+
+def add_months(value, months):
+    """Calendar addition without another dependency; safe for month-end hires."""
+    month = value.month - 1 + months
+    year, month = value.year + month // 12, month % 12 + 1
+    import calendar
+    return date(year, month, min(value.day, calendar.monthrange(year, month)[1]))
+
+
+def eligible(employee, policy, year):
+    if not employee.hire_date or employee.hire_date > date(year, 12, 31):
+        return False
+    return add_months(employee.hire_date, policy.minimum_service_months) <= date(year, 12, 31)
+
+
+def policy_entitlement(employee, policy, year):
+    if policy.prorate_first_year and employee.hire_date.year == year:
+        start, end = employee.hire_date, date(year, 12, 31)
+        days = (end - start).days + 1
+        denominator = (date(year + 1, 1, 1) - date(year, 1, 1)).days
+        return (policy.annual_days * Decimal(days) / Decimal(denominator)).quantize(Decimal("0.01"))
+    return policy.annual_days
+
+
+def carryover(employee, policy, year):
+    previous = LeaveAllowance.objects.filter(
+        company_id=employee.company_id, employee=employee,
+        year=year - 1, leave_type=policy.leave_type,
+    ).first()
+    if not previous:
+        return Decimal("0")
+    return min(max(Decimal("0"), balance(previous)["remaining_days"]), policy.carryover_limit)

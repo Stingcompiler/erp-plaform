@@ -153,6 +153,10 @@ export const crm = {
 };
 
 export const hr = {
+  leaveAccrualPolicies: () => api.get("/leave-accrual-policies/"),
+  createLeaveAccrualPolicy: (body) => api.post("/leave-accrual-policies/", body),
+  updateLeaveAccrualPolicy: (id, body) => api.patch(`/leave-accrual-policies/${id}/`, body),
+  generateLeaveAllowances: (year) => api.post("/leave-accrual-policies/generate/", { year }),
   leaveAllowances: (params) => api.get("/leave-allowances/", { params }),
   createLeaveAllowance: (body) => api.post("/leave-allowances/", body),
   updateLeaveAllowance: (id, body) => api.patch(`/leave-allowances/${id}/`, body),

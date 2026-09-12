@@ -241,6 +241,24 @@ class LeaveAllowance(models.Model):
         constraints = [models.UniqueConstraint(fields=["company", "employee", "year", "leave_type"], name="unique_employee_leave_allowance")]
 
 
+class LeaveAccrualPolicy(models.Model):
+    """Company-owned configuration, never a hard-coded statutory entitlement."""
+
+    company = models.ForeignKey("org.Company", on_delete=models.CASCADE)
+    leave_type = models.CharField(max_length=16, choices=LeaveRequest.TYPE_CHOICES)
+    annual_days = models.DecimalField(max_digits=7, decimal_places=2)
+    minimum_service_months = models.PositiveSmallIntegerField(default=0)
+    prorate_first_year = models.BooleanField(default=True)
+    carryover_limit = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["leave_type"]
+        constraints = [models.UniqueConstraint(fields=["company", "leave_type"], name="unique_company_leave_accrual_policy")]
+
+
 class PerformanceRecord(models.Model):
     """A periodic performance review/rating for an employee."""
 

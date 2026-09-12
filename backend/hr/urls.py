@@ -13,6 +13,7 @@ from hr.views import (
     PayrollRunViewSet,
     WorkPolicyViewSet,
     LeaveAllowanceViewSet,
+    LeaveAccrualPolicyViewSet,
 )
 
 router = DefaultRouter()
@@ -21,6 +22,7 @@ router.register("employees", EmployeeViewSet, basename="employee")
 router.register("attendance", AttendanceViewSet, basename="attendance")
 router.register("leave-requests", LeaveRequestViewSet, basename="leaverequest")
 router.register("leave-allowances", LeaveAllowanceViewSet, basename="leaveallowance")
+router.register("leave-accrual-policies", LeaveAccrualPolicyViewSet, basename="leaveaccrualpolicy")
 router.register("performance-records", PerformanceRecordViewSet, basename="performancerecord")
 router.register("employee-documents", EmployeeDocumentViewSet, basename="employeedocument")
 router.register("salary-advances", SalaryAdvanceViewSet, basename="salaryadvance")

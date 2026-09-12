@@ -11,6 +11,7 @@ import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/compone
 import Drawer from "@/components/ui/Drawer";
 import EmployeeDrawer from "@/components/hr/EmployeeDrawer";
 import LeaveBalances from "@/components/hr/LeaveBalances";
+import LeavePolicies from "@/components/hr/LeavePolicies";
 
 const EMP_STATUS_TONE = { active: "ok", on_leave: "warn", terminated: "danger" };
 const EMP_STATUS_KEY = {
@@ -403,6 +404,7 @@ const TABS = [
   ["departments", "hr.departments"],
   ["leave", "hr.leaveRequests"],
   ["leave-balances", "hr.leaveBalances"],
+  ["leave-policies", "hr.leavePolicies"],
   ["advances", "hr.salaryAdvances"],
   ["payroll", "hr.payroll"],
   ["policies", "hr.workPolicies"],
@@ -524,7 +526,7 @@ export default function HrPage() {
 
   function headerAction() {
     if (!writable) return null;
-    if (tab === "leave-balances") return null;
+    if (tab === "leave-balances" || tab === "leave-policies") return null;
     const map = {
       employees: () => setEmpDrawer({ open: true, employee: null }),
       positions: () => setPositionDrawer({ open: true, position: null }),
@@ -601,6 +603,7 @@ export default function HrPage() {
 
       {loading && <p className="py-8 text-center text-muted">{t("common.loading")}</p>}
       {tab === "leave-balances" && <LeaveBalances writable={writable} />}
+      {tab === "leave-policies" && <LeavePolicies writable={writable} />}
 
       {/* Employees */}
       {!loading && tab === "employees" && (

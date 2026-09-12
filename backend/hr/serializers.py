@@ -24,6 +24,7 @@ from hr.models import (
     PayrollEntry,
     WorkPolicy,
     LeaveAllowance,
+    LeaveAccrualPolicy,
 )
 
 
@@ -225,6 +226,27 @@ class LeaveAllowanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerialize
             raise serializers.ValidationError("The allocation cannot be less than already approved leave.")
         if not str(attrs.get("note", "")).strip():
             raise serializers.ValidationError({"note": "Provide the allocation or adjustment reason."})
+        return attrs
+
+
+class LeaveAccrualPolicySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LeaveAccrualPolicy
+        fields = ["id", "leave_type", "annual_days", "minimum_service_months", "prorate_first_year", "carryover_limit", "is_active", "created_at", "updated_at"]
+        read_only_fields = ["created_at", "updated_at"]
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        company_id = getattr(getattr(request, "user", None), "company_id", None)
+        leave_type = attrs.get("leave_type", getattr(self.instance, "leave_type", None))
+        if company_id and LeaveAccrualPolicy.objects.filter(
+            company_id=company_id, leave_type=leave_type
+        ).exclude(pk=getattr(self.instance, "pk", None)).exists():
+            raise serializers.ValidationError({"leave_type": "A policy already exists for this leave type."})
+        for name in ("annual_days", "carryover_limit"):
+            value = attrs.get(name, getattr(self.instance, name, None))
+            if value is not None and value < 0:
+                raise serializers.ValidationError({name: "Days cannot be negative."})
         return attrs
 
 

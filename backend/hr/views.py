@@ -29,6 +29,7 @@ from hr.models import (
     PayrollEntry,
     WorkPolicy,
     LeaveAllowance,
+    LeaveAccrualPolicy,
 )
 from hr.leave_sync import (
     apply_approved_leave,
@@ -47,6 +48,7 @@ from hr.serializers import (
     PayrollRunSerializer,
     WorkPolicySerializer,
     LeaveAllowanceSerializer,
+    LeaveAccrualPolicySerializer,
 )
 
 
@@ -276,6 +278,44 @@ class LeaveAllowanceViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
             super().perform_create(serializer)
         finally:
             self.branch_field = branch_field
+
+
+class LeaveAccrualPolicyViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
+    queryset = LeaveAccrualPolicy.objects.select_related("company").all()
+    serializer_class = LeaveAccrualPolicySerializer
+    activity_entity_type = "LeaveAccrualPolicy"
+
+    @action(detail=False, methods=["post"])
+    @transaction.atomic
+    def generate(self, request):
+        try:
+            year = int(request.data.get("year"))
+        except (TypeError, ValueError):
+            raise ValidationError({"year": "Use a valid year."})
+        if not 1900 <= year <= 9998:
+            raise ValidationError({"year": "Use a year from 1900 to 9998."})
+        from hr.leave_balances import carryover, eligible, policy_entitlement
+        policies = list(self.get_queryset().filter(is_active=True))
+        employees = list(Employee.objects.select_for_update().filter(company_id=request.user.company_id).exclude(status=Employee.STATUS_TERMINATED))
+        created, skipped, ineligible = 0, 0, 0
+        for policy in policies:
+            for employee in employees:
+                if not eligible(employee, policy, year):
+                    ineligible += 1
+                    continue
+                allowance, made = LeaveAllowance.objects.get_or_create(
+                    company_id=policy.company_id, employee=employee, year=year,
+                    leave_type=policy.leave_type,
+                    defaults={
+                        "entitled_days": policy_entitlement(employee, policy, year),
+                        "carried_days": carryover(employee, policy, year),
+                        "note": f"Generated from leave policy #{policy.pk} for {year}.",
+                    },
+                )
+                created += int(made)
+                skipped += int(not made)
+        log_activity(action="generate", request=request, entity_type="LeaveAllowance", metadata={"year": year, "created": created, "skipped": skipped, "ineligible": ineligible})
+        return Response({"year": year, "created": created, "skipped": skipped, "ineligible": ineligible})
 
 
 class SalaryAdvanceViewSet(CompanyScopedModelViewSet):
