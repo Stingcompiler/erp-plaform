@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 
-import { inventory, purchasing, returns } from "@/lib/api";
+import { purchasing, returns } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Field, Input, Select } from "@/components/ui/kit";
@@ -16,18 +16,18 @@ import { Button, Field, Input, Select } from "@/components/ui/kit";
  * unreachable from the app.
  *
  * Unlike a sales return the goods leave immediately (there is nothing to
- * quarantine), and the debit note amount is typed rather than derived: a
- * purchase return line carries no price, and nothing links it to what the
- * supplier charged.
+ * quarantine). Every row is selected from its original receipt, so the server
+ * can enforce the returnable quantity and derive the debit note value.
  */
 export default function NewPurchaseReturnDrawer({ open, onClose, onCreated }) {
   const { t } = useI18n();
   const [suppliers, setSuppliers] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [bills, setBills] = useState([]);
-  const [products, setProducts] = useState([]);
+  const [receipts, setReceipts] = useState([]);
 
   const [supplier, setSupplier] = useState("");
+  const [receipt, setReceipt] = useState("");
   const [warehouse, setWarehouse] = useState("");
   const [bill, setBill] = useState("");
   const [reason, setReason] = useState("");
@@ -39,6 +39,7 @@ export default function NewPurchaseReturnDrawer({ open, onClose, onCreated }) {
   useEffect(() => {
     if (!open) return;
     setSupplier("");
+    setReceipt("");
     setWarehouse("");
     setBill("");
     setReason("");
@@ -47,35 +48,54 @@ export default function NewPurchaseReturnDrawer({ open, onClose, onCreated }) {
     setError("");
     purchasing.suppliers({ page: 1 }).then((r) => setSuppliers(r.data.results)).catch(() => {});
     inventory.warehouses().then((r) => setWarehouses(r.data.results)).catch(() => {});
-    inventory.products({ page: 1 }).then((r) => setProducts(r.data.results)).catch(() => {});
   }, [open]);
 
   // Only this supplier's bills can be credited against.
   useEffect(() => {
     if (!supplier) {
       setBills([]);
+      setReceipts([]);
       return;
     }
-    purchasing
-      .bills({ page: 1 })
-      .then((r) =>
-        setBills((r.data.results || []).filter((b) => String(b.supplier) === supplier)),
-      )
-      .catch(() => setBills([]));
+    Promise.all([
+      purchasing.bills({ page: 1 }),
+      purchasing.goodsReceipts({ page: 1, supplier }),
+    ]).then(([billResponse, receiptResponse]) => {
+      setBills((billResponse.data.results || []).filter((b) => String(b.supplier) === supplier));
+      setReceipts(receiptResponse.data.results || receiptResponse.data);
+    }).catch(() => {
+      setBills([]);
+      setReceipts([]);
+    });
   }, [supplier]);
 
-  const addLine = () => setLines((ls) => [...ls, { product: "", quantity: "1" }]);
+  const supplierReceipts = receipts;
+  const selectedReceipt = receipts.find((r) => String(r.id) === receipt);
+
+  useEffect(() => {
+    setReceipt("");
+    setWarehouse("");
+    setLines([]);
+  }, [supplier]);
+
+  useEffect(() => {
+    if (!selectedReceipt) return;
+    setWarehouse(String(selectedReceipt.warehouse));
+    setLines([]);
+  }, [selectedReceipt]);
+
+  const addLine = () => setLines((ls) => [...ls, { goods_receipt_line: "", quantity: "1" }]);
   const setLine = (i, patch) =>
     setLines((ls) => ls.map((l, n) => (n === i ? { ...l, ...patch } : l)));
   const removeLine = (i) => setLines((ls) => ls.filter((_, n) => n !== i));
 
   async function submit() {
     setError("");
-    if (!supplier || !warehouse) {
+    if (!supplier || !warehouse || !receipt) {
       setError(t("returns.chooseSupplierWarehouse"));
       return;
     }
-    const payload = lines.filter((l) => l.product && Number(l.quantity) > 0);
+    const payload = lines.filter((l) => l.goods_receipt_line && Number(l.quantity) > 0);
     if (payload.length === 0) {
       setError(t("returns.addAtLeastOneLine"));
       return;
@@ -86,11 +106,12 @@ export default function NewPurchaseReturnDrawer({ open, onClose, onCreated }) {
         client_uuid: crypto.randomUUID(),
         supplier: Number(supplier),
         warehouse: Number(warehouse),
+        goods_receipt: Number(receipt),
         reason,
         ...(bill ? { bill: Number(bill) } : {}),
         ...(debitAmount ? { debit_amount: String(debitAmount) } : {}),
         lines: payload.map((l) => ({
-          product: Number(l.product),
+          goods_receipt_line: Number(l.goods_receipt_line),
           quantity: String(l.quantity),
         })),
       });
@@ -140,8 +161,16 @@ export default function NewPurchaseReturnDrawer({ open, onClose, onCreated }) {
               ))}
             </Select>
           </Field>
+          <Field label={t("returns.originalReceipt")}>
+            <Select value={receipt} onChange={(e) => setReceipt(e.target.value)} disabled={!supplier}>
+              <option value="">{t("common.select")}</option>
+              {supplierReceipts.map((r) => (
+                <option key={r.id} value={r.id}>#{r.id}</option>
+              ))}
+            </Select>
+          </Field>
           <Field label={t("returns.fromWarehouse")}>
-            <Select value={warehouse} onChange={(e) => setWarehouse(e.target.value)}>
+            <Select value={warehouse} disabled>
               <option value="">{t("common.select")}</option>
               {warehouses.map((w) => (
                 <option key={w.id} value={w.id}>
@@ -174,13 +203,15 @@ export default function NewPurchaseReturnDrawer({ open, onClose, onCreated }) {
               <div key={i} className="flex items-end gap-2">
                 <div className="min-w-0 flex-1">
                   <Select
-                    value={l.product}
-                    onChange={(e) => setLine(i, { product: e.target.value })}
+                    value={l.goods_receipt_line}
+                    onChange={(e) => setLine(i, { goods_receipt_line: e.target.value })}
                   >
                     <option value="">{t("returns.searchProduct")}</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
+                    {(selectedReceipt?.lines || []).filter(
+                      (line) => Number(line.returnable_quantity) > 0,
+                    ).map((line) => (
+                      <option key={line.id} value={line.id}>
+                        {line.product_name || `#${line.product}`} · {line.returnable_quantity}
                       </option>
                     ))}
                   </Select>

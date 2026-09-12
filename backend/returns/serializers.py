@@ -5,8 +5,8 @@ from django.db import transaction
 from django.db.models import Sum
 from rest_framework import serializers
 
-from inventory.models import Product, StockBatch, StockMovement, Warehouse
-from purchasing.models import Bill, GoodsReceipt, Supplier
+from inventory.models import Product, StockMovement, Warehouse
+from purchasing.models import Bill, GoodsReceipt, GoodsReceiptLine, Supplier
 from returns.models import (
     CreditNote,
     DebitNote,
@@ -93,6 +93,10 @@ class SalesReturnWriteSerializer(serializers.Serializer):
         """
         invoice = attrs["invoice"]
         _assert_company(self, invoice, "invoice")
+        if invoice.is_void:
+            raise serializers.ValidationError(
+                {"invoice": "A void invoice cannot be returned."}
+            )
 
         errors = []
         # Several payload lines may point at one invoice line; they have to be
@@ -149,6 +153,28 @@ class SalesReturnWriteSerializer(serializers.Serializer):
 
         invoice = validated_data["invoice"]
 
+        # Serialise returns against the same original lines and repeat the cap
+        # under the lock; validation alone is vulnerable to concurrent requests.
+        requested = defaultdict(Decimal)
+        for line in validated_data["lines"]:
+            requested[line["invoice_line"].pk] += line["quantity"]
+        locked = {
+            line.pk: line
+            for line in InvoiceLine.objects.select_for_update().filter(pk__in=requested)
+        }
+        already = dict(
+            SalesReturnLine.objects.filter(invoice_line_id__in=requested)
+            .values("invoice_line_id")
+            .annotate(total=Sum("quantity"))
+            .values_list("invoice_line_id", "total")
+        )
+        for line_id, quantity in requested.items():
+            remaining = locked[line_id].quantity - already.get(line_id, Decimal("0"))
+            if quantity > remaining:
+                raise serializers.ValidationError(
+                    {"lines": f"Only {remaining} remains returnable on line {line_id}."}
+                )
+
         sales_return = SalesReturn.objects.create(
             company_id=company_id, invoice=invoice, customer=invoice.customer,
             reason=validated_data.get("reason", ""),
@@ -170,13 +196,14 @@ class SalesReturnWriteSerializer(serializers.Serializer):
             # Priced from the original invoice line (Rule #4), never from the
             # product's current price — the customer is owed what they actually
             # paid, which may differ from today's list price.
-            credit_total += invoice_line.unit_price * ln["quantity"]
+            # Use the complete original line value, including its snapshotted
+            # tax, allocated proportionally for partial returns.
+            credit_total += (invoice_line.line_total / invoice_line.quantity) * ln["quantity"]
 
-        # Rule #6: every return generates a note. One case produces none — a
-        # walk-in sale has no customer to issue the note to (CreditNote
-        # requires one); that refund is settled in cash at the till.
-        if credit_total > 0 and invoice.customer_id:
-            CreditNote.objects.create(
+        # Rule #6: every return generates a note. Walk-in notes carry the
+        # invoice as their party reference and intentionally have no customer.
+        if credit_total > 0:
+            note = CreditNote.objects.create(
                 company_id=company_id,
                 customer=invoice.customer,
                 invoice=invoice,
@@ -185,6 +212,7 @@ class SalesReturnWriteSerializer(serializers.Serializer):
                 reason=validated_data.get("reason", ""),
                 created_by=user if user.is_authenticated else None,
             )
+            Invoice.objects.filter(pk=invoice.pk).update(updated_at=note.created_at)
         return sales_return
 
     def to_representation(self, instance):
@@ -194,19 +222,22 @@ class SalesReturnWriteSerializer(serializers.Serializer):
 # ---------- Purchase return ----------
 
 class PurchaseReturnLineInputSerializer(serializers.Serializer):
-    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
+    goods_receipt_line = serializers.PrimaryKeyRelatedField(
+        queryset=GoodsReceiptLine.objects.select_related(
+            "receipt", "product", "batch"
+        ).all()
+    )
     quantity = serializers.DecimalField(
         max_digits=16, decimal_places=3, min_value=Decimal("0.001")
-    )
-    batch = serializers.PrimaryKeyRelatedField(
-        queryset=StockBatch.objects.all(), required=False, allow_null=True
     )
 
 
 class PurchaseReturnLineReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = PurchaseReturnLine
-        fields = ["id", "product", "quantity", "batch", "movement"]
+        fields = [
+            "id", "goods_receipt_line", "product", "quantity", "batch", "movement"
+        ]
 
 
 class PurchaseReturnReadSerializer(serializers.ModelSerializer):
@@ -224,21 +255,15 @@ class PurchaseReturnReadSerializer(serializers.ModelSerializer):
 class PurchaseReturnWriteSerializer(serializers.Serializer):
     supplier = serializers.PrimaryKeyRelatedField(queryset=Supplier.objects.all())
     warehouse = serializers.PrimaryKeyRelatedField(queryset=Warehouse.objects.all())
-    goods_receipt = serializers.PrimaryKeyRelatedField(
-        queryset=GoodsReceipt.objects.all(), required=False, allow_null=True
-    )
+    goods_receipt = serializers.PrimaryKeyRelatedField(queryset=GoodsReceipt.objects.all())
     reason = serializers.CharField(required=False, allow_blank=True)
     client_uuid = serializers.UUIDField(required=False, allow_null=True)
     lines = PurchaseReturnLineInputSerializer(many=True)
-    # Rule #6 requires a note for every return. Unlike a sales return — which is
-    # priced from the invoice line the goods were sold on — a purchase return
-    # line carries no price: PurchaseReturnLine has product and quantity only,
-    # and nothing links it to what the supplier charged. So the amount is asked
-    # for rather than derived; deriving it from the product's cost price would
-    # be inventing a figure and putting it on a document sent to a supplier.
+    # Defaults to the actual unit cost on the original receipt lines. An
+    # explicit amount is allowed when the supplier's agreed credit differs.
     debit_amount = serializers.DecimalField(
         max_digits=16, decimal_places=2, required=False, allow_null=True,
-        min_value=Decimal("0"),
+        min_value=Decimal("0.01"),
     )
     bill = serializers.PrimaryKeyRelatedField(
         queryset=Bill.objects.all(), required=False, allow_null=True
@@ -248,6 +273,69 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
         if not lines:
             raise serializers.ValidationError("At least one line is required.")
         return lines
+
+    def validate(self, attrs):
+        supplier = attrs["supplier"]
+        warehouse = attrs["warehouse"]
+        receipt = attrs["goods_receipt"]
+        for obj, label in (
+            (supplier, "supplier"), (warehouse, "warehouse"),
+            (receipt, "goods_receipt"),
+        ):
+            _assert_company(self, obj, label)
+        if receipt.supplier_id != supplier.pk:
+            raise serializers.ValidationError(
+                {"goods_receipt": "Receipt is not for this supplier."}
+            )
+        if receipt.warehouse_id != warehouse.pk:
+            raise serializers.ValidationError(
+                {"warehouse": "Return must leave from the receipt warehouse."}
+            )
+
+        requested = defaultdict(Decimal)
+        for line in attrs["lines"]:
+            original = line["goods_receipt_line"]
+            if original.receipt_id != receipt.pk:
+                raise serializers.ValidationError(
+                    {"lines": "Every return line must belong to the selected receipt."}
+                )
+            requested[original.pk] += line["quantity"]
+        already = dict(
+            PurchaseReturnLine.objects.filter(goods_receipt_line_id__in=requested)
+            .values("goods_receipt_line_id").annotate(total=Sum("quantity"))
+            .values_list("goods_receipt_line_id", "total")
+        )
+        originals = GoodsReceiptLine.objects.in_bulk(requested)
+        for line_id, quantity in requested.items():
+            remaining = originals[line_id].quantity - already.get(line_id, Decimal("0"))
+            if quantity > remaining:
+                raise serializers.ValidationError(
+                    {"lines": f"Only {remaining} remains returnable on receipt line {line_id}."}
+                )
+            original = originals[line_id]
+            stock_filter = {
+                "company_id": receipt.company_id,
+                "product_id": original.product_id,
+                "warehouse_id": warehouse.pk,
+            }
+            if original.batch_id:
+                stock_filter["batch_id"] = original.batch_id
+            available = StockMovement.objects.filter(**stock_filter).aggregate(
+                total=Sum("quantity")
+            )["total"] or Decimal("0")
+            if quantity > available:
+                raise serializers.ValidationError(
+                    {"lines": f"Only {available} is available for receipt line {line_id}."}
+                )
+
+        bill = attrs.get("bill")
+        if bill is not None:
+            _assert_company(self, bill, "bill")
+            if bill.supplier_id != supplier.pk:
+                raise serializers.ValidationError({"bill": "Bill is not for this supplier."})
+            if bill.goods_receipt_id and bill.goods_receipt_id != receipt.pk:
+                raise serializers.ValidationError({"bill": "Bill is not for this receipt."})
+        return attrs
 
     @transaction.atomic
     def create(self, validated_data):
@@ -261,46 +349,67 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
         warehouse = validated_data["warehouse"]
         _assert_company(self, supplier, "supplier")
         _assert_company(self, warehouse, "warehouse")
-        for ln in validated_data["lines"]:
-            _assert_company(self, ln["product"], "product")
+        receipt = validated_data["goods_receipt"]
+
+        requested = defaultdict(Decimal)
+        for line in validated_data["lines"]:
+            requested[line["goods_receipt_line"].pk] += line["quantity"]
+        locked = GoodsReceiptLine.objects.select_for_update().in_bulk(requested)
+        already = dict(
+            PurchaseReturnLine.objects.filter(goods_receipt_line_id__in=requested)
+            .values("goods_receipt_line_id").annotate(total=Sum("quantity"))
+            .values_list("goods_receipt_line_id", "total")
+        )
+        for line_id, quantity in requested.items():
+            remaining = locked[line_id].quantity - already.get(line_id, Decimal("0"))
+            if quantity > remaining:
+                raise serializers.ValidationError(
+                    {"lines": f"Only {remaining} remains returnable on receipt line {line_id}."}
+                )
 
         pr = PurchaseReturn.objects.create(
             company_id=company_id, supplier=supplier, warehouse=warehouse,
-            goods_receipt=validated_data.get("goods_receipt"),
+            goods_receipt=receipt,
             reason=validated_data.get("reason", ""),
             created_by=user if user.is_authenticated else None,
             client_uuid=validated_data.get("client_uuid"),
         )
         for ln in validated_data["lines"]:
+            original = ln["goods_receipt_line"]
             # Goods physically leave us -> purchase_return_out (negative), now.
             movement = StockMovement.objects.create(
-                company_id=company_id, product=ln["product"], warehouse=warehouse,
-                batch=ln.get("batch"),
+                company_id=company_id, product=original.product, warehouse=warehouse,
+                batch=original.batch,
                 movement_type=StockMovement.PURCHASE_RETURN_OUT,
                 quantity=-ln["quantity"],
                 reference_type="PurchaseReturn", reference_id=str(pr.id),
                 created_by=user if user.is_authenticated else None,
             )
             PurchaseReturnLine.objects.create(
-                purchase_return=pr, product=ln["product"],
-                quantity=ln["quantity"], batch=ln.get("batch"), movement=movement,
+                purchase_return=pr, goods_receipt_line=original,
+                product=original.product, quantity=ln["quantity"],
+                batch=original.batch, movement=movement,
             )
 
         # Rule #6: the note the supplier receives, reducing what we owe them.
         debit_amount = validated_data.get("debit_amount")
+        if debit_amount is None:
+            debit_amount = sum(
+                line["goods_receipt_line"].unit_cost * line["quantity"]
+                for line in validated_data["lines"]
+            ).quantize(Decimal("0.01"))
         bill = validated_data.get("bill")
         if bill is not None:
             _assert_company(self, bill, "bill")
-        if debit_amount:
-            DebitNote.objects.create(
-                company_id=company_id,
-                supplier=supplier,
-                bill=bill,
-                purchase_return=pr,
-                amount=debit_amount,
-                reason=validated_data.get("reason", ""),
-                created_by=user if user.is_authenticated else None,
-            )
+        DebitNote.objects.create(
+            company_id=company_id,
+            supplier=supplier,
+            bill=bill,
+            purchase_return=pr,
+            amount=debit_amount,
+            reason=validated_data.get("reason", ""),
+            created_by=user if user.is_authenticated else None,
+        )
         return pr
 
     def to_representation(self, instance):
@@ -311,7 +420,9 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
 
 class CreditNoteSerializer(serializers.ModelSerializer):
     # Names so a note list reads as documents rather than as foreign keys.
-    customer_name = serializers.CharField(source="customer.name", read_only=True)
+    customer_name = serializers.CharField(
+        source="customer.name", read_only=True, default=None
+    )
     invoice_number = serializers.CharField(
         source="invoice.number_display", read_only=True, default=None
     )
@@ -330,13 +441,37 @@ class CreditNoteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Amount must be positive.")
         _assert_company(self, attrs.get("customer"), "customer")
         _assert_company(self, attrs.get("invoice"), "invoice")
+        _assert_company(self, attrs.get("sales_return"), "sales_return")
+        customer = attrs.get("customer")
+        invoice = attrs.get("invoice")
+        sales_return = attrs.get("sales_return")
+        if invoice is not None and invoice.customer_id != getattr(customer, "pk", None):
+            raise serializers.ValidationError(
+                {"customer": "Customer must match the linked invoice."}
+            )
+        if sales_return is not None:
+            if invoice is not None and sales_return.invoice_id != invoice.pk:
+                raise serializers.ValidationError(
+                    {"sales_return": "Return must belong to the linked invoice."}
+                )
+            if sales_return.customer_id != getattr(customer, "pk", None):
+                raise serializers.ValidationError(
+                    {"customer": "Customer must match the linked return."}
+                )
+        if customer is None and invoice is None:
+            raise serializers.ValidationError(
+                {"customer": "A customer is required unless this note is linked to an invoice."}
+            )
         return attrs
 
     def create(self, validated_data):
         request = self.context.get("request")
         if request and request.user.is_authenticated:
             validated_data.setdefault("created_by", request.user)
-        return super().create(validated_data)
+        note = super().create(validated_data)
+        if note.invoice_id:
+            Invoice.objects.filter(pk=note.invoice_id).update(updated_at=note.created_at)
+        return note
 
 
 class DebitNoteSerializer(serializers.ModelSerializer):
@@ -356,6 +491,21 @@ class DebitNoteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Amount must be positive.")
         _assert_company(self, attrs.get("supplier"), "supplier")
         _assert_company(self, attrs.get("bill"), "bill")
+        _assert_company(self, attrs.get("purchase_return"), "purchase_return")
+        supplier = attrs.get("supplier")
+        bill = attrs.get("bill")
+        purchase_return = attrs.get("purchase_return")
+        if bill is not None and bill.supplier_id != supplier.pk:
+            raise serializers.ValidationError({"bill": "Bill is not for this supplier."})
+        if purchase_return is not None:
+            if purchase_return.supplier_id != supplier.pk:
+                raise serializers.ValidationError(
+                    {"purchase_return": "Return is not for this supplier."}
+                )
+            if bill is not None and purchase_return.goods_receipt_id != bill.goods_receipt_id:
+                raise serializers.ValidationError(
+                    {"purchase_return": "Return and bill must refer to the same receipt."}
+                )
         return attrs
 
     def create(self, validated_data):

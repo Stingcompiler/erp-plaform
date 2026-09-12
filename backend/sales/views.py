@@ -1,5 +1,6 @@
 from decimal import Decimal, InvalidOperation
 
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -405,8 +406,15 @@ class QuotationViewSet(AppendOnlyScopedViewSet):
         return Response(self.get_serializer(quotation).data)
 
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def convert_to_order(self, request, pk=None):
-        quotation = self.get_object()
+        quotation = self.get_queryset().select_for_update().get(pk=pk)
+        existing = quotation.sales_orders.order_by("id").first()
+        if existing is not None:
+            return Response(
+                SalesOrderSerializer(existing, context={"request": request}).data,
+                status=status.HTTP_200_OK,
+            )
         order = SalesOrder.objects.create(
             company_id=quotation.company_id, customer=quotation.customer,
             branch=quotation.branch, source_quotation=quotation,

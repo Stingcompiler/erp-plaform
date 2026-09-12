@@ -211,6 +211,16 @@ class PurchaseReturnViewSet(
     queryset = PurchaseReturn.objects.prefetch_related("lines").all()
     serializer_class = PurchaseReturnReadSerializer
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        role = getattr(self.request.user, "role", None)
+        branch_id = getattr(self.request.user, "branch_id", None)
+        if role and role.scope_level == "branch" and branch_id:
+            qs = qs.filter(
+                Q(warehouse__branch_id=branch_id) | Q(warehouse__branch__isnull=True)
+            )
+        return qs
+
     def create(self, request, *args, **kwargs):
         client_uuid = request.data.get("client_uuid")
         if client_uuid:

@@ -9,6 +9,7 @@ infra config as later milestones land their own Django apps.
 
 from datetime import timedelta
 from pathlib import Path
+import sys
 
 import environ
 
@@ -185,7 +186,13 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "core.exceptions.api_exception_handler",
     # M10: throttle login attempts to slow credential-stuffing (applied on the
     # login view via a scoped throttle).
-    "DEFAULT_THROTTLE_RATES": {"login": "10/min"},
+    # Test cases share one process/cache and one loopback IP; a generous test
+    # rate prevents unrelated login tests from throttling each other. The
+    # production limit remains unchanged, and per-view throttle tests that set
+    # their own rate still exercise the real cache.
+    "DEFAULT_THROTTLE_RATES": {
+        "login": "10000/min" if "test" in sys.argv else "10/min"
+    },
     # Reports export CSV via `?format=csv`, handled manually in the report views
     # (ReportView.wants_csv). Disable DRF's built-in `format` query-param
     # override so it doesn't intercept `format=csv` and 404 before the view runs

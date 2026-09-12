@@ -11,8 +11,8 @@ from django.utils import timezone
 from rest_framework import status
 
 from core.activity import log_activity
-from core.deletion import NoDeleteMixin
 from core.rbac import can_approve_high_value
+from core.deletion import NoDeleteMixin
 from core.scoping import CompanyScopedModelViewSet
 from finance.models import Budget, BudgetLine, Expense
 from finance.serializers import BudgetSerializer, ExpenseSerializer
@@ -25,8 +25,7 @@ class ExpenseViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
     changes both with nothing left behind to reconcile against. Corrections are
     made with an offsetting negative expense.
 
-    Editing stays open — fixing a mistyped category is ordinary work and is
-    fully captured in the audit trail's before/after diff.
+    Corrections use a new offsetting entry, preserving the original evidence.
     """
 
     queryset = Expense.objects.select_related("company", "recorded_by").all()
@@ -40,6 +39,15 @@ class ExpenseViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
         "An expense cannot be deleted because it feeds the income statement "
         "and budget variance. Record an offsetting negative expense instead."
     )
+
+    def update(self, request, *args, **kwargs):
+        return Response(
+            {"detail": "Expenses are append-only. Record an offsetting correction."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
 
     def get_queryset(self):
         qs = super().get_queryset()

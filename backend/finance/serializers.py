@@ -76,11 +76,17 @@ class BudgetSerializer(serializers.ModelSerializer):
         return budget
 
     def update(self, instance, validated_data):
+        if instance.status == Budget.APPROVED:
+            raise serializers.ValidationError(
+                "An approved budget is locked. Reopen it before making changes."
+            )
         lines = validated_data.pop("lines", None)
-        budget = super().update(instance, validated_data)
-        if lines is not None:
-            # Lines are replaced wholesale — a budget is edited as one document.
-            budget.lines.all().delete()
-            for line in lines:
-                BudgetLine.objects.create(budget=budget, **line)
-        return budget
+        from django.db import transaction
+        with transaction.atomic():
+            budget = super().update(instance, validated_data)
+            if lines is not None:
+                # Lines are replaced wholesale — a budget is edited as one document.
+                budget.lines.all().delete()
+                for line in lines:
+                    BudgetLine.objects.create(budget=budget, **line)
+            return budget

@@ -42,17 +42,36 @@ def operating_summary(company_id, start=None, end=None, method="standard"):
     from finance.models import Expense
     from inventory.costing import METHODS, company_totals
     from sales.models import InvoiceLine
+    from returns.models import SalesReturnLine
 
     if method not in METHODS:
         raise ValidationError({"method": "Choose standard, average or fifo."})
     lines = in_range(InvoiceLine.objects.filter(
         invoice__company_id=company_id, invoice__is_void=False,
     ), "invoice__issued_at__date", start, end)
-    revenue = lines.aggregate(t=Coalesce(Sum("line_subtotal"), ZERO, output_field=MONEY))["t"]
+    gross_sales = lines.aggregate(t=Coalesce(Sum("line_subtotal"), ZERO, output_field=MONEY))["t"]
+    returned_lines = in_range(
+        SalesReturnLine.objects.filter(sales_return__company_id=company_id),
+        "sales_return__created_at__date", start, end,
+    )
+    returned_sales = returned_lines.aggregate(t=Coalesce(Sum(ExpressionWrapper(
+        F("quantity") * F("invoice_line__unit_price"), output_field=MONEY,
+    )), ZERO, output_field=MONEY))["t"]
+    revenue = gross_sales - returned_sales
     if method == "standard":
         cogs = lines.aggregate(t=Coalesce(Sum(ExpressionWrapper(
             F("quantity") * F("product__cost_price"), output_field=MONEY,
         )), ZERO, output_field=MONEY))["t"]
+        restocked = in_range(
+            SalesReturnLine.objects.filter(
+                sales_return__company_id=company_id,
+                disposition=SalesReturnLine.RESTOCKED,
+            ),
+            "restock_movement__created_at__date", start, end,
+        ).aggregate(t=Coalesce(Sum(ExpressionWrapper(
+            F("quantity") * F("product__cost_price"), output_field=MONEY,
+        )), ZERO, output_field=MONEY))["t"]
+        cogs -= restocked
     else:
         cogs = company_totals(company_id, method=method, start=start, end=end)["cogs"]
     expenses = in_range(Expense.objects.filter(company_id=company_id), "date", start, end)
@@ -61,7 +80,10 @@ def operating_summary(company_id, start=None, end=None, method="standard"):
                   expenses.values("category").annotate(amount=Sum("amount")).order_by("-amount")]
     cents = Decimal("0.01")
     return {
-        "method": method, "revenue": str(revenue.quantize(cents)),
+        "method": method,
+        "gross_sales": str(gross_sales.quantize(cents)),
+        "sales_returns": str(returned_sales.quantize(cents)),
+        "revenue": str(revenue.quantize(cents)),
         "cogs": str(cogs.quantize(cents)), "gross_profit": str((revenue - cogs).quantize(cents)),
         "total_expenses": str(total.quantize(cents)),
         "expenses_by_category": categories, "expense_count": expenses.count(),

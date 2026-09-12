@@ -32,6 +32,20 @@ def _company_tax_rate(company):
     return profile.flat_tax_rate if profile else Decimal("0")
 
 
+def _assert_tenant_relations(serializer, attrs, fields):
+    request = serializer.context.get("request")
+    user = getattr(request, "user", None)
+    if user is None or getattr(user, "is_platform_admin", False):
+        return
+    company_id = getattr(user, "company_id", None)
+    for name in fields:
+        obj = attrs.get(name)
+        if obj is not None and obj.company_id != company_id:
+            raise serializers.ValidationError(
+                {name: "Not your company's record."}
+            )
+
+
 class CustomerSerializer(serializers.ModelSerializer):
     ar_balance = serializers.SerializerMethodField()
 
@@ -39,9 +53,9 @@ class CustomerSerializer(serializers.ModelSerializer):
         model = Customer
         fields = [
             "id", "company", "name", "phone", "email", "address",
-            "is_active", "ar_balance",
+            "is_active", "ar_balance", "updated_at",
         ]
-        read_only_fields = ["company"]
+        read_only_fields = ["company", "updated_at"]
 
     def get_ar_balance(self, obj):
         return obj.ar_balance()
@@ -92,6 +106,12 @@ class QuotationSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["company", "subtotal", "tax_amount", "total", "created_at"]
 
+    def validate(self, attrs):
+        _assert_tenant_relations(self, attrs, ("customer", "branch"))
+        for line in attrs.get("lines", []):
+            _assert_tenant_relations(self, line, ("product",))
+        return attrs
+
     @transaction.atomic
     def create(self, validated_data):
         lines = validated_data.pop("lines")
@@ -140,6 +160,21 @@ class SalesOrderSerializer(serializers.ModelSerializer):
             "subtotal", "tax_amount", "total", "lines", "created_at",
         ]
         read_only_fields = ["company", "subtotal", "tax_amount", "total", "created_at"]
+
+    def validate(self, attrs):
+        _assert_tenant_relations(
+            self, attrs, ("customer", "branch", "source_quotation")
+        )
+        quotation = attrs.get("source_quotation")
+        customer = attrs.get("customer")
+        if quotation is not None and customer is not None:
+            if quotation.customer_id != customer.pk:
+                raise serializers.ValidationError(
+                    {"source_quotation": "Quotation and order customer must match."}
+                )
+        for line in attrs.get("lines", []):
+            _assert_tenant_relations(self, line, ("product",))
+        return attrs
 
     @transaction.atomic
     def create(self, validated_data):
@@ -203,8 +238,9 @@ class InvoiceSerializer(serializers.ModelSerializer):
             "subtotal", "tax_amount", "total", "is_void", "status",
             "amount_paid", "amount_due", "lines", "client_uuid", "issued_at",
             "payment_terms_days", "due_date", "days_overdue", "is_overdue",
+            "updated_at",
         ]
-        read_only_fields = ["due_date"]
+        read_only_fields = ["due_date", "updated_at"]
 
     def get_amount_paid(self, obj):
         return obj.amount_paid()
@@ -278,7 +314,9 @@ class PaymentSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if request and request.user.is_authenticated:
             validated_data.setdefault("recorded_by", request.user)
-        return super().create(validated_data)
+        payment = super().create(validated_data)
+        Invoice.objects.filter(pk=payment.invoice_id).update(updated_at=payment.recorded_at)
+        return payment
 
 
 # ---------- POS checkout ----------
@@ -287,7 +325,7 @@ class POSLineSerializer(serializers.Serializer):
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
     quantity = serializers.DecimalField(max_digits=16, decimal_places=3, min_value=Decimal("0.001"))
     unit_price = serializers.DecimalField(
-        max_digits=14, decimal_places=2, required=False
+        max_digits=14, decimal_places=2, required=False, min_value=Decimal("0")
     )
     description = serializers.CharField(required=False, allow_blank=True)
 
@@ -464,6 +502,22 @@ class POSCheckoutSerializer(serializers.Serializer):
         self._assert_company(validated_data.get("customer"), company_id, "customer")
         warehouse = validated_data["warehouse"]
         self._assert_company(warehouse, company_id, "warehouse")
+        branch_id = validated_data.get("branch")
+        role = getattr(user, "role", None)
+        user_branch_id = getattr(user, "branch_id", None)
+        if role and role.scope_level == "branch" and branch_id is None:
+            branch_id = user_branch_id
+            validated_data["branch"] = branch_id
+        if branch_id is not None:
+            from org.models import Branch
+            if not Branch.objects.filter(pk=branch_id, company_id=company_id).exists():
+                raise serializers.ValidationError(
+                    {"branch": "Not your company's branch."}
+                )
+            if role and role.scope_level == "branch" and user_branch_id != branch_id:
+                raise serializers.ValidationError(
+                    {"branch": "A branch user can only sell from their own branch."}
+                )
         for ln in validated_data["lines"]:
             self._assert_company(ln["product"], company_id, "product")
 

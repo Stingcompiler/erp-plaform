@@ -113,6 +113,7 @@ export const purchasing = {
   supplierRecordsCsv: (id, params) =>
     `${API_BASE}/suppliers/${id}/records/?${new URLSearchParams({ ...params, format: "csv" })}`,
   receive: (body) => api.post("/receivings/", body),
+  goodsReceipts: (params) => api.get("/goods-receipts/", { params }),
   bills: (params) => api.get("/bills/", { params }),
   createBill: (body) => api.post("/bills/", body),
   createSupplierPayment: (body) => api.post("/supplier-payments/", body),

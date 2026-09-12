@@ -1030,8 +1030,9 @@ const en = {
     addAtLeastOneLine: "Add at least one item.",
     noLinesYet: "No items added yet.",
     purchaseReturnHelp:
-      "Stock leaves immediately — unlike a customer return there is nothing to quarantine.",
-    debitAmountHint: "Leave blank to record the return without a debit note.",
+      "Choose the original receipt and its lines. Stock leaves immediately and a debit note is always created.",
+    originalReceipt: "Original goods receipt",
+    debitAmountHint: "Leave blank to calculate it from the original received cost.",
     noBillLink: "— Not against a bill —",
     tab: {
       returns: "Returns",
@@ -2242,8 +2243,9 @@ const ar = {
     addAtLeastOneLine: "أضف صنفًا واحدًا على الأقل.",
     noLinesYet: "لم تُضف أصناف بعد.",
     purchaseReturnHelp:
-      "تخرج البضاعة من المخزون فورًا — بخلاف مرتجع العميل، لا يوجد ما يُحجز.",
-    debitAmountHint: "اتركه فارغًا لتسجيل الإرجاع دون إشعار مدين.",
+      "اختر سند الاستلام الأصلي وبنوده. تخرج البضاعة من المخزون فورًا ويُنشأ إشعار مدين دائمًا.",
+    originalReceipt: "سند الاستلام الأصلي",
+    debitAmountHint: "اتركه فارغًا ليُحسب من تكلفة الاستلام الأصلية.",
     noBillLink: "— دون ربط بفاتورة —",
     tab: {
       returns: "المرتجعات",

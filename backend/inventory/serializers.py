@@ -16,11 +16,29 @@ from inventory.models import (
 )
 
 
+def _assert_tenant_relations(serializer, attrs, fields):
+    request = serializer.context.get("request")
+    user = getattr(request, "user", None)
+    if user is None or getattr(user, "is_platform_admin", False):
+        return
+    company_id = getattr(user, "company_id", None)
+    for name in fields:
+        obj = attrs.get(name)
+        if obj is not None and obj.company_id != company_id:
+            raise serializers.ValidationError(
+                {name: "Does not belong to your company."}
+            )
+
+
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ["id", "company", "name", "parent", "is_active"]
         read_only_fields = ["company"]
+
+    def validate(self, attrs):
+        _assert_tenant_relations(self, attrs, ("parent",))
+        return attrs
 
 
 class BrandSerializer(serializers.ModelSerializer):
@@ -42,6 +60,10 @@ class WarehouseSerializer(serializers.ModelSerializer):
         model = Warehouse
         fields = ["id", "company", "branch", "name", "code", "is_active"]
         read_only_fields = ["company"]
+
+    def validate(self, attrs):
+        _assert_tenant_relations(self, attrs, ("branch",))
+        return attrs
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -83,6 +105,10 @@ class ProductSerializer(serializers.ModelSerializer):
                 validated_data["sku"] = next_internal_sku(company_id)
         return super().create(validated_data)
 
+    def validate(self, attrs):
+        _assert_tenant_relations(self, attrs, ("category", "brand", "unit"))
+        return attrs
+
     def get_on_hand(self, obj):
         # Uses the annotated value when present (list view), else computes it.
         annotated = getattr(obj, "annotated_on_hand", None)
@@ -96,6 +122,10 @@ class StockBatchSerializer(serializers.ModelSerializer):
         model = StockBatch
         fields = ["id", "company", "product", "lot_number", "expiry_date", "received_at"]
         read_only_fields = ["company", "received_at"]
+
+    def validate(self, attrs):
+        _assert_tenant_relations(self, attrs, ("product",))
+        return attrs
 
 
 def _validate_sign(movement_type, quantity):

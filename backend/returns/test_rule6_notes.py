@@ -4,10 +4,9 @@ Rule #6: every return generates a credit/debit note.
 Until now the note models existed and could be POSTed by hand, but nothing
 generated one — so a return left no document for the other party.
 
-The two sides differ on purpose. A sales return is priced from the invoice line
-the goods were sold on, so its credit note is derived exactly. A purchase return
-line carries product and quantity only and nothing links it to what the supplier
-charged, so its amount is supplied by the caller rather than guessed.
+Both sides derive their default value from the original document line: the
+invoice line for sales and the goods receipt line for purchasing. Purchasing
+may still record an explicitly agreed supplier credit amount.
 """
 
 from decimal import Decimal
@@ -16,9 +15,9 @@ from django.urls import reverse
 from rest_framework.test import APITestCase
 
 from accounts.models import Role, User
-from inventory.models import Product, Warehouse
+from inventory.models import Product, StockMovement, Warehouse
 from org.models import Company
-from purchasing.models import Bill, Supplier
+from purchasing.models import Bill, GoodsReceipt, GoodsReceiptLine, Supplier
 from returns.models import CreditNote, DebitNote, SalesReturn
 from sales.models import Customer, Invoice, InvoiceLine
 
@@ -94,10 +93,8 @@ class SalesReturnCreditNoteTests(APITestCase):
         self.assertEqual(CreditNote.objects.count(), 0)
         self.assertEqual(SalesReturn.objects.count(), 0)
 
-    def test_walk_in_sale_produces_no_credit_note(self):
-        """A POS sale with no customer has nobody to issue a note to — that
-        refund is settled in cash at the till. CreditNote.customer is NOT NULL,
-        so attempting one here used to crash the whole return."""
+    def test_walk_in_sale_produces_invoice_linked_credit_note(self):
+        """A walk-in return still needs a formal note linked to its invoice."""
         walk_in = Invoice.objects.create(
             company=self.company, customer=None, warehouse=self.warehouse,
             number=2, subtotal=Decimal("100"), total=Decimal("100"),
@@ -116,7 +113,14 @@ class SalesReturnCreditNoteTests(APITestCase):
             format="json",
         )
         self.assertEqual(resp.status_code, 201, resp.data)
-        self.assertEqual(CreditNote.objects.count(), 0)
+        note = CreditNote.objects.get()
+        self.assertIsNone(note.customer_id)
+        self.assertEqual(note.invoice_id, walk_in.pk)
+        listed = self.client.get(reverse("creditnote-list"))
+        self.assertEqual(listed.status_code, 200, listed.data)
+        document = self.client.get(reverse("creditnote-document", args=[note.pk]))
+        self.assertEqual(document.status_code, 200, document.data)
+        self.assertEqual(document.data["party"], {})
 
     def test_credit_note_reduces_what_the_customer_owes(self):
         self._create(quantity="2")
@@ -139,9 +143,22 @@ class PurchaseReturnDebitNoteTests(APITestCase):
             company=self.company, sku="P1", name="Widget"
         )
         self.supplier = Supplier.objects.create(company=self.company, name="Delta")
+        self.receipt = GoodsReceipt.objects.create(
+            company=self.company, supplier=self.supplier, warehouse=self.warehouse
+        )
+        movement = StockMovement.objects.create(
+            company=self.company, product=self.product, warehouse=self.warehouse,
+            movement_type=StockMovement.PURCHASE_IN, quantity=Decimal("10"),
+            unit_cost=Decimal("50"),
+        )
+        self.receipt_line = GoodsReceiptLine.objects.create(
+            receipt=self.receipt, product=self.product, quantity=Decimal("10"),
+            unit_cost=Decimal("50"), movement=movement,
+        )
         self.bill = Bill.objects.create(
             company=self.company, supplier=self.supplier,
-            supplier_invoice_number="SUP-1", total=Decimal("900"),
+            goods_receipt=self.receipt, supplier_invoice_number="SUP-1",
+            total=Decimal("900"),
         )
         self.client.force_authenticate(self.user)
 
@@ -149,8 +166,11 @@ class PurchaseReturnDebitNoteTests(APITestCase):
         body = {
             "supplier": self.supplier.id,
             "warehouse": self.warehouse.id,
+            "goods_receipt": self.receipt.id,
             "reason": "Short delivery",
-            "lines": [{"product": self.product.id, "quantity": "3"}],
+            "lines": [{
+                "goods_receipt_line": self.receipt_line.id, "quantity": "3"
+            }],
         }
         body.update(extra)
         return self.client.post(
@@ -166,10 +186,10 @@ class PurchaseReturnDebitNoteTests(APITestCase):
         self.assertEqual(note.bill_id, self.bill.id)
         self.assertEqual(note.purchase_return_id, resp.data["id"])
 
-    def test_return_without_an_amount_makes_no_note(self):
+    def test_return_without_an_amount_uses_received_cost(self):
         resp = self._create()
         self.assertEqual(resp.status_code, 201, resp.data)
-        self.assertEqual(DebitNote.objects.count(), 0)
+        self.assertEqual(DebitNote.objects.get().amount, Decimal("150"))
 
     def test_debit_note_reduces_what_we_owe_the_supplier(self):
         before = self.supplier.ap_balance()
@@ -192,6 +212,8 @@ class PurchaseReturnDebitNoteTests(APITestCase):
         self._create(debit_amount="150.00")
         from inventory.models import StockMovement
 
-        movement = StockMovement.objects.get(product=self.product)
+        movement = StockMovement.objects.get(
+            product=self.product, movement_type=StockMovement.PURCHASE_RETURN_OUT
+        )
         self.assertEqual(movement.quantity, Decimal("-3"))
         self.assertEqual(movement.movement_type, StockMovement.PURCHASE_RETURN_OUT)

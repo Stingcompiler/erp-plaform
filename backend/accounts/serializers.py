@@ -44,6 +44,45 @@ class UserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(list(exc.messages))
         return value
 
+    def validate(self, attrs):
+        request = self.context.get("request")
+        actor = getattr(request, "user", None)
+        role = attrs.get("role", getattr(self.instance, "role", None))
+        branch = attrs.get("branch", getattr(self.instance, "branch", None))
+
+        # A tenant administrator must never be able to turn a tenant account
+        # into a platform account. Platform roles are provisioned only by an
+        # existing platform administrator.
+        if (
+            role is not None
+            and role.scope_level == Role.SCOPE_PLATFORM
+            and not getattr(actor, "is_platform_admin", False)
+        ):
+            raise serializers.ValidationError(
+                {"role": "Only a platform administrator may assign a platform role."}
+            )
+
+        actor_company_id = getattr(actor, "company_id", None)
+        if (
+            branch is not None
+            and actor_company_id is not None
+            and branch.company_id != actor_company_id
+        ):
+            raise serializers.ValidationError(
+                {"branch": "The branch must belong to your company."}
+            )
+
+        if (
+            self.instance is not None
+            and actor is not None
+            and self.instance.pk == actor.pk
+            and attrs.get("is_active") is False
+        ):
+            raise serializers.ValidationError(
+                {"is_active": "You cannot deactivate your own account."}
+            )
+        return attrs
+
     class Meta:
         model = User
         fields = [

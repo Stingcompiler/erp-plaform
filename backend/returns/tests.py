@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase
 from accounts.models import Role, User
 from inventory.models import Product, StockMovement, Warehouse
 from org.models import Company
-from purchasing.models import Bill, Supplier
+from purchasing.models import Bill, GoodsReceipt, GoodsReceiptLine, Supplier
 from returns.models import CreditNote, SalesReturn, SalesReturnLine
 from sales.models import Invoice, InvoiceLine
 
@@ -152,16 +152,26 @@ class PurchaseReturnTests(ReturnsBase):
     def test_purchase_return_posts_negative_movement(self):
         supplier = Supplier.objects.create(company=self.company, name="Acme")
         # Put some stock in first.
-        StockMovement.objects.create(
+        receipt = GoodsReceipt.objects.create(
+            company=self.company, supplier=supplier, warehouse=self.wh
+        )
+        incoming = StockMovement.objects.create(
             company=self.company, product=self.product, warehouse=self.wh,
             movement_type=StockMovement.PURCHASE_IN, quantity=Decimal("10"),
+        )
+        receipt_line = GoodsReceiptLine.objects.create(
+            receipt=receipt, product=self.product, quantity=Decimal("10"),
+            unit_cost=Decimal("1"), movement=incoming,
         )
         before = self.product.on_hand()
         resp = self.client.post(
             reverse("purchasereturn-list"),
             {
                 "supplier": supplier.id, "warehouse": self.wh.id,
-                "lines": [{"product": self.product.id, "quantity": "3"}],
+                "goods_receipt": receipt.id,
+                "lines": [{
+                    "goods_receipt_line": receipt_line.id, "quantity": "3"
+                }],
             },
             format="json",
         )

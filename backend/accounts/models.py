@@ -133,4 +133,11 @@ class User(AbstractBaseUser, PermissionsMixin):
         """
         if self.is_superuser:
             return True
-        return bool(self.role and self.role.scope_level == Role.SCOPE_PLATFORM)
+        # Platform identities are deliberately company-less. Requiring both
+        # properties makes a mistakenly assigned role incapable of bypassing
+        # tenant filters even before the API validation is reached.
+        return bool(
+            self.company_id is None
+            and self.role
+            and self.role.scope_level == Role.SCOPE_PLATFORM
+        )

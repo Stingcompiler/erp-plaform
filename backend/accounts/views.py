@@ -150,6 +150,12 @@ class RoleViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = RoleSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if not self.request.user.is_platform_admin:
+            qs = qs.exclude(scope_level=Role.SCOPE_PLATFORM)
+        return qs
+
 
 class PermissionViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Permission.objects.all()

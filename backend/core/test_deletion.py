@@ -63,8 +63,8 @@ class TierANeverDeletableTests(DeletionPolicyTestCase):
         resp = self.client.delete(reverse("expense-detail", args=[exp.id]))
         self.assertIn("offsetting", resp.data["detail"].lower())
 
-    def test_expense_can_still_be_edited(self):
-        """Blocking deletion must not block ordinary corrections."""
+    def test_expense_cannot_be_edited_in_place(self):
+        """Financial corrections are new offsetting entries, never rewrites."""
         exp = Expense.objects.create(
             company=self.company, category="Rnet",
             amount=Decimal("50"), date=date.today(),
@@ -73,7 +73,7 @@ class TierANeverDeletableTests(DeletionPolicyTestCase):
             reverse("expense-detail", args=[exp.id]),
             {"category": "Rent"}, format="json",
         )
-        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.status_code, 405, resp.data)
 
     def test_deduction_cannot_be_deleted(self):
         emp = Employee.objects.create(

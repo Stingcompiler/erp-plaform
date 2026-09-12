@@ -126,6 +126,11 @@ class PurchaseReturnLine(models.Model):
     product = models.ForeignKey(
         "inventory.Product", on_delete=models.PROTECT, related_name="purchase_return_lines"
     )
+    goods_receipt_line = models.ForeignKey(
+        "purchasing.GoodsReceiptLine", on_delete=models.PROTECT,
+        null=True, blank=True, related_name="return_lines",
+        help_text="Original received line; null is reserved for legacy records.",
+    )
     quantity = models.DecimalField(max_digits=16, decimal_places=3)
     batch = models.ForeignKey(
         "inventory.StockBatch", on_delete=models.PROTECT, null=True, blank=True,
@@ -148,7 +153,8 @@ class CreditNote(models.Model):
         "org.Company", on_delete=models.CASCADE, related_name="credit_notes"
     )
     customer = models.ForeignKey(
-        "sales.Customer", on_delete=models.PROTECT, related_name="credit_notes"
+        "sales.Customer", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="credit_notes"
     )
     invoice = models.ForeignKey(
         "sales.Invoice", on_delete=models.PROTECT, null=True, blank=True,

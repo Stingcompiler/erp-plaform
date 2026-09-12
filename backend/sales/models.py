@@ -17,6 +17,7 @@ class Customer(models.Model):
     address = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["name"]
@@ -241,6 +242,7 @@ class Invoice(models.Model):
     total = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     is_void = models.BooleanField(default=False)  # set only via a Credit Note (M5)
     issued_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     # Credit terms. 0 = due on receipt. `due_date` is derived from issue date +
     # terms when not set explicitly, so aging measures *lateness*, not merely
     # age since issue.

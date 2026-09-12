@@ -112,7 +112,11 @@ class BatchApplyTests(SyncBase):
         self.assertEqual(results[1], "error")
 
     def test_unknown_op_type_errors(self):
-        resp = self.push([{"op_type": "nonsense", "payload": {}}])
+        operation_id = str(uuid.uuid4())
+        resp = self.push([{
+            "op_type": "nonsense", "client_uuid": operation_id,
+            "payload": {"client_uuid": operation_id},
+        }])
         self.assertEqual(resp.data["results"][0]["status"], "error")
 
 

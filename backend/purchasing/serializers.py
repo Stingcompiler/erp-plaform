@@ -1,6 +1,8 @@
+from collections import defaultdict
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Sum
 from rest_framework import serializers
 
 from inventory.models import Product, StockBatch, StockMovement, Warehouse
@@ -37,9 +39,9 @@ class SupplierSerializer(serializers.ModelSerializer):
         model = Supplier
         fields = [
             "id", "company", "name", "phone", "email", "address",
-            "is_active", "ap_balance",
+            "is_active", "ap_balance", "updated_at",
         ]
-        read_only_fields = ["company"]
+        read_only_fields = ["company", "updated_at"]
 
     def get_ap_balance(self, obj):
         return obj.ap_balance()
@@ -68,6 +70,9 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         _assert_same_company(self, attrs.get("supplier"), "supplier")
+        _assert_same_company(self, attrs.get("branch"), "branch")
+        for line in attrs.get("lines", []):
+            _assert_same_company(self, line.get("product"), "product")
         return attrs
 
     @transaction.atomic
@@ -140,6 +145,47 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
             raise serializers.ValidationError("At least one line is required.")
         return lines
 
+    def validate(self, attrs):
+        supplier = attrs.get("supplier")
+        po = attrs.get("purchase_order")
+        if po is not None and supplier is not None and po.supplier_id != supplier.pk:
+            raise serializers.ValidationError(
+                {"purchase_order": "Purchase order is not for this supplier."}
+            )
+        if po is not None:
+            if po.status == PurchaseOrder.CANCELLED:
+                raise serializers.ValidationError(
+                    {"purchase_order": "A cancelled purchase order cannot be received."}
+                )
+            ordered_products = set(po.lines.values_list("product_id", flat=True))
+            unknown = [
+                line["product"].pk for line in attrs.get("lines", [])
+                if line["product"].pk not in ordered_products
+            ]
+            if unknown:
+                raise serializers.ValidationError(
+                    {"lines": "Every received product must be on the purchase order."}
+                )
+            requested = defaultdict(Decimal)
+            for line in attrs.get("lines", []):
+                requested[line["product"].pk] += line["quantity"]
+            ordered = dict(
+                po.lines.values("product_id").annotate(total=Sum("quantity_ordered"))
+                .values_list("product_id", "total")
+            )
+            received = dict(
+                GoodsReceiptLine.objects.filter(receipt__purchase_order=po)
+                .values("product_id").annotate(total=Sum("quantity"))
+                .values_list("product_id", "total")
+            )
+            for product_id, quantity in requested.items():
+                remaining = ordered[product_id] - received.get(product_id, Decimal("0"))
+                if quantity > remaining:
+                    raise serializers.ValidationError(
+                        {"lines": f"Only {remaining} remains receivable for product {product_id}."}
+                    )
+        return attrs
+
     @transaction.atomic
     def create(self, validated_data):
         request = self.context["request"]
@@ -200,9 +246,20 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
 
 
 class GoodsReceiptLineReadSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source="product.name", read_only=True)
+    product_sku = serializers.CharField(source="product.sku", read_only=True)
+    returnable_quantity = serializers.SerializerMethodField()
+
     class Meta:
         model = GoodsReceiptLine
-        fields = ["id", "product", "quantity", "unit_cost", "batch", "movement"]
+        fields = [
+            "id", "product", "product_name", "product_sku", "quantity",
+            "returnable_quantity", "unit_cost", "batch", "movement",
+        ]
+
+    def get_returnable_quantity(self, obj):
+        returned = obj.return_lines.aggregate(total=Sum("quantity"))["total"] or Decimal("0")
+        return str(obj.quantity - returned)
 
 
 class GoodsReceiptReadSerializer(serializers.ModelSerializer):
@@ -244,9 +301,35 @@ class BillSerializer(serializers.ModelSerializer):
         return obj.amount_due()
 
     def validate(self, attrs):
-        _assert_same_company(self, attrs.get("supplier"), "supplier")
-        if attrs.get("total") is None or attrs["total"] < 0:
+        for field in ("supplier", "purchase_order", "goods_receipt"):
+            _assert_same_company(self, attrs.get(field), field)
+        supplier = attrs.get("supplier", getattr(self.instance, "supplier", None))
+        po = attrs.get("purchase_order", getattr(self.instance, "purchase_order", None))
+        receipt = attrs.get(
+            "goods_receipt", getattr(self.instance, "goods_receipt", None)
+        )
+        if po is not None and supplier is not None and po.supplier_id != supplier.pk:
+            raise serializers.ValidationError(
+                {"purchase_order": "Purchase order is not for this supplier."}
+            )
+        if receipt is not None and supplier is not None:
+            if receipt.supplier_id != supplier.pk:
+                raise serializers.ValidationError(
+                    {"goods_receipt": "Goods receipt is not for this supplier."}
+                )
+            if po is not None and receipt.purchase_order_id != po.pk:
+                raise serializers.ValidationError(
+                    {"goods_receipt": "Goods receipt is not for this purchase order."}
+                )
+        subtotal = attrs.get("subtotal", getattr(self.instance, "subtotal", None))
+        tax = attrs.get("tax_amount", getattr(self.instance, "tax_amount", None))
+        total = attrs.get("total", getattr(self.instance, "total", None))
+        if total is None or total < 0:
             raise serializers.ValidationError("Total must be non-negative.")
+        if subtotal is not None and tax is not None and _q2(subtotal + tax) != total:
+            raise serializers.ValidationError(
+                {"total": "Total must equal subtotal plus tax amount."}
+            )
         return attrs
 
     def create(self, validated_data):

@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -163,8 +164,21 @@ class GoodsReceiptViewSet(
     which posts the purchase_in movements atomically).
     """
 
-    queryset = GoodsReceipt.objects.prefetch_related("lines").all()
+    queryset = GoodsReceipt.objects.prefetch_related("lines__product").all()
     serializer_class = GoodsReceiptReadSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        supplier_id = self.request.query_params.get("supplier")
+        if supplier_id:
+            qs = qs.filter(supplier_id=supplier_id)
+        role = getattr(self.request.user, "role", None)
+        branch_id = getattr(self.request.user, "branch_id", None)
+        if role and role.scope_level == "branch" and branch_id:
+            qs = qs.filter(
+                Q(warehouse__branch_id=branch_id) | Q(warehouse__branch__isnull=True)
+            )
+        return qs
 
 
 class GoodsReceiptCreateView(APIView):
