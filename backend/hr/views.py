@@ -14,7 +14,7 @@ from rest_framework.exceptions import ValidationError
 
 from core.activity import log_activity
 from core.deletion import ArchiveOnDeleteMixin, NoDeleteMixin
-from core.permissions import CanApproveSalaryAdvance
+from core.permissions import CanApproveSalaryAdvance, PayrollReportAccess
 from core.scoping import CompanyScopedModelViewSet
 from hr.models import (
     Attendance,
@@ -174,6 +174,11 @@ class SalaryAdvanceViewSet(CompanyScopedModelViewSet):
     serializer_class = SalaryAdvanceSerializer
     activity_entity_type = "SalaryAdvance"
 
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @transaction.atomic
     def destroy(self, request, *args, **kwargs):
         """A pending request is just a request and can be withdrawn. Once it is
         approved or rejected it records a decision about money owed, so it stays
@@ -194,6 +199,8 @@ class SalaryAdvanceViewSet(CompanyScopedModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        if self.action in ("approve", "reject", "update", "partial_update", "destroy"):
+            qs = qs.select_related(None).select_for_update()
         status = self.request.query_params.get("status")
         if status:
             qs = qs.filter(status=status)
@@ -210,20 +217,35 @@ class SalaryAdvanceViewSet(CompanyScopedModelViewSet):
     def reject(self, request, pk=None):
         return self._decide(request, SalaryAdvance.REJECTED)
 
+    @transaction.atomic
     def _decide(self, request, status_value):
         instance = self.get_object()
-        serializer = self.get_serializer(
-            instance, data={"status": status_value}, partial=True
-        )
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        return Response(serializer.data)
+        if instance.status == status_value:
+            return Response(self.get_serializer(instance).data)
+        if instance.status != SalaryAdvance.PENDING:
+            raise ValidationError({"detail": "This advance has already been decided."})
+        instance.status = status_value
+        instance.reviewed_by = request.user
+        instance.reviewed_at = timezone.now()
+        instance.save(update_fields=["status", "reviewed_by", "reviewed_at"])
+        log_activity(action="approve" if status_value == SalaryAdvance.APPROVED else "reject", request=request, entity_type="SalaryAdvance", entity_id=instance.pk)
+        return Response(self.get_serializer(instance).data)
 
 
-class PayrollRunViewSet(CompanyScopedModelViewSet):
+class PayrollRunViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
     queryset = PayrollRun.objects.select_related("company").prefetch_related("entries").all()
     serializer_class = PayrollRunSerializer
     activity_entity_type = "PayrollRun"
+    http_method_names = ["get", "post", "delete", "head", "options"]
+
+    def get_permissions(self):
+        return [*super().get_permissions(), PayrollReportAccess()]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.action in ("refresh", "approve"):
+            qs = qs.select_related(None).select_for_update()
+        return qs
 
     def _recalculate_run(self, run):
         """Replace a draft's entries with a fresh monthly payroll snapshot.
@@ -239,6 +261,7 @@ class PayrollRunViewSet(CompanyScopedModelViewSet):
         employees = (
             Employee.objects.filter(company_id=run.company_id)
             .exclude(status=Employee.STATUS_TERMINATED)
+            .filter(Q(hire_date__isnull=True) | Q(hire_date__lt=month_end))
             .select_related("position", "department")
         )
         entries = []
@@ -279,8 +302,13 @@ class PayrollRunViewSet(CompanyScopedModelViewSet):
         with transaction.atomic():
             run.entries.all().delete()
             PayrollEntry.objects.bulk_create(entries)
+        # get_object() prefetches the previous draft entries.
+        run._prefetched_objects_cache = {}
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
+        if request.user.company_id is None:
+            raise ValidationError({"detail": "Select a company before creating payroll."})
         raw_period = request.data.get("period")
         try:
             period = date.fromisoformat(f"{raw_period}-01") if len(str(raw_period)) == 7 else date.fromisoformat(raw_period)
@@ -294,17 +322,21 @@ class PayrollRunViewSet(CompanyScopedModelViewSet):
         if not created:
             return Response(self.get_serializer(run).data, status=status.HTTP_200_OK)
         self._recalculate_run(run)
+        log_activity(action="create", request=request, entity_type="PayrollRun", entity_id=run.pk)
         return Response(self.get_serializer(run).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def refresh(self, request, pk=None):
         run = self.get_object()
         if run.status != PayrollRun.DRAFT:
             raise ValidationError({"detail": "An approved payroll is locked and cannot be recalculated."})
         self._recalculate_run(run)
+        log_activity(action="recalculate", request=request, entity_type="PayrollRun", entity_id=run.pk)
         return Response(self.get_serializer(run).data)
 
     @action(detail=True, methods=["post"], permission_classes=[CanApproveSalaryAdvance])
+    @transaction.atomic
     def approve(self, request, pk=None):
         run = self.get_object()
         if run.status == PayrollRun.DRAFT:
@@ -312,6 +344,7 @@ class PayrollRunViewSet(CompanyScopedModelViewSet):
             run.approved_by = request.user
             run.approved_at = timezone.now()
             run.save(update_fields=["status", "approved_by", "approved_at"])
+            log_activity(action="approve", request=request, entity_type="PayrollRun", entity_id=run.pk)
         return Response(self.get_serializer(run).data)
 
 

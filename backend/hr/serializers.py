@@ -44,6 +44,11 @@ class _CompanyScopedFKMixin:
 class PositionSerializer(serializers.ModelSerializer):
     employee_count = serializers.SerializerMethodField()
 
+    def validate_base_salary(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Salary cannot be negative.")
+        return value
+
     class Meta:
         model = Position
         fields = [
@@ -58,6 +63,11 @@ class PositionSerializer(serializers.ModelSerializer):
 
 class EmployeeSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
     scoped_fk_fields = ("branch", "department", "position")
+
+    def validate_base_salary_override(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Salary cannot be negative.")
+        return value
 
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     position_title = serializers.CharField(source="position.title", read_only=True, default=None)
@@ -182,6 +192,18 @@ class SalaryAdvanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer
     scoped_fk_fields = ("employee",)
     employee_name = serializers.CharField(source="employee.full_name", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    def validate(self, attrs):
+        if "status" in attrs:
+            raise serializers.ValidationError({"status": "Use the authorised approval or rejection action."})
+        if self.instance and self.instance.status != SalaryAdvance.PENDING:
+            raise serializers.ValidationError("A decided advance cannot be edited.")
+        return attrs
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("An advance must be greater than zero.")
+        return value
 
     class Meta:
         model = SalaryAdvance

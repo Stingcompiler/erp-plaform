@@ -412,6 +412,7 @@ export default function HrPage() {
   const { t, language } = useI18n();
   const toast = useToast();
   const writable = canWrite("hr");
+  const canViewPayroll = (user?.report_areas || []).some((area) => area === "hr" || area === "finance");
   const canApproveAdvances = Boolean(
     user?.is_platform_admin || [
       "Chief Financial Officer",
@@ -451,9 +452,9 @@ export default function HrPage() {
       hr.policies().then((r) => setPolicies(r.data.results)).catch(() => setPolicies([])),
       hr.deductions({ page: 1 }).then((r) => setDeductions(r.data.results)).catch(() => setDeductions([])),
       org.departments().then((r) => setDepartments(r.data.results || r.data)).catch(() => setDepartments([])),
-      hr.payrollRuns().then((r) => setPayrollRuns(r.data.results || r.data)).catch(() => setPayrollRuns([])),
+      canViewPayroll ? hr.payrollRuns().then((r) => setPayrollRuns(r.data.results || r.data)).catch(() => setPayrollRuns([])) : Promise.resolve(setPayrollRuns([])),
     ]).finally(() => setLoading(false));
-  }, []);
+  }, [canViewPayroll]);
 
   useEffect(() => {
     if (canRead("hr")) load();
@@ -461,8 +462,9 @@ export default function HrPage() {
 
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("tab");
-    if (TABS.some(([key]) => key === requested)) setTab(requested);
-  }, []);
+    if (TABS.some(([key]) => key === requested) && (requested !== "payroll" || canViewPayroll)) setTab(requested);
+    else if (!canViewPayroll) setTab((current) => current === "payroll" ? "employees" : current);
+  }, [canViewPayroll]);
 
   const stats = useMemo(() => {
     const active = employees.filter((e) => e.status === "active").length;
@@ -567,7 +569,7 @@ export default function HrPage() {
 
       {/* Tabs */}
       <div className="mt-6 flex gap-1 overflow-x-auto border-b border-line">
-        {TABS.map(([key, labelKey]) => (
+        {TABS.filter(([key]) => key !== "payroll" || canViewPayroll).map(([key, labelKey]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -634,7 +636,7 @@ export default function HrPage() {
         </div>
       )}
 
-      {!loading && tab === "payroll" && (
+      {!loading && canViewPayroll && tab === "payroll" && (
         <div className="mt-4 space-y-3">
           {payrollRuns.length === 0 && <Card className="p-8 text-center text-muted">{t("hr.noPayroll")}</Card>}
           {payrollRuns.map((run) => (
