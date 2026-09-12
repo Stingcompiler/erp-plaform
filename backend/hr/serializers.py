@@ -127,10 +127,33 @@ class LeaveRequestSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer)
         return bool(obj.medical_report)
 
     def validate(self, attrs):
+        if "status" in attrs:
+            raise serializers.ValidationError({"status": "Use the approval or rejection action."})
+        if self.instance and self.instance.status != LeaveRequest.PENDING:
+            raise serializers.ValidationError("A decided leave request cannot be edited.")
         start = attrs.get("start_date", getattr(self.instance, "start_date", None))
         end = attrs.get("end_date", getattr(self.instance, "end_date", None))
         if start and end and end < start:
             raise serializers.ValidationError("end_date cannot be before start_date.")
+        employee = attrs.get("employee", getattr(self.instance, "employee", None))
+        if employee:
+            # All leave write endpoints run within a transaction. Lock the
+            # employee to serialize overlap checks even for the first request.
+            employee = Employee.objects.select_for_update().get(pk=employee.pk)
+            if employee.status == Employee.STATUS_TERMINATED:
+                raise serializers.ValidationError("Cannot request leave for a terminated employee.")
+            if employee.hire_date and start and start < employee.hire_date:
+                raise serializers.ValidationError("Leave cannot start before the hire date.")
+            if start and end:
+                overlaps = LeaveRequest.objects.filter(
+                    company_id=employee.company_id, employee=employee,
+                    status__in=[LeaveRequest.PENDING, LeaveRequest.APPROVED],
+                    start_date__lte=end, end_date__gte=start,
+                )
+                if self.instance:
+                    overlaps = overlaps.exclude(pk=self.instance.pk)
+                if overlaps.exists():
+                    raise serializers.ValidationError("This leave overlaps another pending or approved request.")
         return attrs
 
     def update(self, instance, validated_data):

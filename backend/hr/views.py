@@ -119,9 +119,26 @@ class LeaveRequestViewSet(CompanyScopedModelViewSet):
     # Accept multipart so a sick-leave medical report can be uploaded.
     parser_classes = [JSONParser, FormParser, MultiPartParser]
 
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @transaction.atomic
+    def destroy(self, request, *args, **kwargs):
+        if self.get_object().status != LeaveRequest.PENDING:
+            return Response({"detail": "A decided leave request cannot be deleted."}, status=405)
+        return super().destroy(request, *args, **kwargs)
+
     def get_queryset(self):
-        refresh_employee_leave_statuses(self.request.user.company_id)
+        if self.action == "list":
+            refresh_employee_leave_statuses(self.request.user.company_id)
         qs = super().get_queryset()
+        if self.action in ("approve", "reject", "update", "partial_update", "destroy"):
+            qs = qs.select_related(None).select_for_update()
         status = self.request.query_params.get("status")
         if status:
             qs = qs.filter(status=status)
@@ -141,22 +158,30 @@ class LeaveRequestViewSet(CompanyScopedModelViewSet):
     def reject(self, request, pk=None):
         return self._decide(request, LeaveRequest.REJECTED)
 
+    @transaction.atomic
     def _decide(self, request, status_value):
         instance = self.get_object()
+        if instance.status == status_value:
+            return Response(self.get_serializer(instance).data)
+        if instance.status != LeaveRequest.PENDING:
+            raise ValidationError({"detail": "This leave request has already been decided."})
         if status_value == LeaveRequest.APPROVED:
+            # Revalidate current employment and overlaps, including legacy rows.
+            validator = self.get_serializer(instance, data={}, partial=True)
+            validator.is_valid(raise_exception=True)
             conflicts = attendance_conflicts(instance)
             if conflicts.exists():
                 raise ValidationError({
                     "detail": "Correct existing attendance records before approving this leave."
                 })
-        serializer = self.get_serializer(
-            instance, data={"status": status_value}, partial=True
-        )
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
+        instance.status = status_value
+        instance.reviewed_by = request.user
+        instance.reviewed_at = timezone.now()
+        instance.save(update_fields=["status", "reviewed_by", "reviewed_at"])
         if status_value == LeaveRequest.APPROVED:
             apply_approved_leave(instance)
-        return Response(serializer.data)
+        log_activity(action="approve" if status_value == LeaveRequest.APPROVED else "reject", request=request, entity_type="LeaveRequest", entity_id=instance.pk)
+        return Response(self.get_serializer(instance).data)
 
     @action(detail=True, methods=["get"])
     def report(self, request, pk=None):
