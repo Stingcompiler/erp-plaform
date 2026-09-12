@@ -57,6 +57,7 @@ export default function DashboardPage() {
   const { t, language } = useI18n();
   const [data, setData] = useState(null);
   const [error, setError] = useState(false);
+  const [advanceAlertDismissed, setAdvanceAlertDismissed] = useState(false);
 
   const money = (v) =>
     Number(v ?? 0).toLocaleString(language === "ar" ? "ar" : "en", {
@@ -73,6 +74,24 @@ export default function DashboardPage() {
   useEffect(() => { load(); }, []);
 
   const sections = data?.sections || {};
+  const advanceRequestSignature = sections.advance_requests
+    ? JSON.stringify(sections.advance_requests)
+    : "";
+
+  useEffect(() => {
+    if (!advanceRequestSignature || !user?.id || !user?.company) {
+      setAdvanceAlertDismissed(false);
+      return;
+    }
+    const key = `vezano.advance-request-alert:${user.company}:${user.id}`;
+    setAdvanceAlertDismissed(window.localStorage.getItem(key) === advanceRequestSignature);
+  }, [advanceRequestSignature, user?.company, user?.id]);
+
+  const dismissAdvanceRequestAlert = () => {
+    const key = `vezano.advance-request-alert:${user.company}:${user.id}`;
+    window.localStorage.setItem(key, advanceRequestSignature);
+    setAdvanceAlertDismissed(true);
+  };
 
   return (
     <div>
@@ -131,9 +150,10 @@ export default function DashboardPage() {
               <span className="shrink-0 text-sm font-semibold text-warn">{t("dashboard.reviewAdvances")}</span>
             </Link>
           )}
-          {sections.advance_requests && (
+          {sections.advance_requests && !advanceAlertDismissed && (
             <Link
               href="/hr?tab=advances"
+              onClick={dismissAdvanceRequestAlert}
               className="mb-6 flex items-center justify-between gap-4 rounded-card border border-accent/25 bg-accent/5 p-5 transition-colors hover:border-accent/50"
             >
               <div className="flex min-w-0 items-start gap-3">
