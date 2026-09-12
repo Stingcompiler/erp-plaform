@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import Drawer from "@/components/ui/Drawer";
 import EmployeeDrawer from "@/components/hr/EmployeeDrawer";
+import LeaveBalances from "@/components/hr/LeaveBalances";
 
 const EMP_STATUS_TONE = { active: "ok", on_leave: "warn", terminated: "danger" };
 const EMP_STATUS_KEY = {
@@ -401,6 +402,7 @@ const TABS = [
   ["positions", "hr.positions"],
   ["departments", "hr.departments"],
   ["leave", "hr.leaveRequests"],
+  ["leave-balances", "hr.leaveBalances"],
   ["advances", "hr.salaryAdvances"],
   ["payroll", "hr.payroll"],
   ["policies", "hr.workPolicies"],
@@ -481,8 +483,8 @@ export default function HrPage() {
     try {
       await (kind === "approve" ? approveFn(id) : rejectFn(id));
       load();
-    } catch {
-      toast.error(t("common.loadError"));
+    } catch (error) {
+      toast.error(t(error.response?.data?.code === "insufficient_leave_balance" ? "hr.insufficientLeaveBalance" : "common.loadError"));
     }
   }
 
@@ -522,6 +524,7 @@ export default function HrPage() {
 
   function headerAction() {
     if (!writable) return null;
+    if (tab === "leave-balances") return null;
     const map = {
       employees: () => setEmpDrawer({ open: true, employee: null }),
       positions: () => setPositionDrawer({ open: true, position: null }),
@@ -597,6 +600,7 @@ export default function HrPage() {
       </div>
 
       {loading && <p className="py-8 text-center text-muted">{t("common.loading")}</p>}
+      {tab === "leave-balances" && <LeaveBalances writable={writable} />}
 
       {/* Employees */}
       {!loading && tab === "employees" && (

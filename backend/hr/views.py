@@ -28,6 +28,7 @@ from hr.models import (
     PayrollRun,
     PayrollEntry,
     WorkPolicy,
+    LeaveAllowance,
 )
 from hr.leave_sync import (
     apply_approved_leave,
@@ -45,6 +46,7 @@ from hr.serializers import (
     SalaryAdvanceSerializer,
     PayrollRunSerializer,
     WorkPolicySerializer,
+    LeaveAllowanceSerializer,
 )
 
 
@@ -211,6 +213,8 @@ class LeaveRequestViewSet(CompanyScopedModelViewSet):
             # Revalidate current employment and overlaps, including legacy rows.
             validator = self.get_serializer(instance, data={}, partial=True)
             validator.is_valid(raise_exception=True)
+            from hr.leave_balances import check_leave_balance
+            check_leave_balance(instance)
             conflicts = attendance_conflicts(instance)
             if conflicts.exists():
                 raise ValidationError({
@@ -234,6 +238,44 @@ class LeaveRequestViewSet(CompanyScopedModelViewSet):
         if not instance.medical_report:
             raise Http404
         return FileResponse(instance.medical_report.open("rb"))
+
+
+class LeaveAllowanceViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
+    queryset = LeaveAllowance.objects.select_related("employee").all()
+    serializer_class = LeaveAllowanceSerializer
+    activity_entity_type = "LeaveAllowance"
+    branch_field = "employee__branch"
+
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.action in ("update", "partial_update"):
+            qs = qs.select_related(None).select_for_update()
+        year = self.request.query_params.get("year")
+        if year:
+            try:
+                year = int(year)
+            except (TypeError, ValueError):
+                raise ValidationError({"year": "Invalid year."})
+            qs = qs.filter(year=year)
+        return qs
+
+    def perform_create(self, serializer):
+        # Employee already carries branch membership; do not pass a nested
+        # employee__branch keyword to Model.save via the base branch hook.
+        branch_field = self.branch_field
+        self.branch_field = None
+        try:
+            super().perform_create(serializer)
+        finally:
+            self.branch_field = branch_field
 
 
 class SalaryAdvanceViewSet(CompanyScopedModelViewSet):

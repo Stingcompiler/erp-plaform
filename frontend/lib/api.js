@@ -153,6 +153,9 @@ export const crm = {
 };
 
 export const hr = {
+  leaveAllowances: (params) => api.get("/leave-allowances/", { params }),
+  createLeaveAllowance: (body) => api.post("/leave-allowances/", body),
+  updateLeaveAllowance: (id, body) => api.patch(`/leave-allowances/${id}/`, body),
   employees: (params) => api.get("/employees/", { params }),
   createEmployee: (body) => api.post("/employees/", body),
   updateEmployee: (id, body) => api.patch(`/employees/${id}/`, body),

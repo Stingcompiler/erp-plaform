@@ -223,6 +223,24 @@ class LeaveRequest(models.Model):
         return f"Leave<{self.employee_id}: {self.start_date}–{self.end_date}>"
 
 
+class LeaveAllowance(models.Model):
+    """Explicit HR allocation; no country-specific legal entitlement is assumed."""
+
+    company = models.ForeignKey("org.Company", on_delete=models.CASCADE)
+    employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="leave_allowances")
+    year = models.PositiveSmallIntegerField()
+    leave_type = models.CharField(max_length=16, choices=LeaveRequest.TYPE_CHOICES)
+    entitled_days = models.DecimalField(max_digits=7, decimal_places=2)
+    carried_days = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+    note = models.CharField(max_length=1000)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-year", "employee__full_name", "leave_type"]
+        constraints = [models.UniqueConstraint(fields=["company", "employee", "year", "leave_type"], name="unique_employee_leave_allowance")]
+
+
 class PerformanceRecord(models.Model):
     """A periodic performance review/rating for an employee."""
 

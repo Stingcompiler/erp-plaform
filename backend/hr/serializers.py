@@ -23,6 +23,7 @@ from hr.models import (
     PayrollRun,
     PayrollEntry,
     WorkPolicy,
+    LeaveAllowance,
 )
 
 
@@ -184,6 +185,47 @@ class LeaveRequestSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer)
             if request is not None:
                 validated_data["reviewed_by"] = request.user
         return super().update(instance, validated_data)
+
+
+class LeaveAllowanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
+    scoped_fk_fields = ("employee",)
+    employee_name = serializers.CharField(source="employee.full_name", read_only=True)
+    balance = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LeaveAllowance
+        fields = ["id", "employee", "employee_name", "year", "leave_type", "entitled_days", "carried_days", "note", "balance", "created_at", "updated_at"]
+        read_only_fields = ["created_at", "updated_at"]
+        validators = []  # Company is forced by the scoped view, not submitted.
+
+    def get_balance(self, obj):
+        from hr.leave_balances import balance
+        return {key: str(value) for key, value in balance(obj).items()}
+
+    def validate(self, attrs):
+        from hr.leave_balances import usage
+        employee = attrs.get("employee", getattr(self.instance, "employee", None))
+        user = self.context["request"].user
+        if getattr(getattr(user, "role", None), "scope_level", None) == "branch" and user.branch_id and employee.branch_id not in (None, user.branch_id):
+            raise serializers.ValidationError({"employee": "Employee is outside your branch."})
+        Employee.objects.select_for_update().get(pk=employee.pk)
+        year = attrs.get("year", getattr(self.instance, "year", None))
+        leave_type = attrs.get("leave_type", getattr(self.instance, "leave_type", None))
+        if not 1900 <= year <= 9998:
+            raise serializers.ValidationError({"year": "Use a year from 1900 to 9998."})
+        if self.instance and (employee.pk != self.instance.employee_id or year != self.instance.year or leave_type != self.instance.leave_type):
+            raise serializers.ValidationError("Employee, year and leave type cannot be changed on an existing allocation.")
+        if LeaveAllowance.objects.filter(company_id=employee.company_id, employee=employee, year=year, leave_type=leave_type).exclude(pk=getattr(self.instance, "pk", None)).exists():
+            raise serializers.ValidationError("An allocation already exists for this employee, year and leave type.")
+        entitled = attrs.get("entitled_days", getattr(self.instance, "entitled_days", 0))
+        carried = attrs.get("carried_days", getattr(self.instance, "carried_days", 0))
+        if entitled < 0 or carried < 0:
+            raise serializers.ValidationError("Allocated days cannot be negative.")
+        if entitled + carried < usage(employee.pk, employee.company_id, year, leave_type):
+            raise serializers.ValidationError("The allocation cannot be less than already approved leave.")
+        if not str(attrs.get("note", "")).strip():
+            raise serializers.ValidationError({"note": "Provide the allocation or adjustment reason."})
+        return attrs
 
 
 class PerformanceRecordSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
