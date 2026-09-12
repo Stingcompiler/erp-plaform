@@ -78,6 +78,11 @@ class Employee(models.Model):
         null=True,
         blank=True,
     )
+    # A negotiated employee salary, when it differs from the default salary for
+    # the assigned position.  Null deliberately means "use the position rate".
+    base_salary_override = models.DecimalField(
+        max_digits=14, decimal_places=2, null=True, blank=True
+    )
     # Optional link to a platform login account (not every employee logs in).
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,

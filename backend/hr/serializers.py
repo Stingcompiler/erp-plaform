@@ -69,6 +69,7 @@ class EmployeeSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
             "id", "employee_code", "full_name", "email", "phone",
             "branch", "department", "department_name",
             "position", "position_title",
+            "base_salary_override",
             "hire_date", "status", "status_display",
             "created_at", "updated_at",
         ]

@@ -177,6 +177,7 @@ export const hr = {
   rejectAdvance: (id) => api.post(`/salary-advances/${id}/reject/`),
   payrollRuns: () => api.get("/payroll-runs/"),
   createPayrollRun: (period) => api.post("/payroll-runs/", { period }),
+  refreshPayrollRun: (id) => api.post(`/payroll-runs/${id}/refresh/`),
   approvePayrollRun: (id) => api.post(`/payroll-runs/${id}/approve/`),
   policies: () => api.get("/work-policies/"),
   createPolicy: (body) => api.post("/work-policies/", body),

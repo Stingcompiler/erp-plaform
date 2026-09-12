@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.db.models import Q, Sum
+from django.db import transaction
 from django.db.models.functions import Coalesce
 from django.http import FileResponse, Http404
 from django.utils import timezone
@@ -224,6 +225,61 @@ class PayrollRunViewSet(CompanyScopedModelViewSet):
     serializer_class = PayrollRunSerializer
     activity_entity_type = "PayrollRun"
 
+    def _recalculate_run(self, run):
+        """Replace a draft's entries with a fresh monthly payroll snapshot.
+
+        Approved runs are deliberately never passed here: finance approval makes
+        their values an auditable record even if an employee's current salary or
+        a deduction later changes.
+        """
+        period = run.period
+        month_end = date(
+            period.year + (period.month == 12), (period.month % 12) + 1, 1
+        )
+        employees = (
+            Employee.objects.filter(company_id=run.company_id)
+            .exclude(status=Employee.STATUS_TERMINATED)
+            .select_related("position", "department")
+        )
+        entries = []
+        for employee in employees:
+            base = employee.base_salary_override
+            if base is None:
+                base = employee.position.base_salary if employee.position_id else Decimal("0")
+            deductions = Deduction.objects.filter(
+                company_id=run.company_id, employee=employee
+            ).filter(
+                Q(date__gte=period, date__lt=month_end)
+                | Q(
+                    date__isnull=True,
+                    created_at__date__gte=period,
+                    created_at__date__lt=month_end,
+                )
+            ).aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
+            advances = SalaryAdvance.objects.filter(
+                company_id=run.company_id,
+                employee=employee,
+                status=SalaryAdvance.APPROVED,
+                reviewed_at__date__gte=period,
+                reviewed_at__date__lt=month_end,
+            ).aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
+            entries.append(
+                PayrollEntry(
+                    payroll_run=run,
+                    employee=employee,
+                    employee_name=employee.full_name,
+                    department_name=getattr(employee.department, "name", "") or "",
+                    position_title=getattr(employee.position, "title", "") or "",
+                    base_salary=base,
+                    deductions_total=deductions,
+                    advances_total=advances,
+                    net_salary=max(Decimal("0"), base - deductions - advances),
+                )
+            )
+        with transaction.atomic():
+            run.entries.all().delete()
+            PayrollEntry.objects.bulk_create(entries)
+
     def create(self, request, *args, **kwargs):
         raw_period = request.data.get("period")
         try:
@@ -237,24 +293,16 @@ class PayrollRunViewSet(CompanyScopedModelViewSet):
         )
         if not created:
             return Response(self.get_serializer(run).data, status=status.HTTP_200_OK)
-        month_end = date(period.year + (period.month == 12), (period.month % 12) + 1, 1)
-        employees = Employee.objects.filter(company_id=request.user.company_id).exclude(status=Employee.STATUS_TERMINATED).select_related("position", "department")
-        entries = []
-        for employee in employees:
-            base = employee.position.base_salary if employee.position_id else Decimal("0")
-            # Earlier deductions did not require an explicit effective date.
-            # Treat those as belonging to the month in which HR recorded them,
-            # while keeping dated deductions tied to their stated payroll month.
-            deductions = Deduction.objects.filter(
-                company_id=request.user.company_id, employee=employee
-            ).filter(
-                Q(date__gte=period, date__lt=month_end)
-                | Q(date__isnull=True, created_at__date__gte=period, created_at__date__lt=month_end)
-            ).aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
-            advances = SalaryAdvance.objects.filter(company_id=request.user.company_id, employee=employee, status=SalaryAdvance.APPROVED, reviewed_at__date__gte=period, reviewed_at__date__lt=month_end).aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
-            entries.append(PayrollEntry(payroll_run=run, employee=employee, employee_name=employee.full_name, department_name=getattr(employee.department, "name", "") or "", position_title=getattr(employee.position, "title", "") or "", base_salary=base, deductions_total=deductions, advances_total=advances, net_salary=max(Decimal("0"), base - deductions - advances)))
-        PayrollEntry.objects.bulk_create(entries)
+        self._recalculate_run(run)
         return Response(self.get_serializer(run).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"])
+    def refresh(self, request, pk=None):
+        run = self.get_object()
+        if run.status != PayrollRun.DRAFT:
+            raise ValidationError({"detail": "An approved payroll is locked and cannot be recalculated."})
+        self._recalculate_run(run)
+        return Response(self.get_serializer(run).data)
 
     @action(detail=True, methods=["post"], permission_classes=[CanApproveSalaryAdvance])
     def approve(self, request, pk=None):

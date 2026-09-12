@@ -173,14 +173,16 @@ class HrExpansionTests(HrBase):
     def test_hr_can_generate_payroll_and_cfo_can_approve_it(self):
         self.pos_a.base_salary = "1000.00"
         self.pos_a.save(update_fields=["base_salary"])
+        self.emp_a.base_salary_override = "1200.00"
+        self.emp_a.save(update_fields=["base_salary_override"])
         from hr.models import Deduction, PayrollRun
         Deduction.objects.create(company=self.company_a, employee=self.emp_a, amount="50.00", date=date(2026, 9, 10))
         create = self.client.post(reverse("payrollrun-list"), {"period": "2026-09"}, format="json")
         self.assertEqual(create.status_code, status.HTTP_201_CREATED, create.content)
         entry = create.data["entries"][0]
-        self.assertEqual(entry["base_salary"], "1000.00")
+        self.assertEqual(entry["base_salary"], "1200.00")
         self.assertEqual(entry["deductions_total"], "50.00")
-        self.assertEqual(entry["net_salary"], "950.00")
+        self.assertEqual(entry["net_salary"], "1150.00")
 
         denied = self.client.post(reverse("payrollrun-approve", args=[create.data["id"]]))
         self.assertEqual(denied.status_code, status.HTTP_403_FORBIDDEN)
@@ -191,6 +193,38 @@ class HrExpansionTests(HrBase):
         approved = client.post(reverse("payrollrun-approve", args=[create.data["id"]]))
         self.assertEqual(approved.status_code, status.HTTP_200_OK, approved.content)
         self.assertEqual(PayrollRun.objects.get(pk=create.data["id"]).status, PayrollRun.APPROVED)
+
+    def test_draft_payroll_refreshes_and_approved_payroll_stays_locked(self):
+        self.pos_a.base_salary = "1000.00"
+        self.pos_a.save(update_fields=["base_salary"])
+        create = self.client.post(
+            reverse("payrollrun-list"), {"period": "2026-09"}, format="json"
+        )
+        self.assertEqual(create.status_code, status.HTTP_201_CREATED, create.content)
+        run_id = create.data["id"]
+        self.assertEqual(create.data["entries"][0]["net_salary"], "1000.00")
+
+        self.emp_a.base_salary_override = "1400.00"
+        self.emp_a.save(update_fields=["base_salary_override"])
+        refreshed = self.client.post(reverse("payrollrun-refresh", args=[run_id]))
+        self.assertEqual(refreshed.status_code, status.HTTP_200_OK, refreshed.content)
+        self.assertEqual(refreshed.data["entries"][0]["base_salary"], "1400.00")
+
+        cfo_role = Role.objects.create(
+            name="Chief Financial Officer", scope_level=Role.SCOPE_BUSINESS
+        )
+        cfo = User.objects.create_user(
+            email="refresh-cfo@alpha.test", password="passw0rd123",
+            company=self.company_a, role=cfo_role,
+        )
+        cfo_client = self.client_class()
+        cfo_client.force_authenticate(cfo)
+        self.assertEqual(
+            cfo_client.post(reverse("payrollrun-approve", args=[run_id])).status_code,
+            status.HTTP_200_OK,
+        )
+        locked = self.client.post(reverse("payrollrun-refresh", args=[run_id]))
+        self.assertEqual(locked.status_code, status.HTTP_400_BAD_REQUEST, locked.content)
 
     def test_payroll_includes_undated_deduction_in_its_recorded_month(self):
         self.pos_a.base_salary = "1000.00"

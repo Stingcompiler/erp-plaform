@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, FileText, Lock, Plus, Stethoscope, X } from "lucide-react";
+import { Check, FileText, Lock, Plus, RefreshCw, Stethoscope, X } from "lucide-react";
 
 import { hr, org } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
@@ -494,6 +494,16 @@ export default function HrPage() {
     }
   }
 
+  async function refreshPayroll(id) {
+    try {
+      await hr.refreshPayrollRun(id);
+      toast.success(t("hr.payrollRefreshed"));
+      load();
+    } catch {
+      toast.error(t("common.loadError"));
+    }
+  }
+
   function headerAction() {
     if (!writable) return null;
     const map = {
@@ -631,7 +641,7 @@ export default function HrPage() {
             <Card key={run.id} className="p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div><div className="font-medium text-ink">{t("hr.payrollFor", { period: run.period?.slice(0, 7) })}</div><div className="text-sm text-muted">{t("hr.payrollEmployees", { count: run.employee_count })}</div></div>
-                <div className="flex items-center gap-2"><Badge tone={run.status === "approved" ? "ok" : "warn"}>{run.status === "approved" ? t("hr.approved") : t("hr.pending")}</Badge>{canApproveAdvances && run.status === "draft" && <Button variant="outline" onClick={() => decide("approve", run.id, hr.approvePayrollRun, hr.approvePayrollRun)}><Check size={15} /> {t("hr.approve")}</Button>}</div>
+                <div className="flex items-center gap-2"><Badge tone={run.status === "approved" ? "ok" : "warn"}>{run.status === "approved" ? t("hr.approved") : t("hr.pending")}</Badge>{writable && run.status === "draft" && <Button variant="outline" onClick={() => refreshPayroll(run.id)}><RefreshCw size={15} /> {t("hr.refreshPayroll")}</Button>}{canApproveAdvances && run.status === "draft" && <Button variant="outline" onClick={() => decide("approve", run.id, hr.approvePayrollRun, hr.approvePayrollRun)}><Check size={15} /> {t("hr.approve")}</Button>}</div>
               </div>
               <div className="mt-3 divide-y divide-line border-t border-line">
                 {(run.entries || []).map((entry) => <div key={entry.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"><div><span className="font-medium text-ink">{entry.employee_name}</span><span className="text-muted"> · {entry.department_name || "—"} · {entry.position_title || "—"}</span></div><div className="tabular text-ink">{money(entry.net_salary)}</div></div>)}
