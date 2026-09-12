@@ -9,6 +9,66 @@ from hr.tests import HrBase
 
 
 class LeaveControlTests(HrBase):
+    def test_cancel_restores_status_and_preserves_audit(self):
+        pk = self.create_leave()
+        self.client.post(reverse('leaverequest-approve', args=[pk]))
+        response = self.client.post(reverse('leaverequest-cancel', args=[pk]), {'reason': 'Employee returned'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['status'], 'cancelled')
+        self.assertFalse(Attendance.objects.filter(employee=self.emp_a).exists())
+        self.emp_a.refresh_from_db()
+        self.assertEqual(self.emp_a.status, 'active')
+        event = ActivityLog.objects.get(entity_type='LeaveRequest', entity_id=str(pk), action='cancel')
+        self.assertEqual(len(event.metadata['attendance_removed']), 3)
+        self.assertEqual(self.client.post(reverse('leaverequest-cancel', args=[pk])).status_code, 200)
+        self.assertEqual(ActivityLog.objects.filter(entity_type='LeaveRequest', entity_id=str(pk), action='cancel').count(), 1)
+        self.create_leave()
+
+    def test_linked_attendance_cannot_be_changed_or_deleted(self):
+        pk = self.create_leave()
+        self.client.post(reverse('leaverequest-approve', args=[pk]))
+        row = Attendance.objects.filter(employee=self.emp_a).first()
+        self.assertEqual(row.source_leave_id, pk)
+        url = reverse('attendance-detail', args=[row.pk])
+        self.assertEqual(self.client.patch(url, {'status': 'present'}, format='json').status_code, 400)
+        self.assertEqual(self.client.patch(url, {'date': '2026-10-01'}, format='json').status_code, 400)
+        self.assertEqual(self.client.delete(url).status_code, 400)
+
+    def test_cancel_requires_reason_and_rejects_legacy_attendance(self):
+        pk = self.create_leave()
+        self.client.post(reverse('leaverequest-approve', args=[pk]))
+        url = reverse('leaverequest-cancel', args=[pk])
+        self.assertEqual(self.client.post(url).status_code, 400)
+        Attendance.objects.filter(employee=self.emp_a).update(source_leave=None)
+        response = self.client.post(url, {'reason': 'Correction'}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['code'], 'legacy_attendance')
+        self.assertEqual(Attendance.objects.filter(employee=self.emp_a).count(), 3)
+
+    def test_cancel_does_not_change_approved_payroll(self):
+        from hr.models import PayrollRun
+        pk = self.create_leave()
+        self.client.post(reverse('leaverequest-approve', args=[pk]))
+        PayrollRun.objects.create(company=self.company_a, period=date(2026, 9, 1), status='approved')
+        response = self.client.post(reverse('leaverequest-cancel', args=[pk]), {'reason': 'Correction'}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['code'], 'approved_payroll')
+        self.assertEqual(LeaveRequest.objects.get(pk=pk).status, 'approved')
+
+    def test_cannot_move_independent_attendance_into_approved_leave(self):
+        pk = self.create_leave()
+        self.client.post(reverse('leaverequest-approve', args=[pk]))
+        Attendance.objects.filter(employee=self.emp_a, date=date(2026, 9, 10)).delete()
+        row = Attendance.objects.create(company=self.company_a, employee=self.emp_a, date=date(2026, 10, 1), status='present')
+        self.assertEqual(self.client.patch(reverse('attendance-detail', args=[row.pk]), {'date': '2026-09-10'}, format='json').status_code, 400)
+        self.assertEqual(self.client.post(reverse('attendance-list'), {'employee': self.emp_a.pk, 'date': '2026-09-10', 'status': 'present'}, format='json').status_code, 400)
+        self.assertEqual(self.client.patch(reverse('attendance-detail', args=[row.pk]), {'note': 'ordinary correction'}, format='json').status_code, 200)
+        self.assertEqual(self.client.delete(reverse('attendance-detail', args=[row.pk])).status_code, 204)
+
+    def test_cancel_is_company_scoped(self):
+        leave = LeaveRequest.objects.create(company=self.company_b, employee=self.emp_b, start_date=date(2026, 9, 10), end_date=date(2026, 9, 12), status='approved')
+        self.assertEqual(self.client.post(reverse('leaverequest-cancel', args=[leave.pk]), {'reason': 'Correction'}, format='json').status_code, 404)
+
     def payload(self, **changes):
         return {'employee': self.emp_a.pk, 'start_date': '2026-09-10', 'end_date': '2026-09-12', **changes}
 

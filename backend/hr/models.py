@@ -134,6 +134,10 @@ class Attendance(models.Model):
     check_in = models.TimeField(null=True, blank=True)
     check_out = models.TimeField(null=True, blank=True)
     note = models.CharField(max_length=255, blank=True)
+    source_leave = models.ForeignKey(
+        "LeaveRequest", null=True, blank=True, on_delete=models.PROTECT,
+        related_name="generated_attendance",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -163,10 +167,12 @@ class LeaveRequest(models.Model):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
+    CANCELLED = "cancelled"
     STATUS_CHOICES = [
         (PENDING, "Pending"),
         (APPROVED, "Approved"),
         (REJECTED, "Rejected"),
+        (CANCELLED, "Cancelled"),
     ]
 
     ANNUAL = "annual"

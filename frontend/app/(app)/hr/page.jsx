@@ -17,8 +17,8 @@ const EMP_STATUS_KEY = {
   on_leave: "hr.statusOnLeave",
   terminated: "hr.statusTerminated",
 };
-const APPROVAL_TONE = { pending: "warn", approved: "ok", rejected: "danger" };
-const APPROVAL_KEY = { pending: "hr.pending", approved: "hr.approved", rejected: "hr.rejected" };
+const APPROVAL_TONE = { pending: "warn", approved: "ok", rejected: "danger", cancelled: "muted" };
+const APPROVAL_KEY = { pending: "hr.pending", approved: "hr.approved", rejected: "hr.rejected", cancelled: "hr.leaveCancelled" };
 const LEAVE_TYPE_KEY = {
   annual: "hr.typeAnnual",
   casual: "hr.typeCasual",
@@ -496,6 +496,20 @@ export default function HrPage() {
     }
   }
 
+  async function cancelLeave(id) {
+    const reason = window.prompt(t("hr.cancelLeavePrompt"));
+    if (!reason?.trim()) return;
+    if (!window.confirm(t("hr.cancelLeaveConfirm"))) return;
+    try {
+      await hr.cancelLeave(id, reason.trim());
+      toast.success(t("hr.leaveCancelled"));
+      load();
+    } catch (error) {
+      const code = error.response?.data?.code;
+      toast.error(t(code === "legacy_attendance" ? "hr.cancelLegacyAttendance" : code === "approved_payroll" ? "hr.cancelApprovedPayroll" : "common.loadError"));
+    }
+  }
+
   async function refreshPayroll(id) {
     try {
       await hr.refreshPayrollRun(id);
@@ -681,6 +695,7 @@ export default function HrPage() {
                 </div>
               </div>
               <Badge tone={APPROVAL_TONE[l.status]}>{t(APPROVAL_KEY[l.status])}</Badge>
+              {writable && l.status === "approved" && <Button variant="outline" onClick={() => cancelLeave(l.id)}>{t("hr.cancelLeave")}</Button>}
               {writable && l.status === "pending" && (
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => decide("approve", l.id, hr.approveLeave, hr.rejectLeave)}>

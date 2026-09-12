@@ -28,7 +28,7 @@ def apply_approved_leave(leave):
             company_id=leave.company_id,
             employee_id=leave.employee_id,
             date=day,
-            defaults={"status": Attendance.LEAVE, "note": "Approved leave"},
+            defaults={"status": Attendance.LEAVE, "note": "Approved leave", "source_leave": leave},
         )
     refresh_employee_leave_statuses(leave.company_id)
 

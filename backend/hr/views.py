@@ -99,6 +99,21 @@ class AttendanceViewSet(CompanyScopedModelViewSet):
     # supervisory act — and it carries no financial effect on its own.
     manager_only_delete = False
 
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @transaction.atomic
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        Employee.objects.select_for_update().get(pk=instance.employee_id)
+        self.get_serializer().validate_leave_protection(instance.employee, instance.date, instance)
+        return super().destroy(request, *args, **kwargs)
+
     def get_queryset(self):
         qs = super().get_queryset()
         employee = self.request.query_params.get("employee")
@@ -137,7 +152,7 @@ class LeaveRequestViewSet(CompanyScopedModelViewSet):
         if self.action == "list":
             refresh_employee_leave_statuses(self.request.user.company_id)
         qs = super().get_queryset()
-        if self.action in ("approve", "reject", "update", "partial_update", "destroy"):
+        if self.action in ("approve", "reject", "cancel", "update", "partial_update", "destroy"):
             qs = qs.select_related(None).select_for_update()
         status = self.request.query_params.get("status")
         if status:
@@ -157,6 +172,33 @@ class LeaveRequestViewSet(CompanyScopedModelViewSet):
     @action(detail=True, methods=["post"])
     def reject(self, request, pk=None):
         return self._decide(request, LeaveRequest.REJECTED)
+
+    @action(detail=True, methods=["post"])
+    @transaction.atomic
+    def cancel(self, request, pk=None):
+        leave = self.get_object()
+        if leave.status == LeaveRequest.CANCELLED:
+            return Response(self.get_serializer(leave).data)
+        if leave.status != LeaveRequest.APPROVED:
+            raise ValidationError({"detail": "Only approved leave can be cancelled."})
+        reason = str(request.data.get("reason", "")).strip()
+        if not reason or len(reason) > 1000:
+            raise ValidationError({"reason": "Provide a cancellation reason (1–1000 characters)."})
+        Employee.objects.select_for_update().get(pk=leave.employee_id)
+        if PayrollRun.objects.filter(company_id=leave.company_id, status=PayrollRun.APPROVED, period__gte=leave.start_date.replace(day=1), period__lte=leave.end_date.replace(day=1)).exists():
+            raise ValidationError({"detail": "This leave overlaps approved payroll; a payroll correction is required first.", "code": "approved_payroll"})
+        rows = Attendance.objects.filter(company_id=leave.company_id, employee_id=leave.employee_id, date__range=(leave.start_date, leave.end_date))
+        if rows.exclude(source_leave=leave).exists():
+            raise ValidationError({"detail": "Legacy or independently recorded attendance needs review before cancellation.", "code": "legacy_attendance"})
+        snapshot = list(rows.values("id", "date", "status", "note"))
+        for row in snapshot:
+            row["date"] = row["date"].isoformat()
+        rows.delete()
+        leave.status = LeaveRequest.CANCELLED
+        leave.save(update_fields=["status"])
+        refresh_employee_leave_statuses(leave.company_id)
+        log_activity(action="cancel", request=request, entity_type="LeaveRequest", entity_id=leave.pk, metadata={"reason": reason, "attendance_removed": snapshot})
+        return Response(self.get_serializer(leave).data)
 
     @transaction.atomic
     def _decide(self, request, status_value):

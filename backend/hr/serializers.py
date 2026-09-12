@@ -90,6 +90,25 @@ class AttendanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
     scoped_fk_fields = ("employee",)
     employee_name = serializers.CharField(source="employee.full_name", read_only=True)
 
+    def validate_leave_protection(self, employee, day, instance=None):
+        if (instance and instance.source_leave_id) or LeaveRequest.objects.filter(
+            company_id=employee.company_id, employee=employee,
+            status=LeaveRequest.APPROVED, start_date__lte=day, end_date__gte=day,
+        ).exists():
+            raise serializers.ValidationError("Attendance is protected by approved leave. Use the leave cancellation process.")
+
+    def validate(self, attrs):
+        employee = attrs.get("employee", getattr(self.instance, "employee", None))
+        day = attrs.get("date", getattr(self.instance, "date", None))
+        ids = {employee.pk}
+        if self.instance:
+            ids.add(self.instance.employee_id)
+        list(Employee.objects.select_for_update().filter(pk__in=ids).order_by("pk"))
+        if self.instance:
+            self.validate_leave_protection(self.instance.employee, self.instance.date, self.instance)
+        self.validate_leave_protection(employee, day)
+        return attrs
+
     class Meta:
         model = Attendance
         fields = [

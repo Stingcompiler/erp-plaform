@@ -169,6 +169,7 @@ export const hr = {
   reportUrl: (id) => `${API_BASE}/leave-requests/${id}/report/`,
   approveLeave: (id) => api.post(`/leave-requests/${id}/approve/`),
   rejectLeave: (id) => api.post(`/leave-requests/${id}/reject/`),
+  cancelLeave: (id, reason) => api.post(`/leave-requests/${id}/cancel/`, { reason }),
   attendance: (params) => api.get("/attendance/", { params }),
   createAttendance: (body) => api.post("/attendance/", body),
   salaryAdvances: (params) => api.get("/salary-advances/", { params }),
