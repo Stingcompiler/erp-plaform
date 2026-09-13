@@ -34,15 +34,21 @@ function dateInputValue(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
-function invoiceDefaults(rows) {
+function invoiceDefaultsForSubscription(subscription) {
   const now = new Date();
-  const inThirtyDays = new Date(now);
-  inThirtyDays.setDate(now.getDate() + 30);
+  const currentEnd = subscription?.period_ends_at ? new Date(subscription.period_ends_at) : null;
+  const start = currentEnd && currentEnd > now
+    ? new Date(currentEnd.getFullYear(), currentEnd.getMonth(), currentEnd.getDate() + 1)
+    : now;
+  const end = new Date(start);
+  if (subscription?.plan?.billing_cycle === "yearly") end.setFullYear(end.getFullYear() + 1);
+  else end.setMonth(end.getMonth() + 1);
+  end.setDate(end.getDate() - 1);
   return {
-    subscription: rows[0] ? String(rows[0].id) : "",
-    amount: rows[0]?.plan?.price || "",
-    period_start: dateInputValue(now),
-    period_end: dateInputValue(inThirtyDays),
+    subscription: subscription ? String(subscription.id) : "",
+    amount: subscription?.plan?.price || "",
+    period_start: dateInputValue(start),
+    period_end: dateInputValue(end),
     due_at: localDateTime(now),
   };
 }
@@ -82,7 +88,7 @@ export default function PlatformSubscriptionsPage() {
         payment.id,
         current[payment.id] || { invoice: "", amount: payment.amount },
       ])));
-      setInvoiceDraft((current) => current.subscription ? current : invoiceDefaults(nextRows));
+      setInvoiceDraft((current) => current.subscription ? current : invoiceDefaultsForSubscription(nextRows[0]));
     } catch {
       setError(t("subscription.loadError"));
     }
@@ -210,11 +216,7 @@ export default function PlatformSubscriptionsPage() {
                 value={invoiceDraft.subscription || ""}
                 onChange={(event) => {
                   const subscription = rows.find((row) => row.id === Number(event.target.value));
-                  setInvoiceDraft((current) => ({
-                    ...current,
-                    subscription: event.target.value,
-                    amount: subscription?.plan?.price || current.amount,
-                  }));
+                  setInvoiceDraft(invoiceDefaultsForSubscription(subscription));
                 }}
               >
                 {rows.map((row) => <option key={row.id} value={row.id}>{row.company_name}</option>)}
