@@ -51,7 +51,13 @@ application records.
    this repo was authored in.
 3. Apply. First build of `erp-api` runs, in order:
    `npm install && next build (frontend, output: 'export') → pip install →
-   collectstatic → migrate → seed_roles`.
+   collectstatic`. Then, before traffic moves to the new version, the
+   `preDeployCommand` runs `migrate → seed_roles` with the runtime
+   environment. Migrations deliberately do not run in `buildCommand`: the
+   build container has no `DATABASE_URL`, so `migrate` there would only
+   touch a throwaway SQLite file while the production schema stays stale.
+   **After changing `render.yaml`, sync the Blueprint in the Render
+   dashboard** — existing services do not pick up YAML changes on their own.
 4. Nothing else to wire up — `frontend/.env.production` fixes
    `NEXT_PUBLIC_API_BASE_URL=/api` (relative, same-origin), which `next build`
    loads automatically. Keep it relative: an absolute host would break the

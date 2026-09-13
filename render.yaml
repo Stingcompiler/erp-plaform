@@ -23,9 +23,13 @@ services:
     buildCommand: >-
       (cd ../frontend && npm install && npm run build) &&
       pip install -r requirements.txt &&
-      python manage.py collectstatic --noinput &&
-      python manage.py migrate &&
-      python manage.py seed_roles
+      python manage.py collectstatic --noinput
+    # Migrations must NOT run in buildCommand: the build container has no
+    # DATABASE_URL, so `migrate` there silently targets a throwaway SQLite
+    # file and the production schema is never updated. preDeployCommand runs
+    # with the full runtime environment, after the build and before traffic
+    # moves to the new version, which is exactly when the schema must change.
+    preDeployCommand: python manage.py migrate --noinput && python manage.py seed_roles
     startCommand: "gunicorn config.wsgi:application -c gunicorn.conf.py"
     envVars:
       - key: PYTHON_VERSION
