@@ -2,64 +2,42 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CreditCard, Inbox, Lock, ShieldCheck } from "lucide-react";
+import { ArrowRight, Building2, CreditCard, FileCheck2, Lock, ShieldCheck, Timer } from "lucide-react";
 
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
-import { platformLeads, platformSubscriptions } from "@/lib/api";
+import { registration } from "@/lib/api";
 import { Badge, Card, PageHeader } from "@/components/ui/kit";
+
+function MetricCard({ href, icon: Icon, value, title, hint }) {
+  return <Link href={href}><Card className="h-full p-6 transition-transform hover:-translate-y-0.5"><Icon className="text-accent" /><div className="mt-5 text-3xl font-bold tabular-nums">{value ?? "…"}</div><h2 className="mt-2 font-display text-base font-semibold">{title}</h2><p className="mt-1 text-sm text-muted">{hint}</p></Card></Link>;
+}
 
 export default function PlatformPage() {
   const { user } = useAuth();
   const { t } = useI18n();
-  const [counts, setCounts] = useState({ leads: null, subscriptions: null, payments: null });
-
+  const [overview, setOverview] = useState(null);
+  const [error, setError] = useState("");
   useEffect(() => {
     if (!user?.is_platform_admin) return;
-    Promise.all([platformLeads.list(), platformSubscriptions.list(), platformSubscriptions.payments()])
-      .then(([leads, subscriptions, payments]) => setCounts({
-        leads: leads.data.count ?? leads.data.length,
-        subscriptions: subscriptions.data.count ?? subscriptions.data.length,
-        payments: (payments.data.results || payments.data).filter((row) => row.status === "pending").length,
-      }))
-      .catch(() => setCounts({ leads: "—", subscriptions: "—", payments: "—" }));
-  }, [user?.is_platform_admin]);
-
-  if (!user?.is_platform_admin) {
-    return (
-      <Card className="mx-auto mt-16 max-w-md p-8 text-center">
-        <Lock className="mx-auto text-muted" />
-        <p className="mt-3 text-muted">
-          {t("shell.noAccessBody", { module: t("nav.platform") })}
-        </p>
-      </Card>
-    );
-  }
-
-  return (
-    <div>
-      <PageHeader title={t("platform.title")} subtitle={t("platform.subtitle")} actions={<Badge tone="accent"><ShieldCheck size={14} /> {t("shell.platformOperator")}</Badge>} />
-      <div className="grid gap-5 md:grid-cols-2">
-        <Link href="/platform-leads">
-          <Card className="h-full p-6 transition-transform hover:-translate-y-0.5">
-            <Inbox className="text-accent" />
-            <div className="mt-5 text-3xl font-bold tabular-nums">{counts.leads ?? "…"}</div>
-            <h2 className="mt-2 font-display text-lg font-semibold">{t("nav.platformLeads")}</h2>
-            <p className="mt-1 text-sm text-muted">{t("platform.leadsDescription")}</p>
-          </Card>
-        </Link>
-        <Link href="/platform-subscriptions">
-          <Card className="h-full p-6 transition-transform hover:-translate-y-0.5">
-            <CreditCard className="text-accent" />
-            <div className="mt-5 flex items-end gap-3">
-              <span className="text-3xl font-bold tabular-nums">{counts.subscriptions ?? "…"}</span>
-              <Badge tone={Number(counts.payments) > 0 ? "warn" : "muted"}>{t("platform.pendingPayments", { count: counts.payments ?? "…" })}</Badge>
-            </div>
-            <h2 className="mt-2 font-display text-lg font-semibold">{t("nav.platformSubscriptions")}</h2>
-            <p className="mt-1 text-sm text-muted">{t("platform.subscriptionsDescription")}</p>
-          </Card>
-        </Link>
-      </div>
+    registration.overview().then((response) => setOverview(response.data)).catch(() => setError(t("platform.loadError")));
+  }, [t, user?.is_platform_admin]);
+  if (!user?.is_platform_admin) return <Card className="mx-auto mt-16 max-w-md p-8 text-center"><Lock className="mx-auto text-muted" /><p className="mt-3 text-muted">{t("shell.noAccessBody", { module: t("nav.platform") })}</p></Card>;
+  const counts = overview?.counts;
+  const attention = overview?.registration_attention || [];
+  const expiring = overview?.expiring_subscriptions || [];
+  return <div>
+    <PageHeader title={t("platform.title")} subtitle={t("platform.subtitle")} actions={<Badge tone="accent"><ShieldCheck size={14} /> {t("shell.platformOperator")}</Badge>} />
+    {error && <p role="alert" className="mb-5 rounded-control bg-danger/10 p-3 text-sm text-danger">{error}</p>}
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <MetricCard href="/platform-registrations" icon={FileCheck2} value={counts?.registration_attention} title={t("platform.registrationAttention")} hint={t("platform.registrationAttentionHint")} />
+      <MetricCard href="/platform-subscriptions" icon={CreditCard} value={counts?.pending_payments} title={t("platform.pendingPaymentsTitle")} hint={t("platform.pendingPaymentsHint")} />
+      <MetricCard href="/platform-subscriptions" icon={Building2} value={counts?.provisioned_companies} title={t("platform.provisionedCompanies")} hint={t("platform.provisionedCompaniesHint")} />
+      <MetricCard href="/platform-subscriptions" icon={Timer} value={counts?.expiring_within_7_days} title={t("platform.expiringSoon")} hint={t("platform.expiringSoonHint")} />
     </div>
-  );
+    <div className="mt-7 grid gap-5 lg:grid-cols-2">
+      <Card className="p-5"><div className="flex items-center justify-between gap-3"><h2 className="font-display text-lg font-semibold">{t("platform.registrationQueue")}</h2><Link href="/platform-registrations" className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">{t("platform.openQueue")}<ArrowRight size={15} /></Link></div>{attention.length ? <div className="mt-4 divide-y divide-line">{attention.map((row) => <div key={row.id} className="py-3"><div className="font-medium">{row.company_name}</div><div className="mt-1 text-sm text-muted">{row.contact_name} · {row.email}</div><Badge tone={row.status === "approved" ? "ok" : "warn"}>{t(`platformRegistration.status${row.status.charAt(0).toUpperCase()}${row.status.slice(1)}`)}</Badge></div>)}</div> : <p className="mt-4 text-sm text-muted">{t("platform.noRegistrationAttention")}</p>}</Card>
+      <Card className="p-5"><h2 className="font-display text-lg font-semibold">{t("platform.expiringQueue")}</h2>{expiring.length ? <div className="mt-4 divide-y divide-line">{expiring.map((row) => <div key={row.id} className="flex items-center justify-between gap-4 py-3"><div><div className="font-medium">{row.company_name}</div><div className="mt-1 text-sm text-muted">{row.status}</div></div><time className="text-sm text-muted">{new Date(row.ends_at).toLocaleDateString()}</time></div>)}</div> : <p className="mt-4 text-sm text-muted">{t("platform.noExpiringSubscriptions")}</p>}</Card>
+    </div>
+  </div>;
 }

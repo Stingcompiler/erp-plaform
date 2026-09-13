@@ -6,6 +6,7 @@ from website.views import (
     DemoRequestView,
     OwnerInvitationAcceptView,
     PlatformLeadViewSet,
+    PlatformOverviewView,
     PlatformRegistrationRequestViewSet,
     PublicPlanListView,
     PublicRegistrationRequestView,
@@ -27,6 +28,7 @@ router.register(
 )
 
 urlpatterns = [
+    path("platform/overview/", PlatformOverviewView.as_view(), name="platform-overview"),
     path("public/demo-requests/", DemoRequestView.as_view(), name="demo-request"),
     path("public/plans/", PublicPlanListView.as_view(), name="public-plan-list"),
     path(

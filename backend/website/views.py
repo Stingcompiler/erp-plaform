@@ -1,5 +1,7 @@
 import uuid
 
+from datetime import timedelta
+
 from django.db import models
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
@@ -13,7 +15,7 @@ from core.permissions import IsPlatformAdmin
 from core.rbac import RoleModuleAccess
 from core.scoping import CompanyScopedModelViewSet
 from org.models import Company
-from subscriptions.models import PlanVersion
+from subscriptions.models import PlanVersion, Subscription, SubscriptionPayment
 from website.models import FeaturedProduct, PlatformLead, RegistrationRequest, Section, Website
 from website.serializers import (
     FeaturedProductSerializer,
@@ -54,6 +56,64 @@ class PlatformLeadViewSet(
                 | models.Q(message__icontains=search)
             )
         return queryset
+
+
+class PlatformOverviewView(APIView):
+    """Commercial SaaS operating summary, never tenant operational data."""
+
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    entitlement_exempt = True
+
+    def get(self, request):
+        now = timezone.now()
+        soon = now + timedelta(days=7)
+        registrations = RegistrationRequest.objects.select_related("plan_version__plan")
+        subscriptions = Subscription.objects.select_related("company", "plan_version__plan")
+        payment_count = SubscriptionPayment.objects.filter(
+            status=SubscriptionPayment.PENDING
+        ).count()
+        trial_expiring = subscriptions.filter(
+            status=Subscription.TRIALING,
+            trial_ends_at__gte=now,
+            trial_ends_at__lte=soon,
+        )
+        period_expiring = subscriptions.filter(
+            status__in=[Subscription.ACTIVE, Subscription.GRACE],
+            period_ends_at__gte=now,
+            period_ends_at__lte=soon,
+        )
+        attention = registrations.filter(
+            status__in=[
+                RegistrationRequest.SUBMITTED,
+                RegistrationRequest.UNDER_REVIEW,
+                RegistrationRequest.NEEDS_INFORMATION,
+                RegistrationRequest.APPROVED,
+            ]
+        )
+        return Response(
+            {
+                "counts": {
+                    "registration_attention": attention.count(),
+                    "provisioned_companies": subscriptions.count(),
+                    "trialing": subscriptions.filter(status=Subscription.TRIALING).count(),
+                    "active": subscriptions.filter(status=Subscription.ACTIVE).count(),
+                    "pending_payments": payment_count,
+                    "expiring_within_7_days": trial_expiring.count() + period_expiring.count(),
+                },
+                "registration_attention": PlatformRegistrationRequestSerializer(
+                    attention.order_by("created_at")[:6], many=True
+                ).data,
+                "expiring_subscriptions": [
+                    {
+                        "id": item.id,
+                        "company_name": item.company.name,
+                        "status": item.status,
+                        "ends_at": item.trial_ends_at or item.period_ends_at,
+                    }
+                    for item in list(trial_expiring) + list(period_expiring)
+                ][:6],
+            }
+        )
 
 
 class PublicPlanListView(APIView):

@@ -264,6 +264,7 @@ export default api;
 export const demoRequests = { create: (body) => api.post("/public/demo-requests/", body) };
 
 export const registration = {
+  overview: () => api.get("/platform/overview/"),
   publicPlans: () => api.get("/public/plans/"),
   create: (body) => api.post("/public/registration-requests/", body),
   list: (params) => api.get("/platform/registration-requests/", { params }),

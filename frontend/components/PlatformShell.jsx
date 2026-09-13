@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CreditCard, Inbox, Languages, LayoutDashboard, LogOut, MoonStar, Sun, SunMoon } from "lucide-react";
+import { CreditCard, FileCheck2, Inbox, Languages, LayoutDashboard, LogOut, MoonStar, Sun, SunMoon } from "lucide-react";
 
 import VezanoMark from "@/components/brand/VezanoMark";
 import { useAuth } from "@/app/providers/AuthProvider";
@@ -10,6 +10,7 @@ import { useI18n } from "@/app/providers/I18nProvider";
 
 const PLATFORM_NAV = [
   { href: "/platform", label: "nav.platform", icon: LayoutDashboard },
+  { href: "/platform-registrations", label: "nav.platformRegistrations", icon: FileCheck2 },
   { href: "/platform-leads", label: "nav.platformLeads", icon: Inbox },
   { href: "/platform-subscriptions", label: "nav.platformSubscriptions", icon: CreditCard },
 ];

@@ -1,3 +1,4 @@
+from datetime import timedelta
 from uuid import uuid4
 
 from django.urls import reverse
@@ -7,6 +8,7 @@ from rest_framework.test import APITestCase
 from accounts.models import User
 from org.models import Company
 from subscriptions.models import Plan, PlanVersion, Subscription
+from subscriptions.models import SubscriptionPayment
 from website.models import OwnerInvitation, RegistrationRequest
 
 
@@ -67,7 +69,11 @@ class RegistrationRequestTests(APITestCase):
         registration.refresh_from_db()
         self.assertEqual(registration.status, RegistrationRequest.PROVISIONED)
         self.assertIsNotNone(registration.company_id)
-        self.assertTrue(Subscription.objects.filter(company=registration.company, status="trialing").exists())
+        self.assertTrue(
+            Subscription.objects.filter(
+                company=registration.company, status="trialing"
+            ).exists()
+        )
         self.assertTrue(registration.company.branches.filter(name="Main Branch").exists())
         self.assertEqual(registration.company.users.get().role.name, "Business Owner")
 
@@ -83,7 +89,11 @@ class RegistrationRequestTests(APITestCase):
         self.assertEqual(accept.status_code, 200, accept.data)
         invitation = OwnerInvitation.objects.get(registration_request=registration)
         self.assertIsNotNone(invitation.accepted_at)
-        self.assertTrue(registration.company.users.get().check_password("a-sufficiently-secure-password"))
+        self.assertTrue(
+            registration.company.users.get().check_password(
+                "a-sufficiently-secure-password"
+            )
+        )
 
     def test_tenant_cannot_read_platform_registration_inbox(self):
         RegistrationRequest.objects.create(
@@ -96,3 +106,28 @@ class RegistrationRequestTests(APITestCase):
         self.client.force_authenticate(member)
         response = self.client.get(reverse("platform-registration-request-list"))
         self.assertEqual(response.status_code, 403)
+
+    def test_platform_overview_has_commercial_counts_only(self):
+        registration = RegistrationRequest.objects.create(
+            request_uuid=uuid4(), company_name="Awaiting Co", contact_name="Person",
+            email="awaiting@example.test", phone="+2491", country="SD",
+            plan_version=self.version, privacy_version="2026-09",
+        )
+        company = Company.objects.create(name="Trial Co")
+        Subscription.objects.create(
+            company=company, plan_version=self.version, status=Subscription.TRIALING,
+            starts_at=timezone.now(), trial_ends_at=timezone.now() + timedelta(days=3),
+        )
+        owner = User.objects.create_user("owner@trial.test", "secure-password", company=company)
+        SubscriptionPayment.objects.create(
+            company=company, amount=20, currency="USD", method="cash", recorded_by=owner
+        )
+        platform_admin = User.objects.create_superuser("overview@example.test", "secure-password")
+        self.client.force_authenticate(platform_admin)
+        response = self.client.get(reverse("platform-overview"))
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["counts"]["registration_attention"], 1)
+        self.assertEqual(response.data["counts"]["trialing"], 1)
+        self.assertEqual(response.data["counts"]["pending_payments"], 1)
+        self.assertEqual(response.data["registration_attention"][0]["id"], registration.pk)
+        self.assertNotIn("sales", response.data)
