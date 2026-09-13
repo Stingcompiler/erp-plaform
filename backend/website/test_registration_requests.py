@@ -131,3 +131,146 @@ class RegistrationRequestTests(APITestCase):
         self.assertEqual(response.data["counts"]["pending_payments"], 1)
         self.assertEqual(response.data["registration_attention"][0]["id"], registration.pk)
         self.assertNotIn("sales", response.data)
+
+
+class RegistrationLifecycleTests(APITestCase):
+    """Reissuing invitations, swapping a stale plan, and trial boundaries."""
+
+    def setUp(self):
+        self.plan = Plan.objects.create(code="business", name="Business")
+        self.version = PlanVersion.objects.create(
+            plan=self.plan, version=1, currency="USD", price=20,
+            modules=["users", "org", "sales"], limits={"users": 10},
+            published_at=timezone.now(),
+        )
+        self.admin = User.objects.create_superuser("platform@example.test", "secure-password")
+        self.client.force_authenticate(self.admin)
+
+    def _request(self, **overrides):
+        data = dict(
+            request_uuid=uuid4(), company_name="Lifecycle Co", contact_name="Owner",
+            email="owner@lifecycle.test", phone="+2491", country="SD",
+            plan_version=self.version, privacy_version="2026-09",
+            status=RegistrationRequest.APPROVED,
+        )
+        data.update(overrides)
+        return RegistrationRequest.objects.create(**data)
+
+    def _provision(self, registration):
+        response = self.client.post(
+            reverse("platform-registration-request-provision", args=[registration.pk]),
+            {}, format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        registration.refresh_from_db()
+        return response.data["owner_invitation_token"]
+
+    def test_expired_invitation_can_be_reissued_and_old_link_dies(self):
+        registration = self._request()
+        first_token = self._provision(registration)
+        OwnerInvitation.objects.filter(registration_request=registration).update(
+            expires_at=timezone.now() - timedelta(hours=1)
+        )
+        accept_url = reverse("owner-invitation-accept")
+        expired = self.client.post(
+            accept_url, {"token": first_token, "password": "a-sufficiently-secure-password"},
+            format="json",
+        )
+        self.assertEqual(expired.status_code, 400)
+
+        reissue_url = reverse(
+            "platform-registration-request-reissue-invitation", args=[registration.pk]
+        )
+        response = self.client.post(reissue_url, {}, format="json")
+        self.assertEqual(response.status_code, 201, response.data)
+        new_token = response.data["owner_invitation_token"]
+        self.assertNotEqual(new_token, first_token)
+        self.assertEqual(
+            OwnerInvitation.objects.filter(
+                registration_request=registration, revoked_at__isnull=False
+            ).count(),
+            1,
+        )
+        accepted = self.client.post(
+            accept_url, {"token": new_token, "password": "a-sufficiently-secure-password"},
+            format="json",
+        )
+        self.assertEqual(accepted.status_code, 200, accepted.data)
+        owner = registration.company.users.get()
+        self.assertTrue(owner.check_password("a-sufficiently-secure-password"))
+
+    def test_reissue_requires_a_provisioned_request(self):
+        registration = self._request()
+        response = self.client.post(
+            reverse("platform-registration-request-reissue-invitation", args=[registration.pk]),
+            {}, format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(OwnerInvitation.objects.filter(registration_request=registration).exists())
+
+    def test_invitation_rejected_for_deactivated_owner(self):
+        registration = self._request()
+        token = self._provision(registration)
+        registration.company.users.update(is_active=False)
+        response = self.client.post(
+            reverse("owner-invitation-accept"),
+            {"token": token, "password": "a-sufficiently-secure-password"}, format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(
+            registration.company.users.get().check_password("a-sufficiently-secure-password")
+        )
+
+    def test_stale_plan_blocks_approval_until_platform_swaps_it(self):
+        registration = self._request(status=RegistrationRequest.SUBMITTED)
+        self.plan.is_public = False
+        self.plan.save(update_fields=["is_public"])
+        approve_url = reverse("platform-registration-request-approve", args=[registration.pk])
+        blocked = self.client.post(approve_url, {}, format="json")
+        self.assertEqual(blocked.status_code, 400, blocked.data)
+
+        live_plan = Plan.objects.create(code="starter", name="Starter")
+        live_version = PlanVersion.objects.create(
+            plan=live_plan, version=1, currency="USD", price=5,
+            modules=["users", "org"], limits={}, published_at=timezone.now(),
+        )
+        detail_url = reverse("platform-registration-request-detail", args=[registration.pk])
+        swapped = self.client.patch(detail_url, {"plan_version": live_version.pk}, format="json")
+        self.assertEqual(swapped.status_code, 200, swapped.data)
+        self.assertEqual(swapped.data["plan_name"], "Starter")
+        # Swapping *to* an unavailable plan is refused.
+        refused = self.client.patch(detail_url, {"plan_version": self.version.pk}, format="json")
+        self.assertEqual(refused.status_code, 400)
+
+        approved = self.client.post(approve_url, {}, format="json")
+        self.assertEqual(approved.status_code, 200, approved.data)
+        self.assertEqual(approved.data["status"], RegistrationRequest.APPROVED)
+
+    def test_plan_of_provisioned_request_is_frozen(self):
+        registration = self._request()
+        self._provision(registration)
+        other = PlanVersion.objects.create(
+            plan=self.plan, version=2, currency="USD", price=30,
+            modules=["users"], limits={}, published_at=timezone.now(),
+        )
+        response = self.client.patch(
+            reverse("platform-registration-request-detail", args=[registration.pk]),
+            {"plan_version": other.pk}, format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_entitlement_valid_until_is_the_trial_end(self):
+        from core.entitlements import _saas_decision
+
+        registration = self._request()
+        self._provision(registration)
+        subscription = registration.company.subscription
+        now = timezone.now()
+        decision = _saas_decision(registration.company, now)
+        self.assertEqual(decision.state, Subscription.TRIALING)
+        self.assertTrue(decision.allow_writes)
+        self.assertEqual(decision.valid_until, subscription.trial_ends_at)
+        # Past the trial with no grace: read-only.
+        after = _saas_decision(registration.company, subscription.trial_ends_at + timedelta(days=1))
+        self.assertEqual(after.state, Subscription.READ_ONLY)
+        self.assertFalse(after.allow_writes)

@@ -271,6 +271,10 @@ export const registration = {
   review: (id, body) => api.post(`/platform/registration-requests/${id}/review/`, body),
   approve: (id, body) => api.post(`/platform/registration-requests/${id}/approve/`, body),
   provision: (id) => api.post(`/platform/registration-requests/${id}/provision/`),
+  reissueInvitation: (id) =>
+    api.post(`/platform/registration-requests/${id}/reissue-invitation/`),
+  setPlan: (id, planVersionId) =>
+    api.patch(`/platform/registration-requests/${id}/`, { plan_version: planVersionId }),
   activateOwner: (token, password) =>
     api.post("/public/owner-invitations/accept/", { token, password }),
 };

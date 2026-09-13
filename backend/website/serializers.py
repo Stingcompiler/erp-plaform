@@ -4,6 +4,7 @@ from subscriptions.models import PlanVersion
 from website.models import (
     FeaturedProduct, PlatformLead, RegistrationRequest, Section, Website,
 )
+from website.services import plan_version_is_available
 
 
 class WebsiteSerializer(serializers.ModelSerializer):
@@ -128,13 +129,21 @@ class PlatformLeadSerializer(serializers.ModelSerializer):
 class PublicPlanVersionSerializer(serializers.ModelSerializer):
     plan_code = serializers.CharField(source="plan.code", read_only=True)
     plan_name = serializers.CharField(source="plan.name", read_only=True)
+    # Every SaaS sign-up starts with the same platform-wide trial; the landing
+    # page shows the length so applicants know what they are requesting.
+    trial_days = serializers.SerializerMethodField()
 
     class Meta:
         model = PlanVersion
         fields = [
             "id", "plan_code", "plan_name", "currency", "price",
-            "billing_cycle", "modules", "limits",
+            "billing_cycle", "modules", "limits", "trial_days",
         ]
+
+    def get_trial_days(self, obj):
+        from django.conf import settings
+
+        return getattr(settings, "VEZANO_TRIAL_DAYS", 14)
 
 
 class RegistrationRequestSerializer(serializers.ModelSerializer):
@@ -152,13 +161,7 @@ class RegistrationRequestSerializer(serializers.ModelSerializer):
         read_only_fields = ["status", "created_at"]
 
     def validate_plan_version(self, value):
-        if value is None:
-            return value
-        if (
-            not value.plan.is_active
-            or not value.plan.is_public
-            or value.published_at is None
-        ):
+        if value is not None and not plan_version_is_available(value):
             raise serializers.ValidationError(
                 "This plan is not available for registration."
             )
@@ -196,10 +199,26 @@ class PlatformRegistrationRequestSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "request_uuid", "company_name", "contact_name", "email", "phone", "country",
             "timezone_name", "estimated_users", "estimated_branches",
-            "delivery_mode", "plan_version", "message", "privacy_version",
+            "delivery_mode", "message", "privacy_version",
             "status", "reviewed_by", "reviewed_at", "company_id",
             "created_at", "updated_at",
         ]
+
+    # The applicant's plan choice can go stale (unpublished, retired) between
+    # submission and approval. The platform may swap it for a live plan while
+    # the request is still open; once provisioned the subscription owns it.
+    def validate_plan_version(self, value):
+        if value is None:
+            raise serializers.ValidationError("A SaaS request needs a plan.")
+        if not plan_version_is_available(value):
+            raise serializers.ValidationError("This plan is not available for registration.")
+        if self.instance and self.instance.status in {
+            RegistrationRequest.PROVISIONED,
+            RegistrationRequest.REJECTED,
+            RegistrationRequest.WITHDRAWN,
+        }:
+            raise serializers.ValidationError("The plan of a closed request cannot change.")
+        return value
 
 
 class OwnerInvitationAcceptSerializer(serializers.Serializer):

@@ -230,6 +230,7 @@ function PricingAndTrial() {
         <div id="trial" className="mx-auto mt-10 max-w-3xl rounded-card border border-line bg-paper p-6 shadow-card sm:p-8">
           <h3 className="font-display text-xl font-semibold">{t("registration.formTitle")}</h3>
           <p className="mt-2 text-sm text-muted">{t("registration.formSubtitle")}</p>
+          {plans[0]?.trial_days > 0 && <p className="mt-2 inline-block rounded-control bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent">{t("registration.trialLength", { days: plans[0].trial_days })}</p>}
           {sent ? <p className="mt-6 rounded-control bg-ok/10 p-4 text-center font-medium text-ok">{t("registration.sent")}<span className="mt-1 block text-xs">{sent}</span></p> : (
             <form onSubmit={onSubmit} className="mt-6 space-y-4">
               {error && <p role="alert" className="text-sm text-danger">{error}</p>}

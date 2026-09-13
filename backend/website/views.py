@@ -28,7 +28,12 @@ from website.serializers import (
     SectionSerializer,
     WebsiteSerializer,
 )
-from website.services import accept_owner_invitation, provision_registration_request
+from website.services import (
+    accept_owner_invitation,
+    plan_version_is_available,
+    provision_registration_request,
+    reissue_owner_invitation,
+)
 
 
 class PlatformLeadViewSet(
@@ -237,14 +242,17 @@ class PlatformRegistrationRequestViewSet(
                 {"detail": "This request cannot be approved from its current state."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if (
-            registration.delivery_mode == RegistrationRequest.SAAS
-            and not registration.plan_version_id
-        ):
-            return Response(
-                {"detail": "Choose a published plan before approval."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        if registration.delivery_mode == RegistrationRequest.SAAS:
+            if not registration.plan_version_id:
+                return Response(
+                    {"detail": "Choose a published plan before approval."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not plan_version_is_available(registration.plan_version):
+                return Response(
+                    {"detail": "The selected plan is no longer available; pick another plan."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         registration.status = RegistrationRequest.APPROVED
         registration.internal_note = request.data.get(
             "internal_note", registration.internal_note
@@ -279,10 +287,29 @@ class PlatformRegistrationRequestViewSet(
             status=status.HTTP_201_CREATED if invite_token else status.HTTP_200_OK,
         )
 
+    @action(detail=True, methods=["post"], url_path="reissue-invitation")
+    def reissue_invitation(self, request, pk=None):
+        try:
+            registration, invite_token = reissue_owner_invitation(pk, request.user, request)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        payload = self.get_serializer(registration).data
+        payload["owner_invitation_token"] = invite_token
+        return Response(payload, status=status.HTTP_201_CREATED)
+
 
 class OwnerInvitationAcceptView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+
+    def get_throttles(self):
+        from rest_framework.throttling import AnonRateThrottle
+
+        class InvitationThrottle(AnonRateThrottle):
+            scope = "owner_invitation_accept"
+            rate = "10/hour"
+
+        return [InvitationThrottle()]
 
     def post(self, request):
         serializer = OwnerInvitationAcceptSerializer(data=request.data)

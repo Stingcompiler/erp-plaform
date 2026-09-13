@@ -100,7 +100,15 @@ def _saas_decision(company, now):
             modules,
             dict(subscription.plan_version.limits or {}),
             allow_writes,
-            subscription.grace_ends_at or subscription.period_ends_at,
+            # Whichever boundary applies to the current state: a trial ends at
+            # trial_ends_at, a paid period at period_ends_at, and grace extends
+            # either one.
+            subscription.grace_ends_at
+            or (
+                subscription.trial_ends_at
+                if subscription.status == subscription.TRIALING
+                else subscription.period_ends_at
+            ),
             subscription.suspended_reason,
         )
 
