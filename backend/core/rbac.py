@@ -141,6 +141,7 @@ ROLE_MODULE_MATRIX = {
     },
 }
 
+
 def _fallback_level(role, module):
     # Scope limits a granted permission. It must never create authority for an
     # unknown role.
@@ -187,11 +188,7 @@ def tenant_scope_error(user):
         return "invalid_platform_assignment"
     if role.scope_level == "branch":
         branch = getattr(user, "branch", None)
-        if (
-            branch is None
-            or branch.company_id != user.company_id
-            or not branch.is_active
-        ):
+        if branch is None or branch.company_id != user.company_id or not branch.is_active:
             return "branch_assignment_required"
     return None
 

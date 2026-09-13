@@ -70,7 +70,11 @@ class UserSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         {"role": "Only a Business Owner may assign the owner role."}
                     )
-                if self.instance and self.instance.role and self.instance.role.name == "Business Owner":
+                if (
+                    self.instance
+                    and self.instance.role
+                    and self.instance.role.name == "Business Owner"
+                ):
                     raise serializers.ValidationError(
                         {"role": "A General Manager cannot modify a Business Owner."}
                     )
@@ -83,14 +87,16 @@ class UserSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         {"branch": "This user is outside your branch."}
                     )
-                if role is None or role.scope_level != Role.SCOPE_BRANCH or role.name == "Branch Manager":
+                if (
+                    role is None
+                    or role.scope_level != Role.SCOPE_BRANCH
+                    or role.name == "Branch Manager"
+                ):
                     raise serializers.ValidationError(
                         {"role": "A Branch Manager may assign only branch staff roles."}
                     )
             elif actor_role_name != "Business Owner":
-                raise serializers.ValidationError(
-                    "Your role cannot administer company users."
-                )
+                raise serializers.ValidationError("Your role cannot administer company users.")
 
         target_company_id = (
             self.instance.company_id if self.instance is not None else actor_company_id
@@ -105,17 +111,13 @@ class UserSerializer(serializers.ModelSerializer):
                     {"branch": "A branch-scoped role requires an assigned branch."}
                 )
             if not branch.is_active:
-                raise serializers.ValidationError(
-                    {"branch": "The assigned branch is inactive."}
-                )
+                raise serializers.ValidationError({"branch": "The assigned branch is inactive."})
         if (
             branch is not None
             and actor_company_id is not None
             and branch.company_id != actor_company_id
         ):
-            raise serializers.ValidationError(
-                {"branch": "The branch must belong to your company."}
-            )
+            raise serializers.ValidationError({"branch": "The branch must belong to your company."})
 
         if (
             self.instance is not None
@@ -133,9 +135,7 @@ class UserSerializer(serializers.ModelSerializer):
             and "role" in attrs
             and role != self.instance.role
         ):
-            raise serializers.ValidationError(
-                {"role": "You cannot change your own role."}
-            )
+            raise serializers.ValidationError({"role": "You cannot change your own role."})
         return attrs
 
     class Meta:

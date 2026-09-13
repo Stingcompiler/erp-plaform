@@ -24,11 +24,15 @@ class BaseTenantSetup(APITestCase):
         )
 
         self.user_a = User.objects.create_user(
-            email="a@alpha.test", password="passw0rd123", company=self.company_a,
+            email="a@alpha.test",
+            password="passw0rd123",
+            company=self.company_a,
             role=self.owner_role,
         )
         self.user_b = User.objects.create_user(
-            email="b@beta.test", password="passw0rd123", company=self.company_b,
+            email="b@beta.test",
+            password="passw0rd123",
+            company=self.company_b,
             role=self.owner_role,
         )
 
@@ -76,9 +80,7 @@ class ActivityLogTests(BaseTenantSetup):
         self.assertIsNotNone(row.created_at)
 
         self.client.post(reverse("auth-logout"))
-        self.assertEqual(
-            ActivityLog.objects.filter(action="logout", user=self.user_a).count(), 1
-        )
+        self.assertEqual(ActivityLog.objects.filter(action="logout", user=self.user_a).count(), 1)
 
     def test_crud_writes_activity_log(self):
         self.login("a@alpha.test")
@@ -162,18 +164,21 @@ class OwnerAppointmentTests(BaseTenantSetup):
 
     def setUp(self):
         super().setUp()
-        self.gm_role = Role.objects.create(
-            name="General Manager", scope_level=Role.SCOPE_BUSINESS
-        )
+        self.gm_role = Role.objects.create(name="General Manager", scope_level=Role.SCOPE_BUSINESS)
         self.gm_a = User.objects.create_user(
-            email="gm@alpha.test", password="passw0rd123", company=self.company_a,
+            email="gm@alpha.test",
+            password="passw0rd123",
+            company=self.company_a,
             role=self.gm_role,
         )
 
     def _new_owner_payload(self):
         return {
-            "email": "owner2@alpha.test", "full_name": "Second Owner",
-            "role": self.owner_role.id, "is_active": True, "password": "Sup3r-secret-pw",
+            "email": "owner2@alpha.test",
+            "full_name": "Second Owner",
+            "role": self.owner_role.id,
+            "is_active": True,
+            "password": "Sup3r-secret-pw",
         }
 
     def test_owner_can_appoint_another_owner(self):
@@ -192,9 +197,13 @@ class OwnerAppointmentTests(BaseTenantSetup):
 
     def test_general_manager_sees_assign_owner_flag_off(self):
         self.login("gm@alpha.test")
-        self.assertFalse(self.client.get(reverse("auth-me")).data["capabilities"]["users.assign_owner"])
+        self.assertFalse(
+            self.client.get(reverse("auth-me")).data["capabilities"]["users.assign_owner"]
+        )
         self.login("a@alpha.test")
-        self.assertTrue(self.client.get(reverse("auth-me")).data["capabilities"]["users.assign_owner"])
+        self.assertTrue(
+            self.client.get(reverse("auth-me")).data["capabilities"]["users.assign_owner"]
+        )
 
     def test_last_active_owner_cannot_be_demoted(self):
         self.login("a@alpha.test")

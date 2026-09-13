@@ -59,9 +59,7 @@ class PositionViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
 
 
 class EmployeeViewSet(CompanyScopedModelViewSet):
-    queryset = Employee.objects.select_related(
-        "company", "branch", "department", "position"
-    ).all()
+    queryset = Employee.objects.select_related("company", "branch", "department", "position").all()
     serializer_class = EmployeeSerializer
     activity_entity_type = "Employee"
     branch_field = "branch"
@@ -194,11 +192,36 @@ class LeaveRequestViewSet(CompanyScopedModelViewSet):
         if not reason or len(reason) > 1000:
             raise ValidationError({"reason": "Provide a cancellation reason (1–1000 characters)."})
         Employee.objects.select_for_update().get(pk=leave.employee_id)
-        if PayrollRun.objects.filter(company_id=leave.company_id, status=PayrollRun.APPROVED, period__gte=leave.start_date.replace(day=1), period__lte=leave.end_date.replace(day=1)).exists():
-            raise ValidationError({"detail": "This leave overlaps approved payroll; a payroll correction is required first.", "code": "approved_payroll"})
-        rows = Attendance.objects.filter(company_id=leave.company_id, employee_id=leave.employee_id, date__range=(leave.start_date, leave.end_date))
+        if PayrollRun.objects.filter(
+            company_id=leave.company_id,
+            status=PayrollRun.APPROVED,
+            period__gte=leave.start_date.replace(day=1),
+            period__lte=leave.end_date.replace(day=1),
+        ).exists():
+            raise ValidationError(
+                {
+                    "detail": (
+                        "This leave overlaps approved payroll; "
+                        "a payroll correction is required first."
+                    ),
+                    "code": "approved_payroll",
+                }
+            )
+        rows = Attendance.objects.filter(
+            company_id=leave.company_id,
+            employee_id=leave.employee_id,
+            date__range=(leave.start_date, leave.end_date),
+        )
         if rows.exclude(source_leave=leave).exists():
-            raise ValidationError({"detail": "Legacy or independently recorded attendance needs review before cancellation.", "code": "legacy_attendance"})
+            raise ValidationError(
+                {
+                    "detail": (
+                        "Legacy or independently recorded attendance "
+                        "needs review before cancellation."
+                    ),
+                    "code": "legacy_attendance",
+                }
+            )
         snapshot = list(rows.values("id", "date", "status", "note"))
         for row in snapshot:
             row["date"] = row["date"].isoformat()
@@ -206,7 +229,13 @@ class LeaveRequestViewSet(CompanyScopedModelViewSet):
         leave.status = LeaveRequest.CANCELLED
         leave.save(update_fields=["status"])
         refresh_employee_leave_statuses(leave.company_id)
-        log_activity(action="cancel", request=request, entity_type="LeaveRequest", entity_id=leave.pk, metadata={"reason": reason, "attendance_removed": snapshot})
+        log_activity(
+            action="cancel",
+            request=request,
+            entity_type="LeaveRequest",
+            entity_id=leave.pk,
+            metadata={"reason": reason, "attendance_removed": snapshot},
+        )
         return Response(self.get_serializer(leave).data)
 
     @transaction.atomic
@@ -221,19 +250,25 @@ class LeaveRequestViewSet(CompanyScopedModelViewSet):
             validator = self.get_serializer(instance, data={}, partial=True)
             validator.is_valid(raise_exception=True)
             from hr.leave_balances import check_leave_balance
+
             check_leave_balance(instance)
             conflicts = attendance_conflicts(instance)
             if conflicts.exists():
-                raise ValidationError({
-                    "detail": "Correct existing attendance records before approving this leave."
-                })
+                raise ValidationError(
+                    {"detail": "Correct existing attendance records before approving this leave."}
+                )
         instance.status = status_value
         instance.reviewed_by = request.user
         instance.reviewed_at = timezone.now()
         instance.save(update_fields=["status", "reviewed_by", "reviewed_at"])
         if status_value == LeaveRequest.APPROVED:
             apply_approved_leave(instance)
-        log_activity(action="approve" if status_value == LeaveRequest.APPROVED else "reject", request=request, entity_type="LeaveRequest", entity_id=instance.pk)
+        log_activity(
+            action="approve" if status_value == LeaveRequest.APPROVED else "reject",
+            request=request,
+            entity_type="LeaveRequest",
+            entity_id=instance.pk,
+        )
         return Response(self.get_serializer(instance).data)
 
     @action(detail=True, methods=["get"])
@@ -301,8 +336,13 @@ class LeaveAccrualPolicyViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet)
         if not 1900 <= year <= 9998:
             raise ValidationError({"year": "Use a year from 1900 to 9998."})
         from hr.leave_balances import carryover, eligible, policy_entitlement
+
         policies = list(self.get_queryset().filter(is_active=True))
-        employees = list(Employee.objects.select_for_update().filter(company_id=request.user.company_id).exclude(status=Employee.STATUS_TERMINATED))
+        employees = list(
+            Employee.objects.select_for_update()
+            .filter(company_id=request.user.company_id)
+            .exclude(status=Employee.STATUS_TERMINATED)
+        )
         created, skipped, ineligible = 0, 0, 0
         for policy in policies:
             for employee in employees:
@@ -310,7 +350,9 @@ class LeaveAccrualPolicyViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet)
                     ineligible += 1
                     continue
                 allowance, made = LeaveAllowance.objects.get_or_create(
-                    company_id=policy.company_id, employee=employee, year=year,
+                    company_id=policy.company_id,
+                    employee=employee,
+                    year=year,
                     leave_type=policy.leave_type,
                     defaults={
                         "entitled_days": policy_entitlement(employee, policy, year),
@@ -320,8 +362,20 @@ class LeaveAccrualPolicyViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet)
                 )
                 created += int(made)
                 skipped += int(not made)
-        log_activity(action="generate", request=request, entity_type="LeaveAllowance", metadata={"year": year, "created": created, "skipped": skipped, "ineligible": ineligible})
-        return Response({"year": year, "created": created, "skipped": skipped, "ineligible": ineligible})
+        log_activity(
+            action="generate",
+            request=request,
+            entity_type="LeaveAllowance",
+            metadata={
+                "year": year,
+                "created": created,
+                "skipped": skipped,
+                "ineligible": ineligible,
+            },
+        )
+        return Response(
+            {"year": year, "created": created, "skipped": skipped, "ineligible": ineligible}
+        )
 
 
 class SalaryAdvanceViewSet(CompanyScopedModelViewSet):
@@ -385,7 +439,12 @@ class SalaryAdvanceViewSet(CompanyScopedModelViewSet):
         instance.reviewed_by = request.user
         instance.reviewed_at = timezone.now()
         instance.save(update_fields=["status", "reviewed_by", "reviewed_at"])
-        log_activity(action="approve" if status_value == SalaryAdvance.APPROVED else "reject", request=request, entity_type="SalaryAdvance", entity_id=instance.pk)
+        log_activity(
+            action="approve" if status_value == SalaryAdvance.APPROVED else "reject",
+            request=request,
+            entity_type="SalaryAdvance",
+            entity_id=instance.pk,
+        )
         return Response(self.get_serializer(instance).data)
 
 
@@ -412,9 +471,7 @@ class PayrollRunViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
         a deduction later changes.
         """
         period = run.period
-        month_end = date(
-            period.year + (period.month == 12), (period.month % 12) + 1, 1
-        )
+        month_end = date(period.year + (period.month == 12), (period.month % 12) + 1, 1)
         employees = (
             Employee.objects.filter(company_id=run.company_id)
             .exclude(status=Employee.STATUS_TERMINATED)
@@ -426,16 +483,18 @@ class PayrollRunViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
             base = employee.base_salary_override
             if base is None:
                 base = employee.position.base_salary if employee.position_id else Decimal("0")
-            deductions = Deduction.objects.filter(
-                company_id=run.company_id, employee=employee
-            ).filter(
-                Q(date__gte=period, date__lt=month_end)
-                | Q(
-                    date__isnull=True,
-                    created_at__date__gte=period,
-                    created_at__date__lt=month_end,
+            deductions = (
+                Deduction.objects.filter(company_id=run.company_id, employee=employee)
+                .filter(
+                    Q(date__gte=period, date__lt=month_end)
+                    | Q(
+                        date__isnull=True,
+                        created_at__date__gte=period,
+                        created_at__date__lt=month_end,
+                    )
                 )
-            ).aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
+                .aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
+            )
             advances = SalaryAdvance.objects.filter(
                 company_id=run.company_id,
                 employee=employee,
@@ -468,12 +527,17 @@ class PayrollRunViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
             raise ValidationError({"detail": "Select a company before creating payroll."})
         raw_period = request.data.get("period")
         try:
-            period = date.fromisoformat(f"{raw_period}-01") if len(str(raw_period)) == 7 else date.fromisoformat(raw_period)
+            period = (
+                date.fromisoformat(f"{raw_period}-01")
+                if len(str(raw_period)) == 7
+                else date.fromisoformat(raw_period)
+            )
             period = period.replace(day=1)
         except (TypeError, ValueError):
             raise ValidationError({"period": "Use YYYY-MM for the payroll month."})
         run, created = PayrollRun.objects.get_or_create(
-            company_id=request.user.company_id, period=period,
+            company_id=request.user.company_id,
+            period=period,
             defaults={"created_by": request.user},
         )
         if not created:
@@ -487,9 +551,13 @@ class PayrollRunViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
     def refresh(self, request, pk=None):
         run = self.get_object()
         if run.status != PayrollRun.DRAFT:
-            raise ValidationError({"detail": "An approved payroll is locked and cannot be recalculated."})
+            raise ValidationError(
+                {"detail": "An approved payroll is locked and cannot be recalculated."}
+            )
         self._recalculate_run(run)
-        log_activity(action="recalculate", request=request, entity_type="PayrollRun", entity_id=run.pk)
+        log_activity(
+            action="recalculate", request=request, entity_type="PayrollRun", entity_id=run.pk
+        )
         return Response(self.get_serializer(run).data)
 
     @action(detail=True, methods=["post"], permission_classes=[CanApproveSalaryAdvance])
@@ -501,7 +569,9 @@ class PayrollRunViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
             run.approved_by = request.user
             run.approved_at = timezone.now()
             run.save(update_fields=["status", "approved_by", "approved_at"])
-            log_activity(action="approve", request=request, entity_type="PayrollRun", entity_id=run.pk)
+            log_activity(
+                action="approve", request=request, entity_type="PayrollRun", entity_id=run.pk
+            )
         return Response(self.get_serializer(run).data)
 
 
@@ -541,9 +611,7 @@ class DeductionViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
 class PerformanceRecordViewSet(CompanyScopedModelViewSet):
     branch_field = "employee__branch"
     include_unassigned_branch_rows = False
-    queryset = PerformanceRecord.objects.select_related(
-        "company", "employee", "reviewer"
-    ).all()
+    queryset = PerformanceRecord.objects.select_related("company", "employee", "reviewer").all()
     serializer_class = PerformanceRecordSerializer
     activity_entity_type = "PerformanceRecord"
 

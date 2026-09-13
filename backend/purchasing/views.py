@@ -1,4 +1,3 @@
-from django.db.models import Q
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -66,40 +65,71 @@ class SupplierViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         events = []
 
         for po in supplier.purchase_orders.all():
-            events.append(record_event(
-                "purchase_order", "Purchase order", po.created_at,
-                po.id, po.total, po.status,
-            ))
+            events.append(
+                record_event(
+                    "purchase_order",
+                    "Purchase order",
+                    po.created_at,
+                    po.id,
+                    po.total,
+                    po.status,
+                )
+            )
         for gr in supplier.goods_receipts.all():
-            events.append(record_event(
-                "goods_receipt", "Goods receipt", gr.received_at,
-                gr.id, None, gr.note,
-            ))
+            events.append(
+                record_event(
+                    "goods_receipt",
+                    "Goods receipt",
+                    gr.received_at,
+                    gr.id,
+                    None,
+                    gr.note,
+                )
+            )
         for bill in supplier.bills.all():
             events.append(
                 record_event(
-                    "bill", "Bill", bill.created_at,
-                    bill.supplier_invoice_number or bill.id, bill.total,
+                    "bill",
+                    "Bill",
+                    bill.created_at,
+                    bill.supplier_invoice_number or bill.id,
+                    bill.total,
                     "void" if bill.is_void else f"due {bill.amount_due()}",
                 )
             )
         for pay in supplier.payments.all():
             events.append(
                 record_event(
-                    "payment", "Payment", pay.recorded_at,
-                    pay.bill_id or "", pay.amount, pay.get_method_display(),
+                    "payment",
+                    "Payment",
+                    pay.recorded_at,
+                    pay.bill_id or "",
+                    pay.amount,
+                    pay.get_method_display(),
                 )
             )
         for pr in supplier.purchase_returns.all():
-            events.append(record_event(
-                "return", "Purchase return", pr.created_at,
-                pr.id, None, pr.reason,
-            ))
+            events.append(
+                record_event(
+                    "return",
+                    "Purchase return",
+                    pr.created_at,
+                    pr.id,
+                    None,
+                    pr.reason,
+                )
+            )
         for dn in supplier.debit_notes.all():
-            events.append(record_event(
-                "debit_note", "Debit note", dn.created_at,
-                dn.id, dn.amount, dn.reason,
-            ))
+            events.append(
+                record_event(
+                    "debit_note",
+                    "Debit note",
+                    dn.created_at,
+                    dn.id,
+                    dn.amount,
+                    dn.reason,
+                )
+            )
 
         events += data_change_events(supplier.company_id, "Supplier", supplier.pk)
         events = assemble_records(events, request.query_params)
@@ -118,14 +148,20 @@ class SupplierViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
 
         if request.query_params.get("format") == "csv":
             log_activity(
-                action="export", request=request, entity_type="Supplier",
-                entity_id=supplier.pk, metadata={"export": "records_csv"},
+                action="export",
+                request=request,
+                entity_type="Supplier",
+                entity_id=supplier.pk,
+                metadata={"export": "records_csv"},
             )
             return records_csv(profile, events, f"supplier-{supplier.id}-records.csv")
 
         log_activity(
-            action="view", request=request, entity_type="Supplier",
-            entity_id=supplier.pk, metadata={"view": "records"},
+            action="view",
+            request=request,
+            entity_type="Supplier",
+            entity_id=supplier.pk,
+            metadata={"view": "records"},
         )
         return Response({"supplier": profile, "events": events})
 
@@ -142,14 +178,15 @@ class PurchaseOrderViewSet(AppendOnlyScopedViewSet):
         po = self.get_object()
         new_status = request.data.get("status")
         if new_status not in dict(PurchaseOrder.STATUS_CHOICES):
-            return Response(
-                {"detail": "Invalid status."}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": "Invalid status."}, status=status.HTTP_400_BAD_REQUEST)
         po.status = new_status
         po.save(update_fields=["status"])
         log_activity(
-            action="update", request=request, entity_type="PurchaseOrder",
-            entity_id=po.id, metadata={"status": new_status},
+            action="update",
+            request=request,
+            entity_type="PurchaseOrder",
+            entity_id=po.id,
+            metadata={"status": new_status},
         )
         return Response(self.get_serializer(po).data)
 
@@ -193,19 +230,17 @@ class GoodsReceiptCreateView(APIView):
             ).first()
             if existing:
                 return Response(
-                    GoodsReceiptReadSerializer(
-                        existing, context={"request": request}
-                    ).data,
+                    GoodsReceiptReadSerializer(existing, context={"request": request}).data,
                     status=status.HTTP_200_OK,
                 )
 
-        serializer = GoodsReceiptWriteSerializer(
-            data=request.data, context={"request": request}
-        )
+        serializer = GoodsReceiptWriteSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         receipt = serializer.save()
         log_activity(
-            action="create", request=request, entity_type="GoodsReceipt",
+            action="create",
+            request=request,
+            entity_type="GoodsReceipt",
             entity_id=receipt.id,
         )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -219,8 +254,12 @@ class BillViewSet(AppendOnlyScopedViewSet):
 
 class SupplierPaymentViewSet(AppendOnlyScopedViewSet):
     queryset = SupplierPayment.objects.select_related(
-        "supplier", "bill", "company", "from_bank_account",
-        "recorded_by", "verified_by",
+        "supplier",
+        "bill",
+        "company",
+        "from_bank_account",
+        "recorded_by",
+        "verified_by",
     ).all()
     serializer_class = SupplierPaymentSerializer
     activity_entity_type = "SupplierPayment"
@@ -240,9 +279,7 @@ class SupplierPaymentViewSet(AppendOnlyScopedViewSet):
     def verify(self, request, pk=None):
         payment = self.get_object()
         if payment.verified_at is not None:
-            return Response(
-                {"detail": "Already verified."}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": "Already verified."}, status=status.HTTP_400_BAD_REQUEST)
         # Segregation of duties — mirrors the AR side: the recorder of an
         # outgoing payment cannot also be its approver.
         if payment.recorded_by_id and payment.recorded_by_id == request.user.id:
@@ -271,7 +308,9 @@ class SupplierPaymentViewSet(AppendOnlyScopedViewSet):
         payment.verified_by = request.user if request.user.is_authenticated else None
         payment.save(update_fields=["verified_at", "verified_by"])
         log_activity(
-            action="update", request=request, entity_type="SupplierPayment",
+            action="update",
+            request=request,
+            entity_type="SupplierPayment",
             entity_id=payment.id,
             metadata={"verified": True, "verified_by": request.user.email},
         )

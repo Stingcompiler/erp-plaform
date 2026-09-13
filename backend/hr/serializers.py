@@ -8,6 +8,7 @@ are narrowed to the request user's company in `__init__` so a client can't
 attach another tenant's row by id. Reviewer/approver identities come from the
 request user, never the request body.
 """
+
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -47,9 +48,7 @@ class _CompanyScopedFKMixin:
                     if name == "branch":
                         field.queryset = field.queryset.filter(pk=user.branch_id)
                     elif hasattr(field.queryset.model, "branch_id"):
-                        field.queryset = field.queryset.filter(
-                            branch_id=user.branch_id
-                        )
+                        field.queryset = field.queryset.filter(branch_id=user.branch_id)
 
 
 class PositionSerializer(serializers.ModelSerializer):
@@ -63,8 +62,13 @@ class PositionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Position
         fields = [
-            "id", "title", "description", "base_salary", "is_active",
-            "employee_count", "created_at",
+            "id",
+            "title",
+            "description",
+            "base_salary",
+            "is_active",
+            "employee_count",
+            "created_at",
         ]
         read_only_fields = ["created_at"]
 
@@ -87,12 +91,22 @@ class EmployeeSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
     class Meta:
         model = Employee
         fields = [
-            "id", "employee_code", "full_name", "email", "phone",
-            "branch", "department", "department_name",
-            "position", "position_title",
+            "id",
+            "employee_code",
+            "full_name",
+            "email",
+            "phone",
+            "branch",
+            "department",
+            "department_name",
+            "position",
+            "position_title",
             "base_salary_override",
-            "hire_date", "status", "status_display",
-            "created_at", "updated_at",
+            "hire_date",
+            "status",
+            "status_display",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at"]
 
@@ -103,10 +117,15 @@ class AttendanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
 
     def validate_leave_protection(self, employee, day, instance=None):
         if (instance and instance.source_leave_id) or LeaveRequest.objects.filter(
-            company_id=employee.company_id, employee=employee,
-            status=LeaveRequest.APPROVED, start_date__lte=day, end_date__gte=day,
+            company_id=employee.company_id,
+            employee=employee,
+            status=LeaveRequest.APPROVED,
+            start_date__lte=day,
+            end_date__gte=day,
         ).exists():
-            raise serializers.ValidationError("Attendance is protected by approved leave. Use the leave cancellation process.")
+            raise serializers.ValidationError(
+                "Attendance is protected by approved leave. Use the leave cancellation process."
+            )
 
     def validate(self, attrs):
         employee = attrs.get("employee", getattr(self.instance, "employee", None))
@@ -116,15 +135,24 @@ class AttendanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
             ids.add(self.instance.employee_id)
         list(Employee.objects.select_for_update().filter(pk__in=ids).order_by("pk"))
         if self.instance:
-            self.validate_leave_protection(self.instance.employee, self.instance.date, self.instance)
+            self.validate_leave_protection(
+                self.instance.employee, self.instance.date, self.instance
+            )
         self.validate_leave_protection(employee, day)
         return attrs
 
     class Meta:
         model = Attendance
         fields = [
-            "id", "employee", "employee_name", "date", "status",
-            "check_in", "check_out", "note", "created_at",
+            "id",
+            "employee",
+            "employee_name",
+            "date",
+            "status",
+            "check_in",
+            "check_out",
+            "note",
+            "created_at",
         ]
         read_only_fields = ["created_at"]
 
@@ -133,23 +161,30 @@ class LeaveRequestSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer)
     scoped_fk_fields = ("employee",)
     employee_name = serializers.CharField(source="employee.full_name", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
-    leave_type_display = serializers.CharField(
-        source="get_leave_type_display", read_only=True
-    )
+    leave_type_display = serializers.CharField(source="get_leave_type_display", read_only=True)
     # Uploaded on write (multipart); on read we only expose whether one exists —
     # the file itself is downloaded through the scoped `report` viewset action,
     # never a public media URL (medical reports are sensitive).
-    medical_report = serializers.FileField(
-        required=False, allow_null=True, write_only=True
-    )
+    medical_report = serializers.FileField(required=False, allow_null=True, write_only=True)
     has_report = serializers.SerializerMethodField()
 
     class Meta:
         model = LeaveRequest
         fields = [
-            "id", "employee", "employee_name", "start_date", "end_date",
-            "leave_type", "leave_type_display", "reason", "medical_report",
-            "has_report", "status", "status_display", "reviewed_at", "created_at",
+            "id",
+            "employee",
+            "employee_name",
+            "start_date",
+            "end_date",
+            "leave_type",
+            "leave_type_display",
+            "reason",
+            "medical_report",
+            "has_report",
+            "status",
+            "status_display",
+            "reviewed_at",
+            "created_at",
         ]
         read_only_fields = ["reviewed_at", "created_at"]
 
@@ -176,14 +211,18 @@ class LeaveRequestSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer)
                 raise serializers.ValidationError("Leave cannot start before the hire date.")
             if start and end:
                 overlaps = LeaveRequest.objects.filter(
-                    company_id=employee.company_id, employee=employee,
+                    company_id=employee.company_id,
+                    employee=employee,
                     status__in=[LeaveRequest.PENDING, LeaveRequest.APPROVED],
-                    start_date__lte=end, end_date__gte=start,
+                    start_date__lte=end,
+                    end_date__gte=start,
                 )
                 if self.instance:
                     overlaps = overlaps.exclude(pk=self.instance.pk)
                 if overlaps.exists():
-                    raise serializers.ValidationError("This leave overlaps another pending or approved request.")
+                    raise serializers.ValidationError(
+                        "This leave overlaps another pending or approved request."
+                    )
         return attrs
 
     def update(self, instance, validated_data):
@@ -204,54 +243,105 @@ class LeaveAllowanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerialize
 
     class Meta:
         model = LeaveAllowance
-        fields = ["id", "employee", "employee_name", "year", "leave_type", "entitled_days", "carried_days", "note", "balance", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "employee",
+            "employee_name",
+            "year",
+            "leave_type",
+            "entitled_days",
+            "carried_days",
+            "note",
+            "balance",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = ["created_at", "updated_at"]
         validators = []  # Company is forced by the scoped view, not submitted.
 
     def get_balance(self, obj):
         from hr.leave_balances import balance
+
         return {key: str(value) for key, value in balance(obj).items()}
 
     def validate(self, attrs):
         from hr.leave_balances import usage
+
         employee = attrs.get("employee", getattr(self.instance, "employee", None))
         user = self.context["request"].user
-        if getattr(getattr(user, "role", None), "scope_level", None) == "branch" and user.branch_id and employee.branch_id not in (None, user.branch_id):
+        if (
+            getattr(getattr(user, "role", None), "scope_level", None) == "branch"
+            and user.branch_id
+            and employee.branch_id not in (None, user.branch_id)
+        ):
             raise serializers.ValidationError({"employee": "Employee is outside your branch."})
         Employee.objects.select_for_update().get(pk=employee.pk)
         year = attrs.get("year", getattr(self.instance, "year", None))
         leave_type = attrs.get("leave_type", getattr(self.instance, "leave_type", None))
         if not 1900 <= year <= 9998:
             raise serializers.ValidationError({"year": "Use a year from 1900 to 9998."})
-        if self.instance and (employee.pk != self.instance.employee_id or year != self.instance.year or leave_type != self.instance.leave_type):
-            raise serializers.ValidationError("Employee, year and leave type cannot be changed on an existing allocation.")
-        if LeaveAllowance.objects.filter(company_id=employee.company_id, employee=employee, year=year, leave_type=leave_type).exclude(pk=getattr(self.instance, "pk", None)).exists():
-            raise serializers.ValidationError("An allocation already exists for this employee, year and leave type.")
+        if self.instance and (
+            employee.pk != self.instance.employee_id
+            or year != self.instance.year
+            or leave_type != self.instance.leave_type
+        ):
+            raise serializers.ValidationError(
+                "Employee, year and leave type cannot be changed on an existing allocation."
+            )
+        if (
+            LeaveAllowance.objects.filter(
+                company_id=employee.company_id, employee=employee, year=year, leave_type=leave_type
+            )
+            .exclude(pk=getattr(self.instance, "pk", None))
+            .exists()
+        ):
+            raise serializers.ValidationError(
+                "An allocation already exists for this employee, year and leave type."
+            )
         entitled = attrs.get("entitled_days", getattr(self.instance, "entitled_days", 0))
         carried = attrs.get("carried_days", getattr(self.instance, "carried_days", 0))
         if entitled < 0 or carried < 0:
             raise serializers.ValidationError("Allocated days cannot be negative.")
         if entitled + carried < usage(employee.pk, employee.company_id, year, leave_type):
-            raise serializers.ValidationError("The allocation cannot be less than already approved leave.")
+            raise serializers.ValidationError(
+                "The allocation cannot be less than already approved leave."
+            )
         if not str(attrs.get("note", "")).strip():
-            raise serializers.ValidationError({"note": "Provide the allocation or adjustment reason."})
+            raise serializers.ValidationError(
+                {"note": "Provide the allocation or adjustment reason."}
+            )
         return attrs
 
 
 class LeaveAccrualPolicySerializer(serializers.ModelSerializer):
     class Meta:
         model = LeaveAccrualPolicy
-        fields = ["id", "leave_type", "annual_days", "minimum_service_months", "prorate_first_year", "carryover_limit", "is_active", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "leave_type",
+            "annual_days",
+            "minimum_service_months",
+            "prorate_first_year",
+            "carryover_limit",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = ["created_at", "updated_at"]
 
     def validate(self, attrs):
         request = self.context.get("request")
         company_id = getattr(getattr(request, "user", None), "company_id", None)
         leave_type = attrs.get("leave_type", getattr(self.instance, "leave_type", None))
-        if company_id and LeaveAccrualPolicy.objects.filter(
-            company_id=company_id, leave_type=leave_type
-        ).exclude(pk=getattr(self.instance, "pk", None)).exists():
-            raise serializers.ValidationError({"leave_type": "A policy already exists for this leave type."})
+        if (
+            company_id
+            and LeaveAccrualPolicy.objects.filter(company_id=company_id, leave_type=leave_type)
+            .exclude(pk=getattr(self.instance, "pk", None))
+            .exists()
+        ):
+            raise serializers.ValidationError(
+                {"leave_type": "A policy already exists for this leave type."}
+            )
         for name in ("annual_days", "carryover_limit"):
             value = attrs.get(name, getattr(self.instance, name, None))
             if value is not None and value < 0:
@@ -262,15 +352,19 @@ class LeaveAccrualPolicySerializer(serializers.ModelSerializer):
 class PerformanceRecordSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
     scoped_fk_fields = ("employee",)
     employee_name = serializers.CharField(source="employee.full_name", read_only=True)
-    reviewer_name = serializers.CharField(
-        source="reviewer.full_name", read_only=True, default=None
-    )
+    reviewer_name = serializers.CharField(source="reviewer.full_name", read_only=True, default=None)
 
     class Meta:
         model = PerformanceRecord
         fields = [
-            "id", "employee", "employee_name", "review_date", "rating",
-            "summary", "reviewer_name", "created_at",
+            "id",
+            "employee",
+            "employee_name",
+            "review_date",
+            "rating",
+            "summary",
+            "reviewer_name",
+            "created_at",
         ]
         read_only_fields = ["created_at"]
 
@@ -292,7 +386,13 @@ class EmployeeDocumentSerializer(_CompanyScopedFKMixin, serializers.ModelSeriali
     class Meta:
         model = EmployeeDocument
         fields = [
-            "id", "employee", "title", "doc_type", "file_url", "note", "created_at",
+            "id",
+            "employee",
+            "title",
+            "doc_type",
+            "file_url",
+            "note",
+            "created_at",
         ]
         read_only_fields = ["created_at"]
 
@@ -310,7 +410,9 @@ class SalaryAdvanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer
 
     def validate(self, attrs):
         if "status" in attrs:
-            raise serializers.ValidationError({"status": "Use the authorised approval or rejection action."})
+            raise serializers.ValidationError(
+                {"status": "Use the authorised approval or rejection action."}
+            )
         if self.instance and self.instance.status != SalaryAdvance.PENDING:
             raise serializers.ValidationError("A decided advance cannot be edited.")
         return attrs
@@ -323,8 +425,15 @@ class SalaryAdvanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer
     class Meta:
         model = SalaryAdvance
         fields = [
-            "id", "employee", "employee_name", "amount", "reason",
-            "status", "status_display", "reviewed_at", "created_at",
+            "id",
+            "employee",
+            "employee_name",
+            "amount",
+            "reason",
+            "status",
+            "status_display",
+            "reviewed_at",
+            "created_at",
         ]
         read_only_fields = ["reviewed_at", "created_at"]
 
@@ -341,7 +450,17 @@ class SalaryAdvanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer
 class PayrollEntrySerializer(serializers.ModelSerializer):
     class Meta:
         model = PayrollEntry
-        fields = ["id", "employee", "employee_name", "department_name", "position_title", "base_salary", "deductions_total", "advances_total", "net_salary"]
+        fields = [
+            "id",
+            "employee",
+            "employee_name",
+            "department_name",
+            "position_title",
+            "base_salary",
+            "deductions_total",
+            "advances_total",
+            "net_salary",
+        ]
         read_only_fields = fields
 
 
@@ -351,7 +470,15 @@ class PayrollRunSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PayrollRun
-        fields = ["id", "period", "status", "employee_count", "created_at", "approved_at", "entries"]
+        fields = [
+            "id",
+            "period",
+            "status",
+            "employee_count",
+            "created_at",
+            "approved_at",
+            "entries",
+        ]
         read_only_fields = fields
 
 
@@ -363,8 +490,13 @@ class WorkPolicySerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkPolicy
         fields = [
-            "id", "name", "description", "violation_type",
-            "violation_type_display", "is_active", "created_at",
+            "id",
+            "name",
+            "description",
+            "violation_type",
+            "violation_type_display",
+            "is_active",
+            "created_at",
         ]
         read_only_fields = ["created_at"]
 
@@ -380,8 +512,16 @@ class DeductionSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
     class Meta:
         model = Deduction
         fields = [
-            "id", "employee", "employee_name", "policy", "policy_name",
-            "amount", "note", "date", "recorded_by_name", "created_at",
+            "id",
+            "employee",
+            "employee_name",
+            "policy",
+            "policy_name",
+            "amount",
+            "note",
+            "date",
+            "recorded_by_name",
+            "created_at",
         ]
         read_only_fields = ["created_at"]
 

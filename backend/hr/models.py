@@ -8,6 +8,7 @@ shared CompanyScopedModelViewSet filters and forces tenancy uniformly — the
 same pattern CRM and every other module uses. Employee optionally links to the
 org tree (branch, department) and, where relevant, to a platform `User`.
 """
+
 from decimal import Decimal
 
 from django.conf import settings
@@ -17,15 +18,11 @@ from django.db import models
 class Position(models.Model):
     """A job title/role within the company (e.g. 'Cashier', 'Store Manager')."""
 
-    company = models.ForeignKey(
-        "org.Company", on_delete=models.CASCADE, related_name="positions"
-    )
+    company = models.ForeignKey("org.Company", on_delete=models.CASCADE, related_name="positions")
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     # Standard salary/wage for the role, used as the default when hiring into it.
-    base_salary = models.DecimalField(
-        max_digits=14, decimal_places=2, default=Decimal("0")
-    )
+    base_salary = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0"))
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -54,9 +51,7 @@ class Employee(models.Model):
         (STATUS_TERMINATED, "Terminated"),
     ]
 
-    company = models.ForeignKey(
-        "org.Company", on_delete=models.CASCADE, related_name="employees"
-    )
+    company = models.ForeignKey("org.Company", on_delete=models.CASCADE, related_name="employees")
     branch = models.ForeignKey(
         "org.Branch",
         on_delete=models.SET_NULL,
@@ -96,9 +91,7 @@ class Employee(models.Model):
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=64, blank=True)
     hire_date = models.DateField(null=True, blank=True)
-    status = models.CharField(
-        max_length=16, choices=STATUS_CHOICES, default=STATUS_ACTIVE
-    )
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_ACTIVE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -126,16 +119,17 @@ class Attendance(models.Model):
     company = models.ForeignKey(
         "org.Company", on_delete=models.CASCADE, related_name="attendance_records"
     )
-    employee = models.ForeignKey(
-        Employee, on_delete=models.CASCADE, related_name="attendance"
-    )
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="attendance")
     date = models.DateField()
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=PRESENT)
     check_in = models.TimeField(null=True, blank=True)
     check_out = models.TimeField(null=True, blank=True)
     note = models.CharField(max_length=255, blank=True)
     source_leave = models.ForeignKey(
-        "LeaveRequest", null=True, blank=True, on_delete=models.PROTECT,
+        "LeaveRequest",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
         related_name="generated_attendance",
     )
     created_at = models.DateTimeField(auto_now_add=True)
@@ -191,20 +185,14 @@ class LeaveRequest(models.Model):
     company = models.ForeignKey(
         "org.Company", on_delete=models.CASCADE, related_name="leave_requests"
     )
-    employee = models.ForeignKey(
-        Employee, on_delete=models.CASCADE, related_name="leave_requests"
-    )
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="leave_requests")
     start_date = models.DateField()
     end_date = models.DateField()
-    leave_type = models.CharField(
-        max_length=16, choices=TYPE_CHOICES, default=ANNUAL
-    )
+    leave_type = models.CharField(max_length=16, choices=TYPE_CHOICES, default=ANNUAL)
     reason = models.TextField(blank=True)
     # Optional medical report for sick leave. Stored on disk (or S3 when
     # configured) and downloaded only via the scoped viewset action.
-    medical_report = models.FileField(
-        upload_to=medical_report_path, null=True, blank=True
-    )
+    medical_report = models.FileField(upload_to=medical_report_path, null=True, blank=True)
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=PENDING)
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -227,7 +215,9 @@ class LeaveAllowance(models.Model):
     """Explicit HR allocation; no country-specific legal entitlement is assumed."""
 
     company = models.ForeignKey("org.Company", on_delete=models.CASCADE)
-    employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="leave_allowances")
+    employee = models.ForeignKey(
+        Employee, on_delete=models.PROTECT, related_name="leave_allowances"
+    )
     year = models.PositiveSmallIntegerField()
     leave_type = models.CharField(max_length=16, choices=LeaveRequest.TYPE_CHOICES)
     entitled_days = models.DecimalField(max_digits=7, decimal_places=2)
@@ -238,7 +228,12 @@ class LeaveAllowance(models.Model):
 
     class Meta:
         ordering = ["-year", "employee__full_name", "leave_type"]
-        constraints = [models.UniqueConstraint(fields=["company", "employee", "year", "leave_type"], name="unique_employee_leave_allowance")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "employee", "year", "leave_type"],
+                name="unique_employee_leave_allowance",
+            )
+        ]
 
 
 class LeaveAccrualPolicy(models.Model):
@@ -256,7 +251,11 @@ class LeaveAccrualPolicy(models.Model):
 
     class Meta:
         ordering = ["leave_type"]
-        constraints = [models.UniqueConstraint(fields=["company", "leave_type"], name="unique_company_leave_accrual_policy")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "leave_type"], name="unique_company_leave_accrual_policy"
+            )
+        ]
 
 
 class PerformanceRecord(models.Model):
@@ -298,9 +297,7 @@ class EmployeeDocument(models.Model):
     company = models.ForeignKey(
         "org.Company", on_delete=models.CASCADE, related_name="employee_documents"
     )
-    employee = models.ForeignKey(
-        Employee, on_delete=models.CASCADE, related_name="documents"
-    )
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="documents")
     title = models.CharField(max_length=255)
     doc_type = models.CharField(max_length=64, blank=True)
     file_url = models.URLField(blank=True)
@@ -337,9 +334,7 @@ class SalaryAdvance(models.Model):
     company = models.ForeignKey(
         "org.Company", on_delete=models.CASCADE, related_name="salary_advances"
     )
-    employee = models.ForeignKey(
-        Employee, on_delete=models.CASCADE, related_name="salary_advances"
-    )
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="salary_advances")
     amount = models.DecimalField(max_digits=14, decimal_places=2)
     reason = models.TextField(blank=True)
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=PENDING)
@@ -367,17 +362,32 @@ class PayrollRun(models.Model):
     APPROVED = "approved"
     STATUS_CHOICES = [(DRAFT, "Draft"), (APPROVED, "Approved")]
 
-    company = models.ForeignKey("org.Company", on_delete=models.CASCADE, related_name="payroll_runs")
+    company = models.ForeignKey(
+        "org.Company", on_delete=models.CASCADE, related_name="payroll_runs"
+    )
     period = models.DateField(help_text="First day of the payroll month")
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=DRAFT)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="created_payroll_runs")
-    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="approved_payroll_runs")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="created_payroll_runs",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="approved_payroll_runs",
+    )
     approved_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-period"]
-        constraints = [models.UniqueConstraint(fields=["company", "period"], name="uniq_payroll_run_per_month")]
+        constraints = [
+            models.UniqueConstraint(fields=["company", "period"], name="uniq_payroll_run_per_month")
+        ]
 
 
 class PayrollEntry(models.Model):
@@ -395,7 +405,11 @@ class PayrollEntry(models.Model):
 
     class Meta:
         ordering = ["employee_name"]
-        constraints = [models.UniqueConstraint(fields=["payroll_run", "employee"], name="uniq_payroll_entry_per_employee")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["payroll_run", "employee"], name="uniq_payroll_entry_per_employee"
+            )
+        ]
 
 
 class WorkPolicy(models.Model):
@@ -418,9 +432,7 @@ class WorkPolicy(models.Model):
     )
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    violation_type = models.CharField(
-        max_length=16, choices=VIOLATION_CHOICES, default=MISCONDUCT
-    )
+    violation_type = models.CharField(max_length=16, choices=VIOLATION_CHOICES, default=MISCONDUCT)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -435,12 +447,8 @@ class Deduction(models.Model):
     """A deduction from an employee's salary for breaching a WorkPolicy. Records
     which policy was violated and which HR user logged it (append-only trail)."""
 
-    company = models.ForeignKey(
-        "org.Company", on_delete=models.CASCADE, related_name="deductions"
-    )
-    employee = models.ForeignKey(
-        Employee, on_delete=models.CASCADE, related_name="deductions"
-    )
+    company = models.ForeignKey("org.Company", on_delete=models.CASCADE, related_name="deductions")
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="deductions")
     policy = models.ForeignKey(
         WorkPolicy,
         on_delete=models.PROTECT,

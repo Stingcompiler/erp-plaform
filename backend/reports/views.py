@@ -92,15 +92,22 @@ class HrSummaryReport(ReportView):
             attendance = attendance.filter(date__gte=start)
             leave = leave.filter(end_date__gte=start)
             advances = advances.filter(created_at__date__gte=start)
-            deductions = deductions.filter(Q(date__gte=start) | Q(date__isnull=True, created_at__date__gte=start))
+            deductions = deductions.filter(
+                Q(date__gte=start) | Q(date__isnull=True, created_at__date__gte=start)
+            )
         if end:
             attendance = attendance.filter(date__lte=end)
             leave = leave.filter(start_date__lte=end)
             advances = advances.filter(created_at__date__lte=end)
-            deductions = deductions.filter(Q(date__lte=end) | Q(date__isnull=True, created_at__date__lte=end))
+            deductions = deductions.filter(
+                Q(date__lte=end) | Q(date__isnull=True, created_at__date__lte=end)
+            )
 
         def counts(queryset, field="status"):
-            return {row[field]: row["count"] for row in queryset.values(field).annotate(count=Count("id"))}
+            return {
+                row[field]: row["count"]
+                for row in queryset.values(field).annotate(count=Count("id"))
+            }
 
         advance_total = advances.filter(status=SalaryAdvance.APPROVED).aggregate(
             total=Coalesce(Sum("amount"), ZERO, output_field=MONEY)
@@ -115,18 +122,19 @@ class HrSummaryReport(ReportView):
             .order_by("department__name")
         )
 
-        return Response({
-            "employees": counts(employees),
-            "employee_total": employees.count(),
-            "attendance": counts(attendance),
-            "leave": counts(leave),
-            "advances": {**counts(advances), "approved_total": str(advance_total)},
-            "deductions": {"count": deductions.count(), "total": str(deduction_total)},
-            "departments": [
-                {"name": row["department__name"], "count": row["count"]}
-                for row in departments
-            ],
-        })
+        return Response(
+            {
+                "employees": counts(employees),
+                "employee_total": employees.count(),
+                "attendance": counts(attendance),
+                "leave": counts(leave),
+                "advances": {**counts(advances), "approved_total": str(advance_total)},
+                "deductions": {"count": deductions.count(), "total": str(deduction_total)},
+                "departments": [
+                    {"name": row["department__name"], "count": row["count"]} for row in departments
+                ],
+            }
+        )
 
 
 class PayrollReport(ReportView):
@@ -149,43 +157,78 @@ class PayrollReport(ReportView):
         rows = []
         for run in runs:
             entries = list(run.entries.all())
-            rows.append({
-                "id": run.id,
-                "period": run.period.isoformat(),
-                "status": run.status,
-                "employee_count": len(entries),
-                "base_total": str(sum((entry.base_salary for entry in entries), ZERO)),
-                "deductions_total": str(sum((entry.deductions_total for entry in entries), ZERO)),
-                "advances_total": str(sum((entry.advances_total for entry in entries), ZERO)),
-                "net_total": str(sum((entry.net_salary for entry in entries), ZERO)),
-                "entries": [{
-                    "employee_name": entry.employee_name,
-                    "department_name": entry.department_name,
-                    "position_title": entry.position_title,
-                    "base_salary": str(entry.base_salary),
-                    "deductions_total": str(entry.deductions_total),
-                    "advances_total": str(entry.advances_total),
-                    "net_salary": str(entry.net_salary),
-                } for entry in entries],
-            })
+            rows.append(
+                {
+                    "id": run.id,
+                    "period": run.period.isoformat(),
+                    "status": run.status,
+                    "employee_count": len(entries),
+                    "base_total": str(sum((entry.base_salary for entry in entries), ZERO)),
+                    "deductions_total": str(
+                        sum((entry.deductions_total for entry in entries), ZERO)
+                    ),
+                    "advances_total": str(sum((entry.advances_total for entry in entries), ZERO)),
+                    "net_total": str(sum((entry.net_salary for entry in entries), ZERO)),
+                    "entries": [
+                        {
+                            "employee_name": entry.employee_name,
+                            "department_name": entry.department_name,
+                            "position_title": entry.position_title,
+                            "base_salary": str(entry.base_salary),
+                            "deductions_total": str(entry.deductions_total),
+                            "advances_total": str(entry.advances_total),
+                            "net_salary": str(entry.net_salary),
+                        }
+                        for entry in entries
+                    ],
+                }
+            )
         if self.wants_csv(request):
             return self.csv_response(
                 "payroll_report.csv",
-                ["period", "status", "employee", "department", "position", "base_salary", "deductions", "advances", "net_salary"],
-                [[row["period"], row["status"], item["employee_name"], item["department_name"], item["position_title"], item["base_salary"], item["deductions_total"], item["advances_total"], item["net_salary"]] for row in rows for item in row["entries"]],
+                [
+                    "period",
+                    "status",
+                    "employee",
+                    "department",
+                    "position",
+                    "base_salary",
+                    "deductions",
+                    "advances",
+                    "net_salary",
+                ],
+                [
+                    [
+                        row["period"],
+                        row["status"],
+                        item["employee_name"],
+                        item["department_name"],
+                        item["position_title"],
+                        item["base_salary"],
+                        item["deductions_total"],
+                        item["advances_total"],
+                        item["net_salary"],
+                    ]
+                    for row in rows
+                    for item in row["entries"]
+                ],
             )
         return Response(rows)
 
 
 class SalesSummaryReport(ReportView):
     report_area = "sales"
+
     def get(self, request):
         from sales.models import Invoice
+
         cid = self.company_id(request)
         start, end = self.date_range(request)
         qs = self.apply_range(
             Invoice.objects.filter(company_id=cid, is_void=False),
-            "issued_at", start, end,
+            "issued_at",
+            start,
+            end,
         )
         qs = self.apply_branch(request, qs, "branch")
         totals = qs.aggregate(
@@ -203,26 +246,26 @@ class SalesSummaryReport(ReportView):
             )
             .order_by("day")
         )
-        return Response({
-            "totals": {k: str(v) if isinstance(v, Decimal) else v
-                       for k, v in totals.items()},
-            "daily": [
-                {"day": d["day"].isoformat(), "count": d["count"],
-                 "total": str(d["total"])}
-                for d in daily
-            ],
-        })
+        return Response(
+            {
+                "totals": {k: str(v) if isinstance(v, Decimal) else v for k, v in totals.items()},
+                "daily": [
+                    {"day": d["day"].isoformat(), "count": d["count"], "total": str(d["total"])}
+                    for d in daily
+                ],
+            }
+        )
 
 
 class SalesByProductReport(ReportView):
     report_area = "sales"
+
     def get(self, request):
         from sales.models import InvoiceLine
+
         cid = self.company_id(request)
         start, end = self.date_range(request)
-        qs = InvoiceLine.objects.filter(
-            invoice__company_id=cid, invoice__is_void=False
-        )
+        qs = InvoiceLine.objects.filter(invoice__company_id=cid, invoice__is_void=False)
         qs = self.apply_branch(request, qs, "invoice__branch")
         qs = self.apply_range(qs, "invoice__issued_at", start, end)
         rows = list(
@@ -237,22 +280,29 @@ class SalesByProductReport(ReportView):
             return self.csv_response(
                 "sales_by_product.csv",
                 ["sku", "name", "units", "revenue"],
-                [[r["product__sku"], r["product__name"], r["units"], r["revenue"]]
-                 for r in rows],
+                [[r["product__sku"], r["product__name"], r["units"], r["revenue"]] for r in rows],
             )
-        return Response([
-            {"product": r["product"], "sku": r["product__sku"],
-             "name": r["product__name"], "units": str(r["units"]),
-             "revenue": str(r["revenue"])}
-            for r in rows
-        ])
+        return Response(
+            [
+                {
+                    "product": r["product"],
+                    "sku": r["product__sku"],
+                    "name": r["product__name"],
+                    "units": str(r["units"]),
+                    "revenue": str(r["revenue"]),
+                }
+                for r in rows
+            ]
+        )
 
 
 class InventoryValuationReport(ReportView):
     report_area = "inventory"
+
     def get(self, request):
         from inventory.costing import METHODS, company_totals
         from inventory.models import Product
+
         cid = self.company_id(request)
         method = request.query_params.get("method", "standard")
         if method not in METHODS:
@@ -262,22 +312,23 @@ class InventoryValuationReport(ReportView):
             products = Product.objects.filter(company_id=cid)
             branch_id = self.branch_id(request)
             if branch_id:
-                products = products.filter(
-                    stock_movements__warehouse__branch_id=branch_id
-                )
-            products = products.annotate(
-                on_hand=Coalesce(Sum("stock_movements__quantity"), ZERO)
-            )
+                products = products.filter(stock_movements__warehouse__branch_id=branch_id)
+            products = products.annotate(on_hand=Coalesce(Sum("stock_movements__quantity"), ZERO))
             rows = []
             total_value = ZERO
             for p in products:
                 value = (p.on_hand or ZERO) * p.cost_price
                 total_value += value
-                rows.append({
-                    "product": p.id, "sku": p.sku, "name": p.name,
-                    "on_hand": str(p.on_hand or ZERO),
-                    "cost_price": str(p.cost_price), "value": str(value),
-                })
+                rows.append(
+                    {
+                        "product": p.id,
+                        "sku": p.sku,
+                        "name": p.name,
+                        "on_hand": str(p.on_hand or ZERO),
+                        "cost_price": str(p.cost_price),
+                        "value": str(value),
+                    }
+                )
         else:
             if self.branch_id(request):
                 return Response(
@@ -288,22 +339,30 @@ class InventoryValuationReport(ReportView):
             rows = []
             total_value = totals["valuation"]
             for p, res in totals["per_product"]:
-                rows.append({
-                    "product": p.id, "sku": p.sku, "name": p.name,
-                    "on_hand": str(res["on_hand"]),
-                    "cost_price": str(p.cost_price), "value": str(res["valuation"]),
-                })
+                rows.append(
+                    {
+                        "product": p.id,
+                        "sku": p.sku,
+                        "name": p.name,
+                        "on_hand": str(res["on_hand"]),
+                        "cost_price": str(p.cost_price),
+                        "value": str(res["valuation"]),
+                    }
+                )
 
         if self.wants_csv(request):
             return self.csv_response(
                 "inventory_valuation.csv",
                 ["sku", "name", "on_hand", "cost_price", "value"],
-                [[r["sku"], r["name"], r["on_hand"], r["cost_price"], r["value"]]
-                 for r in rows],
+                [[r["sku"], r["name"], r["on_hand"], r["cost_price"], r["value"]] for r in rows],
             )
-        return Response({
-            "method": method, "total_value": str(total_value), "items": rows,
-        })
+        return Response(
+            {
+                "method": method,
+                "total_value": str(total_value),
+                "items": rows,
+            }
+        )
 
 
 def _bucket(days):
@@ -320,14 +379,14 @@ def _bucket(days):
 
 class ARAgingReport(ReportView):
     report_area = "sales"
+
     def get(self, request):
         from sales.models import Invoice
+
         cid = self.company_id(request)
         today = date.today()
         per_customer = {}
-        invoices = Invoice.objects.filter(
-            company_id=cid, is_void=False
-        ).select_related("customer")
+        invoices = Invoice.objects.filter(company_id=cid, is_void=False).select_related("customer")
         invoices = self.apply_branch(request, invoices, "branch")
         for inv in invoices:
             due = inv.amount_due()
@@ -340,9 +399,17 @@ class ARAgingReport(ReportView):
             reference = inv.due_date or inv.issued_at.date()
             age = (today - reference).days
             entry = per_customer.setdefault(
-                key, {"customer": key, "name": name,
-                      "current": ZERO, "1_30": ZERO, "31_60": ZERO,
-                      "61_90": ZERO, "over_90": ZERO, "total": ZERO}
+                key,
+                {
+                    "customer": key,
+                    "name": name,
+                    "current": ZERO,
+                    "1_30": ZERO,
+                    "31_60": ZERO,
+                    "61_90": ZERO,
+                    "over_90": ZERO,
+                    "total": ZERO,
+                },
             )
             entry[_bucket(age)] += due
             entry["total"] += due
@@ -355,14 +422,14 @@ class ARAgingReport(ReportView):
 
 class APAgingReport(ReportView):
     report_area = "purchasing"
+
     def get(self, request):
         from purchasing.models import Bill
+
         cid = self.company_id(request)
         today = date.today()
         per_supplier = {}
-        bills = Bill.objects.filter(
-            company_id=cid, is_void=False
-        ).select_related("supplier")
+        bills = Bill.objects.filter(company_id=cid, is_void=False).select_related("supplier")
         for bill in bills:
             due = bill.amount_due()
             if due <= 0:
@@ -372,9 +439,17 @@ class APAgingReport(ReportView):
             reference = bill.due_date or bill.created_at.date()
             age = (today - reference).days
             entry = per_supplier.setdefault(
-                key, {"supplier": key, "name": bill.supplier.name,
-                      "current": ZERO, "1_30": ZERO, "31_60": ZERO,
-                      "61_90": ZERO, "over_90": ZERO, "total": ZERO}
+                key,
+                {
+                    "supplier": key,
+                    "name": bill.supplier.name,
+                    "current": ZERO,
+                    "1_30": ZERO,
+                    "31_60": ZERO,
+                    "61_90": ZERO,
+                    "over_90": ZERO,
+                    "total": ZERO,
+                },
             )
             entry[_bucket(age)] += due
             entry["total"] += due
@@ -387,37 +462,52 @@ class APAgingReport(ReportView):
 
 class PurchasesSummaryReport(ReportView):
     report_area = "purchasing"
+
     def get(self, request):
         from purchasing.models import Bill, GoodsReceipt
+
         cid = self.company_id(request)
         start, end = self.date_range(request)
         bills = self.apply_range(
             Bill.objects.filter(company_id=cid, is_void=False),
-            "created_at", start, end,
+            "created_at",
+            start,
+            end,
         )
         receipts = self.apply_range(
             GoodsReceipt.objects.filter(company_id=cid),
-            "received_at", start, end,
+            "received_at",
+            start,
+            end,
         )
         agg = bills.aggregate(
             bill_count=Count("id"),
             total=Coalesce(Sum("total"), ZERO, output_field=MONEY),
         )
-        return Response({
-            "bill_count": agg["bill_count"],
-            "purchases_total": str(agg["total"]),
-            "receipt_count": receipts.count(),
-        })
+        return Response(
+            {
+                "bill_count": agg["bill_count"],
+                "purchases_total": str(agg["total"]),
+                "receipt_count": receipts.count(),
+            }
+        )
 
 
 class ProfitSummaryReport(ReportView):
     report_area = "finance"
+
     def get(self, request):
         start, end = self.date_range(request)
-        data = operating_summary(self.company_id(request), start, end,
-                                 request.query_params.get("method", "standard"))
-        return Response({**data, "cogs_standard_cost": data["cogs"],
-                         "note": f"COGS uses {data['method']} costing."})
+        data = operating_summary(
+            self.company_id(request), start, end, request.query_params.get("method", "standard")
+        )
+        return Response(
+            {
+                **data,
+                "cogs_standard_cost": data["cogs"],
+                "note": f"COGS uses {data['method']} costing.",
+            }
+        )
 
 
 class IncomeStatementReport(ReportView):
@@ -431,15 +521,21 @@ class IncomeStatementReport(ReportView):
 
     def get(self, request):
         start, end = self.date_range(request)
-        data = operating_summary(self.company_id(request), start, end,
-                                 request.query_params.get("method", "standard"))
+        data = operating_summary(
+            self.company_id(request), start, end, request.query_params.get("method", "standard")
+        )
         if self.wants_csv(request):
-            rows = [["Revenue", data["revenue"]], ["COGS", data["cogs"]],
-                    ["Gross profit", data["gross_profit"]],
-                    *[[f"Expense — {e['category']}", e["amount"]]
-                      for e in data["expenses_by_category"]],
-                    ["Total expenses", data["total_expenses"]],
-                    ["Net profit", data["net_profit"]]]
+            rows = [
+                ["Revenue", data["revenue"]],
+                ["COGS", data["cogs"]],
+                ["Gross profit", data["gross_profit"]],
+                *[
+                    [f"Expense — {e['category']}", e["amount"]]
+                    for e in data["expenses_by_category"]
+                ],
+                ["Total expenses", data["total_expenses"]],
+                ["Net profit", data["net_profit"]],
+            ]
             return self.csv_response("income-statement.csv", ["Line", "Amount"], rows)
         return Response(data)
 
@@ -481,18 +577,25 @@ class ReceivablesDueReport(ReportView):
                 "receivables-due.csv",
                 ["Invoice", "Customer", "Due date", "Days overdue", "Amount due"],
                 [
-                    [r["number"], r["customer"], r["due_date"] or "",
-                     r["days_overdue"], r["amount_due"]]
+                    [
+                        r["number"],
+                        r["customer"],
+                        r["due_date"] or "",
+                        r["days_overdue"],
+                        r["amount_due"],
+                    ]
                     for r in rows
                 ],
             )
 
-        return Response({
-            "horizon_days": horizon,
-            "count": len(rows),
-            "overdue_count": sum(1 for r in rows if r["days_overdue"] > 0),
-            "rows": rows,
-        })
+        return Response(
+            {
+                "horizon_days": horizon,
+                "count": len(rows),
+                "overdue_count": sum(1 for r in rows if r["days_overdue"] > 0),
+                "rows": rows,
+            }
+        )
 
 
 class CashFlowForecastReport(ReportView):
@@ -528,16 +631,12 @@ class CashFlowForecastReport(ReportView):
 
         buckets = {i: {"inflow": ZERO, "outflow": ZERO} for i in range(-1, weeks)}
 
-        for inv in Invoice.objects.filter(
-            company_id=cid, is_void=False, due_date__lte=horizon
-        ):
+        for inv in Invoice.objects.filter(company_id=cid, is_void=False, due_date__lte=horizon):
             due = inv.amount_due()
             if due > 0 and inv.due_date:
                 buckets[bucket_of(inv.due_date)]["inflow"] += due
 
-        for bill in Bill.objects.filter(
-            company_id=cid, is_void=False, due_date__lte=horizon
-        ):
+        for bill in Bill.objects.filter(company_id=cid, is_void=False, due_date__lte=horizon):
             due = bill.amount_due()
             if due > 0 and bill.due_date:
                 buckets[bucket_of(bill.due_date)]["outflow"] += due
@@ -549,30 +648,43 @@ class CashFlowForecastReport(ReportView):
         for i in range(-1, weeks):
             net = buckets[i]["inflow"] - buckets[i]["outflow"]
             running += net
-            rows.append({
-                "bucket": "overdue" if i == -1 else f"week_{i + 1}",
-                "starts_on": None if i == -1 else (today + timedelta(weeks=i)).isoformat(),
-                "inflow": str(buckets[i]["inflow"].quantize(cents)),
-                "outflow": str(buckets[i]["outflow"].quantize(cents)),
-                "net": str(net.quantize(cents)),
-                "cumulative": str(running.quantize(cents)),
-            })
+            rows.append(
+                {
+                    "bucket": "overdue" if i == -1 else f"week_{i + 1}",
+                    "starts_on": None if i == -1 else (today + timedelta(weeks=i)).isoformat(),
+                    "inflow": str(buckets[i]["inflow"].quantize(cents)),
+                    "outflow": str(buckets[i]["outflow"].quantize(cents)),
+                    "net": str(net.quantize(cents)),
+                    "cumulative": str(running.quantize(cents)),
+                }
+            )
 
         if self.wants_csv(request):
             return self.csv_response(
                 "cash-flow-forecast.csv",
                 ["Bucket", "Starts on", "Expected in", "Expected out", "Net", "Cumulative"],
-                [[r["bucket"], r["starts_on"] or "", r["inflow"], r["outflow"],
-                  r["net"], r["cumulative"]] for r in rows],
+                [
+                    [
+                        r["bucket"],
+                        r["starts_on"] or "",
+                        r["inflow"],
+                        r["outflow"],
+                        r["net"],
+                        r["cumulative"],
+                    ]
+                    for r in rows
+                ],
             )
 
-        return Response({
-            "weeks": weeks,
-            "generated_on": today.isoformat(),
-            "closing_position": str(running.quantize(cents)),
-            "rows": rows,
-            "note": "Committed documents only — no modelled or predicted amounts.",
-        })
+        return Response(
+            {
+                "weeks": weeks,
+                "generated_on": today.isoformat(),
+                "closing_position": str(running.quantize(cents)),
+                "rows": rows,
+                "note": "Committed documents only — no modelled or predicted amounts.",
+            }
+        )
 
 
 class CfoKpiReport(ReportView):
@@ -590,38 +702,43 @@ class CfoKpiReport(ReportView):
     def get(self, request):
         from purchasing.models import Bill, SupplierPayment
         from sales.models import Invoice, Payment
+
         cid = self.company_id(request)
         start, end = self.date_range(request)
         data = operating_summary(cid, start, end, request.query_params.get("method", "standard"))
         method = data["method"]
         revenue, cogs, opex, gross_profit, net_profit = (
-            Decimal(data[key]) for key in
-            ("revenue", "cogs", "total_expenses", "gross_profit", "net_profit")
+            Decimal(data[key])
+            for key in ("revenue", "cogs", "total_expenses", "gross_profit", "net_profit")
         )
 
         # --- Liquidity / working capital ------------------------------------
         receivable = sum(
-            (i.amount_due() for i in Invoice.objects.filter(
-                company_id=cid, is_void=False
-            )), ZERO,
+            (i.amount_due() for i in Invoice.objects.filter(company_id=cid, is_void=False)),
+            ZERO,
         )
         payable = sum(
-            (b.amount_due() for b in Bill.objects.filter(
-                company_id=cid, is_void=False
-            )), ZERO,
+            (b.amount_due() for b in Bill.objects.filter(company_id=cid, is_void=False)),
+            ZERO,
         )
         overdue_receivable = sum(
-            (i.amount_due() for i in Invoice.objects.filter(
-                company_id=cid, is_void=False
-            ) if i.is_overdue), ZERO,
+            (
+                i.amount_due()
+                for i in Invoice.objects.filter(company_id=cid, is_void=False)
+                if i.is_overdue
+            ),
+            ZERO,
         )
 
         cash_in = self.apply_range(
             Payment.objects.filter(company_id=cid), "recorded_at", start, end
         ).aggregate(t=Coalesce(Sum("amount"), ZERO, output_field=MONEY))["t"]
-        cash_out = self.apply_range(
-            SupplierPayment.objects.filter(company_id=cid), "recorded_at", start, end
-        ).aggregate(t=Coalesce(Sum("amount"), ZERO, output_field=MONEY))["t"] + opex
+        cash_out = (
+            self.apply_range(
+                SupplierPayment.objects.filter(company_id=cid), "recorded_at", start, end
+            ).aggregate(t=Coalesce(Sum("amount"), ZERO, output_field=MONEY))["t"]
+            + opex
+        )
 
         def ratio(numerator, denominator):
             """Percentage, or None when undefined — never a misleading zero."""
@@ -629,32 +746,34 @@ class CfoKpiReport(ReportView):
                 return None
             return str(round((numerator / denominator) * 100, 2))
 
-        return Response({
-            "method": method,
-            "profitability": {
-                "revenue": str(revenue),
-                "cogs": str(cogs),
-                "gross_profit": str(gross_profit),
-                "operating_expenses": str(opex),
-                "net_profit": str(net_profit),
-                "gross_margin_pct": ratio(gross_profit, revenue),
-                "net_margin_pct": ratio(net_profit, revenue),
-            },
-            "liquidity": {
-                "cash_in": str(cash_in),
-                "cash_out": str(cash_out),
-                "net_cash_flow": str(cash_in - cash_out),
-                # Short-term cover: receivables against payables.
-                "working_capital": str(receivable - payable),
-                "current_ratio_pct": ratio(receivable, payable),
-            },
-            "receivables": {
-                "outstanding": str(receivable),
-                "overdue": str(overdue_receivable),
-                "overdue_pct": ratio(overdue_receivable, receivable),
-            },
-            "payables": {"outstanding": str(payable)},
-        })
+        return Response(
+            {
+                "method": method,
+                "profitability": {
+                    "revenue": str(revenue),
+                    "cogs": str(cogs),
+                    "gross_profit": str(gross_profit),
+                    "operating_expenses": str(opex),
+                    "net_profit": str(net_profit),
+                    "gross_margin_pct": ratio(gross_profit, revenue),
+                    "net_margin_pct": ratio(net_profit, revenue),
+                },
+                "liquidity": {
+                    "cash_in": str(cash_in),
+                    "cash_out": str(cash_out),
+                    "net_cash_flow": str(cash_in - cash_out),
+                    # Short-term cover: receivables against payables.
+                    "working_capital": str(receivable - payable),
+                    "current_ratio_pct": ratio(receivable, payable),
+                },
+                "receivables": {
+                    "outstanding": str(receivable),
+                    "overdue": str(overdue_receivable),
+                    "overdue_pct": ratio(overdue_receivable, receivable),
+                },
+                "payables": {"outstanding": str(payable)},
+            }
+        )
 
 
 class PayablesDueReport(ReportView):
@@ -698,19 +817,26 @@ class PayablesDueReport(ReportView):
                 "payables-due.csv",
                 ["Bill", "Supplier", "Due date", "Days overdue", "Amount due"],
                 [
-                    [r["reference"], r["supplier"], r["due_date"] or "",
-                     r["days_overdue"], r["amount_due"]]
+                    [
+                        r["reference"],
+                        r["supplier"],
+                        r["due_date"] or "",
+                        r["days_overdue"],
+                        r["amount_due"],
+                    ]
                     for r in rows
                 ],
             )
 
-        return Response({
-            "horizon_days": horizon,
-            "count": len(rows),
-            "overdue_count": sum(1 for r in rows if r["days_overdue"] > 0),
-            "total_due": str(total),
-            "rows": rows,
-        })
+        return Response(
+            {
+                "horizon_days": horizon,
+                "count": len(rows),
+                "overdue_count": sum(1 for r in rows if r["days_overdue"] > 0),
+                "total_due": str(total),
+                "rows": rows,
+            }
+        )
 
 
 class CashFlowReport(ReportView):
@@ -749,9 +875,10 @@ class CashFlowReport(ReportView):
                 .order_by("-total")
             ]
 
-        def total(qs): return qs.aggregate(  # noqa: E731
-            t=Coalesce(Sum("amount"), ZERO, output_field=MONEY)
-        )["t"]
+        def total(qs):
+            return qs.aggregate(t=Coalesce(Sum("amount"), ZERO, output_field=MONEY))[  # noqa: E731
+                "t"
+            ]
 
         inflows = total(inflow_qs)
         supplier_out = total(outflow_pay_qs)
@@ -767,14 +894,16 @@ class CashFlowReport(ReportView):
             ]
             return self.csv_response("cash-flow.csv", ["Line", "Amount"], rows)
 
-        return Response({
-            "inflows": str(inflows),
-            "inflows_by_method": by_method(inflow_qs),
-            "supplier_payments": str(supplier_out),
-            "expenses": str(expense_out),
-            "outflows": str(outflows),
-            "net_cash_flow": str(inflows - outflows),
-        })
+        return Response(
+            {
+                "inflows": str(inflows),
+                "inflows_by_method": by_method(inflow_qs),
+                "supplier_payments": str(supplier_out),
+                "expenses": str(expense_out),
+                "outflows": str(outflows),
+                "net_cash_flow": str(inflows - outflows),
+            }
+        )
 
 
 # Convenience default range helper (unused by endpoints but handy for clients).

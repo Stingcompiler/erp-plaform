@@ -15,43 +15,55 @@ class ReportsBase(APITestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Alpha")
         self.branch = Branch.objects.create(company=self.company, name="Main")
-        self.owner = Role.objects.create(
-            name="Business Owner", scope_level=Role.SCOPE_BUSINESS
-        )
-        self.lpm = Role.objects.create(
-            name="Landing Page Manager", scope_level=Role.SCOPE_BRANCH
-        )
+        self.owner = Role.objects.create(name="Business Owner", scope_level=Role.SCOPE_BUSINESS)
+        self.lpm = Role.objects.create(name="Landing Page Manager", scope_level=Role.SCOPE_BRANCH)
         self.user = User.objects.create_user(
-            email="owner@alpha.test", password="passw0rd123",
-            company=self.company, role=self.owner,
+            email="owner@alpha.test",
+            password="passw0rd123",
+            company=self.company,
+            role=self.owner,
         )
-        self.wh = Warehouse.objects.create(
-            company=self.company, branch=self.branch, name="Main"
-        )
+        self.wh = Warehouse.objects.create(company=self.company, branch=self.branch, name="Main")
         self.product = Product.objects.create(
-            company=self.company, sku="SKU1", name="Widget",
-            cost_price=Decimal("6.00"), sale_price=Decimal("10.00"),
+            company=self.company,
+            sku="SKU1",
+            name="Widget",
+            cost_price=Decimal("6.00"),
+            sale_price=Decimal("10.00"),
         )
         # Stock in 20 units.
         StockMovement.objects.create(
-            company=self.company, product=self.product, warehouse=self.wh,
-            movement_type=StockMovement.PURCHASE_IN, quantity=Decimal("20"),
+            company=self.company,
+            product=self.product,
+            warehouse=self.wh,
+            movement_type=StockMovement.PURCHASE_IN,
+            quantity=Decimal("20"),
         )
         # An invoice with one line: 5 units @ 10 = 50 subtotal.
         self.customer = Customer.objects.create(company=self.company, name="C1")
         self.invoice = Invoice.objects.create(
-            company=self.company, customer=self.customer, warehouse=self.wh,
+            company=self.company,
+            customer=self.customer,
+            warehouse=self.wh,
             branch=self.branch,
-            number=1, subtotal=Decimal("50"), total=Decimal("50"),
+            number=1,
+            subtotal=Decimal("50"),
+            total=Decimal("50"),
         )
         InvoiceLine.objects.create(
-            invoice=self.invoice, product=self.product, quantity=Decimal("5"),
-            unit_price=Decimal("10"), line_subtotal=Decimal("50"),
+            invoice=self.invoice,
+            product=self.product,
+            quantity=Decimal("5"),
+            unit_price=Decimal("10"),
+            line_subtotal=Decimal("50"),
             line_total=Decimal("50"),
         )
         StockMovement.objects.create(
-            company=self.company, product=self.product, warehouse=self.wh,
-            movement_type=StockMovement.SALE_OUT, quantity=Decimal("-5"),
+            company=self.company,
+            product=self.product,
+            warehouse=self.wh,
+            movement_type=StockMovement.SALE_OUT,
+            quantity=Decimal("-5"),
         )
         self.client.force_authenticate(self.user)
 
@@ -79,13 +91,22 @@ class SalesReportTests(ReportsBase):
     def test_payroll_report_returns_company_payroll_entries(self):
         from hr.models import Employee, PayrollEntry, PayrollRun, Position
 
-        position = Position.objects.create(company=self.company, title="Cashier", base_salary="1000.00")
-        employee = Employee.objects.create(company=self.company, full_name="Amina Ali", position=position)
+        position = Position.objects.create(
+            company=self.company, title="Cashier", base_salary="1000.00"
+        )
+        employee = Employee.objects.create(
+            company=self.company, full_name="Amina Ali", position=position
+        )
         run = PayrollRun.objects.create(company=self.company, period="2026-09-01")
         PayrollEntry.objects.create(
-            payroll_run=run, employee=employee, employee_name=employee.full_name,
-            position_title="Cashier", base_salary="1000.00", deductions_total="50.00",
-            advances_total="100.00", net_salary="850.00",
+            payroll_run=run,
+            employee=employee,
+            employee_name=employee.full_name,
+            position_title="Cashier",
+            base_salary="1000.00",
+            deductions_total="50.00",
+            advances_total="100.00",
+            net_salary="850.00",
         )
         response = self.client.get(reverse("report-payroll"))
         self.assertEqual(response.status_code, 200, response.data)
@@ -138,16 +159,17 @@ class ReportsRBACTests(ReportsBase):
             subtotal=Decimal("999"),
             total=Decimal("999"),
         )
-        response = self.client_for_role("Branch Manager").get(
-            reverse("report-sales-summary")
-        )
+        response = self.client_for_role("Branch Manager").get(reverse("report-sales-summary"))
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(Decimal(response.data["totals"]["total"]), Decimal("50"))
 
     def test_landing_page_manager_denied_reports(self):
         lpm_user = User.objects.create_user(
-            email="lpm@alpha.test", password="passw0rd123",
-            company=self.company, branch=self.branch, role=self.lpm,
+            email="lpm@alpha.test",
+            password="passw0rd123",
+            company=self.company,
+            branch=self.branch,
+            role=self.lpm,
         )
         c = self.client_class()
         c.force_authenticate(lpm_user)
@@ -160,7 +182,9 @@ class ReportsRBACTests(ReportsBase):
         Invoice.objects.create(
             company=other,
             warehouse=Warehouse.objects.create(company=other, name="BW"),
-            number=1, subtotal=Decimal("999"), total=Decimal("999"),
+            number=1,
+            subtotal=Decimal("999"),
+            total=Decimal("999"),
         )
         resp = self.client.get(reverse("report-sales-summary"))
         self.assertEqual(Decimal(resp.data["totals"]["total"]), Decimal("50"))
@@ -169,8 +193,10 @@ class ReportsRBACTests(ReportsBase):
         role = Role.objects.create(name=role_name, scope_level=Role.SCOPE_BRANCH)
         user = User.objects.create_user(
             email=f"{role_name.lower().replace(' ', '-')}@alpha.test",
-            password="passw0rd123", company=self.company,
-            branch=self.branch, role=role,
+            password="passw0rd123",
+            company=self.company,
+            branch=self.branch,
+            role=role,
         )
         client = self.client_class()
         client.force_authenticate(user)
@@ -179,9 +205,12 @@ class ReportsRBACTests(ReportsBase):
     def test_hr_cannot_read_company_financial_reports(self):
         client = self.client_for_role("HR Officer")
         for name in (
-            "report-sales-summary", "report-inventory-valuation",
-            "report-purchases-summary", "report-income-statement",
-            "report-cash-flow", "report-cfo-kpis",
+            "report-sales-summary",
+            "report-inventory-valuation",
+            "report-purchases-summary",
+            "report-income-statement",
+            "report-cash-flow",
+            "report-cfo-kpis",
         ):
             with self.subTest(report=name):
                 self.assertEqual(client.get(reverse(name)).status_code, 403)
@@ -196,8 +225,10 @@ class ReportsRBACTests(ReportsBase):
             company=self.company, employee=employee, date="2026-09-11", status="present"
         )
         LeaveRequest.objects.create(
-            company=self.company, employee=employee,
-            start_date="2026-09-12", end_date="2026-09-13",
+            company=self.company,
+            employee=employee,
+            start_date="2026-09-12",
+            end_date="2026-09-13",
         )
         client = self.client_for_role("HR Officer")
         response = client.get(reverse("report-hr-summary"))
@@ -211,8 +242,10 @@ class ReportsRBACTests(ReportsBase):
             name="Chief Financial Officer", scope_level=Role.SCOPE_BUSINESS
         )
         cfo = User.objects.create_user(
-            email="cfo@alpha.test", password="passw0rd123",
-            company=self.company, role=cfo_role,
+            email="cfo@alpha.test",
+            password="passw0rd123",
+            company=self.company,
+            role=cfo_role,
         )
         client = self.client_class()
         client.force_authenticate(cfo)

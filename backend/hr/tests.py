@@ -17,13 +17,15 @@ class HrBase(APITestCase):
         self.branch_b = Branch.objects.create(company=self.company_b, name="Main")
         self.role = Role.objects.create(name="HR Officer", scope_level=Role.SCOPE_BRANCH)
         self.user_a = User.objects.create_user(
-            email="a@alpha.test", password="passw0rd123",
-            company=self.company_a, branch=self.branch_a, role=self.role,
+            email="a@alpha.test",
+            password="passw0rd123",
+            company=self.company_a,
+            branch=self.branch_a,
+            role=self.role,
         )
         self.pos_a = Position.objects.create(company=self.company_a, title="Cashier")
         self.emp_a = Employee.objects.create(
-            company=self.company_a, branch=self.branch_a,
-            full_name="Amina Ali", position=self.pos_a
+            company=self.company_a, branch=self.branch_a, full_name="Amina Ali", position=self.pos_a
         )
         self.emp_b = Employee.objects.create(
             company=self.company_b, branch=self.branch_b, full_name="Beta Person"
@@ -108,6 +110,7 @@ class AttendanceLeavePerfTests(HrBase):
         self.assertEqual(ok.status_code, 201, ok.content)
         # Reviewer is taken from the request user, never the request body.
         from hr.models import PerformanceRecord
+
         self.assertEqual(
             PerformanceRecord.objects.get(pk=ok.data["id"]).reviewer_id, self.user_a.id
         )
@@ -118,8 +121,10 @@ class HrRbacTests(HrBase):
         # A non-HR role must not reach HR endpoints (RBAC matrix).
         sales_role = Role.objects.create(name="Sales Officer", scope_level=Role.SCOPE_BRANCH)
         sales_user = User.objects.create_user(
-            email="s@alpha.test", password="passw0rd123",
-            company=self.company_a, role=sales_role,
+            email="s@alpha.test",
+            password="passw0rd123",
+            company=self.company_a,
+            role=sales_role,
         )
         client = self.client_class()
         client.force_authenticate(sales_user)
@@ -141,8 +146,11 @@ class HrExpansionTests(HrBase):
         resp = self.client.post(
             reverse("leaverequest-list"),
             {
-                "employee": self.emp_a.id, "start_date": "2026-08-01",
-                "end_date": "2026-08-03", "leave_type": "annual", "reason": "trip",
+                "employee": self.emp_a.id,
+                "start_date": "2026-08-01",
+                "end_date": "2026-08-03",
+                "leave_type": "annual",
+                "reason": "trip",
             },
             format="json",
         )
@@ -166,8 +174,10 @@ class HrExpansionTests(HrBase):
             name="Chief Financial Officer", scope_level=Role.SCOPE_BUSINESS
         )
         cfo = User.objects.create_user(
-            email="cfo@alpha.test", password="passw0rd123",
-            company=self.company_a, role=cfo_role,
+            email="cfo@alpha.test",
+            password="passw0rd123",
+            company=self.company_a,
+            role=cfo_role,
         )
         cfo_client = self.client_class()
         cfo_client.force_authenticate(cfo)
@@ -181,7 +191,10 @@ class HrExpansionTests(HrBase):
         self.emp_a.base_salary_override = "1200.00"
         self.emp_a.save(update_fields=["base_salary_override"])
         from hr.models import Deduction, PayrollRun
-        Deduction.objects.create(company=self.company_a, employee=self.emp_a, amount="50.00", date=date(2026, 9, 10))
+
+        Deduction.objects.create(
+            company=self.company_a, employee=self.emp_a, amount="50.00", date=date(2026, 9, 10)
+        )
         create = self.client.post(reverse("payrollrun-list"), {"period": "2026-09"}, format="json")
         self.assertEqual(create.status_code, status.HTTP_201_CREATED, create.content)
         entry = create.data["entries"][0]
@@ -191,8 +204,15 @@ class HrExpansionTests(HrBase):
 
         denied = self.client.post(reverse("payrollrun-approve", args=[create.data["id"]]))
         self.assertEqual(denied.status_code, status.HTTP_403_FORBIDDEN)
-        cfo_role = Role.objects.create(name="Chief Financial Officer", scope_level=Role.SCOPE_BUSINESS)
-        cfo = User.objects.create_user(email="payroll-cfo@alpha.test", password="passw0rd123", company=self.company_a, role=cfo_role)
+        cfo_role = Role.objects.create(
+            name="Chief Financial Officer", scope_level=Role.SCOPE_BUSINESS
+        )
+        cfo = User.objects.create_user(
+            email="payroll-cfo@alpha.test",
+            password="passw0rd123",
+            company=self.company_a,
+            role=cfo_role,
+        )
         client = self.client_class()
         client.force_authenticate(cfo)
         approved = client.post(reverse("payrollrun-approve", args=[create.data["id"]]))
@@ -202,9 +222,7 @@ class HrExpansionTests(HrBase):
     def test_draft_payroll_refreshes_and_approved_payroll_stays_locked(self):
         self.pos_a.base_salary = "1000.00"
         self.pos_a.save(update_fields=["base_salary"])
-        create = self.client.post(
-            reverse("payrollrun-list"), {"period": "2026-09"}, format="json"
-        )
+        create = self.client.post(reverse("payrollrun-list"), {"period": "2026-09"}, format="json")
         self.assertEqual(create.status_code, status.HTTP_201_CREATED, create.content)
         run_id = create.data["id"]
         self.assertEqual(create.data["entries"][0]["net_salary"], "1000.00")
@@ -219,8 +237,10 @@ class HrExpansionTests(HrBase):
             name="Chief Financial Officer", scope_level=Role.SCOPE_BUSINESS
         )
         cfo = User.objects.create_user(
-            email="refresh-cfo@alpha.test", password="passw0rd123",
-            company=self.company_a, role=cfo_role,
+            email="refresh-cfo@alpha.test",
+            password="passw0rd123",
+            company=self.company_a,
+            role=cfo_role,
         )
         cfo_client = self.client_class()
         cfo_client.force_authenticate(cfo)
@@ -235,8 +255,13 @@ class HrExpansionTests(HrBase):
         self.pos_a.base_salary = "1000.00"
         self.pos_a.save(update_fields=["base_salary"])
         from hr.models import Deduction
-        deduction = Deduction.objects.create(company=self.company_a, employee=self.emp_a, amount="75.00")
-        Deduction.objects.filter(pk=deduction.pk).update(created_at=timezone.make_aware(datetime(2026, 9, 12)))
+
+        deduction = Deduction.objects.create(
+            company=self.company_a, employee=self.emp_a, amount="75.00"
+        )
+        Deduction.objects.filter(pk=deduction.pk).update(
+            created_at=timezone.make_aware(datetime(2026, 9, 12))
+        )
         create = self.client.post(reverse("payrollrun-list"), {"period": "2026-09"}, format="json")
         self.assertEqual(create.status_code, status.HTTP_201_CREATED, create.content)
         self.assertEqual(create.data["entries"][0]["net_salary"], "925.00")
@@ -244,15 +269,22 @@ class HrExpansionTests(HrBase):
     def test_work_policy_and_deduction(self):
         pol = self.client.post(
             reverse("workpolicy-list"),
-            {"name": "Late arrival", "violation_type": "tardiness",
-             "description": "Arriving after 9am"},
+            {
+                "name": "Late arrival",
+                "violation_type": "tardiness",
+                "description": "Arriving after 9am",
+            },
             format="json",
         )
         self.assertEqual(pol.status_code, 201, pol.content)
         ded = self.client.post(
             reverse("deduction-list"),
-            {"employee": self.emp_a.id, "policy": pol.data["id"], "amount": "50.00",
-             "note": "Late 3 days"},
+            {
+                "employee": self.emp_a.id,
+                "policy": pol.data["id"],
+                "amount": "50.00",
+                "note": "Late 3 days",
+            },
             format="json",
         )
         self.assertEqual(ded.status_code, 201, ded.content)
@@ -260,6 +292,7 @@ class HrExpansionTests(HrBase):
 
     def test_cannot_attach_other_company_policy_to_deduction(self):
         from hr.models import WorkPolicy
+
         other_pol = WorkPolicy.objects.create(
             company=self.company_b, name="Beta policy", violation_type="misconduct"
         )
