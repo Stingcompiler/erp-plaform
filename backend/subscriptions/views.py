@@ -1,5 +1,7 @@
 from django.http import FileResponse, Http404
 from django.db import IntegrityError
+from django.utils import timezone
+from uuid import uuid4
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -253,7 +255,13 @@ class PlatformSubscriptionInvoiceViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "head", "options"]
 
     def perform_create(self, serializer):
-        invoice = serializer.save()
+        invoice = serializer.save(
+            number=f"PENDING-{uuid4().hex}",
+            status=SubscriptionInvoice.ISSUED,
+            issued_at=timezone.now(),
+        )
+        invoice.number = f"VSUB-{invoice.pk:06d}"
+        invoice.save(update_fields=["number"])
         log_activity(
             action="create",
             request=self.request,

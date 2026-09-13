@@ -194,6 +194,10 @@ class SubscriptionInvoice(models.Model):
     due_at = models.DateTimeField()
     line_snapshot = models.JSONField(default=list)
     issued_at = models.DateTimeField(null=True, blank=True)
+    # Marks the commercial period as granted. This is separate from `paid`: a
+    # paid invoice may be historical, and replaying payment review must never
+    # extend access a second time.
+    entitlement_granted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

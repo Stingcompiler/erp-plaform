@@ -295,6 +295,7 @@ export const platformSubscriptions = {
     api.post(`/platform/subscriptions/${id}/transition/`, { status, reason }),
   payments: (params) => api.get("/platform/subscription-payments/", { params }),
   invoices: (params) => api.get("/platform/subscription-invoices/", { params }),
+  createInvoice: (body) => api.post("/platform/subscription-invoices/", body),
   verifyPayment: (id, allocations) =>
     api.post(`/platform/subscription-payments/${id}/verify/`, { allocations }),
   createPlan: (body) => api.post("/platform/plans/", body),

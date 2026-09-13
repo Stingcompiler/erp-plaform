@@ -225,8 +225,117 @@ class SubscriptionAccessTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         payment.refresh_from_db()
         invoice.refresh_from_db()
+        self.subscription.refresh_from_db()
         self.assertEqual(payment.status, SubscriptionPayment.VERIFIED)
         self.assertEqual(invoice.status, SubscriptionInvoice.PAID)
+        self.assertIsNotNone(invoice.entitlement_granted_at)
+        self.assertEqual(self.subscription.status, Subscription.ACTIVE)
+        self.assertEqual(
+            SubscriptionEvent.objects.filter(
+                subscription=self.subscription, event_type="invoice_period_granted"
+            ).count(),
+            1,
+        )
+
+    def test_verifying_payment_twice_does_not_grant_the_invoice_period_twice(self):
+        admin = User.objects.create_superuser(
+            email="replay-payment@test.local", password="long-password"
+        )
+        now = timezone.now()
+        invoice = SubscriptionInvoice.objects.create(
+            company=self.company,
+            subscription=self.subscription,
+            number="SUB-REPLAY",
+            status=SubscriptionInvoice.ISSUED,
+            period_start=now.date(),
+            period_end=(now + timedelta(days=60)).date(),
+            currency="USD",
+            amount="50.00",
+            due_at=now + timedelta(days=7),
+        )
+        payment = SubscriptionPayment.objects.create(
+            company=self.company,
+            amount="50.00",
+            currency="USD",
+            method="cash",
+            recorded_by=self.owner,
+        )
+        self.client.force_authenticate(admin)
+        url = reverse("platform-subscription-payment-verify", args=[payment.pk])
+        body = {"allocations": [{"invoice_id": invoice.pk, "amount": "50.00"}]}
+        self.assertEqual(
+            self.client.post(url, body, format="json").status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(
+            self.client.post(url, body, format="json").status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(
+            SubscriptionEvent.objects.filter(
+                subscription=self.subscription, event_type="invoice_period_granted"
+            ).count(),
+            1,
+        )
+
+    def test_paid_invoice_does_not_reverse_manual_suspension(self):
+        self.subscription.status = Subscription.SUSPENDED
+        self.subscription.suspended_reason = "Manual compliance review"
+        self.subscription.save(update_fields=["status", "suspended_reason"])
+        admin = User.objects.create_superuser(
+            email="suspended-payment@test.local", password="long-password"
+        )
+        now = timezone.now()
+        invoice = SubscriptionInvoice.objects.create(
+            company=self.company,
+            subscription=self.subscription,
+            number="SUB-SUSPENDED",
+            status=SubscriptionInvoice.ISSUED,
+            period_start=now.date(),
+            period_end=(now + timedelta(days=30)).date(),
+            currency="USD",
+            amount="50.00",
+            due_at=now + timedelta(days=7),
+        )
+        payment = SubscriptionPayment.objects.create(
+            company=self.company,
+            amount="50.00",
+            currency="USD",
+            method="cash",
+            recorded_by=self.owner,
+        )
+        self.client.force_authenticate(admin)
+        response = self.client.post(
+            reverse("platform-subscription-payment-verify", args=[payment.pk]),
+            {"allocations": [{"invoice_id": invoice.pk, "amount": "50.00"}]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.subscription.refresh_from_db()
+        self.assertEqual(self.subscription.status, Subscription.SUSPENDED)
+
+    def test_platform_issues_numbered_invoice_for_matching_subscription(self):
+        admin = User.objects.create_superuser(
+            email="issue-invoice@test.local", password="long-password"
+        )
+        now = timezone.now()
+        self.client.force_authenticate(admin)
+        response = self.client.post(
+            reverse("platform-subscription-invoice-list"),
+            {
+                "company": self.company.pk,
+                "subscription": self.subscription.pk,
+                "period_start": now.date().isoformat(),
+                "period_end": (now + timedelta(days=30)).date().isoformat(),
+                "currency": "USD",
+                "amount": "50.00",
+                "due_at": (now + timedelta(days=7)).isoformat(),
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data["status"], SubscriptionInvoice.ISSUED)
+        self.assertRegex(response.data["number"], r"^VSUB-\d{6}$")
 
     def test_platform_rejects_partially_allocated_payment(self):
         admin = User.objects.create_superuser(

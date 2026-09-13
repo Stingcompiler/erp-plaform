@@ -1,3 +1,5 @@
+from datetime import datetime, time
+
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
@@ -82,6 +84,57 @@ def configure_subscription(subscription_id, changes, actor, reason=""):
     return subscription
 
 
+def grant_paid_invoice_period(invoice, actor):
+    """Grant one invoice period at most once, inside the payment transaction."""
+    if invoice.entitlement_granted_at is not None:
+        return False
+    subscription = Subscription.objects.select_for_update().get(
+        pk=invoice.subscription_id
+    )
+    now = timezone.now()
+    period_end = timezone.make_aware(
+        datetime.combine(invoice.period_end, time.max),
+        timezone.get_current_timezone(),
+    )
+    previous_status = subscription.status
+    fields = []
+    if subscription.period_ends_at is None or period_end > subscription.period_ends_at:
+        subscription.period_ends_at = period_end
+        fields.append("period_ends_at")
+    # A manual suspension is a separate administrative decision and a payment
+    # cannot silently remove it. Other non-operational commercial states may
+    # return to active only when the paid period is still in the future.
+    if (
+        subscription.status in {
+            Subscription.TRIALING,
+            Subscription.GRACE,
+            Subscription.READ_ONLY,
+        }
+        and period_end > now
+    ):
+        subscription.status = Subscription.ACTIVE
+        fields.append("status")
+    if fields:
+        subscription.revision += 1
+        fields.extend(["revision", "updated_at"])
+        subscription.save(update_fields=fields)
+    invoice.entitlement_granted_at = now
+    invoice.save(update_fields=["entitlement_granted_at"])
+    SubscriptionEvent.objects.create(
+        subscription=subscription,
+        event_type="invoice_period_granted",
+        from_status=previous_status,
+        to_status=subscription.status,
+        actor=actor,
+        metadata={
+            "invoice_id": invoice.pk,
+            "invoice_number": invoice.number,
+            "period_end": period_end.isoformat(),
+        },
+    )
+    return True
+
+
 @transaction.atomic
 def verify_and_allocate_payment(payment_id, actor, allocations):
     payment = SubscriptionPayment.objects.select_for_update().get(pk=payment_id)
@@ -129,4 +182,5 @@ def verify_and_allocate_payment(payment_id, actor, allocations):
         if allocated == invoice.amount:
             invoice.status = SubscriptionInvoice.PAID
             invoice.save(update_fields=["status"])
+            grant_paid_invoice_period(invoice, actor)
     return payment

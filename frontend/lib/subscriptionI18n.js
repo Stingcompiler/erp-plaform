@@ -23,6 +23,9 @@ export const subscriptionEn = {
   pendingPayments: "Payments awaiting review", noPendingPayments: "No payments await review.",
   invoice: "Invoice", allocationAmount: "Amount to allocate", verifyPayment: "Verify payment",
   paymentVerified: "Payment was verified and allocated.", submittedBy: "Submitted by",
+  createInvoice: "Issue renewal invoice", invoicePeriodStart: "Period starts",
+  invoicePeriodEnd: "Period ends", invoiceDueAt: "Payment due", invoiceIssued: "Renewal invoice was issued.",
+  noSubscriptionsToInvoice: "Create and configure a company subscription before issuing an invoice.",
 };
 
 export const subscriptionAr = {
@@ -50,4 +53,7 @@ export const subscriptionAr = {
   pendingPayments: "مدفوعات بانتظار المراجعة", noPendingPayments: "لا توجد مدفوعات بانتظار المراجعة.",
   invoice: "الفاتورة", allocationAmount: "المبلغ الموزع", verifyPayment: "اعتماد الدفعة",
   paymentVerified: "تم اعتماد الدفعة وتوزيعها.", submittedBy: "سجلها",
+  createInvoice: "إصدار فاتورة تجديد", invoicePeriodStart: "بداية الفترة",
+  invoicePeriodEnd: "نهاية الفترة", invoiceDueAt: "موعد السداد", invoiceIssued: "تم إصدار فاتورة التجديد.",
+  noSubscriptionsToInvoice: "أنشئ واضبط اشتراك الشركة قبل إصدار فاتورة.",
 };

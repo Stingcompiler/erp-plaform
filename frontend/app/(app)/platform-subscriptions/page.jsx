@@ -30,6 +30,23 @@ function initialDraft(row) {
   };
 }
 
+function dateInputValue(date = new Date()) {
+  return date.toISOString().slice(0, 10);
+}
+
+function invoiceDefaults(rows) {
+  const now = new Date();
+  const inThirtyDays = new Date(now);
+  inThirtyDays.setDate(now.getDate() + 30);
+  return {
+    subscription: rows[0] ? String(rows[0].id) : "",
+    amount: rows[0]?.plan?.price || "",
+    period_start: dateInputValue(now),
+    period_end: dateInputValue(inThirtyDays),
+    due_at: localDateTime(now),
+  };
+}
+
 export default function PlatformSubscriptionsPage() {
   const { user } = useAuth();
   const { t } = useI18n();
@@ -39,6 +56,7 @@ export default function PlatformSubscriptionsPage() {
   const [invoices, setInvoices] = useState([]);
   const [drafts, setDrafts] = useState({});
   const [paymentDrafts, setPaymentDrafts] = useState({});
+  const [invoiceDraft, setInvoiceDraft] = useState({});
   const [saving, setSaving] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -64,6 +82,7 @@ export default function PlatformSubscriptionsPage() {
         payment.id,
         current[payment.id] || { invoice: "", amount: payment.amount },
       ])));
+      setInvoiceDraft((current) => current.subscription ? current : invoiceDefaults(nextRows));
     } catch {
       setError(t("subscription.loadError"));
     }
@@ -129,6 +148,33 @@ export default function PlatformSubscriptionsPage() {
     }
   };
 
+  const createInvoice = async () => {
+    const subscription = rows.find((row) => row.id === Number(invoiceDraft.subscription));
+    if (!subscription) return;
+    setSaving("invoice");
+    setError("");
+    setSuccess("");
+    try {
+      await api.createInvoice({
+        company: subscription.company,
+        subscription: subscription.id,
+        amount: invoiceDraft.amount,
+        currency: subscription.plan?.currency || "USD",
+        period_start: invoiceDraft.period_start,
+        period_end: invoiceDraft.period_end,
+        due_at: new Date(invoiceDraft.due_at).toISOString(),
+      });
+      setSuccess(t("subscription.invoiceIssued"));
+      await load();
+    } catch (requestError) {
+      const data = requestError?.response?.data;
+      const first = data?.detail || (data && Object.values(data).flat()[0]);
+      setError(typeof first === "string" ? first : t("subscription.loadError"));
+    } finally {
+      setSaving(null);
+    }
+  };
+
   if (!user?.is_platform_admin) {
     return (
       <Card className="mx-auto mt-16 max-w-md p-8 text-center">
@@ -153,6 +199,43 @@ export default function PlatformSubscriptionsPage() {
       />
       {error && <div className="mb-4 rounded-control bg-danger/10 p-3 text-danger">{error}</div>}
       {success && <div className="mb-4 rounded-control bg-ok/10 p-3 text-ok">{success}</div>}
+      <Card className="mb-6 p-5">
+        <h2 className="font-display text-xl font-semibold">{t("subscription.createInvoice")}</h2>
+        {rows.length === 0 ? (
+          <p className="mt-2 text-sm text-muted">{t("subscription.noSubscriptionsToInvoice")}</p>
+        ) : (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+            <Field label={t("subscription.company")}>
+              <Select
+                value={invoiceDraft.subscription || ""}
+                onChange={(event) => {
+                  const subscription = rows.find((row) => row.id === Number(event.target.value));
+                  setInvoiceDraft((current) => ({
+                    ...current,
+                    subscription: event.target.value,
+                    amount: subscription?.plan?.price || current.amount,
+                  }));
+                }}
+              >
+                {rows.map((row) => <option key={row.id} value={row.id}>{row.company_name}</option>)}
+              </Select>
+            </Field>
+            <Field label={t("subscription.amount")}>
+              <Input type="number" min="0" step="0.01" value={invoiceDraft.amount || ""} onChange={(event) => setInvoiceDraft((current) => ({ ...current, amount: event.target.value }))} />
+            </Field>
+            <Field label={t("subscription.invoicePeriodStart")}>
+              <Input type="date" value={invoiceDraft.period_start || ""} onChange={(event) => setInvoiceDraft((current) => ({ ...current, period_start: event.target.value }))} />
+            </Field>
+            <Field label={t("subscription.invoicePeriodEnd")}>
+              <Input type="date" value={invoiceDraft.period_end || ""} onChange={(event) => setInvoiceDraft((current) => ({ ...current, period_end: event.target.value }))} />
+            </Field>
+            <Field label={t("subscription.invoiceDueAt")}>
+              <Input type="datetime-local" value={invoiceDraft.due_at || ""} onChange={(event) => setInvoiceDraft((current) => ({ ...current, due_at: event.target.value }))} />
+            </Field>
+            <div className="flex items-end"><Button className="w-full" disabled={saving === "invoice" || !invoiceDraft.subscription || !invoiceDraft.amount || !invoiceDraft.period_start || !invoiceDraft.period_end || !invoiceDraft.due_at} onClick={createInvoice}>{t("subscription.createInvoice")}</Button></div>
+          </div>
+        )}
+      </Card>
       <div className="grid gap-4">
         {rows.map((row) => {
           const draft = drafts[row.id] || initialDraft(row);

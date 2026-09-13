@@ -172,6 +172,7 @@ class SubscriptionEventSerializer(serializers.ModelSerializer):
 
 class SubscriptionInvoiceSerializer(serializers.ModelSerializer):
     allocated_amount = serializers.SerializerMethodField()
+    number = serializers.CharField(required=False)
 
     class Meta:
         model = SubscriptionInvoice
@@ -189,6 +190,14 @@ class SubscriptionInvoiceSerializer(serializers.ModelSerializer):
             "due_at",
             "line_snapshot",
             "issued_at",
+            "entitlement_granted_at",
+            "created_at",
+        ]
+        read_only_fields = [
+            "number",
+            "allocated_amount",
+            "issued_at",
+            "entitlement_granted_at",
             "created_at",
         ]
 
@@ -200,6 +209,16 @@ class SubscriptionInvoiceSerializer(serializers.ModelSerializer):
         if company and subscription and subscription.company_id != company.pk:
             raise serializers.ValidationError(
                 "Invoice and subscription must belong to the same company."
+            )
+        period_start = attrs.get(
+            "period_start", getattr(self.instance, "period_start", None)
+        )
+        period_end = attrs.get(
+            "period_end", getattr(self.instance, "period_end", None)
+        )
+        if period_start and period_end and period_end < period_start:
+            raise serializers.ValidationError(
+                {"period_end": "The invoice period cannot end before it starts."}
             )
         return attrs
 
