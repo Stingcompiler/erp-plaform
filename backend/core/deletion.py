@@ -30,6 +30,7 @@ from the Django admin, bypassing every control in this module.
 """
 
 from rest_framework import status
+from django.db import transaction
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -92,6 +93,22 @@ class ArchiveOnDeleteMixin:
     """
 
     archive_field = "is_active"
+    capacity_resource = None
+
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        if self.capacity_resource:
+            from org.models import Company
+            from subscriptions.services import assert_capacity
+
+            instance = self.get_object()
+            company = Company.objects.select_for_update().get(pk=instance.company_id)
+            instance.refresh_from_db()
+            serializer = self.get_serializer(instance, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            if not instance.is_active and serializer.validated_data.get("is_active") is True:
+                assert_capacity(company, self.capacity_resource)
+        return super().update(request, *args, **kwargs)
 
     # Archiving is reversible and destroys nothing, so it is ordinary work for
     # whoever owns the module — an inventory officer retiring a discontinued
@@ -100,6 +117,7 @@ class ArchiveOnDeleteMixin:
     manager_only_delete = False
 
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def unarchive(self, request, pk=None):
         """Puts an archived row back into circulation.
 
@@ -107,6 +125,16 @@ class ArchiveOnDeleteMixin:
         learn to avoid it — which pushes them back towards wanting real deletes.
         """
         instance = self.get_object()
+        if self.capacity_resource:
+            from org.models import Company
+            from subscriptions.services import assert_capacity
+
+            company = Company.objects.select_for_update().get(pk=instance.company_id)
+            instance.refresh_from_db()
+            if not instance.is_active:
+                serializer = self.get_serializer(instance, data={"is_active": True}, partial=True)
+                serializer.is_valid(raise_exception=True)
+                assert_capacity(company, self.capacity_resource)
         if not getattr(instance, self.archive_field, False):
             setattr(instance, self.archive_field, True)
             instance.save(update_fields=[self.archive_field])

@@ -1,4 +1,5 @@
 from datetime import datetime, time
+import logging
 
 from django.db import transaction
 from django.db.models import Sum
@@ -6,6 +7,7 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from core.entitlements import resolve_entitlements
+from config.deployment import get_deployment_config
 from subscriptions.models import (
     PaymentAllocation,
     Subscription,
@@ -20,15 +22,23 @@ LIMIT_RESOLVERS = {
     "branches": lambda company: company.branches.filter(is_active=True).count(),
     "warehouses": lambda company: company.warehouses.filter(is_active=True).count(),
 }
+logger = logging.getLogger(__name__)
 
 
 def assert_capacity(company, resource, increment=1):
-    decision = resolve_entitlements(company)
+    decision = resolve_entitlements(company, apply_policy=False)
     maximum = decision.limits.get(resource)
     if maximum is None:
         return
     resolver = LIMIT_RESOLVERS.get(resource)
     if resolver and resolver(company) + increment > int(maximum):
+        if get_deployment_config().entitlement_policy == "observe":
+            logger.warning(
+                "subscription_capacity_observe company=%s resource=%s "
+                "current=%s increment=%s limit=%s",
+                company.pk, resource, resolver(company), increment, maximum,
+            )
+            return
         raise ValidationError(
             {
                 "code": "plan_limit_reached",

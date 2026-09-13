@@ -64,6 +64,7 @@ class UnitViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
 
 
 class WarehouseViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
+    capacity_resource = "warehouses"
     branch_field = "branch"
     include_unassigned_branch_rows = False
     queryset = Warehouse.objects.select_related("branch").all()

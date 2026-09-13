@@ -129,6 +129,7 @@ class MeView(APIView):
 
 
 class UserViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
+    capacity_resource = "users"
     """
     User administration, company-scoped like everything else: a company's
     admin sees and manages only their own company's users. Password is

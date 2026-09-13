@@ -81,7 +81,12 @@ def _saas_decision(company, now):
                 else subscription.READ_ONLY
             )
         elif (
-            state in {subscription.ACTIVE, subscription.GRACE}
+            state == subscription.GRACE
+            and (not subscription.grace_ends_at or now >= subscription.grace_ends_at)
+        ):
+            state = subscription.READ_ONLY
+        elif (
+            state == subscription.ACTIVE
             and subscription.period_ends_at
             and now > subscription.period_ends_at
         ):
@@ -136,7 +141,7 @@ def _saas_decision(company, now):
     )
 
 
-def resolve_entitlements(company=None, now=None):
+def resolve_entitlements(company=None, now=None, *, apply_policy=True):
     config = get_deployment_config()
     if config.entitlement_policy == "disabled":
         return unrestricted()
@@ -148,7 +153,7 @@ def resolve_entitlements(company=None, now=None):
     if company is None:
         return unrestricted("platform", "active")
     decision = _saas_decision(company, now)
-    if config.entitlement_policy == "observe":
+    if config.entitlement_policy == "observe" and apply_policy:
         if not decision.allow_writes or "*" not in decision.modules or decision.limits:
             logger.warning(
                 "subscription_observe company=%s state=%s source=%s",

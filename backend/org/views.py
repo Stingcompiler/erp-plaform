@@ -220,6 +220,7 @@ class StoreModeSettingsView(APIView):
 
 
 class BranchViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
+    capacity_resource = "branches"
     """Archived, not deleted: warehouses, employees, invoices and users are all
     placed in the org tree by branch, and branch-scoped visibility depends on
     that placement resolving."""
