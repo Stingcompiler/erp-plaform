@@ -19,9 +19,15 @@ def _token_hash(token):
 
 @transaction.atomic
 def provision_registration_request(request_id, actor, request=None):
-    registration = RegistrationRequest.objects.select_for_update().select_related(
-        "plan_version__plan", "company"
-    ).get(pk=request_id)
+    # ``plan_version`` and ``company`` are nullable, so the joins are OUTER
+    # joins; PostgreSQL refuses FOR UPDATE on those unless the lock is limited
+    # to this table. SQLite ignores FOR UPDATE entirely, which is why the test
+    # suite never saw the failure.
+    registration = (
+        RegistrationRequest.objects.select_for_update(of=("self",))
+        .select_related("plan_version__plan", "company")
+        .get(pk=request_id)
+    )
     if registration.status == RegistrationRequest.PROVISIONED:
         return registration, None
     if registration.status != RegistrationRequest.APPROVED:
@@ -112,7 +118,7 @@ def provision_registration_request(request_id, actor, request=None):
 @transaction.atomic
 def accept_owner_invitation(token, password, request=None):
     invitation = (
-        OwnerInvitation.objects.select_for_update()
+        OwnerInvitation.objects.select_for_update(of=("self",))
         .select_related("owner", "registration_request")
         .filter(token_hash=_token_hash(token))
         .first()
