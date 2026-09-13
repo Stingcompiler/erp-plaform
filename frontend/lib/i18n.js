@@ -12,11 +12,12 @@ export const LANGUAGES = [
   { code: "ar", label: "Arabic", native: "العربية", dir: "rtl" },
 ];
 
-export const DEFAULT_LANGUAGE = "en";
+export const DEFAULT_LANGUAGE = "ar";
+const FALLBACK_LANGUAGE = "en";
 
 export function dirFor(lang) {
   const entry = LANGUAGES.find((l) => l.code === lang);
-  return entry ? entry.dir : "ltr";
+  return entry ? entry.dir : "rtl";
 }
 
 const en = {
@@ -2670,7 +2671,7 @@ function lookup(obj, path) {
 
 export function translate(lang, key, vars) {
   let value = lookup(CATALOG[lang], key);
-  if (value == null) value = lookup(CATALOG[DEFAULT_LANGUAGE], key);
+  if (value == null) value = lookup(CATALOG[FALLBACK_LANGUAGE], key);
   if (value == null) return key;
   if (vars) {
     return value.replace(/\{(\w+)\}/g, (m, name) =>

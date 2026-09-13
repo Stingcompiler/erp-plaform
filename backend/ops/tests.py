@@ -95,9 +95,9 @@ class PreferenceTests(OpsBase):
     def test_get_default_preferences(self):
         resp = self.client.get(reverse("ops-preferences"))
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.data["language"], "en")
+        self.assertEqual(resp.data["language"], "ar")
         self.assertEqual(resp.data["theme"], "system")
-        self.assertEqual(resp.data["direction"], "ltr")
+        self.assertEqual(resp.data["direction"], "rtl")
 
     def test_set_arabic_gives_rtl(self):
         resp = self.client.patch(

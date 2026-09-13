@@ -141,9 +141,9 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-LANGUAGE_CODE = "en-us"
+LANGUAGE_CODE = "ar"
 # M10: supported UI languages. Arabic drives RTL on the frontend.
-LANGUAGES = [("en", "English"), ("ar", "Arabic")]
+LANGUAGES = [("ar", "العربية"), ("en", "English")]
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
