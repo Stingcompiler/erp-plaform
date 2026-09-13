@@ -32,6 +32,7 @@ from subscriptions.serializers import (
 )
 from subscriptions.services import (
     configure_subscription,
+    reject_payment,
     transition_subscription,
     verify_and_allocate_payment,
 )
@@ -292,6 +293,21 @@ class PlatformSubscriptionPaymentViewSet(viewsets.ReadOnlyModelViewSet):
             company=payment.company,
             entity_type="SubscriptionPayment",
             entity_id=payment.pk,
+        )
+        return Response(self.get_serializer(payment).data)
+
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        payment = reject_payment(
+            self.get_object().pk, request.user, str(request.data.get("reason", ""))
+        )
+        log_activity(
+            action="reject",
+            request=request,
+            company=payment.company,
+            entity_type="SubscriptionPayment",
+            entity_id=payment.pk,
+            metadata={"reason": payment.rejection_reason},
         )
         return Response(self.get_serializer(payment).data)
 

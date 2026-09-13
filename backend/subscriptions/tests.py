@@ -374,3 +374,92 @@ class SubscriptionAccessTests(APITestCase):
         self.version.price = 999
         with self.assertRaises(DjangoValidationError):
             self.version.save()
+
+
+class PaymentRejectionAndCancellationTests(APITestCase):
+    def setUp(self):
+        self.owner_role = Role.objects.create(
+            name="Business Owner", scope_level=Role.SCOPE_BUSINESS
+        )
+        self.company = Company.objects.create(name="Cancelling Co")
+        self.owner = User.objects.create_user(
+            email="owner@cancel.test", password="long-password",
+            company=self.company, role=self.owner_role,
+        )
+        self.admin = User.objects.create_superuser(
+            email="platform@cancel.test", password="long-password"
+        )
+        plan = Plan.objects.create(code="business", name="Business")
+        self.version = PlanVersion.objects.create(
+            plan=plan, version=1, modules=["*"], limits={}, published_at=timezone.now()
+        )
+        self.subscription = Subscription.objects.create(
+            company=self.company, plan_version=self.version, status=Subscription.ACTIVE,
+            starts_at=timezone.now(), period_ends_at=timezone.now() + timedelta(days=30),
+            grace_ends_at=timezone.now() + timedelta(days=40),
+        )
+
+    def _pending_payment(self):
+        return SubscriptionPayment.objects.create(
+            company=self.company, amount="50.00", currency="USD", method="cash",
+            recorded_by=self.owner,
+        )
+
+    def test_platform_rejects_pending_payment_with_reason(self):
+        payment = self._pending_payment()
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            reverse("platform-subscription-payment-reject", args=[payment.pk]),
+            {"reason": "Reference does not match any transfer."}, format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionPayment.REJECTED)
+        self.assertEqual(payment.rejection_reason, "Reference does not match any transfer.")
+        self.assertEqual(payment.verified_by, self.admin)
+        # The company sees the reason on its own payment list.
+        self.client.force_authenticate(self.owner)
+        listed = self.client.get(reverse("subscription-payment-list"))
+        self.assertEqual(listed.status_code, 200)
+        rows = listed.data["results"] if "results" in listed.data else listed.data
+        self.assertEqual(rows[0]["status"], "rejected")
+        self.assertEqual(rows[0]["rejection_reason"], "Reference does not match any transfer.")
+
+    def test_rejection_requires_reason_and_pending_status(self):
+        payment = self._pending_payment()
+        self.client.force_authenticate(self.admin)
+        no_reason = self.client.post(
+            reverse("platform-subscription-payment-reject", args=[payment.pk]),
+            {"reason": "  "}, format="json",
+        )
+        self.assertEqual(no_reason.status_code, status.HTTP_400_BAD_REQUEST)
+        payment.status = SubscriptionPayment.VERIFIED
+        payment.save(update_fields=["status"])
+        verified = self.client.post(
+            reverse("platform-subscription-payment-reject", args=[payment.pk]),
+            {"reason": "too late"}, format="json",
+        )
+        self.assertEqual(verified.status_code, status.HTTP_400_BAD_REQUEST)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionPayment.VERIFIED)
+
+    def test_cancel_at_period_end_skips_grace_and_ends_access(self):
+        from core.entitlements import _saas_decision
+
+        self.subscription.cancel_at_period_end = True
+        self.subscription.save(update_fields=["cancel_at_period_end"])
+        before = _saas_decision(self.company, timezone.now())
+        self.assertEqual(before.state, Subscription.ACTIVE)
+        self.assertTrue(before.allow_writes)
+        self.assertEqual(before.valid_until, self.subscription.period_ends_at)
+
+        after = _saas_decision(self.company, self.subscription.period_ends_at + timedelta(hours=1))
+        self.assertEqual(after.state, Subscription.CANCELLED)
+        self.assertFalse(after.allow_writes)
+
+        # Without the flag the same moment falls into grace and still allows writes.
+        self.subscription.cancel_at_period_end = False
+        self.subscription.save(update_fields=["cancel_at_period_end"])
+        graced = _saas_decision(self.company, self.subscription.period_ends_at + timedelta(hours=1))
+        self.assertEqual(graced.state, Subscription.GRACE)
+        self.assertTrue(graced.allow_writes)

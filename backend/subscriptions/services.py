@@ -146,6 +146,30 @@ def grant_paid_invoice_period(invoice, actor):
 
 
 @transaction.atomic
+def reject_payment(payment_id, actor, reason):
+    """Close a pending payment without granting anything.
+
+    A rejected payment keeps its proof and reason so the company can see why
+    (typo in the reference, amount mismatch, unreadable receipt) and record a
+    corrected one. Verified payments are never rejected here; that would need
+    a reversal of the periods already granted.
+    """
+    payment = SubscriptionPayment.objects.select_for_update().get(pk=payment_id)
+    if payment.status == SubscriptionPayment.REJECTED:
+        return payment
+    if payment.status != SubscriptionPayment.PENDING:
+        raise ValidationError("Only pending payments can be rejected.")
+    if not reason.strip():
+        raise ValidationError({"reason": "Give the company a reason for the rejection."})
+    payment.status = SubscriptionPayment.REJECTED
+    payment.rejection_reason = reason.strip()
+    payment.verified_by = actor
+    payment.verified_at = timezone.now()
+    payment.save(update_fields=["status", "rejection_reason", "verified_by", "verified_at"])
+    return payment
+
+
+@transaction.atomic
 def verify_and_allocate_payment(payment_id, actor, allocations):
     payment = SubscriptionPayment.objects.select_for_update().get(pk=payment_id)
     if payment.status == SubscriptionPayment.VERIFIED:

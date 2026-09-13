@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Lock } from "lucide-react";
+import { FileText, Lock, XCircle } from "lucide-react";
 
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
@@ -27,6 +27,7 @@ function initialDraft(row) {
     plan_version: String(row.plan_version || ""),
     status: row.status === "legacy" ? "active" : row.status,
     end: localDateTime(endField ? row[endField] : ""),
+    cancel_at_period_end: Boolean(row.cancel_at_period_end),
   };
 }
 
@@ -115,6 +116,7 @@ export default function PlatformSubscriptionsPage() {
     const body = {
       plan_version: Number(draft.plan_version),
       status: draft.status,
+      cancel_at_period_end: Boolean(draft.cancel_at_period_end),
     };
     if (endField && draft.end) body[endField] = new Date(draft.end).toISOString();
     setSaving(row.id);
@@ -148,6 +150,25 @@ export default function PlatformSubscriptionsPage() {
     } catch (requestError) {
       const data = requestError?.response?.data;
       const first = Array.isArray(data) ? data[0] : data?.detail || (data && Object.values(data).flat()[0]);
+      setError(typeof first === "string" ? first : t("subscription.loadError"));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const rejectPayment = async (payment) => {
+    const reason = window.prompt(t("subscription.rejectReasonPrompt"), "");
+    if (reason === null || !reason.trim()) return;
+    setSaving(`payment-${payment.id}`);
+    setError("");
+    setSuccess("");
+    try {
+      await api.rejectPayment(payment.id, reason.trim());
+      setSuccess(t("subscription.paymentRejected"));
+      await load();
+    } catch (requestError) {
+      const data = requestError?.response?.data;
+      const first = Array.isArray(data) ? data[0] : data?.detail || data?.reason?.[0] || (data && Object.values(data).flat()[0]);
       setError(typeof first === "string" ? first : t("subscription.loadError"));
     } finally {
       setSaving(null);
@@ -253,6 +274,18 @@ export default function PlatformSubscriptionsPage() {
                   <Badge tone={row.status === "active" || row.status === "legacy" ? "ok" : "warn"}>
                     {row.status}
                   </Badge>
+                  <label className="mt-3 flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={draft.cancel_at_period_end}
+                      onChange={(event) => updateDraft(row.id, "cancel_at_period_end", event.target.checked)}
+                    />
+                    <span>
+                      {t("subscription.cancelAtPeriodEnd")}
+                      <span className="block text-xs text-muted">{t("subscription.cancelAtPeriodEndHint")}</span>
+                    </span>
+                  </label>
                 </div>
                 <div className="grid flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <Field label={t("subscription.selectPlan")}>
@@ -321,7 +354,21 @@ export default function PlatformSubscriptionsPage() {
                     </div>
                     <div className="text-xs text-muted">
                       {t("subscription.submittedBy")}: {payment.recorded_by_name || "—"}
+                      {payment.sender_bank_name && <> · {payment.sender_bank_name}</>}
+                      {payment.reference_last4 && <> · ****{payment.reference_last4}</>}
                     </div>
+                    {payment.proof_available ? (
+                      <a
+                        href={api.paymentProofUrl(payment.id)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-flex items-center gap-1 text-sm text-accent hover:underline"
+                      >
+                        <FileText size={14} />{t("subscription.viewProof")}
+                      </a>
+                    ) : (
+                      <div className="mt-2 text-xs text-muted">{t("subscription.noProof")}</div>
+                    )}
                   </div>
                   <Field label={t("subscription.invoice")}>
                     <Select
@@ -351,12 +398,21 @@ export default function PlatformSubscriptionsPage() {
                       }))}
                     />
                   </Field>
-                  <Button
-                    disabled={!draft.invoice || !draft.amount || saving === `payment-${payment.id}`}
-                    onClick={() => verifyPayment(payment)}
-                  >
-                    {t("subscription.verifyPayment")}
-                  </Button>
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      disabled={!draft.invoice || !draft.amount || saving === `payment-${payment.id}`}
+                      onClick={() => verifyPayment(payment)}
+                    >
+                      {t("subscription.verifyPayment")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={saving === `payment-${payment.id}`}
+                      onClick={() => rejectPayment(payment)}
+                    >
+                      <XCircle size={15} />{t("subscription.rejectPayment")}
+                    </Button>
+                  </div>
                 </div>
               </Card>
             );

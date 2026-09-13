@@ -8,6 +8,23 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// Platform inboxes (subscriptions, payments, registrations) must show every
+// row, not the first page: a pending payment on page 2 is still pending. This
+// follows DRF's `next` links and resolves to a plain array, so callers keep
+// working whether or not the endpoint paginates.
+export async function listAll(path, params = {}, { maxPages = 40 } = {}) {
+  const rows = [];
+  let response = await api.get(path, { params });
+  for (let page = 0; page < maxPages; page += 1) {
+    const data = response.data;
+    if (!Array.isArray(data?.results)) return { data: Array.isArray(data) ? data : rows };
+    rows.push(...data.results);
+    if (!data.next) break;
+    response = await api.get(data.next);
+  }
+  return { data: rows };
+}
+
 // Endpoint helpers — named by what the user does, not by transport details.
 export const auth = {
   login: (email, password) => api.post("/auth/login/", { email, password }),
@@ -267,7 +284,7 @@ export const registration = {
   overview: () => api.get("/platform/overview/"),
   publicPlans: () => api.get("/public/plans/"),
   create: (body) => api.post("/public/registration-requests/", body),
-  list: (params) => api.get("/platform/registration-requests/", { params }),
+  list: (params) => listAll("/platform/registration-requests/", params),
   review: (id, body) => api.post(`/platform/registration-requests/${id}/review/`, body),
   approve: (id, body) => api.post(`/platform/registration-requests/${id}/approve/`, body),
   provision: (id) => api.post(`/platform/registration-requests/${id}/provision/`),
@@ -280,7 +297,7 @@ export const registration = {
 };
 
 export const platformLeads = {
-  list: (params) => api.get("/platform/leads/", { params }),
+  list: (params) => listAll("/platform/leads/", params),
   update: (id, body) => api.patch(`/platform/leads/${id}/`, body),
 };
 
@@ -294,16 +311,20 @@ export const subscription = {
 };
 
 export const platformSubscriptions = {
-  list: (params) => api.get("/platform/subscriptions/", { params }),
-  plans: () => api.get("/platform/plans/"),
+  list: (params) => listAll("/platform/subscriptions/", params),
+  plans: () => listAll("/platform/plans/"),
   configure: (id, body) => api.post(`/platform/subscriptions/${id}/configure/`, body),
   transition: (id, status, reason = "") =>
     api.post(`/platform/subscriptions/${id}/transition/`, { status, reason }),
-  payments: (params) => api.get("/platform/subscription-payments/", { params }),
-  invoices: (params) => api.get("/platform/subscription-invoices/", { params }),
+  payments: (params) => listAll("/platform/subscription-payments/", params),
+  invoices: (params) => listAll("/platform/subscription-invoices/", params),
   createInvoice: (body) => api.post("/platform/subscription-invoices/", body),
   verifyPayment: (id, allocations) =>
     api.post(`/platform/subscription-payments/${id}/verify/`, { allocations }),
+  rejectPayment: (id, reason) =>
+    api.post(`/platform/subscription-payments/${id}/reject/`, { reason }),
+  paymentProofUrl: (id) =>
+    `${api.defaults.baseURL}/platform/subscription-payments/${id}/proof/`,
   createPlan: (body) => api.post("/platform/plans/", body),
   createPlanVersion: (body) => api.post("/platform/plan-versions/", body),
   updatePlan: (id, body) => api.patch(`/platform/plans/${id}/`, body),

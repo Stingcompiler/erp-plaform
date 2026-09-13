@@ -90,11 +90,16 @@ def _saas_decision(company, now):
             and subscription.period_ends_at
             and now > subscription.period_ends_at
         ):
-            state = (
-                subscription.GRACE
-                if subscription.grace_ends_at and now <= subscription.grace_ends_at
-                else subscription.READ_ONLY
-            )
+            # A subscription flagged to cancel at period end does not fall
+            # into grace: the customer asked for it to stop, so it stops.
+            if subscription.cancel_at_period_end:
+                state = subscription.CANCELLED
+            else:
+                state = (
+                    subscription.GRACE
+                    if subscription.grace_ends_at and now <= subscription.grace_ends_at
+                    else subscription.READ_ONLY
+                )
         # An explicitly empty plan means it includes no business modules. Only
         # the legacy plan carries an explicit wildcard entitlement.
         modules = frozenset(subscription.plan_version.modules or [])
@@ -108,11 +113,15 @@ def _saas_decision(company, now):
             # Whichever boundary applies to the current state: a trial ends at
             # trial_ends_at, a paid period at period_ends_at, and grace extends
             # either one.
-            subscription.grace_ends_at
-            or (
-                subscription.trial_ends_at
-                if subscription.status == subscription.TRIALING
-                else subscription.period_ends_at
+            (
+                subscription.period_ends_at
+                if subscription.cancel_at_period_end and subscription.status == subscription.ACTIVE
+                else subscription.grace_ends_at
+                or (
+                    subscription.trial_ends_at
+                    if subscription.status == subscription.TRIALING
+                    else subscription.period_ends_at
+                )
             ),
             subscription.suspended_reason,
         )
