@@ -292,8 +292,21 @@ export const registration = {
     api.post(`/platform/registration-requests/${id}/reissue-invitation/`),
   setPlan: (id, planVersionId) =>
     api.patch(`/platform/registration-requests/${id}/`, { plan_version: planVersionId }),
-  activateOwner: (token, password) =>
-    api.post("/public/owner-invitations/accept/", { token, password }),
+  activateOwner: (token, password, kind = "owner") =>
+    api.post(
+      kind === "platform"
+        ? "/public/platform-invitations/accept/"
+        : "/public/owner-invitations/accept/",
+      { token, password },
+    ),
+};
+
+export const platformTeam = {
+  list: () => listAll("/platform/team/"),
+  invite: (body) => api.post("/platform/team/", body),
+  reissue: (id) => api.post(`/platform/team/${id}/reissue-invitation/`),
+  deactivate: (id) => api.post(`/platform/team/${id}/deactivate/`),
+  activate: (id) => api.post(`/platform/team/${id}/activate/`),
 };
 
 export const platformLeads = {

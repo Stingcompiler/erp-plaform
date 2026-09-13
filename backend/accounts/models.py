@@ -141,3 +141,34 @@ class User(AbstractBaseUser, PermissionsMixin):
             and self.role
             and self.role.scope_level == Role.SCOPE_PLATFORM
         )
+
+
+class PlatformInvitation(models.Model):
+    """One-time activation link for a member of the Vezano platform team.
+
+    Mirrors website.OwnerInvitation for company owners: only the token hash
+    is stored, the plaintext is shown once to the inviting admin, and the
+    link is single-use with a short expiry.
+    """
+
+    token_hash = models.CharField(max_length=64, unique=True)
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="platform_invitations"
+    )
+    invited_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="sent_platform_invitations",
+    )
+    expires_at = models.DateTimeField()
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    @property
+    def is_usable(self):
+        from django.utils import timezone
+
+        return not self.accepted_at and not self.revoked_at and self.expires_at > timezone.now()

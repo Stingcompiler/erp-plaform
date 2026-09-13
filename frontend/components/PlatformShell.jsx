@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CreditCard, FileCheck2, Inbox, Languages, LayoutDashboard, LogOut, MoonStar, SlidersHorizontal, Sun, SunMoon } from "lucide-react";
+import { CreditCard, FileCheck2, Inbox, Languages, LayoutDashboard, LogOut, MoonStar, SlidersHorizontal, Sun, SunMoon, UsersRound } from "lucide-react";
 
 import VezanoMark from "@/components/brand/VezanoMark";
 import { useAuth } from "@/app/providers/AuthProvider";
@@ -14,6 +14,7 @@ const PLATFORM_NAV = [
   { href: "/platform-plans", label: "nav.platformPlans", icon: SlidersHorizontal },
   { href: "/platform-leads", label: "nav.platformLeads", icon: Inbox },
   { href: "/platform-subscriptions", label: "nav.platformSubscriptions", icon: CreditCard },
+  { href: "/platform-team", label: "nav.platformTeam", icon: UsersRound },
 ];
 
 export function isPlatformPath(pathname) {

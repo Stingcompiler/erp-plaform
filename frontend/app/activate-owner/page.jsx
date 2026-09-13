@@ -12,16 +12,24 @@ import { useI18n } from "../providers/I18nProvider";
 export default function ActivateOwnerPage() {
   const { t } = useI18n();
   const [token, setToken] = useState("");
+  const [kind, setKind] = useState("owner");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [activated, setActivated] = useState(false);
 
+  // The token is read once and then scrubbed from the address bar so it does
+  // not linger in history or get pasted along with the URL. Only touch state
+  // when a token is actually present: this effect may run twice (StrictMode),
+  // and the second run sees the already-scrubbed URL.
   useEffect(() => {
-    const invitationToken = new URLSearchParams(window.location.search).get("token") || "";
+    const params = new URLSearchParams(window.location.search);
+    const invitationToken = params.get("token");
+    if (!invitationToken) return;
     setToken(invitationToken);
-    if (invitationToken) window.history.replaceState({}, "", "/activate-owner/");
+    if (params.get("kind") === "platform") setKind("platform");
+    window.history.replaceState({}, "", "/activate-owner/");
   }, []);
 
   async function activate(event) {
@@ -37,7 +45,7 @@ export default function ActivateOwnerPage() {
     }
     setSaving(true);
     try {
-      await registration.activateOwner(token, password);
+      await registration.activateOwner(token, password, kind);
       setActivated(true);
     } catch (requestError) {
       setError(requestError?.response?.data?.detail || t("ownerActivation.failed"));
@@ -59,7 +67,7 @@ export default function ActivateOwnerPage() {
           <div className="text-center">
             <CheckCircle2 className="mx-auto text-ok" size={44} />
             <h1 className="mt-4 font-display text-2xl font-semibold">
-              {t("ownerActivation.success")}
+              {t(kind === "platform" ? "ownerActivation.platformSuccess" : "ownerActivation.success")}
             </h1>
             <Link
               href="/login"
@@ -72,9 +80,11 @@ export default function ActivateOwnerPage() {
           <form onSubmit={activate}>
             <KeyRound className="mb-4 text-accent" size={32} />
             <h1 className="font-display text-2xl font-semibold">
-              {t("ownerActivation.title")}
+              {t(kind === "platform" ? "ownerActivation.platformTitle" : "ownerActivation.title")}
             </h1>
-            <p className="mt-2 text-sm text-muted">{t("ownerActivation.subtitle")}</p>
+            <p className="mt-2 text-sm text-muted">
+              {t(kind === "platform" ? "ownerActivation.platformSubtitle" : "ownerActivation.subtitle")}
+            </p>
             <div className="mt-6 space-y-4">
               <Field label={t("ownerActivation.token")} hint={t("ownerActivation.tokenHint")}>
                 <Input value={token} onChange={(event) => setToken(event.target.value)} required />
