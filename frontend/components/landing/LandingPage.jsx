@@ -23,7 +23,7 @@ import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 
 import { demoRequests, registration } from "@/lib/api";
-import { DEMO_URL } from "@/lib/demo";
+import { DEMO_URL, HAS_LIVE_DEMO } from "@/lib/demo";
 import VezanoMark from "@/components/brand/VezanoMark";
 
 const FEATURES = [
@@ -96,11 +96,11 @@ function Header() {
           <ThemeToggle />
           <a
             href={DEMO_URL}
-            target={DEMO_URL.startsWith("http") ? "_blank" : undefined}
-            rel={DEMO_URL.startsWith("http") ? "noreferrer" : undefined}
+            target={HAS_LIVE_DEMO ? "_blank" : undefined}
+            rel={HAS_LIVE_DEMO ? "noreferrer" : undefined}
             className="ms-1 hidden rounded-control border border-line bg-surface px-3.5 py-2 text-sm font-medium text-ink hover:border-accent sm:inline-flex"
           >
-            {t("landing.heroCtaDemo")}
+            {t(HAS_LIVE_DEMO ? "landing.heroCtaDemo" : "landing.heroCtaTrial")}
           </a>
           <Link
             href={user ? "/dashboard" : "/login"}
@@ -140,11 +140,11 @@ function Hero() {
             </a>
             <a
               href={DEMO_URL}
-              target={DEMO_URL.startsWith("http") ? "_blank" : undefined}
-              rel={DEMO_URL.startsWith("http") ? "noreferrer" : undefined}
+              target={HAS_LIVE_DEMO ? "_blank" : undefined}
+              rel={HAS_LIVE_DEMO ? "noreferrer" : undefined}
               className="w-full rounded-control border border-line bg-surface px-6 py-3 text-center font-medium text-ink hover:border-accent sm:w-auto"
             >
-              {t("landing.heroCtaDemo")}
+              {t(HAS_LIVE_DEMO ? "landing.heroCtaDemo" : "landing.heroCtaTrial")}
             </a>
             <Link
               href={user ? "/dashboard" : "/login"}
