@@ -163,9 +163,18 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        # Django admin must remain renderable even when an operator-created
+        # service missed collectstatic. Next.js fingerprints its own assets;
+        # Django's comparatively small static set only needs compression here.
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
+
+# Keep Django's admin and other server-rendered pages usable when an
+# operator-created Render service omitted collectstatic from its build command.
+# The normal Render build still runs collectstatic and produces compressed
+# production assets.
+WHITENOISE_USE_FINDERS = True
 
 # User-uploaded files (e.g. sick-leave medical reports). The hosted SaaS sets
 # this to /var/data/media/, the mounted Render persistent disk. Sensitive
