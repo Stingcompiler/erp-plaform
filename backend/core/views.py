@@ -6,7 +6,11 @@ from django.db import connection
 from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
 from rest_framework import mixins, viewsets
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
@@ -62,10 +66,13 @@ class ActivityLogViewSet(
 
 
 @api_view(["GET"])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def health_check(request):
     """
-    Unauthenticated liveness/readiness probe.
+    Unauthenticated liveness/readiness probe. It deliberately skips JWT
+    authentication too: a stale cookie or unavailable user table must not turn
+    the endpoint Render uses for recovery into an opaque 500 response.
 
     Returns 200 with basic status info, including whether the configured
     database is reachable, so Render (and CI) can confirm the service is

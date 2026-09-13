@@ -1,7 +1,7 @@
 from io import StringIO
 
 from django.core.management import call_command
-from django.urls import reverse
+from django.urls import resolve, reverse
 from rest_framework.test import APITestCase
 
 from accounts.models import Role, User
@@ -54,6 +54,10 @@ class HealthCheckTests(APITestCase):
         response = self.client.get(reverse("health-check"))
         self.assertNotEqual(response.status_code, 401)
         self.assertNotEqual(response.status_code, 403)
+
+    def test_health_check_skips_jwt_authentication(self):
+        view = resolve(reverse("health-check")).func.cls
+        self.assertEqual(view.authentication_classes, [])
 
 
 class BackupCronCommandTests(APITestCase):
