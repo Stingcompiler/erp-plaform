@@ -20,7 +20,9 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) router.replace("/dashboard");
+    if (!loading && user) {
+      router.replace(user.is_platform_admin ? "/platform" : "/dashboard");
+    }
   }, [loading, user, router]);
 
   async function onSubmit(e) {
@@ -28,8 +30,8 @@ export default function LoginPage() {
     setError("");
     setSubmitting(true);
     try {
-      await login(email, password);
-      router.replace("/dashboard");
+      const session = await login(email, password);
+      router.replace(session?.is_platform_admin ? "/platform" : "/dashboard");
     } catch (err) {
       const data = err?.response?.data;
       if (data?.code === "store_mode_restricted") {

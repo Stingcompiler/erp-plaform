@@ -94,6 +94,7 @@ const en = {
     settings: "Settings",
     subscription: "Subscription & licence",
     platformSubscriptions: "Platform subscriptions",
+    platform: "Platform overview",
     groups: {
       sales: "Sales",
       purchasing: "Purchasing",
@@ -117,6 +118,13 @@ const en = {
     saveError: "Could not update the request status.",
     count: "{count} requests",
     noAccess: "Only Vezano platform administrators can view these requests.",
+  },
+  platform: {
+    title: "Vezano platform operations",
+    subtitle: "Manage prospective customers, company subscriptions, and collections separately from customer workspaces.",
+    leadsDescription: "Review organizations requesting a Vezano demonstration.",
+    subscriptionsDescription: "Manage plans, access periods, invoices, and manual payments.",
+    pendingPayments: "{count} awaiting review",
   },
   setup: {
     title: "What kind of business is this?",
@@ -256,6 +264,8 @@ const en = {
     menu: "Menu",
     noAccessTitle: "No access",
     noAccessBody: "Your role doesn't include the {module} section. Ask an administrator if you need it.",
+    platformWorkspace: "Platform administration",
+    platformOperator: "Platform operator",
   },
   auth: {
     heroTitle: "Run your business. Simply.",
@@ -1315,6 +1325,7 @@ const ar = {
     settings: "الإعدادات",
     subscription: "الاشتراك والترخيص",
     platformSubscriptions: "اشتراكات المنصة",
+    platform: "نظرة عامة للمنصة",
     groups: {
       sales: "المبيعات",
       purchasing: "المشتريات",
@@ -1338,6 +1349,13 @@ const ar = {
     saveError: "تعذر تحديث حالة الطلب.",
     count: "{count} طلبات",
     noAccess: "هذا القسم متاح فقط لمسؤولي منصة فيزانو.",
+  },
+  platform: {
+    title: "إدارة منصة فيزانو",
+    subtitle: "إدارة العملاء المحتملين واشتراكات الشركات والتحصيل بصورة منفصلة عن مساحات عمل الشركات.",
+    leadsDescription: "مراجعة الشركات التي طلبت عرضًا تجريبيًا لفيزانو.",
+    subscriptionsDescription: "إدارة الباقات ومدد الوصول والفواتير والمدفوعات اليدوية.",
+    pendingPayments: "{count} بانتظار المراجعة",
   },
   setup: {
     title: "ما نوع هذا النشاط؟",
@@ -1475,6 +1493,8 @@ const ar = {
     menu: "القائمة",
     noAccessTitle: "لا صلاحية",
     noAccessBody: "دورك لا يشمل قسم {module}. تواصل مع المسؤول إذا كنت بحاجة إليه.",
+    platformWorkspace: "إدارة المنصة",
+    platformOperator: "مدير المنصة",
   },
   auth: {
     heroTitle: "أعمالك. في مكان واحد.",

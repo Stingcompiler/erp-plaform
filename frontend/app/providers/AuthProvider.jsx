@@ -29,10 +29,12 @@ export function AuthProvider({ children }) {
       } catch {
         /* no stored prefs / not critical */
       }
+      return meRes.data;
     } catch {
       setLocalIdentity(null);
       setUser(null);
       setAccess({});
+      return null;
     } finally {
       setLoading(false);
     }
