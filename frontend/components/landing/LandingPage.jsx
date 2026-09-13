@@ -8,6 +8,7 @@ import {
   Globe,
   Languages,
   LayoutDashboard,
+  Menu,
   MoonStar,
   Package,
   RotateCcw,
@@ -17,6 +18,7 @@ import {
   SunMoon,
   Truck,
   Users,
+  X,
 } from "lucide-react";
 
 import { useAuth } from "../../app/providers/AuthProvider";
@@ -75,41 +77,110 @@ function LangToggle() {
   );
 }
 
+const NAV_LINKS = [
+  ["#features", "landing.navFeatures"],
+  ["#modules", "landing.navModules"],
+  ["#pricing", "landing.navPricing"],
+  ["#contact", "landing.navContact"],
+];
+
 function Header() {
   const { t } = useI18n();
   const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+
+  // The phone menu is a plain disclosure: no focus trap, but it closes on
+  // Escape and whenever the viewport grows past the breakpoint that shows
+  // the inline nav, so it can't linger open behind the desktop layout.
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (event) => event.key === "Escape" && setOpen(false);
+    const media = window.matchMedia("(min-width: 768px)");
+    const onMedia = (event) => event.matches && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    media.addEventListener("change", onMedia);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      media.removeEventListener("change", onMedia);
+    };
+  }, [open]);
+
+  const signIn = (
+    <Link
+      href={user ? "/dashboard" : "/login"}
+      className="inline-flex h-10 shrink-0 items-center whitespace-nowrap rounded-control bg-accent px-3.5 text-sm font-medium text-white hover:bg-accent-strong"
+    >
+      {user ? t("nav.dashboard") : t("common.signIn")}
+    </Link>
+  );
+  const trial = (className) => (
+    <a
+      href={DEMO_URL}
+      target={HAS_LIVE_DEMO ? "_blank" : undefined}
+      rel={HAS_LIVE_DEMO ? "noreferrer" : undefined}
+      onClick={() => setOpen(false)}
+      className={className}
+    >
+      {t(HAS_LIVE_DEMO ? "landing.heroCtaDemo" : "landing.heroCtaTrial")}
+    </a>
+  );
+
   return (
     <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/80 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2 font-display text-lg font-bold tracking-tight">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-4 sm:px-6">
+        <Link href="/" className="flex shrink-0 items-center gap-2 font-display text-lg font-bold tracking-tight">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-white"><VezanoMark size={20} /></span>
           {t("common.appName")}
         </Link>
         <nav className="hidden items-center gap-6 text-sm text-muted md:flex">
-          <a href="#features" className="hover:text-ink">{t("landing.navFeatures")}</a>
-          <a href="#modules" className="hover:text-ink">{t("landing.navModules")}</a>
-          <a href="#pricing" className="hover:text-ink">{t("landing.navPricing")}</a>
-          <a href="#contact" className="hover:text-ink">{t("landing.navContact")}</a>
+          {NAV_LINKS.map(([href, key]) => (
+            <a key={href} href={href} className="hover:text-ink">{t(key)}</a>
+          ))}
         </nav>
-        <div className="flex items-center gap-1">
+        {/* Desktop / tablet: everything inline. */}
+        <div className="hidden items-center gap-1 md:flex">
           <LangToggle />
           <ThemeToggle />
-          <a
-            href={DEMO_URL}
-            target={HAS_LIVE_DEMO ? "_blank" : undefined}
-            rel={HAS_LIVE_DEMO ? "noreferrer" : undefined}
-            className="ms-1 hidden rounded-control border border-line bg-surface px-3.5 py-2 text-sm font-medium text-ink hover:border-accent sm:inline-flex"
+          {trial("ms-1 inline-flex h-10 items-center whitespace-nowrap rounded-control border border-line bg-surface px-3.5 text-sm font-medium text-ink hover:border-accent")}
+          <span className="ms-1">{signIn}</span>
+        </div>
+        {/* Phone: sign-in stays visible; the rest lives behind the menu. */}
+        <div className="flex items-center gap-1 md:hidden">
+          {signIn}
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls="landing-menu"
+            aria-label={t("shell.menu")}
+            onClick={() => setOpen((value) => !value)}
+            className="grid h-10 w-10 place-items-center rounded-control text-ink hover:bg-surface"
           >
-            {t(HAS_LIVE_DEMO ? "landing.heroCtaDemo" : "landing.heroCtaTrial")}
-          </a>
-          <Link
-            href={user ? "/dashboard" : "/login"}
-            className="ms-1 rounded-control bg-accent px-3.5 py-2 text-sm font-medium text-white hover:bg-accent-strong"
-          >
-            {user ? t("nav.dashboard") : t("common.signIn")}
-          </Link>
+            {open ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
       </div>
+      {open && (
+        <div id="landing-menu" className="border-t border-line/70 bg-paper md:hidden">
+          <nav className="mx-auto flex max-w-6xl flex-col px-4 py-2 text-base">
+            {NAV_LINKS.map(([href, key]) => (
+              <a
+                key={href}
+                href={href}
+                onClick={() => setOpen(false)}
+                className="rounded-control px-2 py-3 text-ink hover:bg-surface"
+              >
+                {t(key)}
+              </a>
+            ))}
+            <div className="my-2 border-t border-line/70" />
+            {trial("rounded-control border border-line bg-surface px-4 py-3 text-center font-medium text-ink hover:border-accent")}
+            <div className="mt-2 flex items-center justify-between px-1 pb-2">
+              <LangToggle />
+              <ThemeToggle />
+            </div>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }
