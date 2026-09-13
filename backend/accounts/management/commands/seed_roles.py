@@ -5,6 +5,9 @@ from accounts.models import Role
 # The fixed role set from erp_ai_agent_build_plan.md M1, grouped by scope.
 ROLE_DEFINITIONS = [
     ("Super Administrator", Role.SCOPE_PLATFORM, "Platform owner; not company-scoped."),
+    ("Subscription Manager", Role.SCOPE_PLATFORM, "Runs registrations, subscriptions and billing."),
+    ("Billing Reviewer", Role.SCOPE_PLATFORM, "Verifies payments and issues invoices."),
+    ("Support Agent", Role.SCOPE_PLATFORM, "Read-only platform access plus lead follow-up."),
     ("Business Owner", Role.SCOPE_BUSINESS, "Owns a tenant company."),
     ("General Manager", Role.SCOPE_BUSINESS, "Company-wide management."),
     ("Branch Manager", Role.SCOPE_BRANCH, "Manages a single branch."),

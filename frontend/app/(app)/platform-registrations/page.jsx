@@ -14,7 +14,10 @@ const APPROVABLE = ["submitted", "under_review", "needs_information"];
 const TONES = { submitted: "accent", under_review: "warn", needs_information: "warn", approved: "ok", provisioned: "ok", rejected: "danger", withdrawn: "muted" };
 
 export default function PlatformRegistrationsPage() {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
+  const canReview = can("platform.registrations.review");
+  const canProvision = can("platform.registrations.provision");
+  const canReissue = can("platform.invitations.reissue");
   const { t, language } = useI18n();
   const [rows, setRows] = useState([]);
   const [plans, setPlans] = useState([]);
@@ -116,21 +119,21 @@ export default function PlatformRegistrationsPage() {
                     {row.message && <p className="mt-3 whitespace-pre-wrap text-sm text-muted">{row.message}</p>}
                   </div>
                   <div className="flex shrink-0 flex-wrap items-start gap-2">
-                    {open && row.delivery_mode === "saas" && plans.length > 0 && (
+                    {canReview && open && row.delivery_mode === "saas" && plans.length > 0 && (
                       <Select value={live ? row.plan_version : ""} onChange={(event) => event.target.value && run(row, "plan", { plan_version: Number(event.target.value) })} className="w-44" disabled={saving === `plan-${row.id}`}>
                         <option value="" disabled>{t("platformRegistration.changePlan")}</option>
                         {plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.plan_name} · {plan.price} {plan.currency}</option>)}
                       </Select>
                     )}
-                    {open && (
+                    {canReview && open && (
                       <Select value="" onChange={(event) => event.target.value && run(row, "review", { status: event.target.value })} className="w-44">
                         <option value="" disabled>{t("platformRegistration.setStatus")}</option>
                         {REVIEW.map((status) => <option key={status} value={status}>{label(status)}</option>)}
                       </Select>
                     )}
-                    {APPROVABLE.includes(row.status) && <Button disabled={saving === `approve-${row.id}` || !live} onClick={() => run(row, "approve")}>{t("platformRegistration.approve")}</Button>}
-                    {row.status === "approved" && <Button disabled={saving === `provision-${row.id}`} onClick={() => run(row, "provision")}>{t("platformRegistration.provision")}</Button>}
-                    {row.status === "provisioned" && (
+                    {canReview && APPROVABLE.includes(row.status) && <Button disabled={saving === `approve-${row.id}` || !live} onClick={() => run(row, "approve")}>{t("platformRegistration.approve")}</Button>}
+                    {canProvision && row.status === "approved" && <Button disabled={saving === `provision-${row.id}`} onClick={() => run(row, "provision")}>{t("platformRegistration.provision")}</Button>}
+                    {canReissue && row.status === "provisioned" && (
                       <Button variant="outline" disabled={saving === `reissue-${row.id}`} title={t("platformRegistration.reissueHint")} onClick={() => run(row, "reissue")}>
                         <KeyRound size={15} />{t("platformRegistration.reissueInvite")}
                       </Button>

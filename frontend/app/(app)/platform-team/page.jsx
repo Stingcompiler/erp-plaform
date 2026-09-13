@@ -6,28 +6,36 @@ import { CheckCircle2, Copy, KeyRound, Lock, ShieldCheck, UserPlus } from "lucid
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { platformTeam } from "@/lib/api";
-import { Badge, Button, Card, Field, Input, PageHeader } from "@/components/ui/kit";
+import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
+
+const DEFAULT_ROLE = "Support Agent";
 
 const activationLink = (token) =>
   `${window.location.origin}/activate-owner/?kind=platform&token=${encodeURIComponent(token)}`;
 
 export default function PlatformTeamPage() {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
   const { t, language } = useI18n();
+  const canManage = can("platform.team.manage");
   const [rows, setRows] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(null);
   const [error, setError] = useState("");
   const [invite, setInvite] = useState(null);
-  const [form, setForm] = useState({ email: "", full_name: "" });
+  const [form, setForm] = useState({ email: "", full_name: "", role: DEFAULT_ROLE });
 
   const load = useCallback(async () => {
     if (!user?.is_platform_admin) return;
     setLoading(true);
     setError("");
     try {
-      const response = await platformTeam.list();
-      setRows(response.data);
+      const [members, roleList] = await Promise.all([
+        platformTeam.list(),
+        platformTeam.roles().catch(() => ({ data: [] })),
+      ]);
+      setRows(members.data);
+      setRoles(roleList.data);
     } catch {
       setError(t("platformTeam.loadError"));
     } finally {
@@ -38,7 +46,7 @@ export default function PlatformTeamPage() {
 
   const fail = (requestError) => {
     const data = requestError?.response?.data;
-    const first = data?.detail || data?.email?.[0] || (Array.isArray(data) ? data[0] : null);
+    const first = data?.detail || data?.email?.[0] || data?.role?.[0] || (Array.isArray(data) ? data[0] : null);
     setError(typeof first === "string" ? first : t("platformTeam.saveError"));
   };
 
@@ -49,7 +57,7 @@ export default function PlatformTeamPage() {
     try {
       const response = await platformTeam.invite(form);
       setInvite({ email: response.data.email, link: activationLink(response.data.invitation_token) });
-      setForm({ email: "", full_name: "" });
+      setForm({ email: "", full_name: "", role: DEFAULT_ROLE });
       await load();
     } catch (requestError) {
       fail(requestError);
@@ -58,11 +66,11 @@ export default function PlatformTeamPage() {
     }
   };
 
-  const run = async (row, action) => {
+  const run = async (row, action, arg) => {
     setSaving(`${action}-${row.id}`);
     setError("");
     try {
-      const response = await platformTeam[action](row.id);
+      const response = await platformTeam[action](row.id, arg);
       if (response.data.invitation_token) {
         setInvite({ email: response.data.email, link: activationLink(response.data.invitation_token) });
       }
@@ -74,6 +82,12 @@ export default function PlatformTeamPage() {
     }
   };
 
+  // Unknown names (e.g. "Django superuser") fall back to the raw label.
+  const roleLabel = (name) => {
+    if (!name) return "";
+    const label = t(`platformTeam.roles.${name}`);
+    return label.startsWith("platformTeam.") ? name : label;
+  };
   const fmt = (value) => new Date(value).toLocaleString(language === "ar" ? "ar" : "en", { dateStyle: "medium", timeStyle: "short" });
   const statusOf = (row) => {
     if (!row.is_active) return { tone: "danger", label: t("platformTeam.inactive") };
@@ -115,27 +129,38 @@ export default function PlatformTeamPage() {
         </Card>
       )}
 
-      <Card className="mb-5 p-5">
+      {!canManage && (
+        <p className="mb-4 rounded-control border border-line bg-surface p-3 text-sm text-muted">{t("platformTeam.readOnlyNotice")}</p>
+      )}
+
+      {canManage && <Card className="mb-5 p-5">
         <div className="flex items-start gap-3">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-accent/10 text-accent"><UserPlus size={20} /></span>
           <div className="min-w-0 flex-1">
             <h2 className="font-display font-semibold">{t("platformTeam.invite")}</h2>
             <p className="mt-1 text-sm text-muted">{t("platformTeam.inviteHint")}</p>
-            <form onSubmit={submitInvite} className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            <form onSubmit={submitInvite} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-start">
               <Field label={t("platformTeam.fullName")}>
                 <Input required maxLength={255} value={form.full_name} onChange={(event) => setForm({ ...form, full_name: event.target.value })} />
               </Field>
               <Field label={t("platformTeam.email")}>
                 <Input required type="email" maxLength={254} value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
               </Field>
-              <Button type="submit" disabled={saving === "invite"}>
-                {saving === "invite" ? t("platformTeam.sending") : t("platformTeam.send")}
-              </Button>
+              <Field label={t("platformTeam.role")} hint={t(`platformTeam.roleHints.${form.role}`)}>
+                <Select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}>
+                  {roles.map((role) => <option key={role.name} value={role.name}>{roleLabel(role.name)}</option>)}
+                </Select>
+              </Field>
+              <div className="flex items-start lg:pt-6">
+                <Button type="submit" disabled={saving === "invite"}>
+                  {saving === "invite" ? t("platformTeam.sending") : t("platformTeam.send")}
+                </Button>
+              </div>
             </form>
             <p className="mt-3 text-xs text-muted">{t("platformTeam.rule")}</p>
           </div>
         </div>
-      </Card>
+      </Card>}
 
       {loading ? (
         <Card className="p-8 text-center text-muted">{t("common.loading")}</Card>
@@ -155,14 +180,25 @@ export default function PlatformTeamPage() {
                     </div>
                     <div className="mt-1 text-sm text-muted">
                       {row.email}
-                      {row.role_name && <> · <ShieldCheck size={12} className="inline" /> {row.role_name}</>}
+                      {row.role_name && <> · <ShieldCheck size={12} className="inline" /> {roleLabel(row.role_name)}</>}
                     </div>
                     <div className="mt-1 text-xs text-muted">
                       {row.last_login ? t("platformTeam.lastLogin", { date: fmt(row.last_login) }) : t("platformTeam.neverSignedIn")}
                       {row.invitation_expires_at && !row.activated && <> · {t("platformTeam.expires", { date: fmt(row.invitation_expires_at) })}</>}
                     </div>
                   </div>
-                  <div className="flex shrink-0 flex-wrap gap-2">
+                  {canManage && <div className="flex shrink-0 flex-wrap gap-2">
+                    {!row.is_superuser && roles.length > 0 && (
+                      <Select
+                        value={row.role_name}
+                        disabled={saving === `setRole-${row.id}`}
+                        onChange={(event) => run(row, "setRole", event.target.value)}
+                        className="w-44"
+                        aria-label={t("platformTeam.changeRole")}
+                      >
+                        {roles.map((role) => <option key={role.name} value={role.name}>{roleLabel(role.name)}</option>)}
+                      </Select>
+                    )}
                     {row.is_active && !row.activated && (
                       <Button variant="outline" disabled={saving === `reissue-${row.id}`} onClick={() => run(row, "reissue")}>
                         <KeyRound size={15} />{t("platformTeam.reissue")}
@@ -178,7 +214,7 @@ export default function PlatformTeamPage() {
                         {t("platformTeam.activate")}
                       </Button>
                     )}
-                  </div>
+                  </div>}
                 </div>
               </Card>
             );

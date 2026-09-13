@@ -12,7 +12,8 @@ const STATUSES = ["new", "contacted", "qualified", "closed"];
 const TONES = { new: "accent", contacted: "warn", qualified: "ok", closed: "muted" };
 
 export default function PlatformLeadsPage() {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
+  const canManageLeads = can("platform.leads.manage");
   const { t, language } = useI18n();
   const [rows, setRows] = useState([]);
   const [count, setCount] = useState(0);
@@ -111,7 +112,7 @@ export default function PlatformLeadsPage() {
                   {lead.message && <div className="mt-4"><div className="text-xs font-medium text-muted">{t("platformLeads.message")}</div><p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{lead.message}</p></div>}
                   <div className="mt-4 text-xs text-muted">{t("platformLeads.received")}: {dateLabel(lead.created_at)}</div>
                 </div>
-                <Select value={lead.status} onChange={(event) => updateStatus(lead, event.target.value)} className="w-full sm:w-44">
+                <Select value={lead.status} disabled={!canManageLeads} onChange={(event) => updateStatus(lead, event.target.value)} className="w-full sm:w-44">
                   {STATUSES.map((value) => <option key={value} value={value}>{statusLabel(value)}</option>)}
                 </Select>
               </div>

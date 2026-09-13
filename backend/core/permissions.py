@@ -159,16 +159,37 @@ class IsPlatformAdminOrReadOnly(BasePermission):
 
 
 class IsPlatformAdmin(BasePermission):
-    """Allow access only to administrators who operate the Vezano platform."""
+    """Allow access only to members of the Vezano platform team.
+
+    Every member may read. A write needs the capability the view declares:
+    ``platform_capability`` for the whole view, optionally overridden per
+    action with ``platform_action_capabilities = {"verify": "..."}``. A view
+    that declares neither keeps the old behaviour (any member may write).
+    See core.platform_roles for the role -> capability map.
+    """
 
     message = "This area is restricted to platform administrators."
 
     def has_permission(self, request, view):
-        return bool(
-            request.user
-            and request.user.is_authenticated
-            and getattr(request.user, "is_platform_admin", False)
+        user = request.user
+        if not (user and user.is_authenticated and getattr(user, "is_platform_admin", False)):
+            return False
+        if request.method in SAFE_METHODS:
+            return True
+        action = getattr(view, "action", None)
+        per_action = getattr(view, "platform_action_capabilities", {}) or {}
+        capability = (
+            per_action[action] if action in per_action
+            else getattr(view, "platform_capability", None)
         )
+        if capability is None:
+            return True
+        from core.platform_roles import user_has_platform_capability
+
+        if user_has_platform_capability(user, capability):
+            return True
+        self.message = "Your platform role does not include this action."
+        return False
 
 
 class ReportAreaAccess(BasePermission):

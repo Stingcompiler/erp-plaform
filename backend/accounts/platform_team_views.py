@@ -13,7 +13,9 @@ from accounts.platform_team import (
     platform_members,
     reissue_platform_invitation,
     set_platform_member_active,
+    set_platform_member_role,
 )
+from core import platform_roles
 from core.permissions import IsPlatformAdmin
 
 
@@ -48,6 +50,11 @@ class PlatformMemberSerializer(serializers.ModelSerializer):
 class PlatformMemberInviteSerializer(serializers.Serializer):
     email = serializers.EmailField()
     full_name = serializers.CharField(max_length=255)
+    role = serializers.ChoiceField(choices=[(name, name) for name in platform_roles.PLATFORM_ROLES])
+
+
+class PlatformMemberRoleSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(choices=[(name, name) for name in platform_roles.PLATFORM_ROLES])
 
 
 class PlatformTeamViewSet(
@@ -56,6 +63,7 @@ class PlatformTeamViewSet(
     """The people who run the Vezano platform, managed from the platform page."""
 
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    platform_capability = platform_roles.TEAM_MANAGE
     entitlement_exempt = True
     serializer_class = PlatformMemberSerializer
 
@@ -80,9 +88,27 @@ class PlatformTeamViewSet(
         serializer.is_valid(raise_exception=True)
         user, token = invite_platform_member(
             serializer.validated_data["email"], serializer.validated_data["full_name"],
-            request.user, request,
+            serializer.validated_data["role"], request.user, request,
         )
         return Response(self._payload(user, token), status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["get"])
+    def roles(self, request):
+        return Response(
+            [
+                {"name": name, "description": description, "capabilities": capabilities}
+                for name, description, capabilities in platform_roles.platform_role_choices()
+            ]
+        )
+
+    @action(detail=True, methods=["post"], url_path="set-role")
+    def set_role(self, request, pk=None):
+        serializer = PlatformMemberRoleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = set_platform_member_role(
+            pk, serializer.validated_data["role"], request.user, request
+        )
+        return Response(self._payload(user))
 
     @action(detail=True, methods=["post"], url_path="reissue-invitation")
     def reissue_invitation(self, request, pk=None):

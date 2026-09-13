@@ -307,6 +307,8 @@ export const platformTeam = {
   reissue: (id) => api.post(`/platform/team/${id}/reissue-invitation/`),
   deactivate: (id) => api.post(`/platform/team/${id}/deactivate/`),
   activate: (id) => api.post(`/platform/team/${id}/activate/`),
+  roles: () => api.get("/platform/team/roles/"),
+  setRole: (id, role) => api.post(`/platform/team/${id}/set-role/`, { role }),
 };
 
 export const platformLeads = {

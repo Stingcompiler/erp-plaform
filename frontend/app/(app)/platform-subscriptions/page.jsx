@@ -55,7 +55,9 @@ function invoiceDefaultsForSubscription(subscription) {
 }
 
 export default function PlatformSubscriptionsPage() {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
+  const canManageSubs = can("platform.subscriptions.manage");
+  const canBill = can("platform.billing.review");
   const { t } = useI18n();
   const [rows, setRows] = useState([]);
   const [plans, setPlans] = useState([]);
@@ -226,7 +228,7 @@ export default function PlatformSubscriptionsPage() {
       />
       {error && <div className="mb-4 rounded-control bg-danger/10 p-3 text-danger">{error}</div>}
       {success && <div className="mb-4 rounded-control bg-ok/10 p-3 text-ok">{success}</div>}
-      <Card className="mb-6 p-5">
+      {canBill && <Card className="mb-6 p-5">
         <h2 className="font-display text-xl font-semibold">{t("subscription.createInvoice")}</h2>
         {rows.length === 0 ? (
           <p className="mt-2 text-sm text-muted">{t("subscription.noSubscriptionsToInvoice")}</p>
@@ -258,7 +260,7 @@ export default function PlatformSubscriptionsPage() {
             <div className="flex items-end"><Button className="w-full" disabled={saving === "invoice" || !invoiceDraft.subscription || !invoiceDraft.amount || !invoiceDraft.period_start || !invoiceDraft.period_end || !invoiceDraft.due_at} onClick={createInvoice}>{t("subscription.createInvoice")}</Button></div>
           </div>
         )}
-      </Card>
+      </Card>}
       <div className="grid gap-4">
         {rows.map((row) => {
           const draft = drafts[row.id] || initialDraft(row);
@@ -320,7 +322,7 @@ export default function PlatformSubscriptionsPage() {
                   <div className="flex items-end">
                     <Button
                       className="w-full"
-                      disabled={saving === row.id || !draft.plan_version || (needsEnd && !draft.end)}
+                      disabled={!canManageSubs || saving === row.id || !draft.plan_version || (needsEnd && !draft.end)}
                       onClick={() => save(row)}
                     >
                       {t("subscription.configure")}
@@ -398,7 +400,7 @@ export default function PlatformSubscriptionsPage() {
                       }))}
                     />
                   </Field>
-                  <div className="flex flex-col gap-2">
+                  {canBill && <div className="flex flex-col gap-2">
                     <Button
                       disabled={!draft.invoice || !draft.amount || saving === `payment-${payment.id}`}
                       onClick={() => verifyPayment(payment)}
@@ -412,7 +414,7 @@ export default function PlatformSubscriptionsPage() {
                     >
                       <XCircle size={15} />{t("subscription.rejectPayment")}
                     </Button>
-                  </div>
+                  </div>}
                 </div>
               </Card>
             );

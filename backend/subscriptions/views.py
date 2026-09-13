@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 from config.deployment import get_deployment_config
 from core.activity import log_activity
 from core.entitlements import resolve_entitlements
+from core import platform_roles
 from core.permissions import IsPlatformAdmin
 from subscriptions.models import (
     Plan,
@@ -126,6 +127,7 @@ class CompanySubscriptionPaymentViewSet(
 
 class PlatformPlanViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    platform_capability = platform_roles.PLANS_MANAGE
     entitlement_exempt = True
     queryset = Plan.objects.prefetch_related("versions")
     serializer_class = PlanSerializer
@@ -133,6 +135,7 @@ class PlatformPlanViewSet(viewsets.ModelViewSet):
 
 class PlatformPlanVersionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    platform_capability = platform_roles.PLANS_MANAGE
     entitlement_exempt = True
     queryset = PlanVersion.objects.select_related("plan")
     serializer_class = PlanVersionSerializer
@@ -159,6 +162,7 @@ class PlatformPlanVersionViewSet(viewsets.ModelViewSet):
 
 class PlatformSubscriptionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    platform_capability = platform_roles.SUBSCRIPTIONS_MANAGE
     entitlement_exempt = True
     queryset = Subscription.objects.select_related("company", "plan_version__plan")
     serializer_class = SubscriptionSerializer
@@ -248,6 +252,7 @@ class PlatformSubscriptionViewSet(viewsets.ModelViewSet):
 
 class PlatformSubscriptionInvoiceViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    platform_capability = platform_roles.BILLING_REVIEW
     entitlement_exempt = True
     queryset = SubscriptionInvoice.objects.select_related(
         "company", "subscription"
@@ -274,6 +279,7 @@ class PlatformSubscriptionInvoiceViewSet(viewsets.ModelViewSet):
 
 class PlatformSubscriptionPaymentViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    platform_capability = platform_roles.BILLING_REVIEW
     entitlement_exempt = True
     queryset = SubscriptionPayment.objects.select_related(
         "company", "recorded_by", "verified_by"

@@ -17,8 +17,8 @@ from rest_framework.exceptions import ValidationError
 
 from accounts.models import PlatformInvitation, Role, User
 from core.activity import log_activity
+from core.platform_roles import PLATFORM_ROLES, ensure_platform_roles
 
-PLATFORM_ROLE = "Super Administrator"
 INVITATION_TTL = timedelta(days=7)
 
 
@@ -33,12 +33,12 @@ def platform_members():
     ).order_by("-is_active", "email")
 
 
-def platform_role():
-    role, _ = Role.objects.get_or_create(
-        name=PLATFORM_ROLE, defaults={"scope_level": Role.SCOPE_PLATFORM}
-    )
+def platform_role(name):
+    if name not in PLATFORM_ROLES:
+        raise ValidationError({"role": "Choose one of the platform roles."})
+    role = ensure_platform_roles()[name]
     if role.scope_level != Role.SCOPE_PLATFORM:
-        raise ValidationError("The platform role is misconfigured; contact support.")
+        raise ValidationError({"role": "The platform role is misconfigured; contact support."})
     return role
 
 
@@ -55,13 +55,13 @@ def _issue_invitation(user, actor, now):
 
 
 @transaction.atomic
-def invite_platform_member(email, full_name, actor, request=None):
+def invite_platform_member(email, full_name, role_name, actor, request=None):
     email = User.objects.normalize_email(email).strip()
     if User.objects.filter(email__iexact=email).exists():
         raise ValidationError({"email": "This email already belongs to an account."})
     user = User.objects.create_user(
         email=email, password=None, full_name=full_name.strip(),
-        company=None, branch=None, role=platform_role(),
+        company=None, branch=None, role=platform_role(role_name),
     )
     user.set_unusable_password()
     user.save(update_fields=["password"])
@@ -69,9 +69,40 @@ def invite_platform_member(email, full_name, actor, request=None):
     log_activity(
         action="create", user=actor, request=request,
         entity_type="PlatformMember", entity_id=user.pk,
-        metadata={"email": user.email, "invited_by": actor.pk},
+        metadata={"email": user.email, "invited_by": actor.pk, "role": role_name},
     )
     return user, token
+
+
+@transaction.atomic
+def set_platform_member_role(user_id, role_name, actor, request=None):
+    """Change a member's functional role. Superusers are outside the role
+    system, and the last Super Administrator cannot be demoted."""
+    user = platform_members().select_for_update(of=("self",)).get(pk=user_id)
+    if user.is_superuser:
+        raise ValidationError("Django superusers are managed outside platform roles.")
+    role = platform_role(role_name)
+    if user.role_id == role.pk:
+        return user
+    if user.role_id and user.role.name == "Super Administrator":
+        remaining = (
+            platform_members()
+            .filter(is_active=True)
+            .filter(Q(is_superuser=True) | Q(role__name="Super Administrator"))
+            .exclude(pk=user.pk)
+            .count()
+        )
+        if remaining == 0:
+            raise ValidationError("Keep at least one active Super Administrator.")
+    previous = user.role.name if user.role_id else None
+    user.role = role
+    user.save(update_fields=["role"])
+    log_activity(
+        action="update", user=actor, request=request,
+        entity_type="PlatformMember", entity_id=user.pk,
+        metadata={"role_from": previous, "role_to": role_name},
+    )
+    return user
 
 
 @transaction.atomic
@@ -96,9 +127,17 @@ def set_platform_member_active(user_id, is_active, actor, request=None):
     if user.pk == actor.pk and not is_active:
         raise ValidationError("You cannot deactivate your own account.")
     if not is_active and user.is_active:
-        others = platform_members().filter(is_active=True).exclude(pk=user.pk).count()
-        if others == 0:
-            raise ValidationError("The platform must keep at least one active administrator.")
+        # Deactivating a member must leave someone who can still manage the
+        # team, not merely someone who can read it.
+        remaining_admins = (
+            platform_members()
+            .filter(is_active=True)
+            .filter(Q(is_superuser=True) | Q(role__name="Super Administrator"))
+            .exclude(pk=user.pk)
+            .count()
+        )
+        if remaining_admins == 0:
+            raise ValidationError("The platform must keep at least one active Super Administrator.")
     if user.is_active != is_active:
         user.is_active = is_active
         user.save(update_fields=["is_active"])

@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.activity import log_activity
+from core import platform_roles
 from core.permissions import IsPlatformAdmin
 from core.rbac import RoleModuleAccess
 from core.scoping import CompanyScopedModelViewSet
@@ -45,6 +46,7 @@ class PlatformLeadViewSet(
     """Platform sales inbox, kept separate from every tenant CRM."""
 
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    platform_capability = platform_roles.LEADS_MANAGE
     serializer_class = PlatformLeadSerializer
     queryset = PlatformLead.objects.all()
 
@@ -176,6 +178,11 @@ class PlatformRegistrationRequestViewSet(
     """Commercial inbox for tenant sign-up, deliberately separate from CRM."""
 
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    platform_capability = platform_roles.REGISTRATIONS_REVIEW
+    platform_action_capabilities = {
+        "provision": platform_roles.REGISTRATIONS_PROVISION,
+        "reissue_invitation": platform_roles.INVITATIONS_REISSUE,
+    }
     entitlement_exempt = True
     serializer_class = PlatformRegistrationRequestSerializer
     queryset = RegistrationRequest.objects.select_related(
