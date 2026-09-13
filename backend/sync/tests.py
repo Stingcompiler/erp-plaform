@@ -1,6 +1,7 @@
 import uuid
 from decimal import Decimal
 
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -19,12 +20,17 @@ class SyncBase(APITestCase):
             name="Business Owner", scope_level=Role.SCOPE_BUSINESS
         )
         self.user = User.objects.create_user(
-            email="a@alpha.test", password="passw0rd123",
-            company=self.company, role=self.owner_role,
+            email="a@alpha.test",
+            password="passw0rd123",
+            company=self.company,
+            role=self.owner_role,
         )
         self.wh = Warehouse.objects.create(company=self.company, name="Main")
         self.product = Product.objects.create(
-            company=self.company, sku="SKU1", name="Widget", sale_price=Decimal("10"),
+            company=self.company,
+            sku="SKU1",
+            name="Widget",
+            sale_price=Decimal("10"),
         )
         r = self.client.post(
             reverse("auth-login"), {"email": "a@alpha.test", "password": "passw0rd123"}
@@ -47,8 +53,10 @@ class SyncBase(APITestCase):
             "op_type": "stock_movement",
             "client_uuid": str(cu),
             "payload": {
-                "product": self.product.id, "warehouse": self.wh.id,
-                "movement_type": "purchase_in", "quantity": qty,
+                "product": self.product.id,
+                "warehouse": self.wh.id,
+                "movement_type": "purchase_in",
+                "quantity": qty,
             },
         }
 
@@ -67,10 +75,14 @@ class SyncBase(APITestCase):
 
 class BatchApplyTests(SyncBase):
     def test_batch_applies_each_operation_once(self):
-        resp = self.push([self.movement_op(uuid.uuid4()), self.checkout_op(uuid.uuid4())])
+        resp = self.push(
+            [self.movement_op(uuid.uuid4()), self.checkout_op(uuid.uuid4())]
+        )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content)
         self.assertEqual(resp.data["summary"]["applied"], 2)
-        self.assertEqual(StockMovement.objects.filter(movement_type="purchase_in").count(), 1)
+        self.assertEqual(
+            StockMovement.objects.filter(movement_type="purchase_in").count(), 1
+        )
         self.assertEqual(Invoice.objects.count(), 1)
 
     def test_replaying_whole_batch_is_noop(self):
@@ -83,6 +95,18 @@ class BatchApplyTests(SyncBase):
         self.assertTrue(r2.data["replay"])
         self.assertEqual(SyncBatch.objects.count(), 1)
         self.assertEqual(StockMovement.objects.count(), 1)
+
+    def test_completed_batch_can_replay_after_commercial_writes_are_locked(self):
+        batch_uuid = uuid.uuid4()
+        operations = [self.movement_op(uuid.uuid4())]
+        first = self.push(operations, batch_uuid=batch_uuid)
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        with override_settings(SUBSCRIPTION_POLICY="enforce"):
+            replay = self.push(operations, batch_uuid=batch_uuid)
+            blocked = self.push([self.movement_op(uuid.uuid4())])
+        self.assertEqual(replay.status_code, status.HTTP_200_OK)
+        self.assertTrue(replay.data["replay"])
+        self.assertEqual(blocked.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_same_op_uuid_in_new_batch_is_duplicate(self):
         cu = uuid.uuid4()
@@ -98,8 +122,10 @@ class BatchApplyTests(SyncBase):
             "op_type": "stock_movement",
             "client_uuid": str(uuid.uuid4()),
             "payload": {  # purchase_in must be positive -> validation error
-                "product": self.product.id, "warehouse": self.wh.id,
-                "movement_type": "purchase_in", "quantity": "-5",
+                "product": self.product.id,
+                "warehouse": self.wh.id,
+                "movement_type": "purchase_in",
+                "quantity": "-5",
             },
         }
         resp = self.push([good, bad])
@@ -113,10 +139,15 @@ class BatchApplyTests(SyncBase):
 
     def test_unknown_op_type_errors(self):
         operation_id = str(uuid.uuid4())
-        resp = self.push([{
-            "op_type": "nonsense", "client_uuid": operation_id,
-            "payload": {"client_uuid": operation_id},
-        }])
+        resp = self.push(
+            [
+                {
+                    "op_type": "nonsense",
+                    "client_uuid": operation_id,
+                    "payload": {"client_uuid": operation_id},
+                }
+            ]
+        )
         self.assertEqual(resp.data["results"][0]["status"], "error")
 
 
@@ -127,14 +158,22 @@ class SyncRBACTests(SyncBase):
             name="Inventory Officer", scope_level=Role.SCOPE_BRANCH
         )
         User.objects.create_user(
-            email="inv@alpha.test", password="passw0rd123",
-            company=self.company, role=inv_role,
+            email="inv@alpha.test",
+            password="passw0rd123",
+            company=self.company,
+            role=inv_role,
         )
         c = self.client_class()
-        c.post(reverse("auth-login"), {"email": "inv@alpha.test", "password": "passw0rd123"})
+        c.post(
+            reverse("auth-login"),
+            {"email": "inv@alpha.test", "password": "passw0rd123"},
+        )
         resp = c.post(
             reverse("sync-push"),
-            {"batch_uuid": str(uuid.uuid4()), "operations": [self.checkout_op(uuid.uuid4())]},
+            {
+                "batch_uuid": str(uuid.uuid4()),
+                "operations": [self.checkout_op(uuid.uuid4())],
+            },
             format="json",
         )
         self.assertEqual(resp.data["results"][0]["status"], "error")
@@ -156,7 +195,5 @@ class SyncPullTests(SyncBase):
         self.assertEqual(resp.data["changes"]["products"], [])
 
     def test_missing_batch_uuid_rejected(self):
-        resp = self.client.post(
-            reverse("sync-push"), {"operations": []}, format="json"
-        )
+        resp = self.client.post(reverse("sync-push"), {"operations": []}, format="json")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)

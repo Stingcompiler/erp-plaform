@@ -1,6 +1,6 @@
 from core.activity import log_activity
 from core.deletion import ArchiveOnDeleteMixin
-from core.permissions import IsPlatformAdminOrReadOnly
+from core.permissions import EntitlementAccess, IsPlatformAdminOrReadOnly
 from core.rbac import RoleModuleAccess
 from core.scoping import (
     ActivityLoggingMixin,
@@ -14,9 +14,11 @@ from org.serializers import (
     DepartmentSerializer,
 )
 from rest_framework import status, viewsets
+from django.db import transaction
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from subscriptions.services import assert_capacity
 
 
 class CompanyViewSet(ActivityLoggingMixin, viewsets.ModelViewSet):
@@ -61,8 +63,15 @@ class CompanyProfileView(APIView):
     rbac_module = "settings"
 
     EDITABLE = [
-        "name", "legal_name", "address", "phone", "email",
-        "tax_number", "registration_number", "currency", "business_type",
+        "name",
+        "legal_name",
+        "address",
+        "phone",
+        "email",
+        "tax_number",
+        "registration_number",
+        "currency",
+        "business_type",
     ]
 
     def _company(self, request):
@@ -111,9 +120,7 @@ class CompanyProfileView(APIView):
                         {"detail": "Company name cannot be empty."},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-                if field == "business_type" and value not in dict(
-                    Company.BUSINESS_TYPE_CHOICES
-                ):
+                if field == "business_type" and value not in dict(Company.BUSINESS_TYPE_CHOICES):
                     return Response(
                         {"business_type": "Unknown business type."},
                         status=status.HTTP_400_BAD_REQUEST,
@@ -128,8 +135,11 @@ class CompanyProfileView(APIView):
         if changed:
             company.save(update_fields=changed)
             log_activity(
-                action="update", request=request, entity_type="Company",
-                entity_id=company.id, metadata={"fields": changed},
+                action="update",
+                request=request,
+                entity_type="Company",
+                entity_id=company.id,
+                metadata={"fields": changed},
             )
         return Response(self._serialize(company))
 
@@ -137,7 +147,7 @@ class CompanyProfileView(APIView):
 class StoreModeSettingsView(APIView):
     """Owner-only configuration for company/shop switching and exemptions."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, EntitlementAccess]
 
     def _company(self, request):
         if not is_system_mode_owner(request.user):
@@ -181,6 +191,7 @@ class StoreModeSettingsView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         from accounts.models import Role, User
+
         users = User.objects.filter(company=company, id__in=user_ids)
         roles = Role.objects.filter(id__in=role_ids)
         if users.count() != len(set(user_ids)) or roles.count() != len(set(role_ids)):
@@ -189,12 +200,16 @@ class StoreModeSettingsView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         StoreModeAccessException.objects.filter(company=company).delete()
-        StoreModeAccessException.objects.bulk_create([
-            *[StoreModeAccessException(company=company, user=user) for user in users],
-            *[StoreModeAccessException(company=company, role=role) for role in roles],
-        ])
+        StoreModeAccessException.objects.bulk_create(
+            [
+                *[StoreModeAccessException(company=company, user=user) for user in users],
+                *[StoreModeAccessException(company=company, role=role) for role in roles],
+            ]
+        )
         log_activity(
-            action="update", request=request, entity_type="Company",
+            action="update",
+            request=request,
+            entity_type="Company",
             entity_id=company.id,
             metadata={
                 "store_mode_exception_users": len(user_ids),
@@ -211,6 +226,15 @@ class BranchViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
 
     queryset = Branch.objects.select_related("company").all()
     serializer_class = BranchSerializer
+
+    @transaction.atomic
+    def perform_create(self, serializer):
+        if self.request.user.company_id is None:
+            return super().perform_create(serializer)
+        company = Company.objects.select_for_update().get(pk=self.request.user.company_id)
+        assert_capacity(company, "branches")
+        super().perform_create(serializer)
+
     activity_entity_type = "Branch"
 
 

@@ -65,6 +65,8 @@ INSTALLED_APPS = [
     "reports",    # Read-only reporting endpoints (M9)
     "ops",        # Backup/restore + user preferences (M10)
     "tax",        # Pluggable tax / e-invoicing handlers (M11)
+    "subscriptions",  # SaaS plans, commercial subscriptions and manual billing
+    "licensing",      # Standalone installation identity and signed licences
 ]
 
 # M1: email-login custom user with company/branch/role scoping. Introduced
@@ -158,8 +160,12 @@ STORAGES = {
 # so wire a durable S3/R2 backend for production (mirrors the backup storage
 # approach). Sensitive uploads are never served via MEDIA_URL directly — they
 # go through company-scoped viewset actions that enforce tenancy.
-MEDIA_URL = "media/"
-MEDIA_ROOT = BASE_DIR / "media"
+#
+# MEDIA_ROOT is env-overridable because a standalone customer may keep media on
+# a separate mounted volume from the application code — and because the
+# backup/restore scripts address the media tree by path, not by guesswork.
+MEDIA_URL = env("MEDIA_URL", default="media/")
+MEDIA_ROOT = env("MEDIA_ROOT", default=str(BASE_DIR / "media"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -178,6 +184,7 @@ REST_FRAMEWORK = {
         # their own permission_classes (auth, POS checkout, receiving) opt in
         # explicitly where needed.
         "core.rbac.RoleModuleAccess",
+        "core.permissions.EntitlementAccess",
     ),
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
@@ -233,6 +240,13 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+
+# --- Delivery profile and commercial entitlement rollout ---
+# Existing installations remain unaffected until the operator deliberately
+# progresses disabled -> observe -> enforce after reviewing observe logs.
+VEZANO_DEPLOYMENT_MODE = env("VEZANO_DEPLOYMENT_MODE", default="saas")
+SUBSCRIPTION_POLICY = env("SUBSCRIPTION_POLICY", default="disabled")
+VEZANO_LICENSE_PUBLIC_KEYS = env.json("VEZANO_LICENSE_PUBLIC_KEYS", default={})
 
 # --- M10 security hardening ---
 # Applied always:

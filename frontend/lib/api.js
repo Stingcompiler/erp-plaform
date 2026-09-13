@@ -267,3 +267,23 @@ export const platformLeads = {
   list: (params) => api.get("/platform/leads/", { params }),
   update: (id, body) => api.patch(`/platform/leads/${id}/`, body),
 };
+
+export const subscription = {
+  deployment: () => api.get("/deployment/"),
+  company: () => api.get("/subscription/"),
+  payments: () => api.get("/subscription/payments/"),
+  submitPayment: (body) => api.post("/subscription/payments/", body),
+  license: () => api.get("/license/"),
+  importLicense: (body) => api.post("/license/", body),
+};
+
+export const platformSubscriptions = {
+  list: (params) => api.get("/platform/subscriptions/", { params }),
+  plans: () => api.get("/platform/plans/"),
+  configure: (id, body) => api.post(`/platform/subscriptions/${id}/configure/`, body),
+  transition: (id, status, reason = "") =>
+    api.post(`/platform/subscriptions/${id}/transition/`, { status, reason }),
+  payments: (params) => api.get("/platform/subscription-payments/", { params }),
+  verifyPayment: (id, allocations) =>
+    api.post(`/platform/subscription-payments/${id}/verify/`, { allocations }),
+};

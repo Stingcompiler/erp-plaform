@@ -6,7 +6,9 @@ backend/staticfiles/
 backend/media/
 backend/.env
 .venv/
+.venv*/
 venv/
+*.sqlite3.*
 
 # --- Node / Next.js (frontend) ---
 frontend/node_modules/

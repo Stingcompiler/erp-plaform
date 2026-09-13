@@ -20,9 +20,19 @@ READ = "read"
 NONE = "none"
 
 MODULES = [
-    "users", "org", "inventory", "sales", "purchasing",
-    "sales_returns", "purchase_returns",
-    "reports", "hr", "crm", "finance", "website", "settings",
+    "users",
+    "org",
+    "inventory",
+    "sales",
+    "purchasing",
+    "sales_returns",
+    "purchase_returns",
+    "reports",
+    "hr",
+    "crm",
+    "finance",
+    "website",
+    "settings",
 ]
 
 # Map Django app labels to modules so the permission can infer the module from
@@ -57,21 +67,34 @@ ROLE_MODULE_MATRIX = {
     "Business Owner": _all(WRITE),
     "General Manager": {
         **_all(READ),
-        "inventory": WRITE, "sales": WRITE, "purchasing": WRITE,
-        "sales_returns": WRITE, "purchase_returns": WRITE,
-        "crm": WRITE, "website": WRITE, "reports": WRITE,
-        "hr": WRITE, "finance": WRITE,
+        "inventory": WRITE,
+        "sales": WRITE,
+        "purchasing": WRITE,
+        "sales_returns": WRITE,
+        "purchase_returns": WRITE,
+        "crm": WRITE,
+        "website": WRITE,
+        "reports": WRITE,
+        "hr": WRITE,
+        "finance": WRITE,
     },
     "Branch Manager": {
         **_all(NONE),
-        "inventory": WRITE, "sales": WRITE, "purchasing": WRITE,
-        "sales_returns": WRITE, "purchase_returns": WRITE,
-        "crm": WRITE, "hr": READ,
+        "inventory": WRITE,
+        "sales": WRITE,
+        "purchasing": WRITE,
+        "sales_returns": WRITE,
+        "purchase_returns": WRITE,
+        "crm": WRITE,
+        "hr": READ,
     },
     "Inventory Officer": {
         **_all(NONE),
-        "inventory": WRITE, "purchasing": READ, "reports": READ,
-        "sales_returns": READ, "purchase_returns": READ,
+        "inventory": WRITE,
+        "purchasing": READ,
+        "reports": READ,
+        "sales_returns": READ,
+        "purchase_returns": READ,
     },
     # Returns are split by which side of the business they belong to. A sales
     # officer handles what customers bring back; a purchasing officer handles
@@ -81,12 +104,17 @@ ROLE_MODULE_MATRIX = {
     # original transaction.
     "Sales Officer": {
         **_all(NONE),
-        "sales": WRITE, "sales_returns": WRITE, "inventory": READ, "crm": READ,
+        "sales": WRITE,
+        "sales_returns": WRITE,
+        "inventory": READ,
+        "crm": READ,
         "reports": READ,
     },
     "Purchasing Officer": {
         **_all(NONE),
-        "purchasing": WRITE, "purchase_returns": WRITE, "inventory": READ,
+        "purchasing": WRITE,
+        "purchase_returns": WRITE,
+        "inventory": READ,
         "reports": READ,
     },
     "HR Officer": {**_all(NONE), "hr": WRITE, "reports": READ},
@@ -94,28 +122,41 @@ ROLE_MODULE_MATRIX = {
     # Operational finance: records expenses and moves money day to day.
     "Finance Department": {
         **_all(NONE),
-        "finance": WRITE, "sales": READ, "reports": READ,
+        "finance": WRITE,
+        "sales": READ,
+        "reports": READ,
     },
     # Controlling finance. Deliberately separate from "Finance Department" so
     # the person who records money is not the one who approves it (segregation
     # of duties). Gets full reporting plus purchasing/HR visibility a CFO needs.
     "Chief Financial Officer": {
         **_all(NONE),
-        "finance": WRITE, "reports": WRITE,
-        "sales": READ, "purchasing": READ, "hr": READ, "org": READ,
+        "finance": WRITE,
+        "reports": WRITE,
+        "sales": READ,
+        "purchasing": READ,
+        "hr": READ,
+        "org": READ,
     },
     "Landing Page Manager": {**_all(NONE), "website": WRITE},
     "Viewer": {
         **_all(NONE),
-        "inventory": READ, "sales": READ, "purchasing": READ,
-        "sales_returns": READ, "purchase_returns": READ,
+        "inventory": READ,
+        "sales": READ,
+        "purchasing": READ,
+        "sales_returns": READ,
+        "purchase_returns": READ,
         "crm": READ,
     },
 }
 
 # Fallback for roles not explicitly listed above, by scope level.
 _BRANCH_FALLBACK_WRITE = {
-    "inventory", "sales", "purchasing", "sales_returns", "purchase_returns",
+    "inventory",
+    "sales",
+    "purchasing",
+    "sales_returns",
+    "purchase_returns",
     "crm",
 }
 
@@ -164,7 +205,9 @@ def access_map(user):
 
 REPORT_AREAS = {"sales", "inventory", "purchasing", "finance", "hr"}
 FULL_REPORT_ROLES = {
-    "Business Owner", "General Manager", "Super Administrator",
+    "Business Owner",
+    "General Manager",
+    "Super Administrator",
 }
 ROLE_REPORT_AREAS = {
     "Sales Officer": {"sales"},
@@ -252,6 +295,12 @@ class RoleModuleAccess(BasePermission):
     def has_permission(self, request, view):
         user = request.user
         if not (user and user.is_authenticated):
+            return False
+        # Explicit permission lists replace DRF's defaults. Keep the commercial
+        # gate active wherever this shared role gate is used.
+        from core.permissions import EntitlementAccess
+
+        if not EntitlementAccess().has_permission(request, view):
             return False
         module = self._module_for(view)
         if module is None:

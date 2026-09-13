@@ -1,5 +1,6 @@
 import { improvementsEn, improvementsAr } from "./improvementsI18n.js";
 import { debtEn, debtAr } from "./debtI18n.js";
+import { subscriptionEn, subscriptionAr } from "./subscriptionI18n.js";
 // Central translation catalog. Keys are dot-namespaced by surface. `t(key)`
 // (from useI18n) looks a key up in the active language, falling back to English,
 // then to the raw key — so a missing translation is visible, never a crash.
@@ -91,6 +92,8 @@ const en = {
     platformLeads: "Vezano demo requests",
     logs: "Audit logs",
     settings: "Settings",
+    subscription: "Subscription & licence",
+    platformSubscriptions: "Platform subscriptions",
     groups: {
       sales: "Sales",
       purchasing: "Purchasing",
@@ -1310,6 +1313,8 @@ const ar = {
     platformLeads: "طلبات عروض فيزانو",
     logs: "سجل التدقيق",
     settings: "الإعدادات",
+    subscription: "الاشتراك والترخيص",
+    platformSubscriptions: "اشتراكات المنصة",
     groups: {
       sales: "المبيعات",
       purchasing: "المشتريات",
@@ -2453,6 +2458,8 @@ en.improvements = improvementsEn;
 ar.improvements = improvementsAr;
 en.debts = debtEn;
 ar.debts = debtAr;
+en.subscription = subscriptionEn;
+ar.subscription = subscriptionAr;
 const CATALOG = { en, ar };
 
 function lookup(obj, path) {

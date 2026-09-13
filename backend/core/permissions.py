@@ -1,6 +1,72 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
-from core.rbac import can_approve_high_value, can_view_audit_log, report_areas_for, role_can
+from core.rbac import (
+    RoleModuleAccess,
+    can_approve_high_value,
+    can_view_audit_log,
+    report_areas_for,
+    role_can,
+)
+from core.entitlements import resolve_entitlements
+from config.deployment import get_deployment_config
+from rest_framework.exceptions import PermissionDenied
+
+
+class EntitlementAccess(BasePermission):
+    """Commercial access gate, independent from role and tenant permissions."""
+
+    @staticmethod
+    def _is_existing_create_replay(request, view):
+        if request.method != "POST" or getattr(view, "action", None) != "create":
+            return False
+        client_uuid = request.data.get("client_uuid")
+        if not client_uuid or not hasattr(view, "get_queryset"):
+            return False
+        try:
+            queryset = view.get_queryset()
+            queryset.model._meta.get_field("client_uuid")
+            return queryset.filter(client_uuid=client_uuid).exists()
+        except (AttributeError, TypeError, ValueError):
+            return False
+
+    def has_permission(self, request, view):
+        if getattr(view, "entitlement_exempt", False):
+            return True
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        if getattr(user, "is_platform_admin", False):
+            return True
+        module = RoleModuleAccess()._module_for(view)
+        decision = resolve_entitlements(getattr(user, "company", None))
+        if not decision.allows_module(module):
+            raise PermissionDenied(
+                {
+                    "code": "module_not_in_plan",
+                    "detail": "This module is not included in the current plan or licence.",
+                }
+            )
+        if request.method not in SAFE_METHODS and not decision.allow_writes:
+            replay_check = getattr(view, "is_completed_entitlement_replay", None)
+            if (
+                replay_check and replay_check(request)
+            ) or self._is_existing_create_replay(request, view):
+                return True
+            code = (
+                "license_read_only"
+                if get_deployment_config().is_standalone
+                else "subscription_read_only"
+            )
+            raise PermissionDenied(
+                {
+                    "code": code,
+                    "detail": (
+                        "Commercial access is read-only. The company owner can "
+                        "review renewal details."
+                    ),
+                }
+            )
+        return True
 
 
 class IsAuditViewer(BasePermission):
@@ -63,7 +129,12 @@ class CanApproveSalaryAdvance(BasePermission):
 
     def has_permission(self, request, view):
         user = request.user
-        return bool(user and user.is_authenticated and can_approve_high_value(user))
+        return bool(
+            user
+            and user.is_authenticated
+            and can_approve_high_value(user)
+            and EntitlementAccess().has_permission(request, view)
+        )
 
 
 class IsPlatformAdminOrReadOnly(BasePermission):

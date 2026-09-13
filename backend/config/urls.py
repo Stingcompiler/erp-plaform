@@ -21,6 +21,8 @@ urlpatterns = [
     path("api/", include("reports.urls")),
     path("api/", include("ops.urls")),
     path("api/", include("tax.urls")),
+    path("api/", include("subscriptions.urls")),
+    path("api/", include("licensing.urls")),
 ]
 
 # The Next.js app is built as a static export (frontend/out) and served by

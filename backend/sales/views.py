@@ -65,9 +65,7 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
             return "suspended"
         if customer.ar_balance() <= 0:
             return "active"
-        overdue = any(
-            inv.is_overdue for inv in customer.invoices.filter(is_void=False)
-        )
+        overdue = any(inv.is_overdue for inv in customer.invoices.filter(is_void=False))
         return "overdue" if overdue else "owing"
 
     @action(detail=True, methods=["get"])
@@ -85,39 +83,71 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         events = []
 
         for q in customer.quotations.all():
-            events.append(record_event(
-                "quotation", "Quotation", q.created_at,
-                q.id, q.total, q.status,
-            ))
+            events.append(
+                record_event(
+                    "quotation",
+                    "Quotation",
+                    q.created_at,
+                    q.id,
+                    q.total,
+                    q.status,
+                )
+            )
         for so in customer.sales_orders.all():
-            events.append(record_event(
-                "order", "Sales order", so.created_at,
-                so.id, so.total, so.status,
-            ))
+            events.append(
+                record_event(
+                    "order",
+                    "Sales order",
+                    so.created_at,
+                    so.id,
+                    so.total,
+                    so.status,
+                )
+            )
         for inv in customer.invoices.all():
             events.append(
                 record_event(
-                    "invoice", "Invoice", inv.issued_at, inv.number or inv.id, inv.total,
+                    "invoice",
+                    "Invoice",
+                    inv.issued_at,
+                    inv.number or inv.id,
+                    inv.total,
                     "void" if inv.is_void else f"due {inv.amount_due()}",
                 )
             )
             for pay in inv.payments.all():
                 events.append(
                     record_event(
-                        "payment", "Payment", pay.recorded_at, inv.number or inv.id,
-                        pay.amount, pay.get_method_display(),
+                        "payment",
+                        "Payment",
+                        pay.recorded_at,
+                        inv.number or inv.id,
+                        pay.amount,
+                        pay.get_method_display(),
                     )
                 )
         for sr in customer.sales_returns.all():
-            events.append(record_event(
-                "return", "Sales return", sr.created_at,
-                sr.id, None, sr.reason,
-            ))
+            events.append(
+                record_event(
+                    "return",
+                    "Sales return",
+                    sr.created_at,
+                    sr.id,
+                    None,
+                    sr.reason,
+                )
+            )
         for cn in customer.credit_notes.all():
-            events.append(record_event(
-                "credit_note", "Credit note", cn.created_at,
-                cn.id, cn.amount, cn.reason,
-            ))
+            events.append(
+                record_event(
+                    "credit_note",
+                    "Credit note",
+                    cn.created_at,
+                    cn.id,
+                    cn.amount,
+                    cn.reason,
+                )
+            )
 
         events += data_change_events(customer.company_id, "Customer", customer.pk)
         events = assemble_records(events, request.query_params)
@@ -136,14 +166,20 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
 
         if request.query_params.get("format") == "csv":
             log_activity(
-                action="export", request=request, entity_type="Customer",
-                entity_id=customer.pk, metadata={"export": "records_csv"},
+                action="export",
+                request=request,
+                entity_type="Customer",
+                entity_id=customer.pk,
+                metadata={"export": "records_csv"},
             )
             return records_csv(profile, events, f"customer-{customer.id}-records.csv")
 
         log_activity(
-            action="view", request=request, entity_type="Customer",
-            entity_id=customer.pk, metadata={"view": "records"},
+            action="view",
+            request=request,
+            entity_type="Customer",
+            entity_id=customer.pk,
+            metadata={"view": "records"},
         )
         return Response({"customer": profile, "events": events})
 
@@ -163,8 +199,11 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
             "phone": customer.phone,
         }
         log_activity(
-            action="view", request=request, entity_type="Customer",
-            entity_id=customer.pk, metadata={"view": "debt_statement"},
+            action="view",
+            request=request,
+            entity_type="Customer",
+            entity_id=customer.pk,
+            metadata={"view": "debt_statement"},
         )
         return Response(payload)
 
@@ -215,9 +254,11 @@ class CashShiftViewSet(AppendOnlyScopedViewSet):
 
     rbac_module = "sales"
     branch_field = "branch"
-    queryset = CashShift.objects.select_related(
-        "opened_by", "closed_by", "reviewed_by"
-    ).prefetch_related("drawer_movements", "payments").all()
+    queryset = (
+        CashShift.objects.select_related("opened_by", "closed_by", "reviewed_by")
+        .prefetch_related("drawer_movements", "payments")
+        .all()
+    )
     serializer_class = CashShiftSerializer
     activity_entity_type = "CashShift"
 
@@ -306,11 +347,19 @@ class CashShiftViewSet(AppendOnlyScopedViewSet):
         shift.status = CashShift.CLOSED
         if request.data.get("note"):
             shift.note = str(request.data["note"])[:255]
-        shift.save(update_fields=[
-            "counted_cash", "closed_by", "closed_at", "status", "note",
-        ])
+        shift.save(
+            update_fields=[
+                "counted_cash",
+                "closed_by",
+                "closed_at",
+                "status",
+                "note",
+            ]
+        )
         log_activity(
-            action="update", request=request, entity_type="CashShift",
+            action="update",
+            request=request,
+            entity_type="CashShift",
             entity_id=shift.pk,
             metadata={
                 "closed": True,
@@ -357,8 +406,11 @@ class CashShiftViewSet(AppendOnlyScopedViewSet):
         shift.reviewed_at = timezone.now()
         shift.save(update_fields=["reviewed_by", "reviewed_at"])
         log_activity(
-            action="approve", request=request, entity_type="CashShift",
-            entity_id=shift.pk, metadata={"variance": str(shift.variance())},
+            action="approve",
+            request=request,
+            entity_type="CashShift",
+            entity_id=shift.pk,
+            metadata={"variance": str(shift.variance())},
         )
         return Response(self.get_serializer(shift).data)
 
@@ -367,9 +419,7 @@ class CashDrawerMovementViewSet(AppendOnlyScopedViewSet):
     """Non-sale cash in and out of an open drawer. Append-only (Rule #9)."""
 
     rbac_module = "sales"
-    queryset = CashDrawerMovement.objects.select_related(
-        "shift", "recorded_by"
-    ).all()
+    queryset = CashDrawerMovement.objects.select_related("shift", "recorded_by").all()
     serializer_class = CashDrawerMovementSerializer
     activity_entity_type = "CashDrawerMovement"
 
@@ -399,8 +449,10 @@ class QuotationViewSet(AppendOnlyScopedViewSet):
         quotation.status = new_status
         quotation.save(update_fields=["status"])
         log_activity(
-            action="update", request=request,
-            entity_type="Quotation", entity_id=quotation.id,
+            action="update",
+            request=request,
+            entity_type="Quotation",
+            entity_id=quotation.id,
             metadata={"status": new_status},
         )
         return Response(self.get_serializer(quotation).data)
@@ -416,23 +468,31 @@ class QuotationViewSet(AppendOnlyScopedViewSet):
                 status=status.HTTP_200_OK,
             )
         order = SalesOrder.objects.create(
-            company_id=quotation.company_id, customer=quotation.customer,
-            branch=quotation.branch, source_quotation=quotation,
-            subtotal=quotation.subtotal, tax_amount=quotation.tax_amount,
+            company_id=quotation.company_id,
+            customer=quotation.customer,
+            branch=quotation.branch,
+            source_quotation=quotation,
+            subtotal=quotation.subtotal,
+            tax_amount=quotation.tax_amount,
             total=quotation.total,
             created_by=request.user if request.user.is_authenticated else None,
         )
         for line in quotation.lines.all():
             SalesOrderLine.objects.create(
-                sales_order=order, product=line.product,
-                description=line.description, quantity=line.quantity,
-                unit_price=line.unit_price, line_total=line.line_total,
+                sales_order=order,
+                product=line.product,
+                description=line.description,
+                quantity=line.quantity,
+                unit_price=line.unit_price,
+                line_total=line.line_total,
             )
         quotation.status = Quotation.CONVERTED
         quotation.save(update_fields=["status"])
         log_activity(
-            action="create", request=request,
-            entity_type="SalesOrder", entity_id=order.id,
+            action="create",
+            request=request,
+            entity_type="SalesOrder",
+            entity_id=order.id,
         )
         return Response(
             SalesOrderSerializer(order, context={"request": request}).data,
@@ -471,10 +531,12 @@ class InvoiceViewSet(
         qs = super().get_queryset()
         if self.request.query_params.get("overdue") == "1":
             from sales.querysets import overdue_invoices
+
             qs = overdue_invoices(qs)
         search = self.request.query_params.get("search", "").strip()
         if search:
             from django.db.models import Q
+
             condition = Q(customer__name__icontains=search)
             number = search.upper().removeprefix("INV-")
             if number.isdigit():
@@ -491,14 +553,24 @@ class InvoiceViewSet(
         """
         invoices = self.filter_queryset(self.get_queryset()).select_related("customer")
         log_activity(
-            action="export", request=request, entity_type="Invoice",
+            action="export",
+            request=request,
+            entity_type="Invoice",
             metadata={"count": invoices.count()},
         )
         return records_rows_csv(
             "invoices.csv",
             [
-                "Number", "Date", "Due date", "Customer", "Status",
-                "Subtotal", "Tax", "Total", "Paid", "Balance",
+                "Number",
+                "Date",
+                "Due date",
+                "Customer",
+                "Status",
+                "Subtotal",
+                "Tax",
+                "Total",
+                "Paid",
+                "Balance",
             ],
             [
                 [
@@ -520,8 +592,11 @@ class InvoiceViewSet(
 
 class PaymentViewSet(AppendOnlyScopedViewSet):
     queryset = Payment.objects.select_related(
-        "invoice__customer", "company", "company_bank_account",
-        "recorded_by", "verified_by",
+        "invoice__customer",
+        "company",
+        "company_bank_account",
+        "recorded_by",
+        "verified_by",
     ).all()
     serializer_class = PaymentSerializer
     activity_entity_type = "Payment"
@@ -567,7 +642,11 @@ class PaymentViewSet(AppendOnlyScopedViewSet):
         # Second approval tier: above the company threshold, any second user is
         # not enough — it takes an approver role (CFO / owner / GM).
         threshold = getattr(payment.company, "payment_approval_threshold", 0) or 0
-        if threshold and payment.amount >= threshold and not can_approve_high_value(request.user):
+        if (
+            threshold
+            and payment.amount >= threshold
+            and not can_approve_high_value(request.user)
+        ):
             return Response(
                 {
                     "detail": (
@@ -583,8 +662,10 @@ class PaymentViewSet(AppendOnlyScopedViewSet):
         payment.verified_by = request.user if request.user.is_authenticated else None
         payment.save(update_fields=["verified_at", "verified_by"])
         log_activity(
-            action="update", request=request,
-            entity_type="Payment", entity_id=payment.id,
+            action="update",
+            request=request,
+            entity_type="Payment",
+            entity_id=payment.id,
             metadata={"verified": True, "verified_by": request.user.email},
         )
         return Response(self.get_serializer(payment).data)
@@ -597,6 +678,17 @@ class POSCheckoutView(APIView):
 
     permission_classes = [IsAuthenticated, RoleModuleAccess]
     rbac_module = "sales"
+
+    def is_completed_entitlement_replay(self, request):
+        client_uuid = request.data.get("client_uuid")
+        company_id = getattr(request.user, "company_id", None)
+        return bool(
+            client_uuid
+            and company_id
+            and Invoice.objects.filter(
+                company_id=company_id, client_uuid=client_uuid
+            ).exists()
+        )
 
     def post(self, request):
         client_uuid = request.data.get("client_uuid")
@@ -619,8 +711,10 @@ class POSCheckoutView(APIView):
         serializer.is_valid(raise_exception=True)
         invoice = serializer.save()
         log_activity(
-            action="create", request=request,
-            entity_type="Invoice", entity_id=invoice.id,
+            action="create",
+            request=request,
+            entity_type="Invoice",
+            entity_id=invoice.id,
             metadata={"number": invoice.number, "total": str(invoice.total)},
         )
         return Response(serializer.data, status=status.HTTP_201_CREATED)

@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.db import transaction
 from django.db.models import F, Sum
 from django.db.models.functions import Coalesce
 from rest_framework import status
@@ -37,6 +38,8 @@ from inventory.serializers import (
     UnitSerializer,
     WarehouseSerializer,
 )
+from org.models import Company
+from subscriptions.services import assert_capacity
 
 
 # Catalogue master data is archived rather than deleted: products, categories,
@@ -66,6 +69,14 @@ class WarehouseViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     serializer_class = WarehouseSerializer
     activity_entity_type = "Warehouse"
 
+    @transaction.atomic
+    def perform_create(self, serializer):
+        if self.request.user.company_id is None:
+            return super().perform_create(serializer)
+        company = Company.objects.select_for_update().get(pk=self.request.user.company_id)
+        assert_capacity(company, "warehouses")
+        super().perform_create(serializer)
+
 
 class StockBatchViewSet(CompanyScopedModelViewSet):
     queryset = StockBatch.objects.select_related("product").all()
@@ -83,10 +94,10 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     def get_queryset(self):
         # on-hand is ALWAYS derived from the movement ledger — annotated here so
         # list/detail never rely on a stored (drift-prone) quantity field.
-        qs = super().get_queryset().annotate(
-            annotated_on_hand=Coalesce(
-                Sum("stock_movements__quantity"), Decimal("0")
-            )
+        qs = (
+            super()
+            .get_queryset()
+            .annotate(annotated_on_hand=Coalesce(Sum("stock_movements__quantity"), Decimal("0")))
         )
         # Archived products stay out of the way in listings but must remain
         # reachable — otherwise archiving is deletion with extra steps and
@@ -111,18 +122,31 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         queryset as the list — an export can never widen what the caller sees."""
         products = self.filter_queryset(self.get_queryset())
         log_activity(
-            action="export", request=request, entity_type="Product",
+            action="export",
+            request=request,
+            entity_type="Product",
             metadata={"count": products.count()},
         )
         return rows_csv(
             "products.csv",
             [
-                "SKU", "Name", "Barcode", "Category", "Brand", "Unit",
-                "On hand", "Reorder level", "Cost price", "Sale price", "Active",
+                "SKU",
+                "Name",
+                "Barcode",
+                "Category",
+                "Brand",
+                "Unit",
+                "On hand",
+                "Reorder level",
+                "Cost price",
+                "Sale price",
+                "Active",
             ],
             [
                 [
-                    p.sku, p.name, p.barcode,
+                    p.sku,
+                    p.name,
+                    p.barcode,
                     p.category.name if p.category_id else "",
                     p.brand.name if p.brand_id else "",
                     p.unit.name if p.unit_id else "",
@@ -147,15 +171,16 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         product = self.get_object()
         if product.barcode:
             return Response(
-                {"detail": "This product already has a barcode.",
-                 "barcode": product.barcode},
+                {"detail": "This product already has a barcode.", "barcode": product.barcode},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         company_id = product.company_id
         product.barcode = next_internal_barcode(company_id)
         product.save(update_fields=["barcode"])
         log_activity(
-            action="update", request=request, entity_type="Product",
+            action="update",
+            request=request,
+            entity_type="Product",
             entity_id=product.pk,
             metadata={"changes": {"barcode": {"before": "", "after": product.barcode}}},
         )
@@ -225,9 +250,7 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
 
 
 class StockMovementViewSet(AppendOnlyScopedViewSet):
-    queryset = StockMovement.objects.select_related(
-        "product", "warehouse", "batch"
-    ).all()
+    queryset = StockMovement.objects.select_related("product", "warehouse", "batch").all()
     serializer_class = StockMovementSerializer
     activity_entity_type = "StockMovement"
 
@@ -243,9 +266,7 @@ class StockMovementViewSet(AppendOnlyScopedViewSet):
 
 
 class StockAdjustmentViewSet(AppendOnlyScopedViewSet):
-    queryset = StockAdjustment.objects.select_related(
-        "product", "warehouse", "movement"
-    ).all()
+    queryset = StockAdjustment.objects.select_related("product", "warehouse", "movement").all()
     serializer_class = StockAdjustmentSerializer
     activity_entity_type = "StockAdjustment"
 

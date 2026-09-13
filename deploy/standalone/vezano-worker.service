@@ -1,0 +1,17 @@
+[Unit]
+Description=Vezano ERP background worker
+After=network.target redis-server.service
+
+[Service]
+Type=simple
+User=vezano
+Group=vezano
+WorkingDirectory=/opt/vezano/current/backend
+EnvironmentFile=/etc/vezano/vezano.env
+ExecStart=/opt/vezano/venv/bin/celery -A config worker --loglevel=INFO
+Restart=on-failure
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

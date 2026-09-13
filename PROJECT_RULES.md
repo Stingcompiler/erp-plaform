@@ -9,10 +9,10 @@ You are building a commercial, multi-company ERP platform. This file is the fixe
 - Background jobs: Celery
 - Backend is one Django monolith. Do not split it into microservices or separate deployable backend services.
 
-## Deployment — Render, native runtimes, no containers
+## Deployment — native runtimes, no containers
 
 - Do not create a Dockerfile, docker-compose.yml, or any containerization config, ever, even if it seems like good practice. This is a hard rule, not a default you can override for convenience.
-- One web service, deployed the traditional way (Render builds directly from the Git repo, no Docker):
+- The hosted SaaS uses one web service, deployed the traditional way (Render builds directly from the Git repo, no Docker):
   - `erp-api` — Python native runtime, Django + DRF via Gunicorn. Its build step also builds the Next.js frontend as a static export and Django serves it directly (`backend/core/frontend.py`) — no separate frontend service, no cross-service CORS in production. Locally, `next dev` on `:3000` against this API on `:8000` over CORS is still the dev workflow (fast refresh); the static-export serving path only activates when `DEBUG=False`.
 - `erp-worker` — Render Background Worker (Python native), runs Celery
 - `erp-backup-cron` — Render Cron Job (Python native), scheduled backups
@@ -22,7 +22,13 @@ You are building a commercial, multi-company ERP platform. This file is the fixe
 
 ## Hosting model
 
-This is hosted centrally on Render by the platform owner. Businesses are tenants inside one deployment, isolated logically by `company_id` — this is not a "customer downloads and self-hosts" product.
+The same monolith supports two controlled deployment profiles. `saas` is hosted
+centrally on Render by the platform owner and contains logically isolated tenants.
+`standalone` is installed for one customer on infrastructure they administer,
+using native Linux services and PostgreSQL. Both profiles retain `company_id`
+scoping and the same migrations; customer forks and containers are not allowed.
+Deployment profile is an installation setting and must never be changed from a
+company API or used as a substitute for shop/company presentation mode.
 
 ## Non-negotiable architecture rules
 

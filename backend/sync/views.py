@@ -2,7 +2,7 @@ from uuid import UUID
 
 from django.core import signing
 from django.core.signing import BadSignature, SignatureExpired
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from rest_framework import status
@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.activity import log_activity
+from core.permissions import EntitlementAccess
 from core.rbac import role_can
 from sync.models import SyncBatch, SyncOperation
 from sync.services import APPLIED, DUPLICATE, ERROR, process_operation
@@ -27,7 +28,28 @@ class SyncPushView(APIView):
     the rest still apply.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, EntitlementAccess]
+
+    def is_completed_entitlement_replay(self, request):
+        """Allow only a completed, same-user batch to replay while writes are locked."""
+        company_id = getattr(request.user, "company_id", None)
+        batch_uuid = request.data.get("batch_uuid")
+        if not company_id or not batch_uuid:
+            return False
+        try:
+            UUID(str(batch_uuid))
+        except (TypeError, ValueError, AttributeError):
+            return False
+        batch = (
+            SyncBatch.objects.filter(
+                company_id=company_id,
+                user_id=request.user.pk,
+                batch_uuid=batch_uuid,
+            )
+            .annotate(saved_operations=Count("operations"))
+            .first()
+        )
+        return bool(batch and batch.saved_operations == batch.operation_count)
 
     def post(self, request):
         company_id = getattr(request.user, "company_id", None)
@@ -35,11 +57,16 @@ class SyncPushView(APIView):
             return Response({"detail": "A company is required."}, status=400)
         # A second tab can replace the shared auth cookie while this tab still
         # holds another user's cart. Never replay it under the new identity.
-        expected = {"expected_company": company_id, "expected_user": request.user.pk,
-                    "expected_branch": getattr(request.user, "branch_id", None)}
+        expected = {
+            "expected_company": company_id,
+            "expected_user": request.user.pk,
+            "expected_branch": getattr(request.user, "branch_id", None),
+        }
         for field, value in expected.items():
             if field in request.data and request.data[field] != value:
-                return Response({"detail": "The signed-in account or branch changed."}, status=409)
+                return Response(
+                    {"detail": "The signed-in account or branch changed."}, status=409
+                )
         batch_uuid = request.data.get("batch_uuid")
         operations = request.data.get("operations")
 
@@ -67,7 +94,9 @@ class SyncPushView(APIView):
                 UUID(str(cu))
                 if op.get("client_uuid") and op["payload"].get("client_uuid"):
                     if str(op["client_uuid"]) != str(op["payload"]["client_uuid"]):
-                        raise ValueError("Operation and payload identifiers must match.")
+                        raise ValueError(
+                            "Operation and payload identifiers must match."
+                        )
         except (ValueError, TypeError, AttributeError) as exc:
             return Response({"detail": str(exc)}, status=400)
 
@@ -77,22 +106,31 @@ class SyncPushView(APIView):
         ).first()
         if existing:
             if existing.user_id != request.user.pk:
-                return Response({"detail": "Batch identifier is unavailable."}, status=409)
+                return Response(
+                    {"detail": "Batch identifier is unavailable."}, status=409
+                )
             if existing.operations.count() == existing.operation_count:
                 return Response(
-                    self._batch_response(existing, replay=True), status=status.HTTP_200_OK
+                    self._batch_response(existing, replay=True),
+                    status=status.HTTP_200_OK,
                 )
             # A worker/process interruption may have left a partial batch. All
             # operations carry UUIDs, so the same request can safely finish it.
             if existing.operation_count != len(operations):
-                return Response({"detail": "Incomplete batch payload does not match."}, status=409)
+                return Response(
+                    {"detail": "Incomplete batch payload does not match."}, status=409
+                )
             batch = existing
         else:
             if SyncBatch.objects.filter(batch_uuid=batch_uuid).exists():
-                return Response({"detail": "Batch identifier is unavailable."}, status=409)
+                return Response(
+                    {"detail": "Batch identifier is unavailable."}, status=409
+                )
             batch = SyncBatch.objects.create(
-                company_id=company_id, user=request.user,
-                device_id=request.data.get("device_id", ""), batch_uuid=batch_uuid,
+                company_id=company_id,
+                user=request.user,
+                device_id=request.data.get("device_id", ""),
+                batch_uuid=batch_uuid,
                 operation_count=len(operations),
             )
 
@@ -105,9 +143,14 @@ class SyncPushView(APIView):
                 continue
             st, model, rid, err, cu = process_operation(request, op)
             SyncOperation.objects.create(
-                batch=batch, index=i, op_type=op.get("op_type", ""),
-                client_uuid=cu or None, status=st, result_model=model,
-                result_id=rid, error_detail=err or "",
+                batch=batch,
+                index=i,
+                op_type=op.get("op_type", ""),
+                client_uuid=cu or None,
+                status=st,
+                result_model=model,
+                result_id=rid,
+                error_detail=err or "",
             )
             applied += int(st == APPLIED)
             duplicate += int(st == DUPLICATE)
@@ -116,18 +159,26 @@ class SyncPushView(APIView):
         batch.applied_count = applied
         batch.duplicate_count = duplicate
         batch.error_count = errored
-        batch.save(update_fields=[
-            "applied_count", "duplicate_count", "error_count",
-        ])
+        batch.save(
+            update_fields=[
+                "applied_count",
+                "duplicate_count",
+                "error_count",
+            ]
+        )
 
         log_activity(
-            action="create", request=request, entity_type="SyncBatch",
+            action="create",
+            request=request,
+            entity_type="SyncBatch",
             entity_id=batch.id,
             metadata={"applied": applied, "duplicate": duplicate, "error": errored},
         )
         return Response(
             self._batch_response(batch, replay=existing is not None),
-            status=status.HTTP_200_OK if existing is not None else status.HTTP_201_CREATED,
+            status=(
+                status.HTTP_200_OK if existing is not None else status.HTTP_201_CREATED
+            ),
         )
 
     def _batch_response(self, batch, replay):
@@ -156,7 +207,13 @@ def _pull_specs():
 
     return [
         ("products", Product, ProductSerializer, "updated_at", "inventory"),
-        ("stock_movements", StockMovement, StockMovementSerializer, "created_at", "inventory"),
+        (
+            "stock_movements",
+            StockMovement,
+            StockMovementSerializer,
+            "created_at",
+            "inventory",
+        ),
         ("customers", Customer, CustomerSerializer, "updated_at", "sales"),
         ("invoices", Invoice, InvoiceSerializer, "updated_at", "sales"),
         ("suppliers", Supplier, SupplierSerializer, "updated_at", "purchasing"),
@@ -170,7 +227,7 @@ class SyncPullView(APIView):
     plus a fresh `cursor` to pass as `since` next time.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, EntitlementAccess]
 
     def get(self, request):
         company_id = getattr(request.user, "company_id", None)
@@ -180,20 +237,27 @@ class SyncPullView(APIView):
         if page_token:
             try:
                 page = signing.loads(page_token, salt="sync-pull", max_age=86400)
-                if page.get("company_id") != company_id or page.get("user_id") != request.user.pk:
+                if (
+                    page.get("company_id") != company_id
+                    or page.get("user_id") != request.user.pk
+                ):
                     raise BadSignature
                 since_raw = page.get("since")
                 snapshot = parse_datetime(page["snapshot"])
                 state = page.get("state", {})
                 completed = set(page.get("completed", []))
             except (BadSignature, SignatureExpired, KeyError, TypeError, ValueError):
-                return Response({"detail": "Invalid or expired page_cursor."}, status=400)
+                return Response(
+                    {"detail": "Invalid or expired page_cursor."}, status=400
+                )
         else:
             since_raw = request.query_params.get("since")
             snapshot = timezone.now()
         since = parse_datetime(since_raw) if since_raw else None
         if since_raw and since is None:
-            return Response({"detail": "since must be an ISO-8601 datetime."}, status=400)
+            return Response(
+                {"detail": "since must be an ISO-8601 datetime."}, status=400
+            )
 
         changes = {}
         has_more = False
@@ -224,7 +288,8 @@ class SyncPullView(APIView):
                     qs = qs.filter(Q(branch_id=branch_id) | Q(branch__isnull=True))
                 elif key == "stock_movements":
                     qs = qs.filter(
-                        Q(warehouse__branch_id=branch_id) | Q(warehouse__branch__isnull=True)
+                        Q(warehouse__branch_id=branch_id)
+                        | Q(warehouse__branch__isnull=True)
                     )
 
             rows = list(qs.order_by(ts_field, "pk")[:501])
@@ -237,7 +302,8 @@ class SyncPullView(APIView):
                 has_more = True
                 last = rows[-1]
                 state[key] = {
-                    "timestamp": getattr(last, ts_field).isoformat(), "id": last.pk,
+                    "timestamp": getattr(last, ts_field).isoformat(),
+                    "id": last.pk,
                 }
             else:
                 completed.add(key)
@@ -256,10 +322,12 @@ class SyncPullView(APIView):
                 salt="sync-pull",
                 compress=True,
             )
-        return Response({
-            # Do not advance the durable cursor until every page was delivered.
-            "cursor": snapshot.isoformat() if not has_more else since_raw,
-            "has_more": has_more,
-            "next_page_cursor": next_page_cursor,
-            "changes": changes,
-        })
+        return Response(
+            {
+                # Do not advance the durable cursor until every page was delivered.
+                "cursor": snapshot.isoformat() if not has_more else since_raw,
+                "has_more": has_more,
+                "next_page_cursor": next_page_cursor,
+                "changes": changes,
+            }
+        )

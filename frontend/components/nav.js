@@ -18,6 +18,7 @@ import {
   Users,
   UsersRound,
   Wallet,
+  CreditCard,
 } from "lucide-react";
 
 // Navigation is a two-level tree: leaves link somewhere, groups carry `children`
@@ -123,6 +124,20 @@ export const NAV = [
         platformOnly: true,
         icon: Inbox,
       },
+      {
+        labelKey: "nav.platformSubscriptions",
+        href: "/platform-subscriptions",
+        module: null,
+        platformOnly: true,
+        icon: CreditCard,
+      },
+      {
+        labelKey: "nav.subscription",
+        href: "/subscription",
+        module: null,
+        ownerOnly: true,
+        icon: CreditCard,
+      },
       { labelKey: "nav.org", href: "/org", module: "org", icon: Building2 },
       { labelKey: "nav.users", href: "/users", module: "users", icon: Users },
       { labelKey: "nav.website", href: "/website", module: "website", icon: Globe },
@@ -186,6 +201,7 @@ export function visibleNav(canRead, canWrite, roleName, businessType, optional =
   // the link, and the page gates its own tabs from there.
   const allowed = (item) => {
     if (item.platformOnly) return isPlatformAdmin;
+    if (item.ownerOnly) return roleName === "Business Owner";
     if (shopMode && SHOP_HIDDEN.has(item.labelKey) && !optional.includes(item.labelKey)) return false;
     if (item.auditViewer) {
       return (

@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.db import transaction
 from rest_framework import status, viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -20,6 +21,8 @@ from core.activity import log_activity
 from core.deletion import ArchiveOnDeleteMixin
 from core.scoping import CompanyScopedModelViewSet
 from org.store_mode import is_store_mode_allowed
+from org.models import Company
+from subscriptions.services import assert_capacity
 
 
 class LoginView(APIView):
@@ -37,7 +40,9 @@ class LoginView(APIView):
                 company_id=user.company_id, role__name="Business Owner", is_active=True
             ).first()
             log_activity(
-                action="login_blocked", user=user, request=request,
+                action="login_blocked",
+                user=user,
+                request=request,
                 metadata={"reason": "store_mode_restricted"},
             )
             return Response(
@@ -89,9 +94,7 @@ class RefreshView(APIView):
     def post(self, request):
         refresh_cookie = request.COOKIES.get(settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"])
         if not refresh_cookie:
-            return Response(
-                {"detail": "No refresh token."}, status=status.HTTP_401_UNAUTHORIZED
-            )
+            return Response({"detail": "No refresh token."}, status=status.HTTP_401_UNAUTHORIZED)
         try:
             refresh = RefreshToken(refresh_cookie)
         except TokenError:
@@ -128,6 +131,14 @@ class UserViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     queryset = User.objects.select_related("role", "company", "branch").all()
     serializer_class = UserSerializer
     activity_entity_type = "User"
+
+    @transaction.atomic
+    def perform_create(self, serializer):
+        if self.request.user.company_id is None:
+            return super().perform_create(serializer)
+        company = Company.objects.select_for_update().get(pk=self.request.user.company_id)
+        assert_capacity(company, "users")
+        super().perform_create(serializer)
 
     def destroy(self, request, *args, **kwargs):
         # Deactivating yourself would lock you out of the account that has the
