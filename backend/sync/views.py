@@ -285,12 +285,9 @@ class SyncPullView(APIView):
             branch_id = getattr(request.user, "branch_id", None)
             if role and role.scope_level == "branch" and branch_id:
                 if key == "invoices":
-                    qs = qs.filter(Q(branch_id=branch_id) | Q(branch__isnull=True))
+                    qs = qs.filter(branch_id=branch_id)
                 elif key == "stock_movements":
-                    qs = qs.filter(
-                        Q(warehouse__branch_id=branch_id)
-                        | Q(warehouse__branch__isnull=True)
-                    )
+                    qs = qs.filter(warehouse__branch_id=branch_id)
 
             rows = list(qs.order_by(ts_field, "pk")[:501])
             more_for_key = len(rows) > 500

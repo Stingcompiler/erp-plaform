@@ -49,6 +49,8 @@ class UserSerializer(serializers.ModelSerializer):
         actor = getattr(request, "user", None)
         role = attrs.get("role", getattr(self.instance, "role", None))
         branch = attrs.get("branch", getattr(self.instance, "branch", None))
+        actor_role_name = getattr(getattr(actor, "role", None), "name", None)
+        actor_company_id = getattr(actor, "company_id", None)
 
         # A tenant administrator must never be able to turn a tenant account
         # into a platform account. Platform roles are provisioned only by an
@@ -62,7 +64,50 @@ class UserSerializer(serializers.ModelSerializer):
                 {"role": "Only a platform administrator may assign a platform role."}
             )
 
-        actor_company_id = getattr(actor, "company_id", None)
+        if actor_company_id is not None:
+            if actor_role_name == "General Manager":
+                if role and role.name == "Business Owner":
+                    raise serializers.ValidationError(
+                        {"role": "Only a Business Owner may assign the owner role."}
+                    )
+                if self.instance and self.instance.role and self.instance.role.name == "Business Owner":
+                    raise serializers.ValidationError(
+                        {"role": "A General Manager cannot modify a Business Owner."}
+                    )
+            elif actor_role_name == "Branch Manager":
+                if branch is None or branch.pk != getattr(actor, "branch_id", None):
+                    raise serializers.ValidationError(
+                        {"branch": "A Branch Manager may manage only their own branch."}
+                    )
+                if self.instance and self.instance.branch_id != actor.branch_id:
+                    raise serializers.ValidationError(
+                        {"branch": "This user is outside your branch."}
+                    )
+                if role is None or role.scope_level != Role.SCOPE_BRANCH or role.name == "Branch Manager":
+                    raise serializers.ValidationError(
+                        {"role": "A Branch Manager may assign only branch staff roles."}
+                    )
+            elif actor_role_name != "Business Owner":
+                raise serializers.ValidationError(
+                    "Your role cannot administer company users."
+                )
+
+        target_company_id = (
+            self.instance.company_id if self.instance is not None else actor_company_id
+        )
+        if target_company_id is not None and role is None:
+            raise serializers.ValidationError(
+                {"role": "A company user must have an assigned role."}
+            )
+        if role is not None and role.scope_level == Role.SCOPE_BRANCH:
+            if branch is None:
+                raise serializers.ValidationError(
+                    {"branch": "A branch-scoped role requires an assigned branch."}
+                )
+            if not branch.is_active:
+                raise serializers.ValidationError(
+                    {"branch": "The assigned branch is inactive."}
+                )
         if (
             branch is not None
             and actor_company_id is not None
@@ -80,6 +125,16 @@ class UserSerializer(serializers.ModelSerializer):
         ):
             raise serializers.ValidationError(
                 {"is_active": "You cannot deactivate your own account."}
+            )
+        if (
+            self.instance is not None
+            and actor is not None
+            and self.instance.pk == actor.pk
+            and "role" in attrs
+            and role != self.instance.role
+        ):
+            raise serializers.ValidationError(
+                {"role": "You cannot change your own role."}
             )
         return attrs
 
@@ -123,6 +178,7 @@ class MeSerializer(serializers.ModelSerializer):
     company_name = serializers.SerializerMethodField()
     is_platform_admin = serializers.BooleanField(read_only=True)
     report_areas = serializers.SerializerMethodField()
+    capabilities = serializers.SerializerMethodField()
 
     def get_report_areas(self, obj):
         return report_areas_for(obj)
@@ -152,6 +208,22 @@ class MeSerializer(serializers.ModelSerializer):
     def get_can_manage_system_mode(self, obj):
         return is_system_mode_owner(obj)
 
+    def get_capabilities(self, obj):
+        role_name = obj.role.name if obj.role_id else None
+        owner = role_name == "Business Owner"
+        general_manager = role_name == "General Manager"
+        branch_manager = role_name == "Branch Manager"
+        return {
+            "users.assign_owner": owner,
+            "users.manage_company": owner or general_manager,
+            "users.manage_branch": owner or general_manager or branch_manager,
+            "org.manage_all_branches": owner or general_manager,
+            "org.manage_own_branch": branch_manager,
+            "org.change_system_mode": self.get_can_manage_system_mode(obj),
+            "subscriptions.manage": owner,
+            "scope.branch_id": obj.branch_id,
+        }
+
     class Meta:
         model = User
         fields = [
@@ -168,6 +240,7 @@ class MeSerializer(serializers.ModelSerializer):
             "role_name",
             "is_platform_admin",
             "report_areas",
+            "capabilities",
         ]
 
 

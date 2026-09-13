@@ -14,7 +14,7 @@ from rest_framework.test import APITestCase
 from accounts.models import Role, User
 from core.rbac import access_map
 from inventory.models import Product
-from org.models import Company
+from org.models import Branch, Company
 
 
 class BusinessTypeTests(APITestCase):
@@ -167,12 +167,13 @@ class BusinessTypeTests(APITestCase):
 class AutoSkuTests(APITestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Corner Shop")
+        self.branch = Branch.objects.create(company=self.company, name="Main")
         self.role = Role.objects.create(
             name="Inventory Officer", scope_level=Role.SCOPE_BRANCH
         )
         self.user = User.objects.create_user(
             email="stock@shop.test", password="passw0rd12345",
-            company=self.company, role=self.role,
+            company=self.company, branch=self.branch, role=self.role,
         )
         self.client.force_authenticate(self.user)
 
@@ -217,9 +218,10 @@ class AutoSkuTests(APITestCase):
 
     def test_skus_are_unique_only_within_a_company(self):
         other = Company.objects.create(name="Other Shop")
+        other_branch = Branch.objects.create(company=other, name="Main")
         other_user = User.objects.create_user(
             email="s@other.test", password="passw0rd12345",
-            company=other, role=self.role,
+            company=other, branch=other_branch, role=self.role,
         )
         mine = self._create().data["sku"]
         self.client.force_authenticate(other_user)

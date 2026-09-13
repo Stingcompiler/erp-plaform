@@ -34,6 +34,8 @@ class SalesReturnViewSet(
     # The `returns` app holds both sides of the business, so the module cannot
     # be inferred from the app label — see core/rbac.APP_MODULE.
     rbac_module = "sales_returns"
+    branch_field = "invoice__branch"
+    include_unassigned_branch_rows = False
     queryset = SalesReturn.objects.prefetch_related("lines").all()
     serializer_class = SalesReturnReadSerializer
 
@@ -208,18 +210,10 @@ class PurchaseReturnViewSet(
     viewsets.GenericViewSet,
 ):
     rbac_module = "purchase_returns"
+    branch_field = "warehouse__branch"
+    include_unassigned_branch_rows = False
     queryset = PurchaseReturn.objects.prefetch_related("lines").all()
     serializer_class = PurchaseReturnReadSerializer
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        role = getattr(self.request.user, "role", None)
-        branch_id = getattr(self.request.user, "branch_id", None)
-        if role and role.scope_level == "branch" and branch_id:
-            qs = qs.filter(
-                Q(warehouse__branch_id=branch_id) | Q(warehouse__branch__isnull=True)
-            )
-        return qs
 
     def create(self, request, *args, **kwargs):
         client_uuid = request.data.get("client_uuid")
@@ -247,6 +241,8 @@ class PurchaseReturnViewSet(
 class CreditNoteViewSet(AppendOnlyScopedViewSet):
     # A credit note reduces what a customer owes — the sales side.
     rbac_module = "sales_returns"
+    branch_field = "invoice__branch"
+    include_unassigned_branch_rows = False
     queryset = CreditNote.objects.select_related(
         "customer", "invoice", "company", "created_by"
     ).all()
@@ -264,6 +260,8 @@ class CreditNoteViewSet(AppendOnlyScopedViewSet):
 class DebitNoteViewSet(AppendOnlyScopedViewSet):
     # A debit note reduces what we owe a supplier — the purchasing side.
     rbac_module = "purchase_returns"
+    branch_field = "purchase_return__warehouse__branch"
+    include_unassigned_branch_rows = False
     queryset = DebitNote.objects.select_related(
         "supplier", "bill", "company", "created_by"
     ).all()

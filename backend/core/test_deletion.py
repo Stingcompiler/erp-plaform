@@ -17,7 +17,7 @@ from core.models import ActivityLog
 from finance.models import Budget, BudgetLine, Expense
 from hr.models import Deduction, Employee, SalaryAdvance
 from inventory.models import Product, StockMovement, Warehouse
-from org.models import Company
+from org.models import Branch, Company
 from sales.models import Customer
 
 
@@ -238,13 +238,15 @@ class TierCManagerOnlyTests(DeletionPolicyTestCase):
         """The manager gate must not lock the role that owns the work out of
         its own routine edits — an HR officer clearing a mistyped attendance
         line is not performing a supervisory act."""
+        branch = Branch.objects.create(company=self.company, name="Main")
         hr_role = Role.objects.create(name="HR Officer", scope_level=Role.SCOPE_BRANCH)
         hr_user = User.objects.create_user(
             email="hr@del.test", password="passw0rd12345",
-            company=self.company, role=hr_role,
+            company=self.company, branch=branch, role=hr_role,
         )
         emp = Employee.objects.create(
-            company=self.company, full_name="Sara", hire_date=date.today()
+            company=self.company, branch=branch,
+            full_name="Sara", hire_date=date.today()
         )
         from hr.models import Attendance
 

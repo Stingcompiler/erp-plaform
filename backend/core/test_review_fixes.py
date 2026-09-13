@@ -168,12 +168,13 @@ class CatalogueOwnershipTests(APITestCase):
 
     def setUp(self):
         self.company = Company.objects.create(name="Alpha")
+        self.branch = Branch.objects.create(company=self.company, name="Main")
         self.role = Role.objects.create(
             name="Inventory Officer", scope_level=Role.SCOPE_BRANCH
         )
         self.user = User.objects.create_user(
             email="io@alpha.test", password="passw0rd12345",
-            company=self.company, role=self.role,
+            company=self.company, branch=self.branch, role=self.role,
         )
         self.product = Product.objects.create(
             company=self.company, sku="P1", name="Widget"
@@ -231,17 +232,21 @@ class CatalogueOwnershipTests(APITestCase):
 class InvoiceExportTests(APITestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Alpha")
+        self.branch = Branch.objects.create(company=self.company, name="Main")
         self.role = Role.objects.create(
             name="Sales Officer", scope_level=Role.SCOPE_BRANCH
         )
         self.user = User.objects.create_user(
             email="so@alpha.test", password="passw0rd12345",
-            company=self.company, role=self.role,
+            company=self.company, branch=self.branch, role=self.role,
         )
-        wh = Warehouse.objects.create(company=self.company, name="W")
+        wh = Warehouse.objects.create(
+            company=self.company, branch=self.branch, name="W"
+        )
         cust = Customer.objects.create(company=self.company, name="Nile Retail")
         Invoice.objects.create(
-            company=self.company, customer=cust, warehouse=wh, number=1,
+            company=self.company, customer=cust, branch=self.branch,
+            warehouse=wh, number=1,
             subtotal=Decimal("100"), total=Decimal("100"),
         )
         self.client.force_authenticate(self.user)
@@ -262,18 +267,19 @@ class InvoiceExportTests(APITestCase):
 class CrmTests(APITestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Alpha")
+        self.branch = Branch.objects.create(company=self.company, name="Main")
         self.role = Role.objects.create(
             name="CRM Officer", scope_level=Role.SCOPE_BRANCH
         )
         self.user = User.objects.create_user(
             email="crm@alpha.test", password="passw0rd12345",
-            company=self.company, role=self.role,
+            company=self.company, branch=self.branch, role=self.role,
         )
         self.client.force_authenticate(self.user)
 
     def _lead(self, stage=Lead.STAGE_NEW, name="Acme", value="1000"):
         return Lead.objects.create(
-            company=self.company, name=name, stage=stage,
+            company=self.company, branch=self.branch, name=name, stage=stage,
             phone="+2491", email="a@acme.test",
             estimated_value=Decimal(value),
         )

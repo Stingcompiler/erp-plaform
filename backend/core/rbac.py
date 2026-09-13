@@ -8,11 +8,11 @@ checks it against ROLE_MODULE_MATRIX. Adding it to DEFAULT_PERMISSION_CLASSES
 makes every DRF endpoint from M1–M5 role-gated at once.
 
 Access levels: "write" (implies read), "read", "none".
-Platform admins (Super Administrators) bypass entirely — they already bypass
-company scoping. Roles not named in the matrix fall back to a sensible default
-by scope level, so an ad-hoc role can't accidentally lock a user out.
+Platform identities use their dedicated platform endpoints and never inherit
+tenant business permissions. Unknown and missing roles fail closed.
 """
 
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 WRITE = "write"
@@ -65,21 +65,11 @@ def _all(level):
 ROLE_MODULE_MATRIX = {
     "Super Administrator": _all(WRITE),
     "Business Owner": _all(WRITE),
-    "General Manager": {
-        **_all(READ),
-        "inventory": WRITE,
-        "sales": WRITE,
-        "purchasing": WRITE,
-        "sales_returns": WRITE,
-        "purchase_returns": WRITE,
-        "crm": WRITE,
-        "website": WRITE,
-        "reports": WRITE,
-        "hr": WRITE,
-        "finance": WRITE,
-    },
+    "General Manager": _all(WRITE),
     "Branch Manager": {
         **_all(NONE),
+        "users": WRITE,
+        "org": WRITE,
         "inventory": WRITE,
         "sales": WRITE,
         "purchasing": WRITE,
@@ -87,6 +77,7 @@ ROLE_MODULE_MATRIX = {
         "purchase_returns": WRITE,
         "crm": WRITE,
         "hr": READ,
+        "reports": READ,
     },
     "Inventory Officer": {
         **_all(NONE),
@@ -150,35 +141,15 @@ ROLE_MODULE_MATRIX = {
     },
 }
 
-# Fallback for roles not explicitly listed above, by scope level.
-_BRANCH_FALLBACK_WRITE = {
-    "inventory",
-    "sales",
-    "purchasing",
-    "sales_returns",
-    "purchase_returns",
-    "crm",
-}
-
-
 def _fallback_level(role, module):
-    scope = getattr(role, "scope_level", None)
-    if scope == "platform":
-        return WRITE
-    if scope == "business":
-        return WRITE  # business-wide roles get broad write
-    if scope == "branch":
-        if module in _BRANCH_FALLBACK_WRITE:
-            return WRITE
-        if module in ("reports", "users"):
-            return READ
-        return NONE
+    # Scope limits a granted permission. It must never create authority for an
+    # unknown role.
     return NONE
 
 
 def level_for(role, module):
     if role is None:
-        return READ  # a user with no role gets read-only
+        return NONE
     entry = ROLE_MODULE_MATRIX.get(role.name)
     if entry is not None:
         return entry.get(module, NONE)
@@ -187,7 +158,7 @@ def level_for(role, module):
 
 def role_can(user, module, write):
     if getattr(user, "is_platform_admin", False):
-        return True
+        return False
     level = level_for(getattr(user, "role", None), module)
     if level == WRITE:
         return True
@@ -199,8 +170,30 @@ def role_can(user, module, write):
 def access_map(user):
     """The {module: level} map for a user — used to build the UI's navigation."""
     if getattr(user, "is_platform_admin", False):
-        return _all(WRITE)
+        return _all(NONE)
     return {m: level_for(getattr(user, "role", None), m) for m in MODULES}
+
+
+def tenant_scope_error(user):
+    """Return a stable access error for an invalid tenant identity."""
+    if getattr(user, "is_platform_admin", False):
+        return None
+    if getattr(user, "company_id", None) is None:
+        return "company_assignment_required"
+    role = getattr(user, "role", None)
+    if role is None:
+        return "role_assignment_required"
+    if role.scope_level == "platform":
+        return "invalid_platform_assignment"
+    if role.scope_level == "branch":
+        branch = getattr(user, "branch", None)
+        if (
+            branch is None
+            or branch.company_id != user.company_id
+            or not branch.is_active
+        ):
+            return "branch_assignment_required"
+    return None
 
 
 REPORT_AREAS = {"sales", "inventory", "purchasing", "finance", "hr"}
@@ -210,6 +203,7 @@ FULL_REPORT_ROLES = {
     "Super Administrator",
 }
 ROLE_REPORT_AREAS = {
+    "Branch Manager": {"sales", "inventory", "hr"},
     "Sales Officer": {"sales"},
     "CRM Officer": {"sales"},
     "Inventory Officer": {"inventory"},
@@ -223,7 +217,7 @@ ROLE_REPORT_AREAS = {
 def report_areas_for(user):
     """Report families visible to a role; report endpoints enforce the same map."""
     if getattr(user, "is_platform_admin", False):
-        return sorted(REPORT_AREAS)
+        return []
     role = getattr(user, "role", None)
     if role and role.name in FULL_REPORT_ROLES:
         return sorted(REPORT_AREAS)
@@ -244,7 +238,7 @@ APPROVER_ROLES = {
 def can_approve_high_value(user):
     """True when this user may approve payments above the company threshold."""
     if getattr(user, "is_platform_admin", False):
-        return True
+        return False
     role = getattr(user, "role", None)
     return bool(role and role.name in APPROVER_ROLES)
 
@@ -260,7 +254,7 @@ DELETE_ROLES = APPROVER_ROLES | {"Branch Manager"}
 def can_delete(user):
     """True when this user's role may hard-delete a record."""
     if getattr(user, "is_platform_admin", False):
-        return True
+        return False
     role = getattr(user, "role", None)
     return bool(role and role.name in DELETE_ROLES)
 
@@ -280,7 +274,7 @@ AUDIT_VIEWER_ROLES = {
 
 def can_view_audit_log(user):
     if getattr(user, "is_platform_admin", False):
-        return True
+        return False
     role = getattr(user, "role", None)
     if role and role.name in AUDIT_VIEWER_ROLES:
         return True
@@ -296,6 +290,11 @@ class RoleModuleAccess(BasePermission):
         user = request.user
         if not (user and user.is_authenticated):
             return False
+        scope_error = tenant_scope_error(user)
+        if scope_error:
+            raise PermissionDenied(
+                {"code": scope_error, "detail": "Your account scope is incomplete."}
+            )
         # Explicit permission lists replace DRF's defaults. Keep the commercial
         # gate active wherever this shared role gate is used.
         from core.permissions import EntitlementAccess

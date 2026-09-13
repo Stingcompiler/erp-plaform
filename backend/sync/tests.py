@@ -8,7 +8,7 @@ from rest_framework.test import APITestCase
 
 from accounts.models import Role, User
 from inventory.models import Product, StockMovement, Warehouse
-from org.models import Company
+from org.models import Branch, Company
 from sales.models import Invoice
 from sync.models import SyncBatch
 
@@ -16,6 +16,7 @@ from sync.models import SyncBatch
 class SyncBase(APITestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Alpha")
+        self.branch = Branch.objects.create(company=self.company, name="Main")
         self.owner_role = Role.objects.create(
             name="Business Owner", scope_level=Role.SCOPE_BUSINESS
         )
@@ -25,7 +26,9 @@ class SyncBase(APITestCase):
             company=self.company,
             role=self.owner_role,
         )
-        self.wh = Warehouse.objects.create(company=self.company, name="Main")
+        self.wh = Warehouse.objects.create(
+            company=self.company, branch=self.branch, name="Main"
+        )
         self.product = Product.objects.create(
             company=self.company,
             sku="SKU1",
@@ -161,6 +164,7 @@ class SyncRBACTests(SyncBase):
             email="inv@alpha.test",
             password="passw0rd123",
             company=self.company,
+            branch=self.branch,
             role=inv_role,
         )
         c = self.client_class()

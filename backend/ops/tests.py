@@ -9,7 +9,7 @@ from rest_framework.test import APITestCase
 from accounts.models import Role, User
 from inventory.models import Product, Warehouse
 from ops.models import BackupRecord, UserPreference
-from org.models import Company
+from org.models import Branch, Company
 
 
 class OpsBase(APITestCase):
@@ -78,10 +78,11 @@ class BackupRestoreTests(OpsBase):
 
     def test_backup_requires_settings_module(self):
         # A Sales Officer (no settings access) cannot back up.
+        branch = Branch.objects.create(company=self.company, name="Main")
         sales = Role.objects.create(name="Sales Officer", scope_level=Role.SCOPE_BRANCH)
         User.objects.create_user(
             email="sales@alpha.test", password="passw0rd123",
-            company=self.company, role=sales,
+            company=self.company, branch=branch, role=sales,
         )
         c = self.client_class()
         c.post(reverse("auth-login"), {"email": "sales@alpha.test", "password": "passw0rd123"})
@@ -124,7 +125,7 @@ class SecurityHardeningTests(OpsBase):
     def test_api_rejects_weak_password(self):
         resp = self.client.post(
             reverse("user-list"),
-            {"email": "new@alpha.test", "password": "short"},
+            {"email": "new@alpha.test", "password": "short", "role": self.owner.id},
             format="json",
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
@@ -132,7 +133,11 @@ class SecurityHardeningTests(OpsBase):
     def test_api_accepts_strong_password(self):
         resp = self.client.post(
             reverse("user-list"),
-            {"email": "new@alpha.test", "password": "Str0ngPass!99"},
+            {
+                "email": "new@alpha.test",
+                "password": "Str0ngPass!99",
+                "role": self.owner.id,
+            },
             format="json",
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content)

@@ -6,23 +6,28 @@ from rest_framework.test import APITestCase
 
 from accounts.models import Role, User
 from hr.models import Employee, LeaveRequest, Position
-from org.models import Company
+from org.models import Branch, Company
 
 
 class HrBase(APITestCase):
     def setUp(self):
         self.company_a = Company.objects.create(name="Alpha")
         self.company_b = Company.objects.create(name="Beta")
+        self.branch_a = Branch.objects.create(company=self.company_a, name="Main")
+        self.branch_b = Branch.objects.create(company=self.company_b, name="Main")
         self.role = Role.objects.create(name="HR Officer", scope_level=Role.SCOPE_BRANCH)
         self.user_a = User.objects.create_user(
             email="a@alpha.test", password="passw0rd123",
-            company=self.company_a, role=self.role,
+            company=self.company_a, branch=self.branch_a, role=self.role,
         )
         self.pos_a = Position.objects.create(company=self.company_a, title="Cashier")
         self.emp_a = Employee.objects.create(
-            company=self.company_a, full_name="Amina Ali", position=self.pos_a
+            company=self.company_a, branch=self.branch_a,
+            full_name="Amina Ali", position=self.pos_a
         )
-        self.emp_b = Employee.objects.create(company=self.company_b, full_name="Beta Person")
+        self.emp_b = Employee.objects.create(
+            company=self.company_b, branch=self.branch_b, full_name="Beta Person"
+        )
         self.client.force_authenticate(self.user_a)
 
 

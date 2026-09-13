@@ -69,6 +69,10 @@ export function AuthProvider({ children }) {
   );
 
   const canWrite = useCallback((module) => access[module] === "write", [access]);
+  const can = useCallback(
+    (capability) => Boolean(user?.capabilities?.[capability]),
+    [user]
+  );
 
   const value = {
     user,
@@ -78,6 +82,7 @@ export function AuthProvider({ children }) {
     logout,
     canRead,
     canWrite,
+    can,
     // Re-reads identity and permissions without a page reload — used after a
     // change that reshapes the app itself, such as picking a business type.
     refresh: loadSession,

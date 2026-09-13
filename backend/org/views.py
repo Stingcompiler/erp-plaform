@@ -237,6 +237,29 @@ class BranchViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
 
     activity_entity_type = "Branch"
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        role = getattr(self.request.user, "role", None)
+        if role and role.name == "Branch Manager":
+            return qs.filter(pk=self.request.user.branch_id)
+        return qs
+
+    def create(self, request, *args, **kwargs):
+        if getattr(getattr(request.user, "role", None), "name", None) == "Branch Manager":
+            return Response(
+                {"detail": "A Branch Manager cannot create another branch."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().create(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if getattr(getattr(request.user, "role", None), "name", None) == "Branch Manager":
+            return Response(
+                {"detail": "A Branch Manager cannot archive a branch."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
+
 
 class DepartmentViewSet(CompanyScopedModelViewSet):
     queryset = Department.objects.select_related("company", "branch").all()

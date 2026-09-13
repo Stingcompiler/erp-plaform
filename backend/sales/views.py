@@ -254,6 +254,7 @@ class CashShiftViewSet(AppendOnlyScopedViewSet):
 
     rbac_module = "sales"
     branch_field = "branch"
+    include_unassigned_branch_rows = False
     queryset = (
         CashShift.objects.select_related("opened_by", "closed_by", "reviewed_by")
         .prefetch_related("drawer_movements", "payments")
@@ -419,6 +420,8 @@ class CashDrawerMovementViewSet(AppendOnlyScopedViewSet):
     """Non-sale cash in and out of an open drawer. Append-only (Rule #9)."""
 
     rbac_module = "sales"
+    branch_field = "shift__branch"
+    include_unassigned_branch_rows = False
     queryset = CashDrawerMovement.objects.select_related("shift", "recorded_by").all()
     serializer_class = CashDrawerMovementSerializer
     activity_entity_type = "CashDrawerMovement"
@@ -433,6 +436,7 @@ class CashDrawerMovementViewSet(AppendOnlyScopedViewSet):
 
 class QuotationViewSet(AppendOnlyScopedViewSet):
     branch_field = "branch"
+    include_unassigned_branch_rows = False
     queryset = Quotation.objects.prefetch_related("lines").all()
     serializer_class = QuotationSerializer
     activity_entity_type = "Quotation"
@@ -502,6 +506,7 @@ class QuotationViewSet(AppendOnlyScopedViewSet):
 
 class SalesOrderViewSet(AppendOnlyScopedViewSet):
     branch_field = "branch"
+    include_unassigned_branch_rows = False
     queryset = SalesOrder.objects.prefetch_related("lines").all()
     serializer_class = SalesOrderSerializer
     activity_entity_type = "SalesOrder"
@@ -519,6 +524,7 @@ class InvoiceViewSet(
     """
 
     branch_field = "branch"
+    include_unassigned_branch_rows = False
 
     # `lines__return_lines` feeds InvoiceLine.returned_quantity() from the
     # prefetch cache — without it each line would issue its own COUNT.
@@ -591,6 +597,8 @@ class InvoiceViewSet(
 
 
 class PaymentViewSet(AppendOnlyScopedViewSet):
+    branch_field = "invoice__branch"
+    include_unassigned_branch_rows = False
     queryset = Payment.objects.select_related(
         "invoice__customer",
         "company",

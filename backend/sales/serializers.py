@@ -3,6 +3,8 @@ from decimal import Decimal
 from django.db import transaction
 from rest_framework import serializers
 
+from core.scoping import assert_user_branch
+
 from inventory.models import Product, StockMovement, Warehouse
 from sales.models import (
     CashDrawerMovement,
@@ -38,12 +40,21 @@ def _assert_tenant_relations(serializer, attrs, fields):
     if user is None or getattr(user, "is_platform_admin", False):
         return
     company_id = getattr(user, "company_id", None)
+    role = getattr(user, "role", None)
     for name in fields:
         obj = attrs.get(name)
         if obj is not None and obj.company_id != company_id:
             raise serializers.ValidationError(
                 {name: "Not your company's record."}
             )
+        if obj is not None and role and role.scope_level == "branch":
+            object_branch_id = (
+                obj.pk if name == "branch" else getattr(obj, "branch_id", None)
+            )
+            if object_branch_id is not None and object_branch_id != user.branch_id:
+                raise serializers.ValidationError(
+                    {name: "This record is outside your assigned branch."}
+                )
 
 
 class CustomerSerializer(serializers.ModelSerializer):
@@ -304,6 +315,7 @@ class PaymentSerializer(serializers.ModelSerializer):
         invoice = attrs.get("invoice")
         if invoice is not None and invoice.company_id != company_id:
             raise serializers.ValidationError({"invoice": "Not your company's invoice."})
+        assert_user_branch(user, invoice, "invoice")
         ba = attrs.get("company_bank_account")
         if ba is not None and ba.company_id != company_id:
             raise serializers.ValidationError(
@@ -379,6 +391,7 @@ class CashDrawerMovementSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         {"shift": "Not your company's shift."}
                     )
+                assert_user_branch(user, shift, "shift")
             if shift.status != CashShift.OPEN:
                 raise serializers.ValidationError(
                     {"shift": "That shift is closed — cash cannot move in or out of it."}
@@ -502,6 +515,7 @@ class POSCheckoutSerializer(serializers.Serializer):
         self._assert_company(validated_data.get("customer"), company_id, "customer")
         warehouse = validated_data["warehouse"]
         self._assert_company(warehouse, company_id, "warehouse")
+        assert_user_branch(user, warehouse, "warehouse")
         branch_id = validated_data.get("branch")
         role = getattr(user, "role", None)
         user_branch_id = getattr(user, "branch_id", None)

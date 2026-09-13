@@ -6,7 +6,7 @@ from rest_framework.test import APITestCase
 
 from accounts.models import Role, User
 from inventory.models import Warehouse
-from org.models import Company, TaxProfile
+from org.models import Branch, Company, TaxProfile
 from sales.models import Invoice, InvoiceLine
 from tax.handlers import get_handler
 
@@ -98,9 +98,10 @@ class PluggableRenderingTests(TaxBase):
 class TaxRBACAndScopingTests(TaxBase):
     def test_profile_edit_requires_settings_module(self):
         sales = Role.objects.create(name="Sales Officer", scope_level=Role.SCOPE_BRANCH)
+        branch = Branch.objects.create(company=self.company, name="Sales branch")
         User.objects.create_user(
             email="sales@alpha.test", password="passw0rd123",
-            company=self.company, role=sales,
+            company=self.company, role=sales, branch=branch,
         )
         c = self.client_class()
         c.post(reverse("auth-login"), {"email": "sales@alpha.test", "password": "passw0rd123"})

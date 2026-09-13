@@ -65,6 +65,7 @@ class UnitViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
 
 class WarehouseViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     branch_field = "branch"
+    include_unassigned_branch_rows = False
     queryset = Warehouse.objects.select_related("branch").all()
     serializer_class = WarehouseSerializer
     activity_entity_type = "Warehouse"
@@ -250,6 +251,8 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
 
 
 class StockMovementViewSet(AppendOnlyScopedViewSet):
+    branch_field = "warehouse__branch"
+    include_unassigned_branch_rows = False
     queryset = StockMovement.objects.select_related("product", "warehouse", "batch").all()
     serializer_class = StockMovementSerializer
     activity_entity_type = "StockMovement"
@@ -266,12 +269,16 @@ class StockMovementViewSet(AppendOnlyScopedViewSet):
 
 
 class StockAdjustmentViewSet(AppendOnlyScopedViewSet):
+    branch_field = "warehouse__branch"
+    include_unassigned_branch_rows = False
     queryset = StockAdjustment.objects.select_related("product", "warehouse", "movement").all()
     serializer_class = StockAdjustmentSerializer
     activity_entity_type = "StockAdjustment"
 
 
 class StockTransferViewSet(AppendOnlyScopedViewSet):
+    branch_field = "source_warehouse__branch"
+    include_unassigned_branch_rows = False
     queryset = StockTransfer.objects.select_related(
         "product", "source_warehouse", "dest_warehouse"
     ).all()

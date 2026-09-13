@@ -4,19 +4,21 @@ from rest_framework.test import APITestCase
 
 from accounts.models import Role, User
 from crm.models import CustomerGroup, FollowUp, Lead, Note
-from org.models import Company
+from org.models import Branch, Company
 
 
 class CrmBase(APITestCase):
     def setUp(self):
         self.company_a = Company.objects.create(name="Alpha")
         self.company_b = Company.objects.create(name="Beta")
+        self.branch_a = Branch.objects.create(company=self.company_a, name="Main")
+        self.branch_b = Branch.objects.create(company=self.company_b, name="Main")
         self.role = Role.objects.create(
             name="CRM Officer", scope_level=Role.SCOPE_BRANCH
         )
         self.user_a = User.objects.create_user(
             email="a@alpha.test", password="passw0rd123",
-            company=self.company_a, role=self.role,
+            company=self.company_a, branch=self.branch_a, role=self.role,
         )
         self.group_a = CustomerGroup.objects.create(
             company=self.company_a, name="Wholesale"
@@ -50,7 +52,9 @@ class LeadTests(CrmBase):
 
     def test_list_is_company_scoped(self):
         self.make_lead()
-        Lead.objects.create(company=self.company_b, name="Beta Lead")
+        Lead.objects.create(
+            company=self.company_b, branch=self.branch_b, name="Beta Lead"
+        )
         resp = self.client.get(reverse("lead-list"))
         self.assertEqual(resp.status_code, 200)
         names = [row["name"] for row in resp.data["results"]]
@@ -77,7 +81,9 @@ class LeadTests(CrmBase):
 class FollowUpNoteTests(CrmBase):
     def setUp(self):
         super().setUp()
-        self.lead = Lead.objects.create(company=self.company_a, name="Lead One")
+        self.lead = Lead.objects.create(
+            company=self.company_a, branch=self.branch_a, name="Lead One"
+        )
 
     def test_followup_marks_done_stamps_time(self):
         resp = self.client.post(
@@ -104,7 +110,9 @@ class FollowUpNoteTests(CrmBase):
 
     def test_notes_filtered_by_lead(self):
         Note.objects.create(company=self.company_a, lead=self.lead, body="A")
-        other = Lead.objects.create(company=self.company_a, name="Lead Two")
+        other = Lead.objects.create(
+            company=self.company_a, branch=self.branch_a, name="Lead Two"
+        )
         Note.objects.create(company=self.company_a, lead=other, body="B")
         resp = self.client.get(reverse("crmnote-list"), {"lead": self.lead.id})
         bodies = [row["body"] for row in resp.data["results"]]

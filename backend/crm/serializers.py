@@ -28,13 +28,22 @@ class _CompanyScopedFKMixin:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         request = self.context.get("request")
-        company_id = getattr(getattr(request, "user", None), "company_id", None)
+        user = getattr(request, "user", None)
+        company_id = getattr(user, "company_id", None)
         if company_id is None:
             return
         for name in self.scoped_fk_fields:
             field = self.fields.get(name)
             if field is not None and getattr(field, "queryset", None) is not None:
                 field.queryset = field.queryset.filter(company_id=company_id)
+                role = getattr(user, "role", None)
+                if role and role.scope_level == "branch":
+                    if name == "branch":
+                        field.queryset = field.queryset.filter(pk=user.branch_id)
+                    elif hasattr(field.queryset.model, "branch_id"):
+                        field.queryset = field.queryset.filter(
+                            branch_id=user.branch_id
+                        )
 
 
 class CustomerGroupSerializer(serializers.ModelSerializer):
@@ -87,6 +96,11 @@ class LeadSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
         field = self.fields.get("assigned_to")
         if company_id is not None and field is not None:
             field.queryset = field.queryset.filter(company_id=company_id)
+            role = getattr(getattr(request, "user", None), "role", None)
+            if role and role.scope_level == "branch":
+                field.queryset = field.queryset.filter(
+                    branch_id=request.user.branch_id
+                )
 
     def create(self, validated_data):
         request = self.context.get("request")

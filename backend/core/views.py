@@ -20,9 +20,8 @@ class ActivityLogViewSet(
     mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet
 ):
     """
-    Read-only audit trail (System Logs). Restricted to administrators
-    (IsAuditViewer): platform admins see every company's activity; a company
-    owner sees only their own company's. Append-only source (ActivityLog),
+    Read-only audit trail (System Logs). Restricted to company oversight roles;
+    platform staff do not receive tenant activity through this endpoint.
     exposed with filters by user, action, entity type, date range, and free text.
     """
 
@@ -37,9 +36,7 @@ class ActivityLogViewSet(
     def get_queryset(self):
         qs = super().get_queryset()
         user = self.request.user
-        # Platform admins see all companies; everyone else is confined to theirs.
-        if not getattr(user, "is_platform_admin", False):
-            qs = qs.filter(company_id=getattr(user, "company_id", None))
+        qs = qs.filter(company_id=getattr(user, "company_id", None))
 
         p = self.request.query_params
         if p.get("user"):
@@ -130,9 +127,9 @@ def rbac_access(request):
 def _dashboard_branch(user):
     """
     The branch a branch-scoped user is confined to, or None when no branch
-    narrowing applies (business/platform roles, or a branch role with no branch
-    assigned). Mirrors CompanyScopedQuerySetMixin._branch_scope so the dashboard
-    aggregates match exactly what the user can see on the module pages.
+    narrowing applies. A branch role with no branch is rejected before it can
+    reach this endpoint; retaining no fallback here keeps aggregates fail-closed
+    if that invariant is ever bypassed.
     """
     role = getattr(user, "role", None)
     if not (role and getattr(role, "scope_level", None) == "branch"):
@@ -141,10 +138,10 @@ def _dashboard_branch(user):
 
 
 def _scope_branch(qs, branch_id, field="branch"):
-    """Own-branch rows plus unassigned ones — same rule the viewsets apply."""
+    """Restrict a branch-scoped aggregate to its assigned branch exactly."""
     if branch_id is None:
         return qs
-    return qs.filter(Q(**{f"{field}_id": branch_id}) | Q(**{f"{field}__isnull": True}))
+    return qs.filter(**{f"{field}_id": branch_id})
 
 
 @api_view(["GET"])
@@ -205,10 +202,13 @@ def dashboard(request):
 
     if role_can(user, "purchasing", write=False):
         from purchasing.models import Bill, Supplier
-        sections["purchasing"] = {
-            "supplier_count": Supplier.objects.filter(company_id=company_id).count(),
-            "bill_count": Bill.objects.filter(company_id=company_id).count(),
-        }
+        # Bills and suppliers have no branch key yet. Do not expose company
+        # totals to a branch user while their storage model remains shared.
+        if branch_id is None:
+            sections["purchasing"] = {
+                "supplier_count": Supplier.objects.filter(company_id=company_id).count(),
+                "bill_count": Bill.objects.filter(company_id=company_id).count(),
+            }
 
     # Quarantined lines are customer returns awaiting disposition, so this tile
     # belongs to whoever holds the sales-returns module — not purchasing.
@@ -235,13 +235,18 @@ def dashboard(request):
 
     if role_can(user, "hr", write=False):
         from hr.models import Employee, LeaveRequest
+        employees = _scope_branch(
+            Employee.objects.filter(company_id=company_id), branch_id
+        )
+        leave_requests = _scope_branch(
+            LeaveRequest.objects.filter(company_id=company_id), branch_id,
+            field="employee__branch",
+        )
         sections["hr"] = {
-            "employee_count": Employee.objects.filter(company_id=company_id)
+            "employee_count": employees
             .exclude(status=Employee.STATUS_TERMINATED)
             .count(),
-            "pending_leave_count": LeaveRequest.objects.filter(
-                company_id=company_id, status=LeaveRequest.PENDING
-            ).count(),
+            "pending_leave_count": leave_requests.filter(status=LeaveRequest.PENDING).count(),
         }
 
     # Salary advances remain HR requests, but the financial decision belongs

@@ -17,6 +17,10 @@ export default function UserForm({ open, onClose, onSaved, user, roles, branches
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const editing = Boolean(user);
+  const selectedRole = roles.find(
+    (role) => String(role.id) === String(form.role)
+  );
+  const branchRequired = selectedRole?.scope_level === "branch";
 
   useEffect(() => {
     if (user) {
@@ -37,7 +41,7 @@ export default function UserForm({ open, onClose, onSaved, user, roles, branches
   // Explains the selected role in one line, so picking one doesn't require
   // knowing the permission matrix by heart.
   const selectedRoleHint = roleHint(
-    roles.find((r) => String(r.id) === String(form.role))?.name,
+    selectedRole?.name,
     t,
   );
 
@@ -99,6 +103,8 @@ export default function UserForm({ open, onClose, onSaved, user, roles, branches
             disabled={
               saving ||
               !form.email ||
+              !form.role ||
+              (branchRequired && !form.branch) ||
               (!editing && form.password.length < 10) ||
               (editing && form.password.length > 0 && form.password.length < 10)
             }
@@ -117,7 +123,7 @@ export default function UserForm({ open, onClose, onSaved, user, roles, branches
         </Field>
         <Field label={t("users.role")} hint={selectedRoleHint}>
           <Select value={form.role} onChange={set("role")}>
-            <option value="">{t("users.roleNone")}</option>
+            <option value="" disabled>{t("users.roleNone")}</option>
             {groupRoles(roles).map((group) => (
               <optgroup key={group.key} label={t(`users.roleFamilies.${group.key}`)}>
                 {group.roles.map((r) => (

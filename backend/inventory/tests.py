@@ -7,22 +7,28 @@ from rest_framework.test import APITestCase
 
 from accounts.models import Role, User
 from inventory.models import Product, StockMovement, Warehouse
-from org.models import Company
+from org.models import Branch, Company
 
 
 class InventoryBase(APITestCase):
     def setUp(self):
         self.company_a = Company.objects.create(name="Alpha")
         self.company_b = Company.objects.create(name="Beta")
+        self.branch_a = Branch.objects.create(company=self.company_a, name="Main")
+        self.branch_b = Branch.objects.create(company=self.company_b, name="Main")
         self.role = Role.objects.create(
             name="Inventory Officer", scope_level=Role.SCOPE_BRANCH
         )
         self.user_a = User.objects.create_user(
             email="a@alpha.test", password="passw0rd123",
-            company=self.company_a, role=self.role,
+            company=self.company_a, branch=self.branch_a, role=self.role,
         )
-        self.wh_a1 = Warehouse.objects.create(company=self.company_a, name="A-WH1")
-        self.wh_a2 = Warehouse.objects.create(company=self.company_a, name="A-WH2")
+        self.wh_a1 = Warehouse.objects.create(
+            company=self.company_a, branch=self.branch_a, name="A-WH1"
+        )
+        self.wh_a2 = Warehouse.objects.create(
+            company=self.company_a, branch=self.branch_a, name="A-WH2"
+        )
         self.product_a = Product.objects.create(
             company=self.company_a, sku="SKU1", name="Widget", reorder_level=Decimal("5"),
         )
@@ -30,7 +36,9 @@ class InventoryBase(APITestCase):
         self.product_b = Product.objects.create(
             company=self.company_b, sku="SKU1", name="Other Widget",
         )
-        self.wh_b1 = Warehouse.objects.create(company=self.company_b, name="B-WH1")
+        self.wh_b1 = Warehouse.objects.create(
+            company=self.company_b, branch=self.branch_b, name="B-WH1"
+        )
 
         resp = self.client.post(
             reverse("auth-login"), {"email": "a@alpha.test", "password": "passw0rd123"}
@@ -197,12 +205,13 @@ class BarcodeTests(APITestCase):
     def setUp(self):
         self.company = Company.objects.create(name="BarCo")
         self.other = Company.objects.create(name="OtherCo")
+        self.branch = Branch.objects.create(company=self.company, name="Main")
         self.role = Role.objects.create(
             name="Inventory Officer", scope_level=Role.SCOPE_BRANCH
         )
         self.user = User.objects.create_user(
             email="bc@barco.test", password="passw0rd12345",
-            company=self.company, role=self.role,
+            company=self.company, branch=self.branch, role=self.role,
         )
         self.client.force_authenticate(self.user)
         self.product = Product.objects.create(

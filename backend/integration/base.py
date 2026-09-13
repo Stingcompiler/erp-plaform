@@ -15,7 +15,7 @@ from rest_framework.test import APIClient, APITestCase
 
 from accounts.models import Role, User
 from inventory.models import Product, Warehouse
-from org.models import Company
+from org.models import Branch, Company
 from purchasing.models import Supplier
 
 
@@ -26,14 +26,19 @@ class IntegrationBase(APITestCase):
         profile = company.tax_profile
         profile.flat_tax_rate = Decimal(tax_rate)
         profile.save()
+        Branch.objects.create(company=company, name="Main")
         return company
 
     def make_role(self, name, scope):
         return Role.objects.get_or_create(name=name, defaults={"scope_level": scope})[0]
 
     def make_user(self, company, role, email, password="passw0rd123"):
+        branch = None
+        if role.scope_level == Role.SCOPE_BRANCH:
+            branch = company.branches.filter(is_active=True).first()
         return User.objects.create_user(
-            email=email, password=password, company=company, role=role
+            email=email, password=password, company=company,
+            branch=branch, role=role
         )
 
     def client_for(self, email, password="passw0rd123"):
@@ -49,7 +54,11 @@ class IntegrationBase(APITestCase):
         return self.client_for(email)
 
     def warehouse(self, company, name="Main"):
-        return Warehouse.objects.create(company=company, name=name)
+        return Warehouse.objects.create(
+            company=company,
+            branch=company.branches.filter(is_active=True).first(),
+            name=name,
+        )
 
     def product(self, company, sku="SKU1", cost="6", price="10", reorder="0"):
         return Product.objects.create(

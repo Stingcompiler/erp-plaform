@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase
 
 from accounts.models import Role, User
 from inventory.models import Product, StockBatch, StockMovement, Warehouse
-from org.models import Company
+from org.models import Branch, Company
 from purchasing.models import Bill, GoodsReceipt, Supplier
 from sales.models import CompanyBankAccount
 
@@ -16,14 +16,17 @@ class PurchasingBase(APITestCase):
     def setUp(self):
         self.company_a = Company.objects.create(name="Alpha")
         self.company_b = Company.objects.create(name="Beta")
+        self.branch_a = Branch.objects.create(company=self.company_a, name="Main")
         self.role = Role.objects.create(
             name="Purchasing Officer", scope_level=Role.SCOPE_BRANCH
         )
         self.user_a = User.objects.create_user(
             email="a@alpha.test", password="passw0rd123",
-            company=self.company_a, role=self.role,
+            company=self.company_a, branch=self.branch_a, role=self.role,
         )
-        self.wh_a = Warehouse.objects.create(company=self.company_a, name="A-WH")
+        self.wh_a = Warehouse.objects.create(
+            company=self.company_a, branch=self.branch_a, name="A-WH"
+        )
         self.product = Product.objects.create(
             company=self.company_a, sku="SKU1", name="Widget",
             cost_price=Decimal("40.00"),

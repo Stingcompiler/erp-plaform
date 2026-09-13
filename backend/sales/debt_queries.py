@@ -27,7 +27,7 @@ def _branch_id(user):
 def _branch_filter(branch_id, prefix=""):
     if branch_id is None:
         return Q()
-    return Q(**{f"{prefix}branch_id": branch_id}) | Q(**{f"{prefix}branch__isnull": True})
+    return Q(**{f"{prefix}branch_id": branch_id})
 
 
 def _invoice_queryset(user):
@@ -52,8 +52,10 @@ def _standalone_credits(user):
         is_void=False,
         invoice__isnull=True,
     )
-    # A standalone note carries no branch. It is therefore shared, following
-    # the same visibility convention used by other unassigned financial rows.
+    # A standalone note carries no branch. It is an executive-only financial
+    # row until it can be assigned to a branch, so a branch user never sees it.
+    if _branch_id(user) is not None:
+        return qs.none()
     return qs.order_by("created_at", "pk")
 
 

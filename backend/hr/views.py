@@ -65,6 +65,7 @@ class EmployeeViewSet(CompanyScopedModelViewSet):
     serializer_class = EmployeeSerializer
     activity_entity_type = "Employee"
     branch_field = "branch"
+    include_unassigned_branch_rows = False
     # Marking a leaver terminated is the HR officer's own job, and it is
     # reversible — the record and its history stay.
     manager_only_delete = False
@@ -96,6 +97,8 @@ class EmployeeViewSet(CompanyScopedModelViewSet):
 
 
 class AttendanceViewSet(CompanyScopedModelViewSet):
+    branch_field = "employee__branch"
+    include_unassigned_branch_rows = False
     queryset = Attendance.objects.select_related("company", "employee").all()
     serializer_class = AttendanceSerializer
     activity_entity_type = "Attendance"
@@ -130,6 +133,8 @@ class AttendanceViewSet(CompanyScopedModelViewSet):
 
 
 class LeaveRequestViewSet(CompanyScopedModelViewSet):
+    branch_field = "employee__branch"
+    include_unassigned_branch_rows = False
     queryset = LeaveRequest.objects.select_related("company", "employee").all()
     serializer_class = LeaveRequestSerializer
     activity_entity_type = "LeaveRequest"
@@ -247,6 +252,7 @@ class LeaveAllowanceViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
     serializer_class = LeaveAllowanceSerializer
     activity_entity_type = "LeaveAllowance"
     branch_field = "employee__branch"
+    include_unassigned_branch_rows = False
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
@@ -319,6 +325,8 @@ class LeaveAccrualPolicyViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet)
 
 
 class SalaryAdvanceViewSet(CompanyScopedModelViewSet):
+    branch_field = "employee__branch"
+    include_unassigned_branch_rows = False
     queryset = SalaryAdvance.objects.select_related("company", "employee").all()
     serializer_class = SalaryAdvanceSerializer
     activity_entity_type = "SalaryAdvance"
@@ -519,6 +527,8 @@ class DeductionViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
         "A deduction cannot be deleted because it affects payroll. Record an "
         "offsetting entry if it was issued in error."
     )
+    branch_field = "employee__branch"
+    include_unassigned_branch_rows = False
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -529,6 +539,8 @@ class DeductionViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
 
 
 class PerformanceRecordViewSet(CompanyScopedModelViewSet):
+    branch_field = "employee__branch"
+    include_unassigned_branch_rows = False
     queryset = PerformanceRecord.objects.select_related(
         "company", "employee", "reviewer"
     ).all()
@@ -544,6 +556,8 @@ class PerformanceRecordViewSet(CompanyScopedModelViewSet):
 
 
 class EmployeeDocumentViewSet(CompanyScopedModelViewSet):
+    branch_field = "employee__branch"
+    include_unassigned_branch_rows = False
     queryset = EmployeeDocument.objects.select_related("company", "employee").all()
     serializer_class = EmployeeDocumentSerializer
     activity_entity_type = "EmployeeDocument"

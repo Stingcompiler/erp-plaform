@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase
 
 from accounts.models import Role, User
 from inventory.models import Product, StockMovement, Warehouse
-from org.models import Company
+from org.models import Branch, Company
 from sales.models import CompanyBankAccount, Customer, Invoice, Payment
 
 
@@ -15,14 +15,18 @@ class SalesBase(APITestCase):
     def setUp(self):
         self.company_a = Company.objects.create(name="Alpha")
         self.company_b = Company.objects.create(name="Beta")
+        self.branch_a = Branch.objects.create(company=self.company_a, name="Main")
+        self.branch_b = Branch.objects.create(company=self.company_b, name="Main")
         self.role = Role.objects.create(
             name="Sales Officer", scope_level=Role.SCOPE_BRANCH
         )
         self.user_a = User.objects.create_user(
             email="a@alpha.test", password="passw0rd123",
-            company=self.company_a, role=self.role,
+            company=self.company_a, branch=self.branch_a, role=self.role,
         )
-        self.wh_a = Warehouse.objects.create(company=self.company_a, name="A-WH")
+        self.wh_a = Warehouse.objects.create(
+            company=self.company_a, branch=self.branch_a, name="A-WH"
+        )
         self.product = Product.objects.create(
             company=self.company_a, sku="SKU1", name="Widget",
             sale_price=Decimal("100.00"),
@@ -83,9 +87,11 @@ class InvoiceNumberingTests(SalesBase):
         # Company B's first invoice should also be 1.
         User.objects.create_user(
             email="b@beta.test", password="passw0rd123",
-            company=self.company_b, role=self.role,
+            company=self.company_b, branch=self.branch_b, role=self.role,
         )
-        wh_b = Warehouse.objects.create(company=self.company_b, name="B-WH")
+        wh_b = Warehouse.objects.create(
+            company=self.company_b, branch=self.branch_b, name="B-WH"
+        )
         prod_b = Product.objects.create(
             company=self.company_b, sku="SKU1", name="W", sale_price=Decimal("50"),
         )
@@ -224,15 +230,19 @@ class CustomerRecordsTests(APITestCase):
         from django.utils import timezone
         from inventory.models import Warehouse
         self.company = Company.objects.create(name="RecCo")
+        self.branch = Branch.objects.create(company=self.company, name="Main")
         self.role = Role.objects.create(name="Sales Officer", scope_level=Role.SCOPE_BRANCH)
         self.user = User.objects.create_user(
             email="rec@sales.test", password="passw0rd12345",
-            company=self.company, role=self.role,
+            company=self.company, branch=self.branch, role=self.role,
         )
-        self.wh = Warehouse.objects.create(company=self.company, name="W1")
+        self.wh = Warehouse.objects.create(
+            company=self.company, branch=self.branch, name="W1"
+        )
         self.customer = Customer.objects.create(company=self.company, name="Acme Buyer")
         inv = Invoice.objects.create(
-            company=self.company, customer=self.customer, warehouse=self.wh,
+            company=self.company, customer=self.customer, branch=self.branch,
+            warehouse=self.wh,
             number=1, subtotal=Decimal("100"), tax_amount=Decimal("0"),
             total=Decimal("100"), issued_at=timezone.now(),
         )
@@ -283,7 +293,7 @@ class CustomerRecordsTests(APITestCase):
         hr = Role.objects.create(name="HR Officer", scope_level=Role.SCOPE_BRANCH)
         other = User.objects.create_user(
             email="hr@rec.test", password="passw0rd12345",
-            company=self.company, role=hr,
+            company=self.company, branch=self.branch, role=hr,
         )
         self.client.force_authenticate(other)
         self.assertEqual(self.client.get(self._url()).status_code, 403)

@@ -49,7 +49,7 @@ class HrControlTests(HrBase):
 
     def test_branch_manager_cannot_read_payroll(self):
         role = Role.objects.create(name='Branch Manager', scope_level=Role.SCOPE_BRANCH)
-        user = User.objects.create_user(email='branch@alpha.test', password='test', company=self.company_a, role=role)
+        user = User.objects.create_user(email='branch@alpha.test', password='test', company=self.company_a, branch=self.branch_a, role=role)
         self.client.force_authenticate(user)
         self.assertEqual(self.client.get(reverse('payrollrun-list')).status_code, 403)
 

@@ -132,6 +132,7 @@ class SupplierViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
 
 class PurchaseOrderViewSet(AppendOnlyScopedViewSet):
     branch_field = "branch"
+    include_unassigned_branch_rows = False
     queryset = PurchaseOrder.objects.prefetch_related("lines").all()
     serializer_class = PurchaseOrderSerializer
     activity_entity_type = "PurchaseOrder"
@@ -164,6 +165,8 @@ class GoodsReceiptViewSet(
     which posts the purchase_in movements atomically).
     """
 
+    branch_field = "warehouse__branch"
+    include_unassigned_branch_rows = False
     queryset = GoodsReceipt.objects.prefetch_related("lines__product").all()
     serializer_class = GoodsReceiptReadSerializer
 
@@ -172,12 +175,6 @@ class GoodsReceiptViewSet(
         supplier_id = self.request.query_params.get("supplier")
         if supplier_id:
             qs = qs.filter(supplier_id=supplier_id)
-        role = getattr(self.request.user, "role", None)
-        branch_id = getattr(self.request.user, "branch_id", None)
-        if role and role.scope_level == "branch" and branch_id:
-            qs = qs.filter(
-                Q(warehouse__branch_id=branch_id) | Q(warehouse__branch__isnull=True)
-            )
         return qs
 
 

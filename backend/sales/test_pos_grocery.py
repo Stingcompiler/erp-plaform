@@ -14,14 +14,17 @@ from rest_framework.test import APITestCase
 
 from accounts.models import Role, User
 from inventory.models import Product, StockMovement, Unit, Warehouse
-from org.models import Company
+from org.models import Branch, Company
 from sales.models import Invoice, InvoiceLine
 
 
 class GroceryTillTestCase(APITestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Shop")
-        self.warehouse = Warehouse.objects.create(company=self.company, name="Store")
+        self.branch = Branch.objects.create(company=self.company, name="Main")
+        self.warehouse = Warehouse.objects.create(
+            company=self.company, branch=self.branch, name="Store"
+        )
         self.kg = Unit.objects.create(company=self.company, name="kg", symbol="kg")
         self.tomatoes = Product.objects.create(
             company=self.company, sku="VEG1", name="Tomatoes",
@@ -36,7 +39,7 @@ class GroceryTillTestCase(APITestCase):
         )
         self.user = User.objects.create_user(
             email="till@shop.test", password="passw0rd12345",
-            company=self.company, role=self.role,
+            company=self.company, branch=self.branch, role=self.role,
         )
         self.client.force_authenticate(self.user)
 
@@ -147,7 +150,7 @@ class NonStockProductTests(GroceryTillTestCase):
         )
         stock_user = User.objects.create_user(
             email="stock@shop.test", password="passw0rd12345",
-            company=self.company, role=stock_role,
+            company=self.company, branch=self.branch, role=stock_role,
         )
         self.client.force_authenticate(stock_user)
         resp = self.client.post(

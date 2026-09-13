@@ -11,9 +11,22 @@ import { Badge, Button, Card, PageHeader } from "@/components/ui/kit";
 import UserForm from "@/components/users/UserForm";
 
 export default function UsersPage() {
-  const { canRead, canWrite } = useAuth();
+  const { user: currentUser, canRead, canWrite, can } = useAuth();
   const { t } = useI18n();
   const writable = canWrite("users");
+  const canEditUser = (target) => {
+    if (!writable || target.id === currentUser?.id) return false;
+    if (can("users.assign_owner")) return true;
+    if (can("users.manage_company")) {
+      return target.role_name !== "Business Owner";
+    }
+    if (can("users.manage_branch")) {
+      return !["Business Owner", "General Manager", "Branch Manager"].includes(
+        target.role_name
+      );
+    }
+    return false;
+  };
   const [rows, setRows] = useState([]);
   const [roles, setRoles] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -111,15 +124,17 @@ export default function UsersPage() {
                     </td>
                     {writable && (
                       <td className="px-4 py-3 text-end">
-                        <button
-                          onClick={() => {
-                            setEditing(u);
-                            setFormOpen(true);
-                          }}
-                          className="text-sm text-accent hover:underline"
-                        >
-                          {t("common.edit")}
-                        </button>
+                        {canEditUser(u) && (
+                          <button
+                            onClick={() => {
+                              setEditing(u);
+                              setFormOpen(true);
+                            }}
+                            className="text-sm text-accent hover:underline"
+                          >
+                            {t("common.edit")}
+                          </button>
+                        )}
                       </td>
                     )}
                   </tr>

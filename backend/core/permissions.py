@@ -6,6 +6,7 @@ from core.rbac import (
     can_view_audit_log,
     report_areas_for,
     role_can,
+    tenant_scope_error,
 )
 from core.entitlements import resolve_entitlements
 from config.deployment import get_deployment_config
@@ -35,8 +36,11 @@ class EntitlementAccess(BasePermission):
         user = request.user
         if not (user and user.is_authenticated):
             return False
+        scope_error = tenant_scope_error(user)
+        if scope_error:
+            raise PermissionDenied(scope_error)
         if getattr(user, "is_platform_admin", False):
-            return True
+            return False
         module = RoleModuleAccess()._module_for(view)
         decision = resolve_entitlements(getattr(user, "company", None))
         if not decision.allows_module(module):
@@ -110,7 +114,7 @@ class CanVerifyPayment(BasePermission):
         if not (user and user.is_authenticated):
             return False
         if getattr(user, "is_platform_admin", False):
-            return True
+            return False
         own_module = getattr(view, "approval_module", None)
         return role_can(user, "finance", write=True) or (
             bool(own_module) and role_can(user, own_module, write=True)
@@ -146,13 +150,12 @@ class IsPlatformAdminOrReadOnly(BasePermission):
     """
 
     def has_permission(self, request, view):
-        if request.method in SAFE_METHODS:
-            return bool(request.user and request.user.is_authenticated)
-        return bool(
-            request.user
-            and request.user.is_authenticated
-            and getattr(request.user, "is_platform_admin", False)
-        )
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        if getattr(user, "is_platform_admin", False):
+            return False
+        return request.method in SAFE_METHODS
 
 
 class IsPlatformAdmin(BasePermission):
@@ -183,4 +186,6 @@ class PayrollReportAccess(BasePermission):
     message = "Your role does not permit this payroll report."
 
     def has_permission(self, request, view):
+        if getattr(getattr(request.user, "role", None), "name", None) == "Branch Manager":
+            return False
         return bool({"hr", "finance"}.intersection(report_areas_for(request.user)))

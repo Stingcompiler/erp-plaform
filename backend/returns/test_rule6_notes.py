@@ -16,7 +16,7 @@ from rest_framework.test import APITestCase
 
 from accounts.models import Role, User
 from inventory.models import Product, StockMovement, Warehouse
-from org.models import Company
+from org.models import Branch, Company
 from purchasing.models import Bill, GoodsReceipt, GoodsReceiptLine, Supplier
 from returns.models import CreditNote, DebitNote, SalesReturn
 from sales.models import Customer, Invoice, InvoiceLine
@@ -25,20 +25,24 @@ from sales.models import Customer, Invoice, InvoiceLine
 class SalesReturnCreditNoteTests(APITestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Alpha")
+        self.branch = Branch.objects.create(company=self.company, name="Main")
         self.role = Role.objects.create(
             name="Sales Officer", scope_level=Role.SCOPE_BRANCH
         )
         self.user = User.objects.create_user(
             email="so@alpha.test", password="passw0rd12345",
-            company=self.company, role=self.role,
+            company=self.company, branch=self.branch, role=self.role,
         )
-        self.warehouse = Warehouse.objects.create(company=self.company, name="W")
+        self.warehouse = Warehouse.objects.create(
+            company=self.company, branch=self.branch, name="W"
+        )
         self.product = Product.objects.create(
             company=self.company, sku="P1", name="Widget"
         )
         self.customer = Customer.objects.create(company=self.company, name="Nile")
         self.invoice = Invoice.objects.create(
-            company=self.company, customer=self.customer, warehouse=self.warehouse,
+            company=self.company, customer=self.customer, branch=self.branch,
+            warehouse=self.warehouse,
             number=1, subtotal=Decimal("500"), total=Decimal("500"),
         )
         self.invoice_line = InvoiceLine.objects.create(
@@ -96,7 +100,8 @@ class SalesReturnCreditNoteTests(APITestCase):
     def test_walk_in_sale_produces_invoice_linked_credit_note(self):
         """A walk-in return still needs a formal note linked to its invoice."""
         walk_in = Invoice.objects.create(
-            company=self.company, customer=None, warehouse=self.warehouse,
+            company=self.company, customer=None, branch=self.branch,
+            warehouse=self.warehouse,
             number=2, subtotal=Decimal("100"), total=Decimal("100"),
         )
         line = InvoiceLine.objects.create(
@@ -131,14 +136,17 @@ class SalesReturnCreditNoteTests(APITestCase):
 class PurchaseReturnDebitNoteTests(APITestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Alpha")
+        self.branch = Branch.objects.create(company=self.company, name="Main")
         self.role = Role.objects.create(
             name="Purchasing Officer", scope_level=Role.SCOPE_BRANCH
         )
         self.user = User.objects.create_user(
             email="po@alpha.test", password="passw0rd12345",
-            company=self.company, role=self.role,
+            company=self.company, branch=self.branch, role=self.role,
         )
-        self.warehouse = Warehouse.objects.create(company=self.company, name="W")
+        self.warehouse = Warehouse.objects.create(
+            company=self.company, branch=self.branch, name="W"
+        )
         self.product = Product.objects.create(
             company=self.company, sku="P1", name="Widget"
         )

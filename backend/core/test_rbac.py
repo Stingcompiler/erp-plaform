@@ -7,6 +7,7 @@ from rest_framework.test import APITestCase
 from accounts.models import Role, User
 from inventory.models import Product, Warehouse
 from org.models import Company
+from org.models import Branch
 from purchasing.models import Supplier
 
 
@@ -14,6 +15,7 @@ class RBACBase(APITestCase):
     @classmethod
     def setUpTestData(cls):
         cls.company = Company.objects.create(name="Alpha")
+        cls.branch = Branch.objects.create(company=cls.company, name="Main")
         cls.roles = {}
         for name, scope in [
             ("Sales Officer", Role.SCOPE_BRANCH),
@@ -31,9 +33,11 @@ class RBACBase(APITestCase):
 
     def as_role(self, role_name, email=None):
         email = email or f"{role_name.replace(' ', '').lower()}@alpha.test"
+        role = self.roles[role_name]
         User.objects.create_user(
             email=email, password="passw0rd123",
-            company=self.company, role=self.roles[role_name],
+            company=self.company, role=role,
+            branch=self.branch if role.scope_level == Role.SCOPE_BRANCH else None,
         )
         client = self.client_class()
         r = client.post(

@@ -6,7 +6,7 @@ from rest_framework.test import APITestCase
 
 from accounts.models import Role, User
 from inventory.models import Product
-from org.models import Company
+from org.models import Branch, Company
 from website.models import FeaturedProduct, Section, Website
 
 
@@ -20,9 +20,10 @@ class WebsiteBase(APITestCase):
         self.sales_role = Role.objects.create(
             name="Sales Officer", scope_level=Role.SCOPE_BRANCH
         )
+        self.branch_a = Branch.objects.create(company=self.company_a, name="Alpha branch")
         self.manager = User.objects.create_user(
             email="lpm@alpha.test", password="passw0rd123",
-            company=self.company_a, role=self.lpm_role,
+            company=self.company_a, role=self.lpm_role, branch=self.branch_a,
         )
         self.product = Product.objects.create(
             company=self.company_a, sku="SKU1", name="Nice Widget",
@@ -53,7 +54,7 @@ class EditAccessTests(WebsiteBase):
     def test_non_website_role_cannot_edit(self):
         User.objects.create_user(
             email="sales@alpha.test", password="passw0rd123",
-            company=self.company_a, role=self.sales_role,
+            company=self.company_a, role=self.sales_role, branch=self.branch_a,
         )
         c = self.login("sales@alpha.test")
         self.assertEqual(

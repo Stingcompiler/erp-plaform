@@ -3,6 +3,8 @@ from decimal import Decimal
 from django.db import transaction
 from rest_framework import serializers
 
+from core.scoping import assert_user_branch
+
 from inventory.models import (
     Brand,
     Category,
@@ -170,6 +172,8 @@ class StockMovementSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {key: "Does not belong to your company."}
                 )
+            if key == "warehouse":
+                assert_user_branch(user, obj, key)
 
     def create(self, validated_data):
         request = self.context.get("request")

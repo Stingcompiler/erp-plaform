@@ -28,7 +28,9 @@ class CashShiftTestCase(APITestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Shop")
         self.branch = Branch.objects.create(company=self.company, name="Main")
-        self.warehouse = Warehouse.objects.create(company=self.company, name="Store")
+        self.warehouse = Warehouse.objects.create(
+            company=self.company, branch=self.branch, name="Store"
+        )
         self.product = Product.objects.create(
             company=self.company, sku="P1", name="Rice",
             sale_price=Decimal("100"),

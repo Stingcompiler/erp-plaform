@@ -4,12 +4,13 @@ from django.urls import reverse
 from rest_framework.test import APITestCase
 
 from accounts.models import Role, User
-from org.models import Company, StoreModeAccessException
+from org.models import Branch, Company, StoreModeAccessException
 
 
 class StoreModeAccessTests(APITestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Mode shop")
+        self.branch = Branch.objects.create(company=self.company, name="Main")
         self.owner_role = Role.objects.create(
             name="Business Owner", scope_level=Role.SCOPE_BUSINESS
         )
@@ -25,7 +26,7 @@ class StoreModeAccessTests(APITestCase):
         )
         self.sales = User.objects.create_user(
             email="sales@modes.test", password="passw0rd12345",
-            company=self.company, role=self.sales_role,
+            company=self.company, branch=self.branch, role=self.sales_role,
         )
         self.cfo = User.objects.create_user(
             email="cfo@modes.test", password="passw0rd12345",

@@ -5,6 +5,8 @@ from django.db import transaction
 from django.db.models import Sum
 from rest_framework import serializers
 
+from core.scoping import assert_user_branch
+
 from inventory.models import Product, StockMovement, Warehouse
 from purchasing.models import Bill, GoodsReceipt, GoodsReceiptLine, Supplier
 from returns.models import (
@@ -93,6 +95,7 @@ class SalesReturnWriteSerializer(serializers.Serializer):
         """
         invoice = attrs["invoice"]
         _assert_company(self, invoice, "invoice")
+        assert_user_branch(self.context["request"].user, invoice, "invoice")
         if invoice.is_void:
             raise serializers.ValidationError(
                 {"invoice": "A void invoice cannot be returned."}
@@ -277,6 +280,9 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
     def validate(self, attrs):
         supplier = attrs["supplier"]
         warehouse = attrs["warehouse"]
+        assert_user_branch(
+            self.context["request"].user, warehouse, "warehouse"
+        )
         receipt = attrs["goods_receipt"]
         for obj, label in (
             (supplier, "supplier"), (warehouse, "warehouse"),

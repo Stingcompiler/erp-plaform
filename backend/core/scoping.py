@@ -1,11 +1,22 @@
 from django.db import IntegrityError
 from django.db.models import Q
 from rest_framework import mixins, status, viewsets
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from core.activity import log_activity
 from core.deletion import ManagerOnlyDeleteMixin
+
+
+def assert_user_branch(user, obj, field_name):
+    """Reject a related object outside a branch-scoped user's branch."""
+    role = getattr(user, "role", None)
+    if not role or role.scope_level != "branch" or obj is None:
+        return
+    if getattr(obj, "branch_id", None) != getattr(user, "branch_id", None):
+        raise ValidationError(
+            {field_name: "This record is outside your assigned branch."}
+        )
 
 
 class CompanyScopedQuerySetMixin:
@@ -28,13 +39,11 @@ class CompanyScopedQuerySetMixin:
     # Set on subclasses if the FK to Company isn't literally named "company".
     company_field = "company"
 
-    # Opt-in row-level branch visibility (M6 follow-up). Set to the model's
-    # branch FK name (e.g. "branch") on viewsets whose model has a branch
-    # dimension. When set, a branch-scoped user WHO HAS A BRANCH assigned sees
-    # only rows for their branch (plus unassigned/null-branch rows), and their
-    # created rows are tagged with their branch. Users without a branch, and
-    # business/platform users, are unaffected — so this is purely additive.
+    # Opt-in row-level branch visibility. This may be a direct branch FK or a
+    # relation path such as ``employee__branch``. Direct fields are stamped on
+    # create; relation paths are validated by their serializers.
     branch_field = None
+    include_unassigned_branch_rows = True
 
     def _user_company_id(self):
         user = self.request.user
@@ -58,7 +67,7 @@ class CompanyScopedQuerySetMixin:
     def get_queryset(self):
         qs = super().get_queryset()
         if self.is_platform_user():
-            return qs
+            return qs.none()
         company_id = self._user_company_id()
         if company_id is None:
             # Authenticated but company-less non-platform user sees nothing.
@@ -66,38 +75,23 @@ class CompanyScopedQuerySetMixin:
         qs = qs.filter(**{f"{self.company_field}_id": company_id})
         branch_id = self._branch_scope()
         if branch_id is not None:
-            # Own-branch rows plus shared (unassigned) rows; other branches hidden.
-            qs = qs.filter(
-                Q(**{f"{self.branch_field}_id": branch_id})
-                | Q(**{f"{self.branch_field}__isnull": True})
-            )
+            own_branch = Q(**{f"{self.branch_field}_id": branch_id})
+            if self.include_unassigned_branch_rows:
+                qs = qs.filter(
+                    own_branch | Q(**{f"{self.branch_field}__isnull": True})
+                )
+            else:
+                qs = qs.filter(own_branch)
         return qs
 
     def perform_create(self, serializer):
         if self.is_platform_user():
-            # Platform admins are not company-scoped, so `company` must come
-            # from somewhere: either a writable serializer field they supplied,
-            # or (for a platform admin who also belongs to a company) their own.
-            # If neither exists, fail cleanly with a 400 instead of letting the
-            # insert hit a NOT NULL constraint and surface as a 500. Company
-            # data entry is meant to happen as a company-scoped user; a bare
-            # platform admin (e.g. the bootstrap superuser) has no company.
-            company_provided = self.company_field in serializer.validated_data
-            user_company = self._user_company_id()
-            if not company_provided and user_company is None:
-                raise ValidationError(
-                    "This record must belong to a company. You're signed in as "
-                    "a platform administrator with no company — create it as a "
-                    "company user, or provision it via the Django admin."
-                )
-            if not company_provided and user_company is not None:
-                serializer.save(**{f"{self.company_field}_id": user_company})
-            else:
-                serializer.save()
-            return
+            raise PermissionDenied(
+                "Platform accounts cannot create tenant business records."
+            )
         kwargs = {self.company_field + "_id": self._user_company_id()}
         branch_id = self._branch_scope()
-        if branch_id is not None:
+        if branch_id is not None and "__" not in self.branch_field:
             kwargs[self.branch_field + "_id"] = branch_id
         serializer.save(**kwargs)
 

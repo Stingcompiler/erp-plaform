@@ -15,7 +15,9 @@ from sales.models import Invoice, InvoiceLine
 class ReturnsBase(APITestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Alpha")
-        self.role = Role.objects.create(name="GM", scope_level=Role.SCOPE_BUSINESS)
+        self.role = Role.objects.create(
+            name="General Manager", scope_level=Role.SCOPE_BUSINESS
+        )
         self.user = User.objects.create_user(
             email="a@alpha.test", password="passw0rd123",
             company=self.company, role=self.role,

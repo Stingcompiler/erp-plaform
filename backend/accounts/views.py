@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import transaction
 from rest_framework import status, viewsets
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -19,6 +20,7 @@ from accounts.serializers import (
 )
 from core.activity import log_activity
 from core.deletion import ArchiveOnDeleteMixin
+from core.rbac import RoleModuleAccess, tenant_scope_error
 from core.scoping import CompanyScopedModelViewSet
 from org.store_mode import is_store_mode_allowed
 from org.models import Company
@@ -35,6 +37,17 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
+        scope_error = tenant_scope_error(user)
+        if scope_error:
+            detail = {
+                "role_assignment_required": "Your account needs an assigned role.",
+                "branch_assignment_required": "Your branch assignment is missing or inactive.",
+                "company_assignment_required": "Your account needs an assigned company.",
+            }.get(scope_error, "Your account assignment is invalid.")
+            return Response(
+                {"code": scope_error, "detail": f"{detail} Contact a company owner."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         if not is_store_mode_allowed(user):
             owner = User.objects.filter(
                 company_id=user.company_id, role__name="Business Owner", is_active=True
@@ -131,6 +144,8 @@ class UserViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     queryset = User.objects.select_related("role", "company", "branch").all()
     serializer_class = UserSerializer
     activity_entity_type = "User"
+    branch_field = "branch"
+    include_unassigned_branch_rows = False
 
     @transaction.atomic
     def perform_create(self, serializer):
@@ -140,6 +155,28 @@ class UserViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         assert_capacity(company, "users")
         super().perform_create(serializer)
 
+    @transaction.atomic
+    def perform_update(self, serializer):
+        target = User.objects.select_for_update().get(pk=serializer.instance.pk)
+        role = serializer.validated_data.get("role", target.role)
+        is_active = serializer.validated_data.get("is_active", target.is_active)
+        removing_owner = (
+            target.role
+            and target.role.name == "Business Owner"
+            and (not is_active or role is None or role.name != "Business Owner")
+        )
+        if removing_owner:
+            active_owners = User.objects.select_for_update().filter(
+                company_id=target.company_id,
+                role__name="Business Owner",
+                is_active=True,
+            )
+            if active_owners.count() <= 1:
+                raise ValidationError(
+                    {"role": "The company must retain at least one active owner."}
+                )
+        super().perform_update(serializer)
+
     def destroy(self, request, *args, **kwargs):
         # Deactivating yourself would lock you out of the account that has the
         # rights to undo it — in a single-admin company that bricks the tenant.
@@ -148,6 +185,17 @@ class UserViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
                 {"detail": "You cannot deactivate your own account."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        target = self.get_object()
+        if target.role and target.role.name == "Business Owner":
+            if User.objects.filter(
+                company_id=target.company_id,
+                role__name="Business Owner",
+                is_active=True,
+            ).count() <= 1:
+                return Response(
+                    {"detail": "The company must retain at least one active owner."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         return super().destroy(request, *args, **kwargs)
 
 
@@ -159,16 +207,25 @@ class RoleViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = Role.objects.prefetch_related("permissions").all()
     serializer_class = RoleSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RoleModuleAccess]
+    rbac_module = "users"
 
     def get_queryset(self):
         qs = super().get_queryset()
         if not self.request.user.is_platform_admin:
             qs = qs.exclude(scope_level=Role.SCOPE_PLATFORM)
+        role_name = getattr(getattr(self.request.user, "role", None), "name", None)
+        if role_name == "General Manager":
+            qs = qs.exclude(name="Business Owner")
+        elif role_name == "Branch Manager":
+            qs = qs.filter(scope_level=Role.SCOPE_BRANCH).exclude(
+                name="Branch Manager"
+            )
         return qs
 
 
 class PermissionViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Permission.objects.all()
     serializer_class = PermissionSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RoleModuleAccess]
+    rbac_module = "users"

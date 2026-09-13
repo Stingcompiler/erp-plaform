@@ -6,7 +6,7 @@ from rest_framework.test import APITestCase
 
 from accounts.models import Role, User
 from inventory.models import Product, StockMovement, Warehouse
-from org.models import Company
+from org.models import Branch, Company
 from purchasing.models import Bill, Supplier
 from sales.models import Customer, Invoice, InvoiceLine
 
@@ -14,6 +14,7 @@ from sales.models import Customer, Invoice, InvoiceLine
 class ReportsBase(APITestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Alpha")
+        self.branch = Branch.objects.create(company=self.company, name="Main")
         self.owner = Role.objects.create(
             name="Business Owner", scope_level=Role.SCOPE_BUSINESS
         )
@@ -24,7 +25,9 @@ class ReportsBase(APITestCase):
             email="owner@alpha.test", password="passw0rd123",
             company=self.company, role=self.owner,
         )
-        self.wh = Warehouse.objects.create(company=self.company, name="Main")
+        self.wh = Warehouse.objects.create(
+            company=self.company, branch=self.branch, name="Main"
+        )
         self.product = Product.objects.create(
             company=self.company, sku="SKU1", name="Widget",
             cost_price=Decimal("6.00"), sale_price=Decimal("10.00"),
@@ -38,6 +41,7 @@ class ReportsBase(APITestCase):
         self.customer = Customer.objects.create(company=self.company, name="C1")
         self.invoice = Invoice.objects.create(
             company=self.company, customer=self.customer, warehouse=self.wh,
+            branch=self.branch,
             number=1, subtotal=Decimal("50"), total=Decimal("50"),
         )
         InvoiceLine.objects.create(
@@ -121,10 +125,29 @@ class AgingTests(ReportsBase):
 
 
 class ReportsRBACTests(ReportsBase):
+    def test_branch_manager_sales_report_excludes_other_branches(self):
+        other_branch = Branch.objects.create(company=self.company, name="Other")
+        other_warehouse = Warehouse.objects.create(
+            company=self.company, branch=other_branch, name="Other warehouse"
+        )
+        Invoice.objects.create(
+            company=self.company,
+            branch=other_branch,
+            warehouse=other_warehouse,
+            number=2,
+            subtotal=Decimal("999"),
+            total=Decimal("999"),
+        )
+        response = self.client_for_role("Branch Manager").get(
+            reverse("report-sales-summary")
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(Decimal(response.data["totals"]["total"]), Decimal("50"))
+
     def test_landing_page_manager_denied_reports(self):
         lpm_user = User.objects.create_user(
             email="lpm@alpha.test", password="passw0rd123",
-            company=self.company, role=self.lpm,
+            company=self.company, branch=self.branch, role=self.lpm,
         )
         c = self.client_class()
         c.force_authenticate(lpm_user)
@@ -146,7 +169,8 @@ class ReportsRBACTests(ReportsBase):
         role = Role.objects.create(name=role_name, scope_level=Role.SCOPE_BRANCH)
         user = User.objects.create_user(
             email=f"{role_name.lower().replace(' ', '-')}@alpha.test",
-            password="passw0rd123", company=self.company, role=role,
+            password="passw0rd123", company=self.company,
+            branch=self.branch, role=role,
         )
         client = self.client_class()
         client.force_authenticate(user)
@@ -165,7 +189,9 @@ class ReportsRBACTests(ReportsBase):
     def test_hr_reads_only_hr_summary(self):
         from hr.models import Attendance, Employee, LeaveRequest
 
-        employee = Employee.objects.create(company=self.company, full_name="HR Person")
+        employee = Employee.objects.create(
+            company=self.company, branch=self.branch, full_name="HR Person"
+        )
         Attendance.objects.create(
             company=self.company, employee=employee, date="2026-09-11", status="present"
         )

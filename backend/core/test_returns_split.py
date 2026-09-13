@@ -16,7 +16,7 @@ from rest_framework.test import APITestCase
 from accounts.models import Role, User
 from core.rbac import APP_MODULE, MODULES, ROLE_MODULE_MATRIX, level_for
 from inventory.models import Product, Warehouse
-from org.models import Company
+from org.models import Branch, Company
 from purchasing.models import Bill, Supplier
 from returns.models import CreditNote, DebitNote, SalesReturn, SalesReturnLine
 from sales.models import Customer, Invoice
@@ -76,7 +76,10 @@ class ModuleWiringTests(APITestCase):
 class ReturnsAccessTests(APITestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Alpha")
-        self.warehouse = Warehouse.objects.create(company=self.company, name="W")
+        self.branch = Branch.objects.create(company=self.company, name="Main")
+        self.warehouse = Warehouse.objects.create(
+            company=self.company, branch=self.branch, name="W"
+        )
         self.product = Product.objects.create(
             company=self.company, sku="P1", name="Widget"
         )
@@ -84,6 +87,7 @@ class ReturnsAccessTests(APITestCase):
         self.supplier = Supplier.objects.create(company=self.company, name="S")
         self.invoice = Invoice.objects.create(
             company=self.company, customer=self.customer, warehouse=self.warehouse,
+            branch=self.branch,
             number=1, subtotal=Decimal("100"), total=Decimal("100"),
         )
         self.sales_return = SalesReturn.objects.create(
@@ -100,7 +104,8 @@ class ReturnsAccessTests(APITestCase):
         )
         return User.objects.create_user(
             email=f"{role_name.replace(' ', '').lower()}@alpha.test",
-            password="passw0rd12345", company=self.company, role=role,
+            password="passw0rd12345", company=self.company,
+            branch=self.branch, role=role,
         )
 
     def test_purchasing_officer_cannot_disposition_a_sales_return(self):

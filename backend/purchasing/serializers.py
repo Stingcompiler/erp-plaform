@@ -5,6 +5,8 @@ from django.db import transaction
 from django.db.models import Sum
 from rest_framework import serializers
 
+from core.scoping import assert_user_branch
+
 from inventory.models import Product, StockBatch, StockMovement, Warehouse
 from purchasing.models import (
     Bill,
@@ -203,6 +205,7 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
             (po, "purchase_order"),
         ]:
             _assert_same_company(self, obj, label)
+        assert_user_branch(user, warehouse, "warehouse")
         for ln in validated_data["lines"]:
             _assert_same_company(self, ln["product"], "product")
 

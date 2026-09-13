@@ -32,6 +32,7 @@ class LeadViewSet(CompanyScopedModelViewSet):
     serializer_class = LeadSerializer
     activity_entity_type = "Lead"
     branch_field = "branch"
+    include_unassigned_branch_rows = False
     # A lead is a prospect, not a financial record — the CRM officer who owns
     # the pipeline clears their own duplicates. Note that deleting one cascades
     # its notes and follow-ups, so the usual advice is to mark it Lost instead.
@@ -125,6 +126,8 @@ class LeadViewSet(CompanyScopedModelViewSet):
 
 
 class FollowUpViewSet(CompanyScopedModelViewSet):
+    branch_field = "lead__branch"
+    include_unassigned_branch_rows = False
     queryset = FollowUp.objects.select_related("company", "lead").all()
     serializer_class = FollowUpSerializer
     activity_entity_type = "FollowUp"
@@ -142,6 +145,8 @@ class FollowUpViewSet(CompanyScopedModelViewSet):
 
 
 class NoteViewSet(CompanyScopedModelViewSet):
+    branch_field = "lead__branch"
+    include_unassigned_branch_rows = False
     queryset = Note.objects.select_related("company", "lead", "created_by").all()
     serializer_class = NoteSerializer
     activity_entity_type = "Note"

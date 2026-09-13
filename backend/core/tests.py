@@ -9,8 +9,7 @@ from org.models import Company
 
 
 class PlatformAdminCreateGuardTests(APITestCase):
-    """A platform admin (superuser) with no company must not 500 when creating
-    a company-scoped record — it should fail cleanly with a 400."""
+    """Platform operators use dedicated APIs and cannot mutate tenant data."""
 
     def setUp(self):
         self.admin = User.objects.create_superuser(
@@ -18,13 +17,13 @@ class PlatformAdminCreateGuardTests(APITestCase):
         )
         self.client.force_authenticate(self.admin)
 
-    def test_company_less_platform_admin_gets_400_not_500(self):
+    def test_company_less_platform_admin_is_denied_tenant_create(self):
         resp = self.client.post(
             reverse("supplier-list"),
             {"name": "Acme", "phone": "", "email": "", "address": ""},
             format="json",
         )
-        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(resp.status_code, 403, resp.data)
 
     def test_company_user_can_create(self):
         company = Company.objects.create(name="Alpha")

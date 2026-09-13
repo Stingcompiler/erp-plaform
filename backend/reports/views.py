@@ -11,6 +11,7 @@ from decimal import Decimal
 from django.db.models import (
     Count,
     DecimalField,
+    Q,
     Sum,
 )
 from django.db.models.functions import Coalesce, TruncDate
@@ -33,6 +34,16 @@ class ReportView(APIView):
 
     def company_id(self, request):
         return getattr(request.user, "company_id", None)
+
+    def branch_id(self, request):
+        role = getattr(request.user, "role", None)
+        if role and role.scope_level == "branch":
+            return getattr(request.user, "branch_id", None)
+        return None
+
+    def apply_branch(self, request, qs, field):
+        branch_id = self.branch_id(request)
+        return qs.filter(**{f"{field}_id": branch_id}) if branch_id else qs
 
     def date_range(self, request):
         return date_range(request.query_params)
@@ -71,17 +82,22 @@ class HrSummaryReport(ReportView):
         leave = LeaveRequest.objects.filter(company_id=cid)
         advances = SalaryAdvance.objects.filter(company_id=cid)
         deductions = Deduction.objects.filter(company_id=cid)
+        employees = self.apply_branch(request, employees, "branch")
+        attendance = self.apply_branch(request, attendance, "employee__branch")
+        leave = self.apply_branch(request, leave, "employee__branch")
+        advances = self.apply_branch(request, advances, "employee__branch")
+        deductions = self.apply_branch(request, deductions, "employee__branch")
 
         if start:
             attendance = attendance.filter(date__gte=start)
             leave = leave.filter(end_date__gte=start)
             advances = advances.filter(created_at__date__gte=start)
-            deductions = deductions.filter(models.Q(date__gte=start) | models.Q(date__isnull=True, created_at__date__gte=start))
+            deductions = deductions.filter(Q(date__gte=start) | Q(date__isnull=True, created_at__date__gte=start))
         if end:
             attendance = attendance.filter(date__lte=end)
             leave = leave.filter(start_date__lte=end)
             advances = advances.filter(created_at__date__lte=end)
-            deductions = deductions.filter(models.Q(date__lte=end) | models.Q(date__isnull=True, created_at__date__lte=end))
+            deductions = deductions.filter(Q(date__lte=end) | Q(date__isnull=True, created_at__date__lte=end))
 
         def counts(queryset, field="status"):
             return {row[field]: row["count"] for row in queryset.values(field).annotate(count=Count("id"))}
@@ -171,6 +187,7 @@ class SalesSummaryReport(ReportView):
             Invoice.objects.filter(company_id=cid, is_void=False),
             "issued_at", start, end,
         )
+        qs = self.apply_branch(request, qs, "branch")
         totals = qs.aggregate(
             invoice_count=Count("id"),
             subtotal=Coalesce(Sum("subtotal"), ZERO, output_field=MONEY),
@@ -206,6 +223,7 @@ class SalesByProductReport(ReportView):
         qs = InvoiceLine.objects.filter(
             invoice__company_id=cid, invoice__is_void=False
         )
+        qs = self.apply_branch(request, qs, "invoice__branch")
         qs = self.apply_range(qs, "invoice__issued_at", start, end)
         rows = list(
             qs.values("product", "product__sku", "product__name")
@@ -241,7 +259,13 @@ class InventoryValuationReport(ReportView):
             method = "standard"
 
         if method == "standard":
-            products = Product.objects.filter(company_id=cid).annotate(
+            products = Product.objects.filter(company_id=cid)
+            branch_id = self.branch_id(request)
+            if branch_id:
+                products = products.filter(
+                    stock_movements__warehouse__branch_id=branch_id
+                )
+            products = products.annotate(
                 on_hand=Coalesce(Sum("stock_movements__quantity"), ZERO)
             )
             rows = []
@@ -255,6 +279,11 @@ class InventoryValuationReport(ReportView):
                     "cost_price": str(p.cost_price), "value": str(value),
                 })
         else:
+            if self.branch_id(request):
+                return Response(
+                    {"detail": "Branch valuation currently supports standard costing only."},
+                    status=400,
+                )
             totals = company_totals(cid, method=method)
             rows = []
             total_value = totals["valuation"]
@@ -299,6 +328,7 @@ class ARAgingReport(ReportView):
         invoices = Invoice.objects.filter(
             company_id=cid, is_void=False
         ).select_related("customer")
+        invoices = self.apply_branch(request, invoices, "branch")
         for inv in invoices:
             due = inv.amount_due()
             if due <= 0:
@@ -442,6 +472,7 @@ class ReceivablesDueReport(ReportView):
                 "amount_due": str(inv.amount_due()),
             }
             for inv in due_invoices(company_id=cid, horizon_days=horizon)
+            if not self.branch_id(request) or inv.branch_id == self.branch_id(request)
         ]
         rows.sort(key=lambda r: r["days_overdue"], reverse=True)
 
