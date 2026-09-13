@@ -1,7 +1,9 @@
+import uuid
+
 from django.db import models
 from django.utils import timezone
-from rest_framework import mixins, viewsets
-from rest_framework import status
+from rest_framework import mixins, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -11,14 +13,20 @@ from core.permissions import IsPlatformAdmin
 from core.rbac import RoleModuleAccess
 from core.scoping import CompanyScopedModelViewSet
 from org.models import Company
-from website.models import FeaturedProduct, PlatformLead, Section, Website
+from subscriptions.models import PlanVersion
+from website.models import FeaturedProduct, PlatformLead, RegistrationRequest, Section, Website
 from website.serializers import (
     FeaturedProductSerializer,
+    OwnerInvitationAcceptSerializer,
     PlatformLeadSerializer,
+    PlatformRegistrationRequestSerializer,
+    PublicPlanVersionSerializer,
     PublicSiteSerializer,
+    RegistrationRequestSerializer,
     SectionSerializer,
     WebsiteSerializer,
 )
+from website.services import accept_owner_invitation, provision_registration_request
 
 
 class PlatformLeadViewSet(
@@ -46,6 +54,190 @@ class PlatformLeadViewSet(
                 | models.Q(message__icontains=search)
             )
         return queryset
+
+
+class PublicPlanListView(APIView):
+    """Public commercial information; only explicitly published plans appear."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        plans = PlanVersion.objects.select_related("plan").filter(
+            plan__is_active=True, plan__is_public=True, published_at__isnull=False
+        ).order_by("plan__name", "-version")
+        latest = {}
+        for version in plans:
+            latest.setdefault(version.plan_id, version)
+        return Response(PublicPlanVersionSerializer(latest.values(), many=True).data)
+
+
+class PublicRegistrationRequestView(APIView):
+    """Accept a SaaS or standalone enquiry without exposing tenant accounts."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get_throttles(self):
+        from rest_framework.throttling import AnonRateThrottle
+
+        class RegistrationThrottle(AnonRateThrottle):
+            scope = "registration_request"
+            rate = "3/hour"
+
+        return [RegistrationThrottle()]
+
+    def post(self, request):
+        serializer = RegistrationRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        request_uuid = data.get("request_uuid") or uuid.uuid4()
+        data["request_uuid"] = request_uuid
+        registration, created = RegistrationRequest.objects.get_or_create(
+            request_uuid=request_uuid, defaults=data
+        )
+        return Response(
+            {"reference": str(registration.request_uuid), "status": registration.status},
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class PlatformRegistrationRequestViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Commercial inbox for tenant sign-up, deliberately separate from CRM."""
+
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    entitlement_exempt = True
+    serializer_class = PlatformRegistrationRequestSerializer
+    queryset = RegistrationRequest.objects.select_related(
+        "plan_version__plan", "company", "reviewed_by"
+    )
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        status_value = self.request.query_params.get("status")
+        if status_value:
+            queryset = queryset.filter(status=status_value)
+        return queryset
+
+    def perform_update(self, serializer):
+        registration = serializer.save()
+        log_activity(
+            action="update", request=self.request, entity_type="RegistrationRequest",
+            entity_id=registration.pk, metadata={"fields": sorted(serializer.validated_data)},
+        )
+
+    @action(detail=True, methods=["post"])
+    def review(self, request, pk=None):
+        registration = self.get_object()
+        target = request.data.get("status")
+        allowed = {
+            RegistrationRequest.UNDER_REVIEW,
+            RegistrationRequest.NEEDS_INFORMATION,
+            RegistrationRequest.REJECTED,
+        }
+        if target not in allowed or registration.status in {
+            RegistrationRequest.PROVISIONED,
+            RegistrationRequest.WITHDRAWN,
+            RegistrationRequest.REJECTED,
+        }:
+            return Response(
+                {"detail": "This status transition is not allowed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        registration.status = target
+        registration.internal_note = request.data.get(
+            "internal_note", registration.internal_note
+        )
+        registration.mark_reviewed(request.user)
+        registration.save(
+            update_fields=[
+                "status", "internal_note", "reviewed_by", "reviewed_at", "updated_at"
+            ]
+        )
+        log_activity(
+            action="update", request=request, entity_type="RegistrationRequest",
+            entity_id=registration.pk, metadata={"status": target},
+        )
+        return Response(self.get_serializer(registration).data)
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        registration = self.get_object()
+        if registration.status not in {
+            RegistrationRequest.SUBMITTED,
+            RegistrationRequest.UNDER_REVIEW,
+            RegistrationRequest.NEEDS_INFORMATION,
+        }:
+            return Response(
+                {"detail": "This request cannot be approved from its current state."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if (
+            registration.delivery_mode == RegistrationRequest.SAAS
+            and not registration.plan_version_id
+        ):
+            return Response(
+                {"detail": "Choose a published plan before approval."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        registration.status = RegistrationRequest.APPROVED
+        registration.internal_note = request.data.get(
+            "internal_note", registration.internal_note
+        )
+        registration.mark_reviewed(request.user)
+        registration.save(
+            update_fields=[
+                "status", "internal_note", "reviewed_by", "reviewed_at", "updated_at"
+            ]
+        )
+        log_activity(
+            action="approve", request=request, entity_type="RegistrationRequest",
+            entity_id=registration.pk,
+        )
+        return Response(self.get_serializer(registration).data)
+
+    @action(detail=True, methods=["post"])
+    def provision(self, request, pk=None):
+        try:
+            registration, invite_token = provision_registration_request(
+                pk, request.user, request
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        payload = self.get_serializer(registration).data
+        # Delivery is intentionally not implemented here. The platform operator
+        # receives the one-time token only in this privileged response.
+        if invite_token:
+            payload["owner_invitation_token"] = invite_token
+        return Response(
+            payload,
+            status=status.HTTP_201_CREATED if invite_token else status.HTTP_200_OK,
+        )
+
+
+class OwnerInvitationAcceptView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        serializer = OwnerInvitationAcceptSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            owner = accept_owner_invitation(
+                serializer.validated_data["token"],
+                serializer.validated_data["password"],
+                request,
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"email": owner.email, "company": owner.company_id, "status": "activated"}
+        )
 
 
 class WebsiteView(APIView):

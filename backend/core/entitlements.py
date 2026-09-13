@@ -90,7 +90,9 @@ def _saas_decision(company, now):
                 if subscription.grace_ends_at and now <= subscription.grace_ends_at
                 else subscription.READ_ONLY
             )
-        modules = frozenset(subscription.plan_version.modules or {"*"})
+        # An explicitly empty plan means it includes no business modules. Only
+        # the legacy plan carries an explicit wildcard entitlement.
+        modules = frozenset(subscription.plan_version.modules or [])
         allow_writes = state in {subscription.TRIALING, subscription.ACTIVE, subscription.GRACE}
         decision = EntitlementDecision(
             "saas",

@@ -1,6 +1,9 @@
 from rest_framework import serializers
 
-from website.models import FeaturedProduct, PlatformLead, Section, Website
+from subscriptions.models import PlanVersion
+from website.models import (
+    FeaturedProduct, PlatformLead, RegistrationRequest, Section, Website,
+)
 
 
 class WebsiteSerializer(serializers.ModelSerializer):
@@ -112,5 +115,102 @@ class DemoRequestSerializer(serializers.Serializer):
 class PlatformLeadSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlatformLead
-        fields = ["id", "request_uuid", "name", "email", "message", "status", "source", "created_at"]
-        read_only_fields = ["id", "request_uuid", "name", "email", "message", "source", "created_at"]
+        fields = [
+            "id", "request_uuid", "name", "email", "message", "status",
+            "source", "created_at",
+        ]
+        read_only_fields = [
+            "id", "request_uuid", "name", "email", "message", "source",
+            "created_at",
+        ]
+
+
+class PublicPlanVersionSerializer(serializers.ModelSerializer):
+    plan_code = serializers.CharField(source="plan.code", read_only=True)
+    plan_name = serializers.CharField(source="plan.name", read_only=True)
+
+    class Meta:
+        model = PlanVersion
+        fields = [
+            "id", "plan_code", "plan_name", "currency", "price",
+            "billing_cycle", "modules", "limits",
+        ]
+
+
+class RegistrationRequestSerializer(serializers.ModelSerializer):
+    request_uuid = serializers.UUIDField(required=False, validators=[])
+    estimated_users = serializers.IntegerField(required=False, min_value=1)
+    estimated_branches = serializers.IntegerField(required=False, min_value=1)
+
+    class Meta:
+        model = RegistrationRequest
+        fields = [
+            "request_uuid", "company_name", "contact_name", "email", "phone", "country",
+            "timezone_name", "estimated_users", "estimated_branches", "delivery_mode",
+            "plan_version", "message", "privacy_version", "status", "created_at",
+        ]
+        read_only_fields = ["status", "created_at"]
+
+    def validate_plan_version(self, value):
+        if value is None:
+            return value
+        if (
+            not value.plan.is_active
+            or not value.plan.is_public
+            or value.published_at is None
+        ):
+            raise serializers.ValidationError(
+                "This plan is not available for registration."
+            )
+        return value
+
+    def validate_country(self, value):
+        value = value.upper()
+        if len(value) != 2 or not value.isalpha():
+            raise serializers.ValidationError("Use a two-letter country code.")
+        return value
+
+    def validate(self, attrs):
+        if (
+            attrs.get("delivery_mode") == RegistrationRequest.SAAS
+            and not attrs.get("plan_version")
+        ):
+            raise serializers.ValidationError(
+                {"plan_version": "Choose a plan for a SaaS trial."}
+            )
+        return attrs
+
+
+class PlatformRegistrationRequestSerializer(serializers.ModelSerializer):
+    company_id = serializers.IntegerField(source="company.id", read_only=True)
+    plan_name = serializers.CharField(source="plan_version.plan.name", read_only=True)
+
+    class Meta:
+        model = RegistrationRequest
+        fields = [
+            "id", "request_uuid", "company_name", "contact_name", "email", "phone", "country",
+            "timezone_name", "estimated_users", "estimated_branches", "delivery_mode",
+            "plan_version", "plan_name", "message", "privacy_version", "status", "internal_note",
+            "reviewed_by", "reviewed_at", "company_id", "created_at", "updated_at",
+        ]
+        read_only_fields = [
+            "request_uuid", "company_name", "contact_name", "email", "phone", "country",
+            "timezone_name", "estimated_users", "estimated_branches",
+            "delivery_mode", "plan_version", "message", "privacy_version",
+            "status", "reviewed_by", "reviewed_at", "company_id",
+            "created_at", "updated_at",
+        ]
+
+
+class OwnerInvitationAcceptSerializer(serializers.Serializer):
+    token = serializers.CharField(max_length=256)
+    password = serializers.CharField(write_only=True, min_length=10)
+
+    def validate_password(self, value):
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        try:
+            validate_password(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(list(exc.messages))
+        return value

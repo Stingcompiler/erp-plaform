@@ -1,6 +1,8 @@
 import uuid
 
+from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class PlatformLead(models.Model):
@@ -35,6 +37,94 @@ class PlatformLead(models.Model):
 
     def __str__(self):
         return f"{self.name} <{self.email}>"
+
+
+class RegistrationRequest(models.Model):
+    """A prospective SaaS tenant, separate from a tenant's own CRM data."""
+
+    SAAS = "saas"
+    STANDALONE = "standalone"
+    DELIVERY_CHOICES = [(SAAS, "Hosted SaaS"), (STANDALONE, "Standalone")]
+
+    SUBMITTED = "submitted"
+    UNDER_REVIEW = "under_review"
+    NEEDS_INFORMATION = "needs_information"
+    APPROVED = "approved"
+    PROVISIONED = "provisioned"
+    REJECTED = "rejected"
+    WITHDRAWN = "withdrawn"
+    STATUS_CHOICES = [
+        (SUBMITTED, "Submitted"),
+        (UNDER_REVIEW, "Under review"),
+        (NEEDS_INFORMATION, "Needs information"),
+        (APPROVED, "Approved"),
+        (PROVISIONED, "Provisioned"),
+        (REJECTED, "Rejected"),
+        (WITHDRAWN, "Withdrawn"),
+    ]
+
+    request_uuid = models.UUIDField(default=uuid.uuid4, unique=True)
+    company_name = models.CharField(max_length=255)
+    contact_name = models.CharField(max_length=255)
+    email = models.EmailField(max_length=254)
+    phone = models.CharField(max_length=64)
+    country = models.CharField(max_length=2)
+    timezone_name = models.CharField(max_length=64, default="UTC")
+    estimated_users = models.PositiveIntegerField(null=True, blank=True)
+    estimated_branches = models.PositiveIntegerField(null=True, blank=True)
+    delivery_mode = models.CharField(max_length=16, choices=DELIVERY_CHOICES, default=SAAS)
+    plan_version = models.ForeignKey(
+        "subscriptions.PlanVersion", on_delete=models.PROTECT,
+        null=True, blank=True, related_name="registration_requests",
+    )
+    message = models.TextField(blank=True)
+    privacy_version = models.CharField(max_length=32)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=SUBMITTED)
+    internal_note = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="reviewed_registration_requests",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    company = models.OneToOneField(
+        "org.Company", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="registration_request",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.company_name} ({self.email})"
+
+    def mark_reviewed(self, user):
+        self.reviewed_by = user
+        self.reviewed_at = timezone.now()
+
+
+class OwnerInvitation(models.Model):
+    """One-time invitation for the owner created during tenant provisioning."""
+
+    token_hash = models.CharField(max_length=64, unique=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="owner_invitations"
+    )
+    registration_request = models.ForeignKey(
+        RegistrationRequest, on_delete=models.CASCADE, related_name="owner_invitations"
+    )
+    expires_at = models.DateTimeField()
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    @property
+    def is_usable(self):
+        return not self.accepted_at and not self.revoked_at and self.expires_at > timezone.now()
 
 
 class Website(models.Model):

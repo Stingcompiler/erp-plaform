@@ -169,6 +169,13 @@ class PlatformSubscriptionViewSet(viewsets.ModelViewSet):
             to_status=subscription.status,
             actor=self.request.user,
         )
+        log_activity(
+            action="create",
+            request=self.request,
+            company=subscription.company,
+            entity_type="Subscription",
+            entity_id=subscription.pk,
+        )
 
     @action(detail=True, methods=["post"])
     def configure(self, request, pk=None):
@@ -201,13 +208,6 @@ class PlatformSubscriptionViewSet(viewsets.ModelViewSet):
             metadata={"configuration_changed": sorted(serializer.validated_data)},
         )
         return Response(self.get_serializer(subscription).data)
-        log_activity(
-            action="create",
-            request=self.request,
-            company=subscription.company,
-            entity_type="Subscription",
-            entity_id=subscription.pk,
-        )
 
     @action(detail=True, methods=["post"])
     def transition(self, request, pk=None):

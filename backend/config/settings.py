@@ -140,6 +140,10 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
+# Commercial defaults are configuration, not hard-coded workflow rules. The
+# hosted registration service uses this only when it creates a new trial.
+VEZANO_TRIAL_DAYS = env.int("VEZANO_TRIAL_DAYS", default=14)
+
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STORAGES = {

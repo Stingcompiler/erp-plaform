@@ -4,7 +4,11 @@ from rest_framework.routers import DefaultRouter
 from website.views import (
     FeaturedProductViewSet,
     DemoRequestView,
+    OwnerInvitationAcceptView,
     PlatformLeadViewSet,
+    PlatformRegistrationRequestViewSet,
+    PublicPlanListView,
+    PublicRegistrationRequestView,
     PublicSiteView,
     SectionViewSet,
     WebsitePublishView,
@@ -17,9 +21,22 @@ router.register(
     "website/featured-products", FeaturedProductViewSet, basename="featuredproduct"
 )
 router.register("platform/leads", PlatformLeadViewSet, basename="platform-lead")
+router.register(
+    "platform/registration-requests", PlatformRegistrationRequestViewSet,
+    basename="platform-registration-request",
+)
 
 urlpatterns = [
     path("public/demo-requests/", DemoRequestView.as_view(), name="demo-request"),
+    path("public/plans/", PublicPlanListView.as_view(), name="public-plan-list"),
+    path(
+        "public/registration-requests/", PublicRegistrationRequestView.as_view(),
+        name="registration-request",
+    ),
+    path(
+        "public/owner-invitations/accept/", OwnerInvitationAcceptView.as_view(),
+        name="owner-invitation-accept",
+    ),
     path("website/page/", WebsiteView.as_view(), name="website-page"),
     path("website/page/publish/", WebsitePublishView.as_view(), name="website-publish"),
     # Public, unauthenticated read-only site by company slug.
