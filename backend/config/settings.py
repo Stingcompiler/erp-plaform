@@ -32,6 +32,14 @@ FORCE_HTTPS = env.bool("FORCE_HTTPS", default=not DEBUG)
 
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
+# The hosted SaaS has one canonical public hostname. Keep it in the effective
+# allow-list even while an existing Render service still carries an older
+# DJANGO_ALLOWED_HOSTS value; otherwise Django rejects the custom domain before
+# it can serve either the app or the admin panel with a 400 response.
+VEZANO_PUBLIC_HOST = "enterprise.vezano.app"
+if VEZANO_PUBLIC_HOST not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(VEZANO_PUBLIC_HOST)
+
 # Render sets RENDER_EXTERNAL_HOSTNAME on every deployed service.
 RENDER_EXTERNAL_HOSTNAME = env("RENDER_EXTERNAL_HOSTNAME", default=None)
 if RENDER_EXTERNAL_HOSTNAME:
