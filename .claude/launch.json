@@ -4,21 +4,32 @@
     {
       "name": "frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "cwd": "frontend",
       "port": 3000
     },
     {
       "name": "backend",
-      "runtimeExecutable": "venv/Scripts/python.exe",
-      "runtimeArgs": ["manage.py", "runserver", "8000"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "scripts/dev_server.js",
+        "8000"
+      ],
       "cwd": "backend",
       "port": 8000
     },
     {
       "name": "numberone-web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "../../mobileOne/numberOnePlatform/frontend"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "../../mobileOne/numberOnePlatform/frontend"
+      ],
       "port": 5173
     }
   ]
