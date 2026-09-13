@@ -36,8 +36,12 @@ export default function PlatformTeamPage() {
       ]);
       setRows(members.data);
       setRoles(roleList.data);
-    } catch {
-      setError(t("platformTeam.loadError"));
+    } catch (requestError) {
+      // Surface what the server said: a generic "could not load" hides
+      // whether this was a 403 (role), a 500 (server) or a network drop.
+      const status = requestError?.response?.status;
+      const detail = requestError?.response?.data?.detail;
+      setError([t("platformTeam.loadError"), status && `HTTP ${status}`, typeof detail === "string" && detail].filter(Boolean).join(" · "));
     } finally {
       setLoading(false);
     }
