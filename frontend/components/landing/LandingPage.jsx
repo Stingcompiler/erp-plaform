@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Boxes,
@@ -22,7 +22,7 @@ import {
 import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 
-import { demoRequests } from "@/lib/api";
+import { demoRequests, registration } from "@/lib/api";
 import { DEMO_URL } from "@/lib/demo";
 import VezanoMark from "@/components/brand/VezanoMark";
 
@@ -88,6 +88,7 @@ function Header() {
         <nav className="hidden items-center gap-6 text-sm text-muted md:flex">
           <a href="#features" className="hover:text-ink">{t("landing.navFeatures")}</a>
           <a href="#modules" className="hover:text-ink">{t("landing.navModules")}</a>
+          <a href="#pricing" className="hover:text-ink">{t("landing.navPricing")}</a>
           <a href="#contact" className="hover:text-ink">{t("landing.navContact")}</a>
         </nav>
         <div className="flex items-center gap-1">
@@ -132,7 +133,7 @@ function Hero() {
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a
-              href="#contact"
+              href="#trial"
               className="w-full rounded-control bg-accent px-6 py-3 text-center font-medium text-white hover:bg-accent-strong sm:w-auto"
             >
               {t("landing.heroCtaPrimary")}
@@ -163,6 +164,95 @@ function Hero() {
             <p className="mt-5 font-medium text-accent">{t("improvements.previewAction")}</p>
             <p className="mt-2 text-sm text-muted">{t("improvements.previewHint")}</p>
           </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PricingAndTrial() {
+  const { t } = useI18n();
+  const [plans, setPlans] = useState([]);
+  const [sent, setSent] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const requestId = useRef(null);
+
+  useEffect(() => {
+    registration.publicPlans().then((response) => setPlans(response.data)).catch(() => setPlans([]));
+  }, []);
+
+  async function onSubmit(event) {
+    event.preventDefault();
+    if (busy) return;
+    const form = new FormData(event.currentTarget);
+    requestId.current ||= crypto.randomUUID();
+    setBusy(true); setError("");
+    try {
+      const response = await registration.create({
+        request_uuid: requestId.current,
+        company_name: form.get("company_name"),
+        contact_name: form.get("contact_name"),
+        email: form.get("email"),
+        phone: form.get("phone"),
+        country: form.get("country").toUpperCase(),
+        timezone_name: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+        estimated_users: Number(form.get("estimated_users")) || undefined,
+        estimated_branches: Number(form.get("estimated_branches")) || undefined,
+        delivery_mode: "saas",
+        plan_version: Number(form.get("plan_version")),
+        message: form.get("message"),
+        privacy_version: "2026-09",
+      });
+      setSent(response.data.reference);
+    } catch {
+      setError(t("registration.publicError"));
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <section id="pricing" className="border-t border-line bg-surface">
+      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">{t("registration.title")}</h2>
+          <p className="mt-3 text-muted">{t("registration.subtitle")}</p>
+        </div>
+        <div className="mt-10 grid gap-5 md:grid-cols-3">
+          {plans.length ? plans.map((plan) => (
+            <article key={plan.id} className="rounded-card border border-line bg-paper p-6 shadow-card">
+              <h3 className="font-display text-lg font-semibold">{plan.plan_name}</h3>
+              <p className="mt-2 text-2xl font-bold text-accent">{plan.price} <span className="text-sm font-medium">{plan.currency}</span></p>
+              <p className="mt-1 text-sm text-muted">{t("registration.billing", { cycle: plan.billing_cycle })}</p>
+              <p className="mt-5 text-sm text-muted">{plan.modules.join(" · ")}</p>
+            </article>
+          )) : <p className="text-center text-muted md:col-span-3">{t("registration.quoteOnly")}</p>}
+        </div>
+        <div id="trial" className="mx-auto mt-10 max-w-3xl rounded-card border border-line bg-paper p-6 shadow-card sm:p-8">
+          <h3 className="font-display text-xl font-semibold">{t("registration.formTitle")}</h3>
+          <p className="mt-2 text-sm text-muted">{t("registration.formSubtitle")}</p>
+          {sent ? <p className="mt-6 rounded-control bg-ok/10 p-4 text-center font-medium text-ok">{t("registration.sent")}<span className="mt-1 block text-xs">{sent}</span></p> : (
+            <form onSubmit={onSubmit} className="mt-6 space-y-4">
+              {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <input required name="company_name" maxLength={255} placeholder={t("registration.companyName")} className="rounded-control border border-line bg-surface px-3 py-3 outline-none focus:border-accent" />
+                <input required name="contact_name" maxLength={255} placeholder={t("registration.contactName")} className="rounded-control border border-line bg-surface px-3 py-3 outline-none focus:border-accent" />
+                <input required type="email" name="email" maxLength={254} placeholder={t("registration.email")} className="rounded-control border border-line bg-surface px-3 py-3 outline-none focus:border-accent" />
+                <input required name="phone" maxLength={64} placeholder={t("registration.phone")} className="rounded-control border border-line bg-surface px-3 py-3 outline-none focus:border-accent" />
+                <input required name="country" minLength={2} maxLength={2} placeholder={t("registration.country")} className="rounded-control border border-line bg-surface px-3 py-3 uppercase outline-none focus:border-accent" />
+                <select required name="plan_version" defaultValue="" className="rounded-control border border-line bg-surface px-3 py-3 outline-none focus:border-accent">
+                  <option value="" disabled>{t("registration.plan")}</option>
+                  {plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.plan_name} · {plan.price} {plan.currency}</option>)}
+                </select>
+                <input type="number" min="1" name="estimated_users" placeholder={t("registration.estimatedUsers")} className="rounded-control border border-line bg-surface px-3 py-3 outline-none focus:border-accent" />
+                <input type="number" min="1" name="estimated_branches" placeholder={t("registration.estimatedBranches")} className="rounded-control border border-line bg-surface px-3 py-3 outline-none focus:border-accent" />
+              </div>
+              <textarea rows={3} name="message" maxLength={4000} placeholder={t("registration.message")} className="w-full rounded-control border border-line bg-surface px-3 py-3 outline-none focus:border-accent" />
+              <p className="text-xs text-muted">{t("registration.privacy")}</p>
+              <button type="submit" disabled={busy || plans.length === 0} className="w-full rounded-control bg-accent py-3 font-medium text-white hover:bg-accent-strong disabled:opacity-50">
+                {busy ? t("registration.sending") : t("registration.submit")}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </section>
@@ -352,6 +442,7 @@ export default function LandingPage() {
         <ValueProp />
         <Features />
         <Modules />
+        <PricingAndTrial />
         <ContactCTA />
       </main>
       <Footer />
