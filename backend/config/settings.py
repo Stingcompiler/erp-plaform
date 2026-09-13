@@ -148,9 +148,9 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STORAGES = {
     # Default backend for user-uploaded media (FileField). Filesystem-backed;
-    # swap for an S3/R2 backend in production for durability (Render's disk is
-    # ephemeral). Explicitly declared because a custom STORAGES dict otherwise
-    # drops Django's built-in "default" entry.
+    # the hosted service points MEDIA_ROOT at its Render persistent disk.
+    # Explicitly declared because a custom STORAGES dict otherwise drops
+    # Django's built-in "default" entry.
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
@@ -159,11 +159,10 @@ STORAGES = {
     },
 }
 
-# User-uploaded files (e.g. sick-leave medical reports). Stored on disk by
-# default; on Render's ephemeral filesystem these don't persist across deploys,
-# so wire a durable S3/R2 backend for production (mirrors the backup storage
-# approach). Sensitive uploads are never served via MEDIA_URL directly — they
-# go through company-scoped viewset actions that enforce tenancy.
+# User-uploaded files (e.g. sick-leave medical reports). The hosted SaaS sets
+# this to /var/data/media/, the mounted Render persistent disk. Sensitive
+# uploads are never served via MEDIA_URL directly — they go through
+# company-scoped viewset actions that enforce tenancy.
 #
 # MEDIA_ROOT is env-overridable because a standalone customer may keep media on
 # a separate mounted volume from the application code — and because the
@@ -224,7 +223,7 @@ SIMPLE_JWT = {
     "AUTH_COOKIE_DOMAIN": env("AUTH_COOKIE_DOMAIN", default=None),
     "AUTH_COOKIE_PATH": "/",
     # Secure cookies whenever actually served over HTTPS; SameSite=Lax works
-    # for the same-site frontend/api pairing on *.onrender.com.
+    # for the same-origin frontend/API pairing on enterprise.vezano.app.
     "AUTH_COOKIE_SECURE": FORCE_HTTPS,
     "AUTH_COOKIE_SAMESITE": env("AUTH_COOKIE_SAMESITE", default="Lax"),
 }

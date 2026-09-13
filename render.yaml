@@ -15,6 +15,8 @@ services:
     runtime: python
     plan: starter
     region: oregon
+    domains:
+      - enterprise.vezano.app
     rootDir: backend
     autoDeploy: true
     healthCheckPath: /api/health/
@@ -42,7 +44,12 @@ services:
       - key: DEBUG
         value: "False"
       - key: DJANGO_ALLOWED_HOSTS
-        value: ".onrender.com"
+        value: "enterprise.vezano.app,.onrender.com"
+      # The paid persistent disk is attached to erp-api at this path in Render.
+      # All FileField uploads (medical reports and subscription proofs) land
+      # beneath it and therefore survive deploys and restarts.
+      - key: MEDIA_ROOT
+        value: /var/data/media/
       - key: LOG_LEVEL
         value: INFO
       - key: AUTH_COOKIE_SAMESITE

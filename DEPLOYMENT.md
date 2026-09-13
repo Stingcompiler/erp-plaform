@@ -18,11 +18,26 @@ frontend service, so there's nothing to CORS-wire together in production.
 | `erp-cache` | keyvalue | — | managed Redis-compatible; Celery broker |
 | `erp-db` | database | — | managed PostgreSQL |
 
+The paid PostgreSQL database is injected into all three Python services as
+`DATABASE_URL`. The paid persistent disk is attached to `erp-api` at
+`/var/data/media/`, and `MEDIA_ROOT` points Django's protected uploads there.
+The disk is for uploaded media; PostgreSQL remains the source of truth for
+application records.
+
 ## First deploy
 
 1. Push this repo to GitHub.
 2. In Render: **New → Blueprint**, select the repo. Render reads `render.yaml`
    and provisions all five components.
+   - The web service declares `enterprise.vezano.app` as its custom domain.
+     Point that DNS name to the Render hostname shown for `erp-api`, then use
+     Render's **Verify** action so its managed TLS certificate is issued.
+   - Confirm the existing `erp-api` disk is mounted at exactly
+     `/var/data/media/`. Render disks are attached to one runtime service, so
+     it belongs on `erp-api`, which receives and serves the protected uploads.
+   - Confirm the purchased PostgreSQL resource is named `erp-db` in the
+     Blueprint. Render then injects its private `connectionString` into
+     `DATABASE_URL` for `erp-api`, `erp-worker`, and `erp-backup-cron`.
    - **Verify the `erp-cache` block** renders as a Key Value store in the plan
      preview. Render's schema for managed Redis/Key Value has changed over
      time; if the preview rejects `type: keyvalue`, consult current Render docs
@@ -60,11 +75,11 @@ site (M8).
 ## Smoke test
 
 ```bash
-curl https://erp-api.onrender.com/api/health/        # -> {"status":"ok",...}
+curl https://enterprise.vezano.app/api/health/        # -> {"status":"ok",...}
 # Log in, then hit an authenticated endpoint (cookies set by /api/auth/login/).
 ```
 
-Open `https://erp-api.onrender.com/` — same origin serves the frontend, which
+Open `https://enterprise.vezano.app/` — same origin serves the frontend, which
 pings `/api/health/` and shows whether the API is reachable.
 
 ## Environment variables
@@ -72,7 +87,7 @@ pings `/api/health/` and shows whether the API is reachable.
 `erp-api` (see `backend/.env.example` for the full list):
 `DJANGO_SECRET_KEY` (auto-generated), `DEBUG=False`, `DJANGO_ALLOWED_HOSTS`,
 `DATABASE_URL` (from erp-db), `CELERY_BROKER_URL` (from erp-cache),
-`AUTH_COOKIE_SAMESITE`, `LOG_LEVEL`. Python is pinned via `PYTHON_VERSION`;
+`AUTH_COOKIE_SAMESITE`, `MEDIA_ROOT=/var/data/media/`, `LOG_LEVEL`. Python is pinned via `PYTHON_VERSION`;
 Node (used only to build the frontend) via `NODE_VERSION`. `CORS_ALLOWED_ORIGINS`
 is no longer needed in production — the frontend is same-origin — but stays
 useful for local dev against `next dev` on `:3000`.
