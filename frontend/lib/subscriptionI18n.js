@@ -20,6 +20,9 @@ export const subscriptionEn = {
   proof: "Payment proof (optional)",
   configure: "Save access settings", endDate: "State end date", selectPlan: "Select plan",
   configurationSaved: "Subscription access settings were saved.",
+  pendingPayments: "Payments awaiting review", noPendingPayments: "No payments await review.",
+  invoice: "Invoice", allocationAmount: "Amount to allocate", verifyPayment: "Verify payment",
+  paymentVerified: "Payment was verified and allocated.", submittedBy: "Submitted by",
 };
 
 export const subscriptionAr = {
@@ -44,4 +47,7 @@ export const subscriptionAr = {
   proof: "إثبات الدفع (اختياري)",
   configure: "حفظ إعدادات الوصول", endDate: "تاريخ نهاية الحالة", selectPlan: "اختر الخطة",
   configurationSaved: "تم حفظ إعدادات وصول الاشتراك.",
+  pendingPayments: "مدفوعات بانتظار المراجعة", noPendingPayments: "لا توجد مدفوعات بانتظار المراجعة.",
+  invoice: "الفاتورة", allocationAmount: "المبلغ الموزع", verifyPayment: "اعتماد الدفعة",
+  paymentVerified: "تم اعتماد الدفعة وتوزيعها.", submittedBy: "سجلها",
 };

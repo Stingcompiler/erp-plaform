@@ -88,12 +88,19 @@ def verify_and_allocate_payment(payment_id, actor, allocations):
     if payment.status == SubscriptionPayment.VERIFIED:
         return payment
     requested = sum(item["amount"] for item in allocations)
-    if requested > payment.amount:
-        raise ValidationError("Allocations exceed the payment amount.")
+    if requested != payment.amount:
+        raise ValidationError("Allocations must equal the full payment amount.")
+    touched_invoices = []
     for item in allocations:
         invoice = SubscriptionInvoice.objects.select_for_update().get(
             pk=item["invoice_id"], company=payment.company
         )
+        if invoice.status != SubscriptionInvoice.ISSUED:
+            raise ValidationError(f"Invoice {invoice.number} is not open for payment.")
+        if invoice.currency != payment.currency:
+            raise ValidationError(
+                f"Invoice {invoice.number} uses a different currency."
+            )
         allocated = (
             invoice.allocations.filter(
                 payment__status=SubscriptionPayment.VERIFIED
@@ -107,8 +114,19 @@ def verify_and_allocate_payment(payment_id, actor, allocations):
         PaymentAllocation.objects.create(
             payment=payment, invoice=invoice, amount=item["amount"]
         )
+        touched_invoices.append(invoice)
     payment.status = SubscriptionPayment.VERIFIED
     payment.verified_by = actor
     payment.verified_at = timezone.now()
     payment.save(update_fields=["status", "verified_by", "verified_at"])
+    for invoice in touched_invoices:
+        allocated = (
+            invoice.allocations.filter(
+                payment__status=SubscriptionPayment.VERIFIED
+            ).aggregate(total=Sum("amount"))["total"]
+            or 0
+        )
+        if allocated == invoice.amount:
+            invoice.status = SubscriptionInvoice.PAID
+            invoice.save(update_fields=["status"])
     return payment

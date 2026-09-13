@@ -13,6 +13,7 @@ from subscriptions.models import (
     PlanVersion,
     Subscription,
     SubscriptionEvent,
+    SubscriptionInvoice,
     SubscriptionPayment,
 )
 
@@ -190,6 +191,75 @@ class SubscriptionAccessTests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_platform_verifies_full_payment_and_closes_invoice(self):
+        admin = User.objects.create_superuser(
+            email="payments@test.local", password="long-password"
+        )
+        now = timezone.now()
+        invoice = SubscriptionInvoice.objects.create(
+            company=self.company,
+            subscription=self.subscription,
+            number="SUB-100",
+            status=SubscriptionInvoice.ISSUED,
+            period_start=now.date(),
+            period_end=(now + timedelta(days=30)).date(),
+            currency="USD",
+            amount="50.00",
+            due_at=now + timedelta(days=7),
+            issued_at=now,
+        )
+        payment = SubscriptionPayment.objects.create(
+            company=self.company,
+            amount="50.00",
+            currency="USD",
+            method="cash",
+            recorded_by=self.owner,
+        )
+        self.client.force_authenticate(admin)
+        response = self.client.post(
+            reverse("platform-subscription-payment-verify", args=[payment.pk]),
+            {"allocations": [{"invoice_id": invoice.pk, "amount": "50.00"}]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        payment.refresh_from_db()
+        invoice.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionPayment.VERIFIED)
+        self.assertEqual(invoice.status, SubscriptionInvoice.PAID)
+
+    def test_platform_rejects_partially_allocated_payment(self):
+        admin = User.objects.create_superuser(
+            email="partial-payment@test.local", password="long-password"
+        )
+        now = timezone.now()
+        invoice = SubscriptionInvoice.objects.create(
+            company=self.company,
+            subscription=self.subscription,
+            number="SUB-101",
+            status=SubscriptionInvoice.ISSUED,
+            period_start=now.date(),
+            period_end=(now + timedelta(days=30)).date(),
+            currency="USD",
+            amount="50.00",
+            due_at=now + timedelta(days=7),
+        )
+        payment = SubscriptionPayment.objects.create(
+            company=self.company,
+            amount="50.00",
+            currency="USD",
+            method="cash",
+            recorded_by=self.owner,
+        )
+        self.client.force_authenticate(admin)
+        response = self.client.post(
+            reverse("platform-subscription-payment-verify", args=[payment.pk]),
+            {"allocations": [{"invoice_id": invoice.pk, "amount": "40.00"}]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionPayment.PENDING)
 
     def test_published_plan_version_is_immutable(self):
         self.version.price = 999

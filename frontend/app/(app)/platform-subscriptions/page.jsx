@@ -35,7 +35,10 @@ export default function PlatformSubscriptionsPage() {
   const { t } = useI18n();
   const [rows, setRows] = useState([]);
   const [plans, setPlans] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [invoices, setInvoices] = useState([]);
   const [drafts, setDrafts] = useState({});
+  const [paymentDrafts, setPaymentDrafts] = useState({});
   const [saving, setSaving] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -48,11 +51,19 @@ export default function PlatformSubscriptionsPage() {
   const load = useCallback(async () => {
     setError("");
     try {
-      const [subscriptionsResponse, plansResponse] = await Promise.all([api.list(), api.plans()]);
+      const [subscriptionsResponse, plansResponse, paymentsResponse, invoicesResponse] =
+        await Promise.all([api.list(), api.plans(), api.payments(), api.invoices()]);
       const nextRows = subscriptionsResponse.data.results || subscriptionsResponse.data;
+      const nextPayments = paymentsResponse.data.results || paymentsResponse.data;
       setRows(nextRows);
       setPlans(plansResponse.data.results || plansResponse.data);
+      setPayments(nextPayments.filter((payment) => payment.status === "pending"));
+      setInvoices(invoicesResponse.data.results || invoicesResponse.data);
       setDrafts(Object.fromEntries(nextRows.map((row) => [row.id, initialDraft(row)])));
+      setPaymentDrafts((current) => Object.fromEntries(nextPayments.map((payment) => [
+        payment.id,
+        current[payment.id] || { invoice: "", amount: payment.amount },
+      ])));
     } catch {
       setError(t("subscription.loadError"));
     }
@@ -91,6 +102,27 @@ export default function PlatformSubscriptionsPage() {
     } catch (requestError) {
       const data = requestError?.response?.data;
       const first = data && Object.values(data).flat()[0];
+      setError(typeof first === "string" ? first : t("subscription.loadError"));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const verifyPayment = async (payment) => {
+    const draft = paymentDrafts[payment.id];
+    setSaving(`payment-${payment.id}`);
+    setError("");
+    setSuccess("");
+    try {
+      await api.verifyPayment(payment.id, [{
+        invoice_id: Number(draft.invoice),
+        amount: draft.amount,
+      }]);
+      setSuccess(t("subscription.paymentVerified"));
+      await load();
+    } catch (requestError) {
+      const data = requestError?.response?.data;
+      const first = Array.isArray(data) ? data[0] : data?.detail || (data && Object.values(data).flat()[0]);
       setError(typeof first === "string" ? first : t("subscription.loadError"));
     } finally {
       setSaving(null);
@@ -182,6 +214,70 @@ export default function PlatformSubscriptionsPage() {
           );
         })}
       </div>
+      <h2 className="mb-4 mt-8 font-display text-xl font-semibold">
+        {t("subscription.pendingPayments")}
+      </h2>
+      {payments.length === 0 ? (
+        <Card className="p-6 text-sm text-muted">{t("subscription.noPendingPayments")}</Card>
+      ) : (
+        <div className="grid gap-4">
+          {payments.map((payment) => {
+            const draft = paymentDrafts[payment.id] || { invoice: "", amount: payment.amount };
+            const availableInvoices = invoices.filter(
+              (invoice) => invoice.company === payment.company && invoice.status === "issued",
+            );
+            return (
+              <Card key={payment.id} className="p-5">
+                <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end">
+                  <div>
+                    <div className="font-semibold">{payment.company_name}</div>
+                    <div className="mt-1 text-sm text-muted">
+                      {payment.amount} {payment.currency} · {payment.method}
+                    </div>
+                    <div className="text-xs text-muted">
+                      {t("subscription.submittedBy")}: {payment.recorded_by_name || "—"}
+                    </div>
+                  </div>
+                  <Field label={t("subscription.invoice")}>
+                    <Select
+                      value={draft.invoice}
+                      onChange={(event) => setPaymentDrafts((current) => ({
+                        ...current,
+                        [payment.id]: { ...draft, invoice: event.target.value },
+                      }))}
+                    >
+                      <option value="">—</option>
+                      {availableInvoices.map((invoice) => (
+                        <option key={invoice.id} value={invoice.id}>
+                          {invoice.number} · {invoice.amount} {invoice.currency}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label={t("subscription.allocationAmount")}>
+                    <Input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={draft.amount}
+                      onChange={(event) => setPaymentDrafts((current) => ({
+                        ...current,
+                        [payment.id]: { ...draft, amount: event.target.value },
+                      }))}
+                    />
+                  </Field>
+                  <Button
+                    disabled={!draft.invoice || !draft.amount || saving === `payment-${payment.id}`}
+                    onClick={() => verifyPayment(payment)}
+                  >
+                    {t("subscription.verifyPayment")}
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

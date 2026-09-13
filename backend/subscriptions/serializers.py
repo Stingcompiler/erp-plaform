@@ -211,20 +211,23 @@ class SubscriptionInvoiceSerializer(serializers.ModelSerializer):
 
 
 class SubscriptionPaymentSerializer(serializers.ModelSerializer):
-    recorded_by_name = serializers.CharField(
-        source="recorded_by.full_name", read_only=True
-    )
+    recorded_by_name = serializers.SerializerMethodField()
+    company_name = serializers.CharField(source="company.name", read_only=True)
+    proof_available = serializers.SerializerMethodField()
 
     class Meta:
         model = SubscriptionPayment
         fields = [
             "id",
+            "company",
+            "company_name",
             "amount",
             "currency",
             "method",
             "sender_bank_name",
             "reference_last4",
             "proof",
+            "proof_available",
             "status",
             "recorded_by_name",
             "verified_at",
@@ -233,12 +236,21 @@ class SubscriptionPaymentSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = [
+            "company",
+            "company_name",
             "status",
             "recorded_by_name",
             "verified_at",
             "rejection_reason",
             "created_at",
+            "proof_available",
         ]
+
+    def get_proof_available(self, obj):
+        return bool(obj.proof)
+
+    def get_recorded_by_name(self, obj):
+        return obj.recorded_by.full_name or obj.recorded_by.email
 
     def validate(self, attrs):
         if (
@@ -268,6 +280,7 @@ class PaymentVerificationSerializer(serializers.Serializer):
 
     def validate_allocations(self, rows):
         cleaned = []
+        invoice_ids = set()
         for row in rows:
             try:
                 invoice_id = int(row["invoice_id"])
@@ -282,5 +295,8 @@ class PaymentVerificationSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     "Allocation amounts must be positive."
                 )
+            if invoice_id in invoice_ids:
+                raise serializers.ValidationError("Each invoice may appear only once.")
+            invoice_ids.add(invoice_id)
             cleaned.append({"invoice_id": invoice_id, "amount": amount})
         return cleaned
