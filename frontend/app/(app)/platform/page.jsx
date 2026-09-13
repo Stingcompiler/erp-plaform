@@ -29,6 +29,18 @@ export default function PlatformPage() {
   return <div>
     <PageHeader title={t("platform.title")} subtitle={t("platform.subtitle")} actions={<Badge tone="accent"><ShieldCheck size={14} /> {t("shell.platformOperator")}</Badge>} />
     {error && <p role="alert" className="mb-5 rounded-control bg-danger/10 p-3 text-sm text-danger">{error}</p>}
+    <Card className="mb-5 border-accent/25 p-5">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="flex items-start gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-accent/10 text-accent"><ShieldCheck size={20} /></span>
+          <div>
+            <h2 className="font-display font-semibold">{t("platform.ownerCreationTitle")}</h2>
+            <p className="mt-1 max-w-3xl text-sm text-muted">{t("platform.ownerCreationHint")}</p>
+          </div>
+        </div>
+        <Link href="/platform-registrations" className="shrink-0 rounded-control bg-accent px-4 py-2 text-center text-sm font-semibold text-white">{t("platform.createOwnerAction")}</Link>
+      </div>
+    </Card>
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <MetricCard href="/platform-registrations" icon={FileCheck2} value={counts?.registration_attention} title={t("platform.registrationAttention")} hint={t("platform.registrationAttentionHint")} />
       <MetricCard href="/platform-subscriptions" icon={CreditCard} value={counts?.pending_payments} title={t("platform.pendingPaymentsTitle")} hint={t("platform.pendingPaymentsHint")} />

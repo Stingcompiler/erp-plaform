@@ -14,6 +14,7 @@ import {
   Scale,
   TrendingDown,
   UsersRound,
+  UserPlus,
   Wallet,
 } from "lucide-react";
 
@@ -53,7 +54,7 @@ function Section({ title, children }) {
 }
 
 export default function DashboardPage() {
-  const { user, canWrite, canRead } = useAuth();
+  const { user, canWrite, canRead, can } = useAuth();
   const { t, language } = useI18n();
   const [data, setData] = useState(null);
   const [error, setError] = useState(false);
@@ -129,6 +130,7 @@ export default function DashboardPage() {
               {canWrite("purchasing") && <Link className="flex min-h-12 items-center justify-center rounded-control border border-line bg-surface px-4 py-3 transition-colors hover:border-accent/50 hover:bg-accent/5 text-sm" href="/purchasing?tab=receive">{t("improvements.receiveStock")}</Link>}
               {canRead("inventory") && <Link className="flex min-h-12 items-center justify-center rounded-control border border-line bg-surface px-4 py-3 transition-colors hover:border-accent/50 hover:bg-accent/5 text-sm" href="/inventory?low_stock=1">{t("dashboard.lowStock")} · {sections.inventory?.low_stock_count ?? "—"}</Link>}
               {canRead("sales_returns") && <Link className="flex min-h-12 items-center justify-center rounded-control border border-line bg-surface px-4 py-3 transition-colors hover:border-accent/50 hover:bg-accent/5 text-sm" href="/returns">{t("improvements.reviewReturns")} · {sections.returns?.pending_disposition_count ?? "—"}</Link>}
+              {can("users.assign_owner") && <Link className="flex min-h-12 items-center justify-center gap-2 rounded-control border border-accent/30 bg-accent/5 px-4 py-3 text-sm font-medium text-accent transition-colors hover:border-accent" href="/users"><UserPlus size={16} />{t("users.manageOwners")}</Link>}
             </div>
           </section>
           {sections.salary_advances?.pending_count > 0 && (

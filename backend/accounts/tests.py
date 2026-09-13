@@ -154,3 +154,62 @@ class TaxProfileAutoCreateTests(APITestCase):
         company = Company.objects.create(name="Gamma Co")
         self.assertTrue(hasattr(company, "tax_profile"))
         self.assertEqual(company.tax_profile.invoice_format, "simple")
+
+
+class OwnerAppointmentTests(BaseTenantSetup):
+    """The "add another owner" action in the users page: only an existing
+    owner may appoint one, and the company can never lose its last owner."""
+
+    def setUp(self):
+        super().setUp()
+        self.gm_role = Role.objects.create(
+            name="General Manager", scope_level=Role.SCOPE_BUSINESS
+        )
+        self.gm_a = User.objects.create_user(
+            email="gm@alpha.test", password="passw0rd123", company=self.company_a,
+            role=self.gm_role,
+        )
+
+    def _new_owner_payload(self):
+        return {
+            "email": "owner2@alpha.test", "full_name": "Second Owner",
+            "role": self.owner_role.id, "is_active": True, "password": "Sup3r-secret-pw",
+        }
+
+    def test_owner_can_appoint_another_owner(self):
+        self.login("a@alpha.test")
+        resp = self.client.post(reverse("user-list"), self._new_owner_payload())
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content)
+        created = User.objects.get(email="owner2@alpha.test")
+        self.assertEqual(created.company, self.company_a)
+        self.assertEqual(created.role, self.owner_role)
+
+    def test_general_manager_cannot_appoint_owner(self):
+        self.login("gm@alpha.test")
+        resp = self.client.post(reverse("user-list"), self._new_owner_payload())
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST, resp.content)
+        self.assertFalse(User.objects.filter(email="owner2@alpha.test").exists())
+
+    def test_general_manager_sees_assign_owner_flag_off(self):
+        self.login("gm@alpha.test")
+        self.assertFalse(self.client.get(reverse("auth-me")).data["capabilities"]["users.assign_owner"])
+        self.login("a@alpha.test")
+        self.assertTrue(self.client.get(reverse("auth-me")).data["capabilities"]["users.assign_owner"])
+
+    def test_last_active_owner_cannot_be_demoted(self):
+        self.login("a@alpha.test")
+        self.client.post(reverse("user-list"), self._new_owner_payload())
+        second = User.objects.get(email="owner2@alpha.test")
+        # Two owners: demoting one is fine.
+        resp = self.client.patch(
+            reverse("user-detail", args=[second.id]), {"role": self.gm_role.id}
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        # Back to a single owner: the survivor cannot be demoted by anyone.
+        self.login("owner2@alpha.test", "Sup3r-secret-pw")
+        resp = self.client.patch(
+            reverse("user-detail", args=[self.user_a.id]), {"is_active": False}
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST, resp.content)
+        self.user_a.refresh_from_db()
+        self.assertTrue(self.user_a.is_active)

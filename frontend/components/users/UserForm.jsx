@@ -11,7 +11,15 @@ import { Button, Field, Input, Select } from "@/components/ui/kit";
 
 const EMPTY = { email: "", full_name: "", role: "", branch: "", is_active: true, password: "" };
 
-export default function UserForm({ open, onClose, onSaved, user, roles, branches = [] }) {
+export default function UserForm({
+  open,
+  onClose,
+  onSaved,
+  user,
+  roles,
+  branches = [],
+  presetRoleName = "",
+}) {
   const { t } = useI18n();
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
@@ -33,10 +41,11 @@ export default function UserForm({ open, onClose, onSaved, user, roles, branches
         password: "",
       });
     } else {
-      setForm(EMPTY);
+      const presetRole = roles.find((role) => role.name === presetRoleName);
+      setForm({ ...EMPTY, role: presetRole?.id || "" });
     }
     setError("");
-  }, [user, open]);
+  }, [user, open, presetRoleName, roles]);
 
   // Explains the selected role in one line, so picking one doesn't require
   // knowing the permission matrix by heart.
@@ -115,6 +124,12 @@ export default function UserForm({ open, onClose, onSaved, user, roles, branches
       }
     >
       <div className="space-y-4">
+        {!editing && presetRoleName === "Business Owner" && (
+          <div className="rounded-control border border-accent/25 bg-accent/5 p-3 text-sm text-ink">
+            <p className="font-semibold">{t("users.addOwnerTitle")}</p>
+            <p className="mt-1 text-muted">{t("users.addOwnerWarning")}</p>
+          </div>
+        )}
         <Field label={t("common.email")}>
           <Input type="email" value={form.email} onChange={set("email")} disabled={editing} />
         </Field>

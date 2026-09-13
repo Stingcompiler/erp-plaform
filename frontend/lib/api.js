@@ -271,6 +271,8 @@ export const registration = {
   review: (id, body) => api.post(`/platform/registration-requests/${id}/review/`, body),
   approve: (id, body) => api.post(`/platform/registration-requests/${id}/approve/`, body),
   provision: (id) => api.post(`/platform/registration-requests/${id}/provision/`),
+  activateOwner: (token, password) =>
+    api.post("/public/owner-invitations/accept/", { token, password }),
 };
 
 export const platformLeads = {

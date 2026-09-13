@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Lock, Plus } from "lucide-react";
+import { Lock, Plus, ShieldCheck } from "lucide-react";
 
 import { users as usersApi } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
@@ -14,6 +14,7 @@ export default function UsersPage() {
   const { user: currentUser, canRead, canWrite, can } = useAuth();
   const { t } = useI18n();
   const writable = canWrite("users");
+  const canAssignOwner = can("users.assign_owner");
   const canEditUser = (target) => {
     if (!writable || target.id === currentUser?.id) return false;
     if (can("users.assign_owner")) return true;
@@ -33,6 +34,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [presetRoleName, setPresetRoleName] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -64,19 +66,51 @@ export default function UsersPage() {
       <PageHeader
         title={t("users.title")}
         subtitle={t("users.subtitle")}
-        actions={
-          writable && (
+        actions={writable && (
+          <>
+            {canAssignOwner && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditing(null);
+                  setPresetRoleName("Business Owner");
+                  setFormOpen(true);
+                }}
+              >
+                <ShieldCheck size={16} /> {t("users.addOwner")}
+              </Button>
+            )}
             <Button
               onClick={() => {
                 setEditing(null);
+                setPresetRoleName("");
                 setFormOpen(true);
               }}
             >
               <Plus size={16} /> {t("users.newUser")}
             </Button>
-          )
-        }
+          </>
+        )}
       />
+
+      {canAssignOwner && (
+        <Card className="mb-5 border-accent/25 p-5">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-accent/10 text-accent">
+              <ShieldCheck size={20} />
+            </span>
+            <div>
+              <h2 className="font-display font-semibold">{t("users.ownersTitle")}</h2>
+              <p className="mt-1 text-sm text-muted">
+                {t("users.ownersSummary", {
+                  count: rows.filter((row) => row.role_name === "Business Owner" && row.is_active).length,
+                })}
+              </p>
+              <p className="mt-1 text-xs text-muted">{t("users.ownersRule")}</p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <Card>
         <div className="overflow-x-auto">
@@ -151,6 +185,7 @@ export default function UsersPage() {
         user={editing}
         roles={roles}
         branches={branches}
+        presetRoleName={presetRoleName}
       />
     </div>
   );
