@@ -129,7 +129,6 @@ class MeView(APIView):
 
 
 class UserViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
-    capacity_resource = "users"
     """
     User administration, company-scoped like everything else: a company's
     admin sees and manages only their own company's users. Password is
@@ -141,6 +140,8 @@ class UserViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     segregation of duties held. `is_active=False` blocks the login (checked in
     the auth serializer) while leaving the attribution intact.
     """
+
+    capacity_resource = "users"
 
     queryset = User.objects.select_related("role", "company", "branch").all()
     serializer_class = UserSerializer
