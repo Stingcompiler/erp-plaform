@@ -269,3 +269,182 @@ export const homeAr = {
   finalPrimary: "ابدأ التجربة المجانية",
   finalSecondary: "اطلب عرضًا توضيحيًا",
 };
+
+// Product details page (/product).
+export const productEn = {
+  pageTitle: "Everything Vezano does, in one place",
+  pageSubtitle: "One data model shared by every module: a sale moves stock, posts to the customer's ledger and shows up in the report — without anyone re-entering it.",
+  jump: "Jump to",
+  modules: [
+    {
+      id: "pos", title: "Sales and point of sale", shot: "pos",
+      intro: "Built for a busy counter: keyboard-first, barcode-first, and it keeps working when the connection does not.",
+      points: [
+        "Barcode scan, search, packs (carton / strip) with their own barcodes, weighed goods to three decimals",
+        "Line and ticket discounts, cash or bank transfer with proof, partial payments and credit sales",
+        "Held carts, cash shifts with counted drawer and variance review",
+        "Numbered invoices, receipts and credit notes; quotations and sales orders for larger customers",
+        "Offline: sales are saved on the device with a local reference and synced exactly once",
+      ],
+    },
+    {
+      id: "inventory", title: "Inventory", shot: "inventory",
+      intro: "A typed stock-movement ledger, not a quantity column: on-hand is always derivable and every change has a reason and an author.",
+      points: [
+        "Multiple warehouses per branch, transfers with in-transit state",
+        "Batches with expiry; sales consume first-expiry-first (FEFO)",
+        "Reorder levels, low-stock and expiry alerts scanned daily",
+        "Periodic stock counts with approved variances",
+        "Cost snapshot on every sale for FIFO, average or standard costing reports",
+      ],
+    },
+    {
+      id: "collections", title: "Customers and collections", shot: "debts",
+      intro: "Who owes what, since when, and what was agreed — one ledger per customer.",
+      points: [
+        "Customer statements, ageing and overdue balances on the dashboard",
+        "Payments by cash, bank transfer with reference and proof, or partial settlement",
+        "Approval thresholds: large payments need an owner, GM or CFO",
+        "Customer groups, leads, follow-ups and notes for the sales team",
+      ],
+    },
+    {
+      id: "purchasing", title: "Purchasing and returns", shot: "inventory",
+      intro: "From order to shelf to supplier bill, with returns that always leave a paper trail.",
+      points: [
+        "Suppliers with balances, purchase orders, goods receipts and bills",
+        "Sales and purchase returns with disposition (restock, scrap, return to supplier)",
+        "Numbered credit and debit notes; nothing is silently voided",
+        "Supplier payments with the same approval rules as customer refunds",
+      ],
+    },
+    {
+      id: "people", title: "Team, roles and HR", shot: "users",
+      intro: "Each person sees exactly their branch and their job. Nothing more.",
+      points: [
+        "Fixed role set — owner, general manager, branch manager, inventory, sales, purchasing, HR, CRM, finance, viewer",
+        "Branch-scoped access: a cashier in one branch never sees another's stock or sales",
+        "Employees, positions, attendance, leave and performance records",
+        "Audit log of who changed what, when, from where",
+      ],
+    },
+    {
+      id: "reports", title: "Finance and reports", shot: "dashboard",
+      intro: "The owner's view: revenue, cost of goods, expenses and what is due — for any period, any branch.",
+      points: [
+        "Sales, margin and product performance; costing method selectable",
+        "Expenses and company funds with segregation of duties",
+        "CSV exports of every list; documents print in Arabic or English",
+        "Public website module for a simple company page with featured products",
+      ],
+    },
+  ],
+  offlineTitle: "Works through an outage",
+  offlineBody: "The point of sale caches products and prices on the device. During an outage sales are saved locally with a local reference, the screen shows an offline banner, and every branch-level write joins the same queue. When the connection returns the queue is pushed in order; the server recognises each operation by its client id, so a retry never creates a duplicate.",
+  offlineSteps: ["Connection drops — the till keeps selling", "Operations queue on the device with a local reference", "Reconnect — the queue syncs once, in order", "Review saved operations and any that need attention"],
+  securityTitle: "Security and data ownership",
+  security: [
+    ["Isolation", "Every record carries the company; a query cannot cross that line. Roles add branch scope on top."],
+    ["Audit", "Stock, money and access changes are logged with actor, time and origin. Voids happen only through credit notes."],
+    ["Backups", "Hosted: daily managed backups. On-server: backup.sh with a restore that is verified before it counts."],
+    ["Your data", "Export a whole company at any time. Move between hosted and on-server in either direction."],
+  ],
+  deployTitle: "Cloud, or your own server",
+  deploy: [
+    ["Hosted", "We run it. Monthly plan, automatic upgrades, managed backups, sign in from anywhere.", "/pricing", "See plans"],
+    ["On your server", "You run it. Perpetual licence, signed releases, no connection to Vezano, works with no internet at all.", "/register?mode=standalone", "Request a quote"],
+  ],
+  techTitle: "Under the hood",
+  tech: ["PostgreSQL", "Django REST", "Next.js", "Service worker + IndexedDB offline store", "Ed25519-signed licences", "Ubuntu / systemd for on-server installs"],
+  ctaTitle: "See it with your own products",
+  ctaBody: "Start a trial, or send us a few lines about your business and we will walk you through it.",
+};
+
+export const productAr = {
+  pageTitle: "كل ما يفعله فيزانو، في صفحة واحدة",
+  pageSubtitle: "نموذج بيانات واحد تتشاركه كل الوحدات: البيع يحرّك المخزون، ويُقيَّد في دفتر العميل، ويظهر في التقرير — دون أن يعيد أحد إدخاله.",
+  jump: "انتقل إلى",
+  modules: [
+    {
+      id: "pos", title: "المبيعات ونقطة البيع", shot: "pos",
+      intro: "مصمّم لكاونتر مزدحم: لوحة المفاتيح أولًا، الباركود أولًا، ويواصل العمل حين يتوقف الاتصال.",
+      points: [
+        "مسح باركود، بحث، عبوات (كرتونة / شريط) بباركود خاص، بضائع موزونة حتى ثلاث منازل",
+        "خصم على السطر أو الفاتورة، نقد أو تحويل بنكي بإثبات، دفعات جزئية وبيع آجل",
+        "تعليق السلة، ورديات صندوق بجرد فعلي ومراجعة الفروقات",
+        "فواتير وإيصالات وإشعارات دائن مرقّمة؛ عروض أسعار وأوامر بيع للعملاء الكبار",
+        "بلا اتصال: تُحفظ المبيعات على الجهاز بمرجع محلي وتُزامَن مرة واحدة فقط",
+      ],
+    },
+    {
+      id: "inventory", title: "المخزون", shot: "inventory",
+      intro: "دفتر حركات مخزون مُصنَّف، لا عمود كمية: الرصيد قابل للاشتقاق دائمًا ولكل تغيير سبب وصاحب.",
+      points: [
+        "مستودعات متعددة لكل فرع، تحويلات بحالة «في الطريق»",
+        "دفعات بتاريخ صلاحية؛ البيع يستهلك الأقرب انتهاءً أولًا (FEFO)",
+        "حدود إعادة الطلب، تنبيهات النقص والصلاحية تُفحص يوميًا",
+        "جرد دوري بفروقات معتمدة",
+        "لقطة تكلفة مع كل بيع لتقارير FIFO أو المتوسط أو التكلفة القياسية",
+      ],
+    },
+    {
+      id: "collections", title: "العملاء والتحصيل", shot: "debts",
+      intro: "من يدين بماذا، ومنذ متى، وما الذي اتُّفق عليه — دفتر واحد لكل عميل.",
+      points: [
+        "كشوف حساب، أعمار الديون، والأرصدة المتأخرة على اللوحة",
+        "دفع نقدي، تحويل بنكي بمرجع وإثبات، أو تسوية جزئية",
+        "حدود اعتماد: الدفعات الكبيرة تحتاج مالكًا أو مديرًا عامًا أو مديرًا ماليًا",
+        "مجموعات عملاء، عملاء محتملون، متابعات وملاحظات لفريق المبيعات",
+      ],
+    },
+    {
+      id: "purchasing", title: "المشتريات والمرتجعات", shot: "inventory",
+      intro: "من الطلب إلى الرف إلى فاتورة المورد، مع مرتجعات تترك أثرًا ورقيًا دائمًا.",
+      points: [
+        "موردون بأرصدة، أوامر شراء، استلام بضاعة، وفواتير",
+        "مرتجعات بيع وشراء مع التصرف (إعادة للمخزون، إتلاف، إرجاع للمورد)",
+        "إشعارات دائن ومدين مرقّمة؛ لا شيء يُلغى في صمت",
+        "دفعات الموردين بنفس قواعد اعتماد استرداد العملاء",
+      ],
+    },
+    {
+      id: "people", title: "الفريق والصلاحيات والموارد البشرية", shot: "users",
+      intro: "كل شخص يرى فرعه ووظيفته بالضبط. لا أكثر.",
+      points: [
+        "مجموعة أدوار ثابتة — مالك، مدير عام، مدير فرع، مخزون، مبيعات، مشتريات، موارد بشرية، عملاء، مالية، مشاهد",
+        "صلاحيات على مستوى الفرع: كاشير فرع لا يرى مخزون أو مبيعات فرع آخر",
+        "موظفون، مناصب، حضور، إجازات وسجلات أداء",
+        "سجل تدقيق: من غيّر ماذا، متى، ومن أين",
+      ],
+    },
+    {
+      id: "reports", title: "المالية والتقارير", shot: "dashboard",
+      intro: "نظرة المالك: الإيراد، تكلفة البضاعة، المصروفات وما هو مستحق — لأي فترة وأي فرع.",
+      points: [
+        "المبيعات والهامش وأداء المنتجات؛ طريقة التكلفة قابلة للاختيار",
+        "المصروفات وصناديق الشركة مع فصل المهام",
+        "تصدير CSV لكل قائمة؛ المستندات تُطبع بالعربية أو الإنجليزية",
+        "وحدة موقع عام لصفحة شركة بسيطة بمنتجات مميزة",
+      ],
+    },
+  ],
+  offlineTitle: "يعمل أثناء الانقطاع",
+  offlineBody: "نقطة البيع تخزّن المنتجات والأسعار على الجهاز. أثناء الانقطاع تُحفظ المبيعات محليًا بمرجع محلي، وتظهر الشاشة شريط «بلا اتصال»، وكل عملية على مستوى الفرع تنضم إلى نفس الطابور. عند عودة الاتصال يُرسل الطابور بالترتيب؛ الخادم يميّز كل عملية بمعرّفها، فإعادة المحاولة لا تُنشئ تكرارًا أبدًا.",
+  offlineSteps: ["ينقطع الاتصال — الكاشير يواصل البيع", "العمليات تُصطف على الجهاز بمرجع محلي", "يعود الاتصال — يُزامَن الطابور مرة واحدة بالترتيب", "راجع العمليات المحفوظة وما يحتاج انتباهًا"],
+  securityTitle: "الأمان وملكية البيانات",
+  security: [
+    ["العزل", "كل سجل يحمل الشركة؛ لا استعلام يتجاوز هذا الخط. الأدوار تضيف نطاق الفرع فوقه."],
+    ["التدقيق", "تغييرات المخزون والمال والصلاحيات تُسجَّل بالفاعل والوقت والمصدر. الإلغاء لا يتم إلا بإشعار دائن."],
+    ["النسخ الاحتياطي", "السحابة: نسخ يومي مُدار. الخادم الخاص: backup.sh مع استعادة تُختبر قبل أن تُحتسب."],
+    ["بياناتك", "صدّر الشركة كاملة في أي وقت. انتقل بين السحابة والخادم الخاص في الاتجاهين."],
+  ],
+  deployTitle: "على السحابة، أو على خادمك",
+  deploy: [
+    ["السحابة", "نحن نشغّله. باقة شهرية، ترقيات تلقائية، نسخ احتياطي مُدار، دخول من أي مكان.", "/pricing", "شاهد الباقات"],
+    ["على خادمك", "أنت تشغّله. رخصة دائمة، إصدارات موقّعة، لا اتصال بفيزانو، ويعمل بلا إنترنت إطلاقًا.", "/register?mode=standalone", "اطلب عرض سعر"],
+  ],
+  techTitle: "تحت الغطاء",
+  tech: ["PostgreSQL", "Django REST", "Next.js", "Service worker + IndexedDB للعمل بلا اتصال", "رخص موقّعة بـ Ed25519", "Ubuntu / systemd للتثبيت على الخادم"],
+  ctaTitle: "شاهده بمنتجاتك أنت",
+  ctaBody: "ابدأ تجربة، أو أرسل لنا بضعة أسطر عن نشاطك ونعرضه لك خطوة بخطوة.",
+};

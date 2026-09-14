@@ -46,7 +46,7 @@ function LangToggle() {
 // Absolute paths so the links work from /pricing and /register as well as
 // from the landing page itself.
 const NAV_LINKS = [
-  ["/#features", "landing.navFeatures"],
+  ["/product", "landing.navFeatures"],
   ["/#modules", "landing.navModules"],
   ["/pricing", "landing.navPricing"],
   ["/#contact", "landing.navContact"],
@@ -173,7 +173,7 @@ export function MarketingFooter() {
                 {t("landing.footerProduct")}
               </div>
               <ul className="mt-3 space-y-2 text-sm text-paper/60">
-                <li><a href="/#features" className="hover:text-paper">{t("landing.navFeatures")}</a></li>
+                <li><Link href="/product" className="hover:text-paper">{t("landing.navFeatures")}</Link></li>
                 <li><a href="/#modules" className="hover:text-paper">{t("landing.navModules")}</a></li>
                 <li><Link href="/pricing" className="hover:text-paper">{t("landing.navPricing")}</Link></li>
                 <li><Link href="/login" className="hover:text-paper">{t("common.signIn")}</Link></li>
