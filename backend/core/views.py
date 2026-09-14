@@ -84,14 +84,47 @@ def health_check(request):
     except Exception:
         db_ok = False
 
-    return Response(
-        {
-            "status": "ok",
-            "service": "erp-api",
-            "database": "ok" if db_ok else "unreachable",
-        },
-        status=200,
-    )
+    from config.deployment import get_deployment_config
+    from ops.release import application_version
+
+    config = get_deployment_config()
+    payload = {
+        "status": "ok",
+        "service": "erp-api",
+        "database": "ok" if db_ok else "unreachable",
+        "deployment_mode": config.mode,
+        "version": application_version(),
+    }
+    # On a customer's server this is what support asks for first: which
+    # installation, which release, and whether the licence is the problem.
+    # No secrets — the installation id is not a credential, the licence is
+    # bound to it by signature.
+    if config.is_standalone and db_ok:
+        try:
+            from licensing.models import Installation
+            from licensing.services import active_license, resolve_license_entitlements
+
+            installation = Installation.objects.order_by("pk").first()
+            activation = active_license()
+            decision = resolve_license_entitlements()
+            payload["installation_id"] = (
+                str(installation.installation_id) if installation else None
+            )
+            payload["licence"] = {
+                "state": decision.state,
+                "allow_writes": decision.allow_writes,
+                "kind": activation.kind if activation else None,
+                "usable_until": (
+                    activation.usable_until.isoformat()
+                    if activation and activation.usable_until else None
+                ),
+                "max_application_version": (
+                    activation.max_application_version if activation else None
+                ),
+            }
+        except Exception:  # noqa: BLE001 - health must never 500 on a licence problem
+            payload["licence"] = {"state": "unknown"}
+    return Response(payload, status=200)
 
 
 @api_view(["GET"])

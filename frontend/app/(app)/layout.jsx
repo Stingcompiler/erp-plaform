@@ -20,11 +20,16 @@ export default function AppLayout({ children }) {
     if (!loading && !user) router.replace("/login");
   }, [loading, user, router]);
 
+  // On a standalone server there is no platform to operate: a superuser
+  // created by the installer is just an administrator of this company's
+  // system and gets the normal workspace, not the SaaS operator console.
+  const platformOperator = user?.is_platform_admin && user?.deployment_mode !== "standalone";
+
   useEffect(() => {
-    if (!loading && user?.is_platform_admin && !isPlatformPath(pathname)) {
+    if (!loading && platformOperator && !isPlatformPath(pathname)) {
       router.replace("/platform");
     }
-  }, [loading, user, pathname, router]);
+  }, [loading, platformOperator, pathname, router]);
 
   if (loading || !user) {
     return (
@@ -34,7 +39,7 @@ export default function AppLayout({ children }) {
     );
   }
 
-  if (user.is_platform_admin) {
+  if (platformOperator) {
     if (!isPlatformPath(pathname)) {
       return (
         <div className="grid min-h-screen place-items-center text-muted">
