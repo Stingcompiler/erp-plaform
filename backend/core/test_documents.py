@@ -217,7 +217,10 @@ class CreditNoteDocumentTests(DocumentTestCase):
         resp = self.client.get(reverse("creditnote-document", args=[note.id]))
         self.assertEqual(resp.status_code, 200, resp.data)
         self.assertEqual(resp.data["doc_type"], "credit_note")
-        self.assertEqual(resp.data["number"], f"CN-{note.id:06d}")
+        # The document carries the formal per-company sequence number, never
+        # the database id (which differs between backends and across tenants).
+        self.assertEqual(resp.data["number"], note.number_display)
+        self.assertEqual(resp.data["number"], "CN-000001")
         self.assertEqual(resp.data["amount"], "250.00")
         self.assertEqual(resp.data["against_invoice"], inv.number_display)
         self.assertEqual(resp.data["party"]["name"], "Nile Retail")
