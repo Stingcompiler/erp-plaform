@@ -5,6 +5,7 @@ import { Check, Search, Trash2 } from "lucide-react";
 
 import { inventory, purchasing } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
+import { useOfflineMutation } from "@/components/sync/useOfflineMutation";
 import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import BarcodeScanInput from "@/components/inventory/BarcodeScanInput";
@@ -15,6 +16,7 @@ const money = (v) =>
 
 export default function ReceivingTerminal({ suppliers, warehouses, onReceived }) {
   const { t } = useI18n();
+  const mutate = useOfflineMutation();
   const [supplier, setSupplier] = useState("");
   const [warehouse, setWarehouse] = useState("");
   const [note, setNote] = useState("");
@@ -83,7 +85,7 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived })
 
     setSubmitting(true);
     try {
-      await purchasing.receive({
+      const result = await mutate("goods_receipt", purchasing.receive, {
         client_uuid: receiptUuid.current,
         supplier: Number(supplier),
         warehouse: Number(warehouse),
@@ -97,7 +99,8 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived })
       reset();
       setDone(true);
       onReceived?.();
-      toast.success(t("purchasing.received"));
+      if (result.queued) toast.info(t("sync.savedForUpload"));
+      else toast.success(t("purchasing.received"));
     } catch (err) {
       const data = err?.response?.data;
       const msg =

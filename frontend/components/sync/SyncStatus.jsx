@@ -27,7 +27,7 @@ export default function SyncStatus() {
       {legacy && <p role="alert" className="mb-3 rounded-control bg-warn/10 p-3 text-sm text-warn">{t("improvements.syncLegacy")}</p>}
       {!pending && !error && <p>{t("improvements.syncEmpty")}</p>}
       <ul className="space-y-3">{operations.map((op) => <li key={op.client_uuid} className="rounded-card border border-line p-3 text-sm">
-        <div className="font-medium">{op.op_type === "pos_checkout" ? t("sales.pos") : op.op_type}</div>
+        <div className="font-medium">{t(`sync.ops.${op.op_type}`).startsWith("sync.ops.") ? op.op_type : t(`sync.ops.${op.op_type}`)}</div>
         <div className="mt-1 break-all font-mono text-xs text-muted">{op.client_uuid}</div>
         <div className={op.error ? "mt-2 text-danger" : "mt-2 text-muted"}>{t(op.error ? "improvements.syncFailed" : "improvements.syncPending")}</div>
         {op.error && <p className="mt-1 break-words text-danger">{op.error}</p>}

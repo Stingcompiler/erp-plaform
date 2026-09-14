@@ -5,6 +5,7 @@ import { ArrowRightLeft } from "lucide-react";
 
 import { inventory } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
+import { useOfflineMutation } from "@/components/sync/useOfflineMutation";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Field, Input, Select } from "@/components/ui/kit";
 
@@ -19,7 +20,12 @@ const MOVE_KEY = {
 
 export default function StockDrawer({ open, onClose, product, warehouses, canWrite, onChanged }) {
   const { t, language } = useI18n();
+  const mutate = useOfflineMutation();
   const [stock, setStock] = useState(null);
+  // "unavailable" (not null) once the server could not answer: the balance
+  // block hides, but the adjustment/transfer forms still open — offline is
+  // exactly when a stock count needs recording.
+  const [stockState, setStockState] = useState("loading");
   const [movements, setMovements] = useState([]);
   const [adjust, setAdjust] = useState({ warehouse: "", quantity: "", reason: "" });
   const [transfer, setTransfer] = useState({ source: "", dest: "", quantity: "" });
@@ -34,15 +40,18 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
         inventory.movements(product.id),
       ]);
       setStock(s.data);
+      setStockState("ready");
       setMovements((m.data.results || m.data).slice(0, 12));
     } catch {
       setStock(null);
+      setStockState("unavailable");
     }
   }, [product]);
 
   useEffect(() => {
     if (open) {
       setMsg("");
+      setStockState("loading");
       setAdjust({ warehouse: "", quantity: "", reason: "" });
       setTransfer({ source: "", dest: "", quantity: "" });
       load();
@@ -57,16 +66,17 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
     }
     setBusy(true);
     try {
-      await inventory.createAdjustment({
+      const result = await mutate("stock_adjustment", inventory.createAdjustment, {
+        client_uuid: crypto.randomUUID(),
         product: product.id,
         warehouse: Number(adjust.warehouse),
         quantity: adjust.quantity,
         reason: adjust.reason,
       });
       setAdjust({ warehouse: "", quantity: "", reason: "" });
-      await load();
+      if (!result.queued) await load();
       onChanged?.();
-      setMsg(t("inventory.stockAdjusted"));
+      setMsg(result.queued ? t("sync.savedForUpload") : t("inventory.stockAdjusted"));
     } catch (err) {
       const data = err?.response?.data;
       setMsg(typeof data === "object" ? Object.values(data).flat().join(" ") : t("inventory.adjustmentFailed"));
@@ -87,16 +97,17 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
     }
     setBusy(true);
     try {
-      await inventory.createTransfer({
+      const result = await mutate("stock_transfer", inventory.createTransfer, {
+        client_uuid: crypto.randomUUID(),
         product: product.id,
         source_warehouse: Number(transfer.source),
         dest_warehouse: Number(transfer.dest),
         quantity: transfer.quantity,
       });
       setTransfer({ source: "", dest: "", quantity: "" });
-      await load();
+      if (!result.queued) await load();
       onChanged?.();
-      setMsg(t("inventory.transferred"));
+      setMsg(result.queued ? t("sync.savedForUpload") : t("inventory.transferred"));
     } catch (err) {
       const data = err?.response?.data;
       setMsg(typeof data === "object" ? Object.values(data).flat().join(" ") : t("inventory.transferError"));
@@ -109,16 +120,20 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
 
   return (
     <Drawer open={open} onClose={onClose} title={product ? `${product.sku} — ${t("inventory.stockSuffix")}` : t("inventory.stock")}>
-      {!stock ? (
+      {stockState === "loading" ? (
         <p className="text-muted">{t("inventory.loadingStock")}</p>
       ) : (
         <div className="space-y-6">
+          {stock ? (
           <div>
             <div className="text-sm text-muted">{t("inventory.onHand")}</div>
             <div className="tabular mt-1 text-3xl font-medium text-ink">{stock.on_hand}</div>
           </div>
+          ) : (
+            <p className="rounded-control bg-warn/10 p-3 text-sm text-ink">{t("inventory.stockUnavailableOffline")}</p>
+          )}
 
-          <div>
+          {stock && <div>
             <div className="mb-2 text-sm font-medium text-ink">{t("inventory.byWarehouse")}</div>
             {stock.by_warehouse.length === 0 ? (
               <p className="text-sm text-muted">{t("inventory.noMovements")}</p>
@@ -132,7 +147,7 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
                 ))}
               </div>
             )}
-          </div>
+          </div>}
 
           {canWrite && (
             <div className="rounded-card border border-line p-4">

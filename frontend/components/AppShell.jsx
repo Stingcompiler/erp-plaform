@@ -20,6 +20,7 @@ import { countLeaves, visibleNav, SHOP_OPTIONAL } from "./nav";
 import SetupPrompt from "./SetupPrompt";
 import SyncStatus from "./sync/SyncStatus";
 import OfflineBanner from "./sync/OfflineBanner";
+import { useSync } from "./sync/SyncProvider";
 import { useAuth } from "../app/providers/AuthProvider";
 import { useI18n } from "../app/providers/I18nProvider";
 import { translateRole } from "@/lib/i18n";
@@ -290,6 +291,7 @@ function Topbar({ onOpenMenu }) {
 export default function AppShell({ children }) {
   const { t } = useI18n();
   const { user, refresh, offlineSession } = useAuth();
+  const { online } = useSync();
   const [menuOpen, setMenuOpen] = useState(false);
   const [answered, setAnswered] = useState(false);
   const pathname = usePathname();
@@ -307,6 +309,7 @@ export default function AppShell({ children }) {
   const askSetup =
     !answered &&
     !offlineSession &&
+    online &&
     user?.company &&
     user?.business_type_chosen === false &&
     user?.can_manage_system_mode;

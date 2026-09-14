@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Archive, ArchiveRestore, Download, Lock, Pencil, Plus, Search } from "lucide-react";
 
 import { inventory } from "@/lib/api";
+import { offlineStore } from "@/lib/offlineStore";
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
@@ -48,8 +49,23 @@ export default function InventoryPage() {
           });
       setRows(res.data.results);
       setCount(res.data.count);
-    } catch {
-      setError(true);
+    } catch (err) {
+      // Server unreachable: show the locally mirrored catalogue (filtered
+      // client-side) rather than an empty error, so stock can still be
+      // looked up and adjusted during an outage. A real server error (4xx)
+      // still surfaces as one.
+      if (err?.response) { setError(true); return; }
+      try {
+        const local = await offlineStore.getAll("products");
+        const needle = (search || "").toLowerCase();
+        const visible = local
+          .filter((product) => (showArchived ? true : product.is_active !== false))
+          .filter((product) => !needle || `${product.name} ${product.sku} ${product.barcode || ""}`.toLowerCase().includes(needle));
+        setRows(visible.slice((page - 1) * 50, page * 50));
+        setCount(visible.length);
+      } catch {
+        setError(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -78,7 +94,9 @@ export default function InventoryPage() {
 
   useEffect(() => {
     inventory.categories().then((r) => setCategories(r.data.results)).catch(() => {});
-    inventory.warehouses().then((r) => setWarehouses(r.data.results)).catch(() => {});
+    inventory.warehouses()
+      .then((r) => setWarehouses(r.data.results))
+      .catch(() => offlineStore.getAll("warehouses").then(setWarehouses).catch(() => {}));
   }, []);
 
   if (!canRead("inventory")) {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { purchasing } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
+import { useOfflineMutation } from "@/components/sync/useOfflineMutation";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 
@@ -14,6 +15,7 @@ const statusTone = { paid: "ok", partial: "warn", unpaid: "danger", void: "muted
 
 function PaymentDrawer({ bill, supplierName, bankAccounts, open, onClose, onPaid }) {
   const { t } = useI18n();
+  const mutate = useOfflineMutation();
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("cash");
   const [fromAccount, setFromAccount] = useState("");
@@ -48,7 +50,7 @@ function PaymentDrawer({ bill, supplierName, bankAccounts, open, onClose, onPaid
         body.from_bank_account = Number(fromAccount);
         if (reference) body.reference_last4 = reference;
       }
-      await purchasing.createSupplierPayment(body);
+      await mutate("supplier_payment", purchasing.createSupplierPayment, body);
       onPaid();
       onClose();
     } catch (err) {
