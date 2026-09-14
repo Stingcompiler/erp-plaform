@@ -132,7 +132,7 @@ class PublicPlanListView(APIView):
     def get(self, request):
         plans = PlanVersion.objects.select_related("plan").filter(
             plan__is_active=True, plan__is_public=True, published_at__isnull=False
-        ).order_by("plan__name", "-version")
+        ).order_by("plan__sort_order", "plan__name", "-version")
         latest = {}
         for version in plans:
             latest.setdefault(version.plan_id, version)

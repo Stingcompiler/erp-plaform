@@ -10,6 +10,16 @@ class Plan(models.Model):
     code = models.SlugField(max_length=64, unique=True)
     name = models.CharField(max_length=120)
     description = models.TextField(blank=True)
+    # Marketing copy for the public pricing page. `name`/`description` are the
+    # operator's working labels; these are what a visitor reads, in both
+    # languages, with one feature per line so the card can render a list.
+    name_ar = models.CharField(max_length=120, blank=True)
+    tagline_en = models.CharField(max_length=160, blank=True)
+    tagline_ar = models.CharField(max_length=160, blank=True)
+    features_en = models.TextField(blank=True, help_text="One feature per line.")
+    features_ar = models.TextField(blank=True, help_text="One feature per line.")
+    is_highlighted = models.BooleanField(default=False)
+    sort_order = models.PositiveSmallIntegerField(default=100)
     is_public = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

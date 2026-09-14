@@ -129,6 +129,8 @@ class PlatformLeadSerializer(serializers.ModelSerializer):
 class PublicPlanVersionSerializer(serializers.ModelSerializer):
     plan_code = serializers.CharField(source="plan.code", read_only=True)
     plan_name = serializers.CharField(source="plan.name", read_only=True)
+    # Marketing copy lives on the plan; the pricing page picks the language.
+    display = serializers.SerializerMethodField()
     # Every SaaS sign-up starts with the same platform-wide trial; the landing
     # page shows the length so applicants know what they are requesting.
     trial_days = serializers.SerializerMethodField()
@@ -136,9 +138,23 @@ class PublicPlanVersionSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlanVersion
         fields = [
-            "id", "plan_code", "plan_name", "currency", "price",
+            "id", "plan_code", "plan_name", "display", "currency", "price",
             "billing_cycle", "modules", "limits", "trial_days",
         ]
+
+    def get_display(self, obj):
+        plan = obj.plan
+
+        def lines(text):
+            return [line.strip() for line in (text or "").splitlines() if line.strip()]
+
+        return {
+            "name": {"en": plan.name, "ar": plan.name_ar or plan.name},
+            "tagline": {"en": plan.tagline_en, "ar": plan.tagline_ar or plan.tagline_en},
+            "features": {"en": lines(plan.features_en), "ar": lines(plan.features_ar)},
+            "is_highlighted": plan.is_highlighted,
+            "sort_order": plan.sort_order,
+        }
 
     def get_trial_days(self, obj):
         from django.conf import settings
