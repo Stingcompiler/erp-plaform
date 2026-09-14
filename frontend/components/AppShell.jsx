@@ -20,6 +20,7 @@ import { countLeaves, visibleNav, SHOP_OPTIONAL } from "./nav";
 import SetupPrompt from "./SetupPrompt";
 import SyncStatus from "./sync/SyncStatus";
 import OfflineBanner from "./sync/OfflineBanner";
+import AccessBanner from "./AccessBanner";
 import { useSync } from "./sync/SyncProvider";
 import { useAuth } from "../app/providers/AuthProvider";
 import { useI18n } from "../app/providers/I18nProvider";
@@ -354,6 +355,7 @@ export default function AppShell({ children }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onOpenMenu={() => setMenuOpen(true)} />
         <OfflineBanner />
+        <AccessBanner />
         <main className="workspace-main flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>

@@ -160,6 +160,25 @@ const en = {
     needNameQty: "A unit needs a name and how many it contains.",
     saveError: "Could not save the unit.",
   },
+  access: {
+    locked: {
+      generic: "Access is read-only right now.",
+      read_only: "Access is read-only: the licence or subscription has ended.",
+      unlicensed: "No licence is installed — the system is read-only until one is imported.",
+      unprovisioned: "No subscription has been set up for this company yet.",
+      suspended: "Access has been suspended by the platform.",
+      cancelled: "The subscription was cancelled.",
+      version_not_covered: "This release is newer than the licence covers — writes are paused.",
+    },
+    warn: {
+      generic: "Access ends on {date}.",
+      active: "Access ends on {date} — renew to avoid interruption.",
+      trialing: "The trial ends on {date}.",
+      grace: "In the grace period until {date} — renew now to keep writing.",
+    },
+    manageLicence: "Manage licence",
+    manageSubscription: "Manage subscription",
+  },
   count: {
     title: "Stock counts",
     hint: "Count what is on the shelf, submit, and a manager approves the differences — they are posted as adjustments, the ledger is never edited directly.",
@@ -1624,6 +1643,25 @@ const ar = {
     add: "إضافة",
     needNameQty: "الوحدة تحتاج اسمًا وعدد ما تحتويه.",
     saveError: "تعذر حفظ الوحدة.",
+  },
+  access: {
+    locked: {
+      generic: "الوصول للقراءة فقط حاليًا.",
+      read_only: "الوصول للقراءة فقط: انتهى الترخيص أو الاشتراك.",
+      unlicensed: "لا يوجد ترخيص مثبّت — النظام للقراءة فقط حتى استيراد ترخيص.",
+      unprovisioned: "لم يُجهَّز اشتراك لهذه الشركة بعد.",
+      suspended: "عُلّق الوصول من قبل المنصة.",
+      cancelled: "أُلغي الاشتراك.",
+      version_not_covered: "هذا الإصدار أحدث مما يغطيه الترخيص — الكتابة متوقفة.",
+    },
+    warn: {
+      generic: "ينتهي الوصول في {date}.",
+      active: "ينتهي الوصول في {date} — جدّد لتجنب الانقطاع.",
+      trialing: "تنتهي التجربة في {date}.",
+      grace: "في فترة السماح حتى {date} — جدّد الآن لتستمر الكتابة.",
+    },
+    manageLicence: "إدارة الترخيص",
+    manageSubscription: "إدارة الاشتراك",
   },
   count: {
     title: "الجرد",

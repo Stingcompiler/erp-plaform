@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -48,9 +49,15 @@ class LicenseView(APIView):
             )
         serializer = LicenseImportSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        activation, created = activate_license(
-            serializer.validated_data, actor=request.user
-        )
+        try:
+            activation, created = activate_license(
+                serializer.validated_data, actor=request.user
+            )
+        except DjangoValidationError as exc:
+            # The service is framework-neutral and raises Django's error;
+            # translate it so a bad licence is a 400 with a reason, not a 500.
+            detail = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+            return Response(detail, status=400)
         log_activity(
             action="create" if created else "update",
             request=request,

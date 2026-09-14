@@ -220,6 +220,26 @@ class MeSerializer(serializers.ModelSerializer):
         profile = getattr(obj.company, "tax_profile", None)
         return str(profile.flat_tax_rate) if profile else "0"
 
+    # The access decision the shell needs on first paint: whether writes are
+    # open, why not, and when the current state ends — so a licence in grace
+    # or a lapsed subscription is announced on every screen, not discovered
+    # on the first rejected save.
+    entitlements = serializers.SerializerMethodField()
+
+    def get_entitlements(self, obj):
+        from core.entitlements import resolve_entitlements
+
+        if not obj.company_id and not getattr(obj, "is_platform_admin", False):
+            return None
+        decision = resolve_entitlements(obj.company if obj.company_id else None)
+        return {
+            "source": decision.source,
+            "state": decision.state,
+            "allow_writes": decision.allow_writes,
+            "valid_until": decision.valid_until.isoformat() if decision.valid_until else None,
+            "reason": decision.reason,
+        }
+
     def get_capabilities(self, obj):
         role_name = obj.role.name if obj.role_id else None
         owner = role_name == "Business Owner"
@@ -252,6 +272,7 @@ class MeSerializer(serializers.ModelSerializer):
             "role",
             "role_name",
             "tax_rate",
+            "entitlements",
             "is_platform_admin",
             "report_areas",
             "capabilities",

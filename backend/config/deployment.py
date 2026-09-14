@@ -27,4 +27,10 @@ def get_deployment_config():
         raise ImproperlyConfigured("VEZANO_DEPLOYMENT_MODE must be saas or standalone")
     if policy not in POLICY_MODES:
         raise ImproperlyConfigured("SUBSCRIPTION_POLICY must be disabled, observe or enforce")
+    # A standalone installation is governed by its licence, full stop. The
+    # observe/disabled modes exist for rolling out enforcement across SaaS
+    # tenants; on a customer's own server they would make the licence
+    # decorative, so the setting is ignored there.
+    if mode == STANDALONE:
+        policy = "enforce"
     return DeploymentConfig(mode=mode, entitlement_policy=policy)

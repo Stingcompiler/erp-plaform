@@ -29,10 +29,24 @@ export default function SubscriptionPage() {
 
   const importLicense = async () => {
     setError(""); setNotice("");
+    let envelope;
+    try { envelope = JSON.parse(licenseText); } catch { setError(t("subscription.invalidLicenseFile")); return; }
     try {
-      await subscriptionApi.importLicense(JSON.parse(licenseText));
+      await subscriptionApi.importLicense(envelope);
       setNotice(t("subscription.licenseImported")); setLicenseText(""); await load();
-    } catch { setError(t("subscription.invalidLicenseFile")); }
+    } catch (requestError) {
+      const data = requestError?.response?.data;
+      const first = data?.detail || (data && Object.values(data).flat()[0]);
+      setError(typeof first === "string" ? first : t("subscription.invalidLicenseFile"));
+    }
+  };
+  // A licence arrives as a file from the vendor; reading it here avoids a
+  // copy-paste that can silently truncate the signature.
+  const readLicenseFile = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setLicenseText(String(reader.result || ""));
+    reader.readAsText(file);
   };
   const submitPayment = async (event) => {
     event.preventDefault(); setError(""); setNotice("");
@@ -64,12 +78,35 @@ export default function SubscriptionPage() {
         <Card className="p-5"><div className="text-sm text-muted">{t("subscription.plan")}</div><div className="mt-3 font-display text-xl font-semibold">{planName || t("subscription.legacy")}</div></Card>
         <Card className="p-5"><div className="text-sm text-muted">{t("subscription.state")}</div><div className="mt-3"><Badge tone={entitlements.allow_writes ? "ok" : "warn"}>{entitlements.state}</Badge></div></Card>
       </div>
+      {standalone && <Card className="mt-5 p-5">
+        <h2 className="font-display font-semibold">{t("subscription.licenceDetails")}</h2>
+        {record ? (
+          <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["licenceKind", t(`subscription.kind.${record.kind}`)],
+              ["licenceUsableUntil", record.usable_until ? showDate(record.usable_until, language) : t("subscription.perpetualNoEnd")],
+              ["licenceGraceUntil", record.grace_until ? showDate(record.grace_until, language) : "—"],
+              ["licenceMaintenanceUntil", record.maintenance_until ? showDate(record.maintenance_until, language) : "—"],
+              ["licenceMaxVersion", record.max_application_version || t("subscription.anyVersion")],
+              ["licenceActivatedAt", showDate(record.activated_at, language)],
+              ["licenceId", record.license_id],
+              ["licenceKeyId", record.key_id],
+            ].map(([key, value]) => <div key={key}><div className="text-xs text-muted">{t(`subscription.${key}`)}</div><div className="mt-1 break-all text-sm">{value}</div></div>)}
+          </div>
+        ) : <p className="mt-3 text-sm text-warn">{t("subscription.noLicence")}</p>}
+        {entitlements.reason && <p className="mt-3 rounded-control bg-warn/10 p-3 text-sm text-ink">{entitlements.reason}</p>}
+        {data.installation && <div className="mt-4 border-t border-line pt-3 text-xs text-muted">
+          <div>{t("subscription.installationId")}: <code className="select-all">{data.installation.installation_id}</code></div>
+          <div className="mt-1">{t("subscription.installationHint")}</div>
+          {data.installation.application_version && <div className="mt-1">{t("subscription.appVersion")}: {data.installation.application_version}</div>}
+        </div>}
+      </Card>}
       {!standalone && record && <Card className="mt-5 p-5"><div className="grid gap-4 sm:grid-cols-3">{[["periodEnd", record.period_ends_at], ["trialEnd", record.trial_ends_at], ["graceEnd", record.grace_ends_at]].map(([key, value]) => <div key={key}><div className="text-xs text-muted">{t(`subscription.${key}`)}</div><div className="mt-1">{showDate(value, language)}</div></div>)}</div></Card>}
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
         <Card className="p-5"><h2 className="font-display font-semibold">{t("subscription.modules")}</h2><div className="mt-3 flex flex-wrap gap-2">{(entitlements.modules || []).map((item) => <Badge key={item} tone="accent">{item}</Badge>)}</div></Card>
         <Card className="p-5"><h2 className="font-display font-semibold">{t("subscription.limits")}</h2><div className="mt-3 space-y-2">{Object.entries(entitlements.limits || {}).map(([key, value]) => <div key={key} className="flex justify-between border-b border-line py-2"><span>{key}</span><span className="tabular font-semibold">{value}</span></div>)}</div></Card>
       </div>
-      {standalone ? <Card className="mt-5 p-5"><h2 className="font-display font-semibold">{t("subscription.importLicense")}</h2><textarea className="mt-3 min-h-40 w-full rounded-control border border-line bg-surface p-3 font-mono text-xs" value={licenseText} onChange={(event) => setLicenseText(event.target.value)} placeholder={t("subscription.licenseFile")}/><Button className="mt-3" onClick={importLicense} disabled={!licenseText.trim()}>{t("subscription.importLicense")}</Button></Card> : <>
+      {standalone ? <Card className="mt-5 p-5"><h2 className="font-display font-semibold">{t("subscription.importLicense")}</h2><label className="mt-3 block text-sm text-muted">{t("subscription.licenceUpload")}<Input className="mt-1" type="file" accept=".json,application/json" onChange={(event) => readLicenseFile(event.target.files?.[0])}/></label><textarea className="mt-3 min-h-40 w-full rounded-control border border-line bg-surface p-3 font-mono text-xs" value={licenseText} onChange={(event) => setLicenseText(event.target.value)} placeholder={t("subscription.licenseFile")}/><Button className="mt-3" onClick={importLicense} disabled={!licenseText.trim()}>{t("subscription.importLicense")}</Button></Card> : <>
         <Card className="mt-5 p-5"><h2 className="font-display font-semibold">{t("subscription.invoices")}</h2>{data.invoices?.length ? <div className="mt-3 divide-y divide-line">{data.invoices.map((row) => <div key={row.id} className="flex flex-wrap justify-between gap-3 py-3"><span>{row.number}</span><span className="tabular">{row.amount} {row.currency}</span><Badge>{row.status}</Badge></div>)}</div> : <p className="mt-3 text-sm text-muted">{t("subscription.noInvoices")}</p>}</Card>
         <Card className="mt-5 p-5"><h2 className="font-display font-semibold">{t("subscription.payments")}</h2><form onSubmit={submitPayment} className="mt-3 grid gap-3 sm:grid-cols-4"><Input required type="number" min="0.01" step="0.01" placeholder={t("subscription.amount")} value={payment.amount} onChange={(event) => setPayment({...payment, amount: event.target.value})}/><Input required placeholder={t("subscription.currency")} value={payment.currency} onChange={(event) => setPayment({...payment, currency: event.target.value.toUpperCase()})}/><Select value={payment.method} onChange={(event) => setPayment({...payment, method: event.target.value})}><option value="bank_transfer">{t("common.bankTransfer")}</option><option value="cash">{t("common.cash")}</option></Select><Input required={payment.method === "bank_transfer"} maxLength={4} placeholder={t("subscription.reference")} value={payment.reference_last4} onChange={(event) => setPayment({...payment, reference_last4: event.target.value})}/><label className="sm:col-span-4 text-sm text-muted">{t("subscription.proof")}<Input className="mt-1" type="file" accept="image/*,.pdf" onChange={(event) => setPayment({...payment, proof: event.target.files?.[0] || null})}/></label><Button type="submit" className="sm:col-span-4 sm:justify-self-start">{t("subscription.submitPayment")}</Button></form>{data.payments?.length > 0 && <div className="mt-4 divide-y divide-line">{data.payments.map((row) => <div key={row.id} className="flex justify-between py-2 text-sm"><span>{row.amount} {row.currency}</span><Badge>{row.status}</Badge></div>)}</div>}</Card>
         <Card className="mt-5 p-5"><h2 className="font-display font-semibold">{t("subscription.events")}</h2>{data.events?.length ? <div className="mt-3 divide-y divide-line">{data.events.map((row) => <div key={row.id} className="py-3 text-sm"><span>{row.event_type}</span><span className="ms-3 text-muted">{showDate(row.created_at, language)}</span></div>)}</div> : <p className="mt-3 text-sm text-muted">{t("subscription.noEvents")}</p>}</Card>

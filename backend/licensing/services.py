@@ -145,7 +145,7 @@ def resolve_license_entitlements(now=None):
             False,
             reason="No valid standalone licence is installed.",
         )
-    state, allow_writes = "active", True
+    state, allow_writes, reason = "active", True, ""
     valid_until = activation.usable_until
     if (
         activation.kind == LicenseActivation.TERM
@@ -154,8 +154,20 @@ def resolve_license_entitlements(now=None):
     ):
         if activation.grace_until and now <= activation.grace_until:
             state, valid_until = "grace", activation.grace_until
+            reason = "The licence term has ended; renew before the grace period closes."
         else:
             state, allow_writes = "read_only", False
+            reason = "The licence term and its grace period have ended. Renew to resume."
+    # Maintenance covers releases, not runtime: a licence whose
+    # max_application_version is below the installed release means the
+    # customer upgraded past what they paid for. Reads stay open so nothing
+    # is lost; writes wait for a renewed licence or a rollback.
+    if version_exceeds_licence(activation):
+        state, allow_writes = "version_not_covered", False
+        reason = (
+            f"Application {application_version()} is newer than this licence covers "
+            f"({activation.max_application_version}). Renew maintenance or roll back."
+        )
     return EntitlementDecision(
         "standalone",
         state,
@@ -163,4 +175,29 @@ def resolve_license_entitlements(now=None):
         dict(activation.limits or {}),
         allow_writes,
         valid_until,
+        reason,
     )
+
+
+def _version_tuple(value):
+    parts = []
+    for piece in str(value or "").split("-")[0].split("."):
+        digits = "".join(ch for ch in piece if ch.isdigit())
+        parts.append(int(digits) if digits else 0)
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts[:3])
+
+
+def application_version():
+    from ops.release import application_version as _app_version
+
+    return _app_version()
+
+
+def version_exceeds_licence(activation):
+    """True when the running release is newer than the licence allows."""
+    ceiling = getattr(activation, "max_application_version", "") or ""
+    if not ceiling:
+        return False
+    return _version_tuple(application_version()) > _version_tuple(ceiling)
