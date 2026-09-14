@@ -63,6 +63,15 @@ The existing in-app backup screen exports selected business rows and is not a
 replacement for this full recovery procedure.
 
 
+## Documents
+
+| File | Audience |
+|---|---|
+| `OPERATIONS.md` | the installing engineer — exact commands, acceptance record |
+| `CUSTOMER_GUIDE.ar.md` | the customer — what they get, licence states, obligations (Arabic) |
+| `SHIP_CHECKLIST.md` | the vendor — gates before a release or a licence leaves |
+| `LICENCE_TERMS.md` | the vendor and counsel — commercial terms mapped to licence fields |
+
 ## Issuing a licence (vendor side, never on the customer server)
 
 1. Once: create the signing key pair, outside any repository, and back the
