@@ -129,6 +129,7 @@ export default function DashboardPage() {
               {canWrite("sales") && <Link className="flex min-h-12 items-center justify-center rounded-control bg-accent px-4 py-3 text-sm font-medium text-white" href="/sales?tab=pos">{t("improvements.newSale")}</Link>}
               {canWrite("purchasing") && <Link className="flex min-h-12 items-center justify-center rounded-control border border-line bg-surface px-4 py-3 transition-colors hover:border-accent/50 hover:bg-accent/5 text-sm" href="/purchasing?tab=receive">{t("improvements.receiveStock")}</Link>}
               {canRead("inventory") && <Link className="flex min-h-12 items-center justify-center rounded-control border border-line bg-surface px-4 py-3 transition-colors hover:border-accent/50 hover:bg-accent/5 text-sm" href="/inventory?low_stock=1">{t("dashboard.lowStock")} · {sections.inventory?.low_stock_count ?? "—"}</Link>}
+              {canRead("inventory") && sections.inventory?.negative_stock_count > 0 && <Link className="flex min-h-12 items-center justify-center rounded-control border border-danger/40 bg-danger/5 px-4 py-3 text-sm text-danger transition-colors hover:border-danger" href="/inventory?negative=1">{t("dashboard.negativeStock")} · {sections.inventory.negative_stock_count}</Link>}
               {canRead("sales_returns") && <Link className="flex min-h-12 items-center justify-center rounded-control border border-line bg-surface px-4 py-3 transition-colors hover:border-accent/50 hover:bg-accent/5 text-sm" href="/returns">{t("improvements.reviewReturns")} · {sections.returns?.pending_disposition_count ?? "—"}</Link>}
               {can("users.assign_owner") && <Link className="flex min-h-12 items-center justify-center gap-2 rounded-control border border-accent/30 bg-accent/5 px-4 py-3 text-sm font-medium text-accent transition-colors hover:border-accent" href="/users"><UserPlus size={16} />{t("users.manageOwners")}</Link>}
             </div>
@@ -239,6 +240,18 @@ export default function DashboardPage() {
                 tone={sections.inventory.low_stock_count > 0 ? "warn" : "ink"}
                 value={sections.inventory.low_stock_count}
                 sub={sections.inventory.low_stock_count > 0 ? undefined : t("dashboard.aboveReorder")}
+              />
+              <Stat
+                icon={AlertTriangle}
+                label={t("dashboard.expiringBatches")}
+                tone={sections.inventory.expiring_batch_count > 0 ? "warn" : "ink"}
+                value={sections.inventory.expiring_batch_count ?? 0}
+              />
+              <Stat
+                icon={AlertTriangle}
+                label={t("dashboard.negativeStock")}
+                tone={sections.inventory.negative_stock_count > 0 ? "danger" : "ink"}
+                value={sections.inventory.negative_stock_count ?? 0}
               />
             </Section>
           )}

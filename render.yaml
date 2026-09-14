@@ -81,7 +81,10 @@ services:
     rootDir: backend
     autoDeploy: true
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "celery -A config worker --loglevel=info"
+    # -B embeds the beat scheduler: the daily scans in CELERY_BEAT_SCHEDULE
+    # run from this same process. Keep exactly one worker instance while
+    # beat is embedded, or the scans run once per instance.
+    startCommand: "celery -A config worker -B --loglevel=info"
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.3"

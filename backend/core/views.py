@@ -202,9 +202,15 @@ def dashboard(request):
         low = products.annotate(
             oh=Coalesce(Sum("stock_movements__quantity"), Decimal("0"))
         ).filter(oh__lte=F("reorder_level"))
+        from inventory.alerts import expiring_batches, negative_stock
         sections["inventory"] = {
             "product_count": products.count(),
             "low_stock_count": low.count(),
+            # Lots expiring within 30 days (or already expired) that still
+            # have stock, and ledger balances below zero left by offline sales
+            # — both need a person, not just a number.
+            "expiring_batch_count": expiring_batches(company_id).count(),
+            "negative_stock_count": negative_stock(company_id).count(),
         }
 
     if role_can(user, "purchasing", write=False):

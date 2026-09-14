@@ -273,6 +273,23 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+# Periodic work. The worker runs with embedded beat (`celery worker -B`, see
+# render.yaml) so a single process both schedules and executes; enough for
+# one worker, and beat has no state worth a separate service yet.
+CELERY_BEAT_SCHEDULE = {
+    "scan-due-receivables": {
+        "task": "sales.tasks.scan_due_receivables",
+        "schedule": 60 * 60 * 24,
+    },
+    "scan-stock-alerts": {
+        "task": "inventory.tasks.scan_stock_alerts",
+        "schedule": 60 * 60 * 24,
+    },
+    "scan-subscription-expiries": {
+        "task": "subscriptions.tasks.scan_subscription_expiries",
+        "schedule": 60 * 60 * 24,
+    },
+}
 
 # --- Delivery profile and commercial entitlement rollout ---
 # Existing installations remain unaffected until the operator deliberately
