@@ -170,6 +170,54 @@ class Product(models.Model):
         return qs.aggregate(total=Coalesce(Sum("quantity"), Decimal("0")))["total"]
 
 
+class ProductPack(models.Model):
+    """
+    A selling/receiving unit that contains a fixed number of the product's
+    base unit: a carton of 12, a strip of 10, a 5 kg sack of a product kept
+    in kilograms. The ledger only ever counts base units; a pack is a
+    multiplier with its own barcode and price, resolved to base units at
+    the moment a line is written. Pack-level barcodes let a scan of the
+    carton ring up 12 pieces without the cashier doing arithmetic.
+    """
+
+    company = models.ForeignKey(
+        "org.Company", on_delete=models.CASCADE, related_name="product_packs"
+    )
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="packs")
+    name = models.CharField(max_length=64)  # e.g. "Carton", "Strip", "Sack 5kg"
+    # Base units per pack; 3 decimals so weight-based packs (2.500 kg) work.
+    quantity = models.DecimalField(max_digits=16, decimal_places=3)
+    barcode = models.CharField(max_length=128, blank=True)
+    # Blank means "base sale price × quantity"; set to give the pack its own
+    # (usually discounted) price.
+    sale_price = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["product", "quantity"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product", "name"], name="uniq_pack_name_per_product"
+            ),
+            models.UniqueConstraint(
+                fields=["company", "barcode"],
+                condition=~models.Q(barcode=""),
+                name="uniq_pack_barcode_per_company",
+            ),
+            models.CheckConstraint(
+                check=models.Q(quantity__gt=0), name="pack_quantity_positive"
+            ),
+        ]
+
+    def effective_price(self):
+        if self.sale_price is not None:
+            return self.sale_price
+        return (self.product.sale_price * self.quantity).quantize(Decimal("0.01"))
+
+    def __str__(self):
+        return f"{self.product.sku} × {self.name} ({self.quantity})"
+
+
 class StockBatch(models.Model):
     """
     Identity of a received lot (lot number + expiry). Deliberately holds NO

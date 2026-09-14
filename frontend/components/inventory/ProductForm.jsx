@@ -8,6 +8,7 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import { ean13Svg } from "@/lib/ean13";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Field, Input, Select } from "@/components/ui/kit";
+import PackEditor from "@/components/inventory/PackEditor";
 
 const EMPTY = {
   sku: "",
@@ -287,6 +288,7 @@ export default function ProductForm({ open, onClose, onSaved, product }) {
           </span>
         </label>
         {error && <p className="text-sm text-danger">{error}</p>}
+        {editing && <PackEditor product={product} baseUnit={product?.unit_name} />}
       </div>
     </Drawer>
   );

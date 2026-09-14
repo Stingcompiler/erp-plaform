@@ -79,6 +79,16 @@ class SimpleTaxHandler(TaxHandler):
                     "description": line.description or line.product.name,
                     "quantity": str(line.quantity),
                     "unit_price": money(line.unit_price),
+                    # When sold by the pack, the receipt shows what the
+                    # customer bought ("2 × Carton (12)"), not 24 pieces.
+                    "pack": (
+                        {
+                            "name": line.pack_name,
+                            "contains": str(line.pack_quantity),
+                            "packs_sold": str(line.packs_sold),
+                        }
+                        if line.pack_name else None
+                    ),
                     "discount": money(line.discount_amount),
                     "line_total": money(line.line_total),
                 }

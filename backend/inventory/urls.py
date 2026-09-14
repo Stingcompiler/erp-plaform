@@ -6,6 +6,7 @@ from inventory.views import (
     CategoryViewSet,
     ProductViewSet,
     StockAdjustmentViewSet,
+    ProductPackViewSet,
     StockCountViewSet,
     StockBatchViewSet,
     StockMovementViewSet,
@@ -25,6 +26,7 @@ router.register("stock-movements", StockMovementViewSet, basename="stockmovement
 router.register("stock-adjustments", StockAdjustmentViewSet, basename="stockadjustment")
 router.register("stock-transfers", StockTransferViewSet, basename="stocktransfer")
 router.register("stock-counts", StockCountViewSet, basename="stockcount")
+router.register("product-packs", ProductPackViewSet, basename="productpack")
 
 urlpatterns = [
     path("", include(router.urls)),

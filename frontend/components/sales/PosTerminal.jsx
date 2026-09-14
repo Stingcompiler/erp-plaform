@@ -136,27 +136,37 @@ export default function PosTerminal({
   const taxTotal = round2(netLines.reduce((s, n) => s + round2((n * taxRate) / 100), 0));
   const grandTotal = round2(subtotal + taxTotal);
 
-  function addProduct(p) {
+  // A line is one product sold in one unit: the same water sold by the
+  // piece and by the carton are two lines, so the key carries the pack.
+  const lineKey = (productId, packId) => (packId ? `${productId}:p${packId}` : String(productId));
+
+  function addProduct(p, pack = p.scanned_pack || null) {
     if (!saleUuid.current) saleUuid.current = crypto.randomUUID();
+    const key = lineKey(p.id, pack?.id);
+    const price = pack ? pack.effective_price : String(p.sale_price ?? 0);
     setCart((c) => {
-      const found = c.find((l) => l.id === p.id);
+      const found = c.find((l) => l.key === key);
       // A repeat scan of the same item bumps it by one — the till's most
       // common gesture. A weighed item is typed over instead.
       if (found) {
         return c.map((l) =>
-          l.id === p.id ? { ...l, qty: String(qtyOf(l) + 1) } : l,
+          l.key === key ? { ...l, qty: String(qtyOf(l) + 1) } : l,
         );
       }
       return [
         ...c,
         {
+          key,
           id: p.id,
           sku: p.sku,
           name: p.name,
-          price: String(p.sale_price ?? 0),
-          listPrice: String(p.sale_price ?? 0),
+          price: String(price),
+          listPrice: String(price),
           qty: "1",
-          unit: p.unit_name || "",
+          unit: pack ? pack.name : (p.unit_name || ""),
+          packs: p.packs || [],
+          packId: pack ? String(pack.id) : "",
+          packQty: pack ? Number(pack.quantity) : 1,
         },
       ];
     });
@@ -164,17 +174,35 @@ export default function PosTerminal({
     setResults([]);
   }
 
-  const patchLine = (id, patch) =>
-    setCart((c) => c.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  // Switching a line between the base unit and a pack re-keys it and resets
+  // its price to that unit's list price; the typed quantity is kept because
+  // "3" usually still means three of whatever the cashier now picked.
+  const changePack = (key, packId) =>
+    setCart((c) => {
+      const line = c.find((l) => l.key === key);
+      if (!line) return c;
+      const pack = line.packs.find((x) => String(x.id) === String(packId)) || null;
+      const nextKey = lineKey(line.id, pack?.id);
+      if (nextKey !== key && c.some((l) => l.key === nextKey)) return c; // already a line for that unit
+      const price = pack ? pack.effective_price : line.basePrice ?? line.listPrice;
+      return c.map((l) => l.key === key ? {
+        ...l, key: nextKey, packId: pack ? String(pack.id) : "", packQty: pack ? Number(pack.quantity) : 1,
+        unit: pack ? pack.name : (l.baseUnit ?? l.unit), price: String(price), listPrice: String(price),
+        basePrice: l.basePrice ?? l.listPrice, baseUnit: l.baseUnit ?? l.unit,
+      } : l);
+    });
 
-  const bumpQty = (id, delta) =>
+  const patchLine = (key, patch) =>
+    setCart((c) => c.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+
+  const bumpQty = (key, delta) =>
     setCart((c) =>
       c.map((l) =>
-        l.id === id ? { ...l, qty: String(Math.max(0, qtyOf(l) + delta)) } : l,
+        l.key === key ? { ...l, qty: String(Math.max(0, qtyOf(l) + delta)) } : l,
       ),
     );
 
-  const removeLine = (id) => setCart((c) => c.filter((l) => l.id !== id));
+  const removeLine = (key) => setCart((c) => c.filter((l) => l.key !== key));
 
   function holdCart() {
     if (!cart.length || checkoutBusy.current) return;
@@ -250,6 +278,7 @@ export default function PosTerminal({
       customer: customer ? Number(customer) : null,
       lines: cart.map((l) => ({
         product: l.id,
+        ...(l.packId ? { pack: Number(l.packId) } : {}),
         quantity: String(qtyOf(l)),
         // Only sent when the cashier actually overrode it, so an untouched
         // line keeps following the catalogue price rather than freezing
@@ -425,12 +454,25 @@ export default function PosTerminal({
           ) : (
             <div className="divide-y divide-line">
               {cart.map((l) => (
-                <div key={l.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                <div key={l.key} className="flex flex-wrap items-center gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm text-ink">{l.name}</div>
                     <div className="tabular text-xs text-muted">
                       {l.sku}
-                      {l.unit ? ` · ${l.unit}` : ""}
+                      {l.packs?.length > 0 ? (
+                        <select
+                          value={l.packId}
+                          onChange={(e) => changePack(l.key, e.target.value)}
+                          aria-label={t("sales.sellBy")}
+                          className="ms-1 rounded-control border border-line bg-surface px-1 py-0.5 text-xs text-ink"
+                        >
+                          <option value="">{(l.baseUnit ?? (l.packId ? "" : l.unit)) || t("sales.baseUnit")}</option>
+                          {l.packs.filter((x) => x.is_active !== false).map((x) => (
+                            <option key={x.id} value={x.id}>{x.name} ({Number(x.quantity)})</option>
+                          ))}
+                        </select>
+                      ) : (l.unit ? ` · ${l.unit}` : "")}
+                      {l.packId && <span className="ms-1">= {Number(l.packQty) * qtyOf(l)} {l.baseUnit || ""}</span>}
                       {String(l.price) !== String(l.listPrice) && (
                         <span className="ms-1 text-warn">
                           {t("sales.priceChanged", { price: money(l.listPrice) })}
@@ -444,7 +486,7 @@ export default function PosTerminal({
                       stay for the common whole-unit case. */}
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => bumpQty(l.id, -1)}
+                      onClick={() => bumpQty(l.key, -1)}
                       aria-label={t("sales.decrease")}
                       className="rounded-control border border-line p-1 text-muted hover:bg-paper"
                     >
@@ -456,12 +498,12 @@ export default function PosTerminal({
                       step="0.001"
                       min="0"
                       value={l.qty}
-                      onChange={(e) => patchLine(l.id, { qty: e.target.value })}
+                      onChange={(e) => patchLine(l.key, { qty: e.target.value })}
                       aria-label={t("sales.quantity")}
                       className="w-20 text-center"
                     />
                     <button
-                      onClick={() => bumpQty(l.id, 1)}
+                      onClick={() => bumpQty(l.key, 1)}
                       aria-label={t("sales.increase")}
                       className="rounded-control border border-line p-1 text-muted hover:bg-paper"
                     >
@@ -476,7 +518,7 @@ export default function PosTerminal({
                       step="0.01"
                       min="0"
                       value={l.price}
-                      onChange={(e) => patchLine(l.id, { price: e.target.value })}
+                      onChange={(e) => patchLine(l.key, { price: e.target.value })}
                       aria-label={t("sales.unitPrice")}
                       className="text-end"
                     />
@@ -491,7 +533,7 @@ export default function PosTerminal({
                       max="100"
                       value={l.discountPercent || ""}
                       placeholder="%"
-                      onChange={(e) => patchLine(l.id, { discountPercent: e.target.value })}
+                      onChange={(e) => patchLine(l.key, { discountPercent: e.target.value })}
                       aria-label={t("sales.lineDiscount")}
                       className="text-end"
                     />
@@ -501,7 +543,7 @@ export default function PosTerminal({
                     {money(lineTotal(l))}
                   </div>
                   <button
-                    onClick={() => removeLine(l.id)}
+                    onClick={() => removeLine(l.key)}
                     className="text-muted hover:text-danger"
                     aria-label={t("sales.remove")}
                   >

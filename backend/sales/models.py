@@ -336,8 +336,20 @@ class InvoiceLine(models.Model):
         "inventory.Product", on_delete=models.PROTECT, related_name="invoice_lines"
     )
     description = models.CharField(max_length=255, blank=True)
+    # Always in the product's BASE unit (pieces, kg): the ledger movement is
+    # written from these two fields. When the sale was rung by the pack, the
+    # pack fields below keep what the customer actually saw on the receipt.
     quantity = models.DecimalField(max_digits=16, decimal_places=3)
     unit_price = models.DecimalField(max_digits=14, decimal_places=2)
+    pack = models.ForeignKey(
+        "inventory.ProductPack", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="invoice_lines",
+    )
+    pack_name = models.CharField(max_length=64, blank=True)   # snapshot: "Carton"
+    pack_quantity = models.DecimalField(                      # snapshot: 12.000
+        max_digits=16, decimal_places=3, null=True, blank=True
+    )
+    packs_sold = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
     # Money taken off this line before tax (its own discount plus its share
     # of any invoice-level discount). unit_price stays the gross list price
     # so the receipt can show "was / now"; line_subtotal is net of this.
