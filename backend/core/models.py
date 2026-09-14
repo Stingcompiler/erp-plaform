@@ -53,3 +53,30 @@ class ActivityLog(models.Model):
     def __str__(self):
         who = self.user_id or "system"
         return f"ActivityLog<{self.action} by {who} @ {self.created_at:%Y-%m-%d %H:%M}>"
+
+
+class DocumentSequence(models.Model):
+    """
+    Per-company, per-document-type counter for formally numbered documents
+    (credit notes, debit notes, and any future numbered document). Same
+    contract as sales.InvoiceSequence: allocated under a row lock inside the
+    caller's transaction, so a rolled-back document never burns a number and
+    numbering stays sequential and gapless per company. Invoices keep their
+    dedicated sequence for backwards compatibility.
+    """
+
+    company = models.ForeignKey(
+        "org.Company", on_delete=models.CASCADE, related_name="document_sequences"
+    )
+    doc_type = models.CharField(max_length=32)
+    last_number = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "doc_type"], name="uniq_document_sequence_per_type"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.doc_type}@{self.company_id}={self.last_number}"

@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db import models
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 
 
 class Category(models.Model):
@@ -267,7 +268,11 @@ class StockMovement(models.Model):
         blank=True,
         related_name="stock_movements",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
+    # Business time of the movement (the ledger is walked in this order for
+    # FIFO/average costing); an offline sale stamps it from the till. The
+    # server's own clock is kept separately for audit.
+    created_at = models.DateTimeField(default=timezone.now)
+    received_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]

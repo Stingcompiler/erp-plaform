@@ -216,6 +216,10 @@ export default function PosTerminal({
     }
     const checkoutPayload = {
       client_uuid: saleUuid.current,
+      // Business time of the sale. For a queued offline sale this is what
+      // lands on the invoice, the stock movements, and the payment when it
+      // finally syncs — not the moment the connection came back.
+      occurred_at: new Date().toISOString(),
       warehouse: Number(warehouse),
       customer: customer ? Number(customer) : null,
       lines: cart.map((l) => ({

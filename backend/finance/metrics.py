@@ -5,8 +5,8 @@ method must be displayed: standard uses current cost, FIFO/average the ledger.
 """
 from decimal import Decimal
 
-from django.db.models import DecimalField, ExpressionWrapper, F, Sum
-from django.db.models.functions import Coalesce
+from django.db.models import CharField, DecimalField, ExpressionWrapper, F, Sum
+from django.db.models.functions import Cast, Coalesce
 from django.utils.dateparse import parse_date
 from rest_framework.exceptions import ValidationError
 
@@ -59,8 +59,25 @@ def operating_summary(company_id, start=None, end=None, method="standard"):
     )), ZERO, output_field=MONEY))["t"]
     revenue = gross_sales - returned_sales
     if method == "standard":
-        cogs = lines.aggregate(t=Coalesce(Sum(ExpressionWrapper(
-            F("quantity") * F("product__cost_price"), output_field=MONEY,
+        # Cost as it was when the goods left: the sale_out movement carries a
+        # unit_cost snapshot. Rows written before the snapshot existed fall
+        # back to the product's current cost, which is the old (drifting)
+        # behaviour, so historical figures do not vanish, they just stop
+        # changing from here on.
+        from django.db.models import OuterRef, Subquery
+        from inventory.models import StockMovement
+
+        snapshot = StockMovement.objects.filter(
+            reference_type="Invoice",
+            reference_id=Cast(OuterRef("invoice_id"), CharField()),
+            product_id=OuterRef("product_id"),
+            movement_type=StockMovement.SALE_OUT,
+            unit_cost__isnull=False,
+        ).order_by("id").values("unit_cost")[:1]
+        cogs = lines.annotate(
+            cost_at_sale=Coalesce(Subquery(snapshot), F("product__cost_price"))
+        ).aggregate(t=Coalesce(Sum(ExpressionWrapper(
+            F("quantity") * F("cost_at_sale"), output_field=MONEY,
         )), ZERO, output_field=MONEY))["t"]
         restocked = in_range(
             SalesReturnLine.objects.filter(
