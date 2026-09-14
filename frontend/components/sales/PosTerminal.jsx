@@ -12,7 +12,8 @@ import DocumentDrawer from "@/components/print/DocumentDrawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import BarcodeScanInput from "@/components/inventory/BarcodeScanInput";
 import { heldCarts } from "@/lib/heldCarts";
-import { readAll, cacheProducts } from "@/lib/productCache";
+import { cacheProducts, searchProductsOffline } from "@/lib/productCache";
+import { nextLocalReference } from "@/lib/localReference";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -72,6 +73,7 @@ export default function PosTerminal({
 
   // One idempotency key per sale — stable across retries, reset after success.
   const saleUuid = useRef(null);
+  const localRef = useRef(null);
 
   useEffect(() => {
     if (warehouses.length && !warehouse) setWarehouse(String(warehouses[0].id));
@@ -92,8 +94,10 @@ export default function PosTerminal({
           // still resolves during an outage.
           cacheProducts(r.data.results);
         })
-        .catch((err) => setResults(err?.response ? [] : readAll().filter((p) =>
-          `${p.name} ${p.sku}`.toLowerCase().includes(query.toLowerCase())).slice(0,6)));
+        .catch(async (err) => {
+          if (err?.response) { setResults([]); return; }
+          setResults(await searchProductsOffline(query, 6));
+        });
     }, 250);
     return () => clearTimeout(timer);
   }, [query]);
@@ -183,6 +187,7 @@ export default function PosTerminal({
     setAmount("");
     setCustomer("");
     saleUuid.current = null;
+    localRef.current = null;
     setBankAccount(""); setReference(""); setMethod("cash");
   }
 
@@ -214,8 +219,12 @@ export default function PosTerminal({
       payment.company_bank_account = Number(bankAccount);
       if (reference) payment.reference_last4 = reference;
     }
+    // Printed on the receipt immediately; the server keeps it next to the
+    // invoice number it assigns, so an offline receipt stays traceable.
+    localRef.current ||= nextLocalReference(user?.branch_code || warehouses.find((w) => String(w.id) === String(warehouse))?.code);
     const checkoutPayload = {
       client_uuid: saleUuid.current,
+      local_reference: localRef.current,
       // Business time of the sale. For a queued offline sale this is what
       // lands on the invoice, the stock movements, and the payment when it
       // finally syncs — not the moment the connection came back.
@@ -244,7 +253,7 @@ export default function PosTerminal({
     const saveOffline = () => {
       try {
         const op = enqueue("pos_checkout", checkoutPayload);
-        setReceipt({ queued: true, reference: op.client_uuid, total: grandTotal, subtotal: round2(subtotal), tax_amount: round2(taxTotal) });
+        setReceipt({ queued: true, reference: op.client_uuid, local_reference: localRef.current, total: grandTotal, subtotal: round2(subtotal), tax_amount: round2(taxTotal) });
         resetSale(); onSold?.(); toast.info(t("sales.savedOffline"));
       } catch { setError(t("improvements.storageSale")); toast.error(t("improvements.storageSale")); }
     };
@@ -252,7 +261,10 @@ export default function PosTerminal({
 
       // Offline: queue the sale (same client_uuid keeps it idempotent) and
       // let the sync layer drain it when connectivity returns.
-      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      // `online` comes from a real reachability probe, not navigator.onLine
+      // alone: a router with no upstream must not make the till wait out a
+      // full request timeout before every sale.
+      if (!online) {
         saveOffline();
         return;
       }
@@ -294,7 +306,8 @@ export default function PosTerminal({
         <h2 className="mt-3 font-display text-xl font-semibold">{t(receipt.queued ? "improvements.queuedSale" : "sales.saleRecorded")}</h2>
         <p className="mt-1 text-muted">
           {receipt.queued ? t("improvements.queuedHint") : t("sales.invoice")}
-          <span className="tabular block break-all text-ink">{receipt.reference || receipt.number_display || receipt.number}</span>
+          <span className="tabular block break-all text-ink">{receipt.queued ? receipt.local_reference : (receipt.number_display || receipt.number)}</span>
+          {receipt.queued && <span className="mt-1 block font-mono text-[11px] text-muted">{receipt.reference}</span>}
         </p>
         <div className="tabular mt-4 text-3xl font-medium text-ink">{money(receipt.total)}</div>
         {!receipt.queued && <div className="mt-1 text-sm text-muted">
@@ -514,7 +527,7 @@ export default function PosTerminal({
               </div>
             )}
             <div className="mt-2 flex items-center justify-between gap-3 border-t border-line pt-2">
-              <span className="text-sm text-muted">{t("sales.total")}</span>
+              <span className="text-sm text-muted">{t("common.total")}</span>
               <span className="tabular text-2xl font-semibold text-ink">{money(grandTotal)}</span>
             </div>
           </div>

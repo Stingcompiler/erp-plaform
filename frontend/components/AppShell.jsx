@@ -19,6 +19,7 @@ import { storageKey } from "@/lib/localIdentity";
 import { countLeaves, visibleNav, SHOP_OPTIONAL } from "./nav";
 import SetupPrompt from "./SetupPrompt";
 import SyncStatus from "./sync/SyncStatus";
+import OfflineBanner from "./sync/OfflineBanner";
 import { useAuth } from "../app/providers/AuthProvider";
 import { useI18n } from "../app/providers/I18nProvider";
 import { translateRole } from "@/lib/i18n";
@@ -288,7 +289,7 @@ function Topbar({ onOpenMenu }) {
 
 export default function AppShell({ children }) {
   const { t } = useI18n();
-  const { user, refresh } = useAuth();
+  const { user, refresh, offlineSession } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [answered, setAnswered] = useState(false);
   const pathname = usePathname();
@@ -299,9 +300,13 @@ export default function AppShell({ children }) {
   }, [pathname]);
 
   // Asked once, and only of someone who can actually answer it: a cashier
-  // shouldn't be blocked by a question that isn't theirs to settle.
+  // shouldn't be blocked by a question that isn't theirs to settle. Never
+  // while offline either — the answer needs the server, and a modal that
+  // cannot be dismissed would lock the till during the very outage the
+  // offline mode exists for.
   const askSetup =
     !answered &&
+    !offlineSession &&
     user?.company &&
     user?.business_type_chosen === false &&
     user?.can_manage_system_mode;
@@ -345,6 +350,7 @@ export default function AppShell({ children }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onOpenMenu={() => setMenuOpen(true)} />
+        <OfflineBanner />
         <main className="workspace-main flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>

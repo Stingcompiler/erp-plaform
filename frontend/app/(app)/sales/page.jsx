@@ -8,6 +8,7 @@ import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { PageHeader } from "@/components/ui/kit";
 import PosTerminal from "@/components/sales/PosTerminal";
+import { offlineStore } from "@/lib/offlineStore";
 import InvoiceList from "@/components/sales/InvoiceList";
 import BankAccounts from "@/components/sales/BankAccounts";
 import CashDrawer from "@/components/sales/CashDrawer";
@@ -33,8 +34,14 @@ export default function SalesPage() {
     bankApi.list().then((r) => setAccounts(r.data.results || r.data)).catch(() => {});
 
   useEffect(() => {
-    inventory.warehouses().then((r) => setWarehouses(r.data.results)).catch(() => {});
-    sales.customers().then((r) => setCustomers(r.data.results)).catch(() => {});
+    // Offline: the till still needs a warehouse and a customer list, so a
+    // failed request falls back to the locally mirrored records.
+    inventory.warehouses()
+      .then((r) => setWarehouses(r.data.results))
+      .catch(() => offlineStore.getAll("warehouses").then(setWarehouses).catch(() => {}));
+    sales.customers()
+      .then((r) => setCustomers(r.data.results))
+      .catch(() => offlineStore.getAll("customers").then(setCustomers).catch(() => {}));
     loadAccounts();
   }, []);
 

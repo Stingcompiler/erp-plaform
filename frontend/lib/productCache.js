@@ -7,6 +7,7 @@
 // truth, and nothing here is ever written back.
 
 import { localScope, storageKey } from "./localIdentity.js";
+import { offlineStore } from "./offlineStore.js";
 
 // Only what a scan needs to build a cart line — keeps the payload small.
 function slim(p) {
@@ -62,4 +63,24 @@ export function cachedAt() {
   } catch {
     return null;
   }
+}
+
+// Full offline lookup: the IndexedDB mirror (fed by sync/pull, covers the
+// whole catalogue) first, then the localStorage mirror of what this browser
+// has seen (still useful before the first pull completes).
+export async function findProductOffline(code) {
+  try {
+    const hit = await offlineStore.findProductByBarcode(code);
+    if (hit) return hit;
+  } catch { /* no IndexedDB / no scope: fall through */ }
+  return findCachedByBarcode(code);
+}
+
+export async function searchProductsOffline(query, limit = 6) {
+  try {
+    const hits = await offlineStore.searchProducts(query, limit);
+    if (hits.length) return hits;
+  } catch { /* fall through */ }
+  const needle = String(query || "").toLowerCase();
+  return readAll().filter((p) => `${p.name} ${p.sku}`.toLowerCase().includes(needle)).slice(0, limit);
 }
