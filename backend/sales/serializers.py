@@ -6,7 +6,7 @@ from rest_framework import serializers
 
 from core.scoping import assert_user_branch
 
-from inventory.models import Product, StockBatch, StockMovement, Warehouse
+from inventory.models import Product, ProductPack, StockBatch, StockMovement, Warehouse
 from sales.models import (
     CashDrawerMovement,
     CashShift,
@@ -251,6 +251,7 @@ class InvoiceLineSerializer(serializers.ModelSerializer):
         model = InvoiceLine
         fields = [
             "id", "product", "description", "quantity", "unit_price", "discount_amount",
+            "pack", "pack_name", "pack_quantity", "packs_sold",
             "tax_rate", "line_subtotal", "line_tax", "line_total",
             "product_name", "product_sku",
             "returned_quantity", "returnable_quantity",
@@ -381,6 +382,12 @@ class POSLineSerializer(serializers.Serializer):
     # down first-expired-first-out (inventory/fefo.py).
     batch = serializers.PrimaryKeyRelatedField(
         queryset=StockBatch.objects.all(), required=False, allow_null=True
+    )
+    # Sell by the pack: `quantity` is then the number of packs and unit_price
+    # (if given) the price per pack; both are converted to base units before
+    # anything is written.
+    pack = serializers.PrimaryKeyRelatedField(
+        queryset=ProductPack.objects.all(), required=False, allow_null=True
     )
     quantity = serializers.DecimalField(max_digits=16, decimal_places=3, min_value=Decimal("0.001"))
     unit_price = serializers.DecimalField(
@@ -669,11 +676,31 @@ class POSCheckoutSerializer(serializers.Serializer):
         priced = []
         for ln in validated_data["lines"]:
             product = ln["product"]
-            qty = ln["quantity"]
-            price = ln.get("unit_price")
-            if price is None:
-                price = product.sale_price
-            gross = _q2(qty * price)
+            pack = ln.get("pack")
+            if pack is not None:
+                self._assert_company(pack, company_id, "pack")
+                if pack.product_id != product.pk:
+                    raise serializers.ValidationError(
+                        {"pack": "That pack belongs to a different product."}
+                    )
+                if not pack.is_active:
+                    raise serializers.ValidationError({"pack": "That pack is no longer sold."})
+                packs_sold = ln["quantity"]
+                pack_price = ln.get("unit_price")
+                if pack_price is None:
+                    pack_price = pack.effective_price()
+                # Base units and an equivalent base unit price, so every
+                # downstream figure (ledger, returns, reports) stays in one unit.
+                qty = packs_sold * pack.quantity
+                price = (pack_price / pack.quantity).quantize(Decimal("0.01"))
+                ln["_pack"] = (pack, packs_sold)
+                gross = _q2(packs_sold * pack_price)
+            else:
+                qty = ln["quantity"]
+                price = ln.get("unit_price")
+                if price is None:
+                    price = product.sale_price
+                gross = _q2(qty * price)
             if ln.get("discount_percent") is not None:
                 own = _q2(gross * ln["discount_percent"] / 100)
             else:
@@ -710,12 +737,20 @@ class POSCheckoutSerializer(serializers.Serializer):
             discount = own + share
             line_subtotal = gross - discount
             line_tax = _q2(line_subtotal * rate / 100)
+            pack_info = ln.get("_pack")
             InvoiceLine.objects.create(
                 invoice=invoice, product=product,
                 description=ln.get("description", ""),
                 quantity=qty, unit_price=price, discount_amount=discount, tax_rate=rate,
                 line_subtotal=line_subtotal, line_tax=line_tax,
                 line_total=line_subtotal + line_tax,
+                **(
+                    {
+                        "pack": pack_info[0], "pack_name": pack_info[0].name,
+                        "pack_quantity": pack_info[0].quantity, "packs_sold": pack_info[1],
+                    }
+                    if pack_info else {}
+                ),
             )
             subtotal += line_subtotal
             tax_total += line_tax

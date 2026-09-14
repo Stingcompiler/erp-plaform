@@ -9,6 +9,7 @@ from inventory.models import (
     Brand,
     Category,
     Product,
+    ProductPack,
     StockAdjustment,
     StockBatch,
     StockMovement,
@@ -68,8 +69,33 @@ class WarehouseSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class ProductPackSerializer(serializers.ModelSerializer):
+    effective_price = serializers.SerializerMethodField()
+    product_sku = serializers.CharField(source="product.sku", read_only=True)
+
+    class Meta:
+        model = ProductPack
+        fields = [
+            "id", "company", "product", "product_sku", "name", "quantity", "barcode",
+            "sale_price", "effective_price", "is_active",
+        ]
+        read_only_fields = ["company"]
+
+    def get_effective_price(self, obj):
+        return str(obj.effective_price())
+
+    def validate(self, attrs):
+        _assert_tenant_relations(self, attrs, ("product",))
+        if attrs.get("quantity") is not None and attrs["quantity"] <= 0:
+            raise serializers.ValidationError({"quantity": "A pack must hold at least one unit."})
+        return attrs
+
+
 class ProductSerializer(serializers.ModelSerializer):
     on_hand = serializers.SerializerMethodField()
+    # Selling units (carton, strip, sack) with their base-unit multiplier and
+    # price, so the till can offer them without a second request.
+    packs = ProductPackSerializer(many=True, read_only=True)
     # Shown beside the quantity at the till so a cashier weighing produce can
     # see whether they are entering kilograms or pieces.
     unit_name = serializers.CharField(
@@ -82,7 +108,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "id", "company", "sku", "name", "category", "brand", "unit",
             "barcode", "qr_code", "cost_price", "sale_price", "reorder_level",
             "track_batches", "is_stock_tracked", "is_active", "on_hand",
-            "unit_name",
+            "unit_name", "packs",
         ]
         read_only_fields = ["company"]
         # A house SKU is allocated when one isn't supplied — see create().

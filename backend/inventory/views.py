@@ -18,6 +18,7 @@ from core.scoping import (
 )
 from inventory.barcodes import next_internal_barcode
 from inventory.models import (
+    ProductPack,
     StockCount,
     Brand,
     Category,
@@ -31,6 +32,7 @@ from inventory.models import (
 )
 from inventory.counts import approve_count, cancel_count, submit_count
 from inventory.serializers import (
+    ProductPackSerializer,
     StockCountSerializer,
     BrandSerializer,
     CategorySerializer,
@@ -209,12 +211,28 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         product = self.get_queryset().filter(barcode=code).first()
+        pack = None
+        if product is None:
+            # A carton/strip barcode resolves to its product plus the pack,
+            # so one scan rings up the whole pack.
+            pack = (
+                ProductPack.objects.filter(
+                    company_id=getattr(request.user, "company_id", None),
+                    barcode=code, is_active=True,
+                )
+                .select_related("product")
+                .first()
+            )
+            product = pack.product if pack else None
         if product is None:
             return Response(
                 {"detail": "No product matches this barcode.", "code": code},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        return Response(self.get_serializer(product).data)
+        data = self.get_serializer(product).data
+        if pack is not None:
+            data["scanned_pack"] = ProductPackSerializer(pack).data
+        return Response(data)
 
     @action(detail=False, methods=["get"])
     def low_stock(self, request):
@@ -354,3 +372,18 @@ class StockCountViewSet(CompanyScopedModelViewSet):
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
         return self._transition(request, cancel_count)
+
+
+class ProductPackViewSet(CompanyScopedModelViewSet):
+    """Selling units per product (carton of 12, strip of 10, 5 kg sack)."""
+
+    queryset = ProductPack.objects.select_related("product").all()
+    serializer_class = ProductPackSerializer
+    activity_entity_type = "ProductPack"
+    filter_backends = [SearchFilter]
+    search_fields = ["name", "barcode", "product__sku", "product__name"]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        product_id = self.request.query_params.get("product")
+        return qs.filter(product_id=product_id) if product_id else qs
