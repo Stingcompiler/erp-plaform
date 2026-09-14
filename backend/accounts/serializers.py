@@ -225,6 +225,12 @@ class MeSerializer(serializers.ModelSerializer):
     # or a lapsed subscription is announced on every screen, not discovered
     # on the first rejected save.
     entitlements = serializers.SerializerMethodField()
+    deployment_mode = serializers.SerializerMethodField()
+
+    def get_deployment_mode(self, obj):
+        from config.deployment import get_deployment_config
+
+        return get_deployment_config().mode
 
     def get_entitlements(self, obj):
         from core.entitlements import resolve_entitlements
@@ -273,6 +279,7 @@ class MeSerializer(serializers.ModelSerializer):
             "role_name",
             "tax_rate",
             "entitlements",
+            "deployment_mode",
             "is_platform_admin",
             "report_areas",
             "capabilities",
