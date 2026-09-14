@@ -128,3 +128,41 @@ changes.
   author this repo had no network to install Django, so the full test suite is
   verified by GitHub Actions on push (lint, system check, migration-sync check,
   deploy check, pytest) rather than locally.
+
+## What is actually deployed today
+
+Two services exist in the dashboard: the web service (`erp-plaform`, i.e.
+`erp-api` in this file) and the PostgreSQL database. The Celery worker, the
+Key Value store and the backup cron in `render.yaml` were never created.
+Nothing in the product needs a worker at request time, so the cheapest
+correct setup is the web service plus two **Cron Jobs**:
+
+| Cron Job | Schedule | Start command |
+|---|---|---|
+| `erp-backup-cron` | `0 2 * * *` | `python manage.py run_scheduled_backup` |
+| `erp-daily-scans` | `30 3 * * *` | `python manage.py run_daily_scans` |
+
+Both: same repo/branch, Root Directory `backend`, Build
+`pip install -r requirements.txt`, and the same environment variables as
+the web service (`DJANGO_SETTINGS_MODULE`, `DJANGO_SECRET_KEY`, `DEBUG`,
+`DATABASE_URL`, `SUBSCRIPTION_POLICY`, `PYTHON_VERSION`). Do **not** run a
+Celery worker with embedded beat at the same time as `erp-daily-scans`.
+
+## Services created by hand (no Blueprint link)
+
+If the services were created from the dashboard rather than from this
+Blueprint, `render.yaml` is documentation only: Render never reads it again.
+Every change here must be copied into the service's **Settings** /
+**Environment** by hand. The values that have bitten before:
+
+| Service | Setting | Value |
+|---|---|---|
+| `erp-api` | Pre-Deploy Command | `python manage.py migrate --noinput && python manage.py seed_roles` |
+| `erp-api`, `erp-worker`, `erp-backup-cron` | `SUBSCRIPTION_POLICY` | `observe` (then `enforce`) |
+| `erp-worker` (only if deployed) | Start Command | `celery -A config worker -B --loglevel=info --pool=solo` |
+| `erp-worker` (only if deployed) | `CELERY_BROKER_URL` | the **Internal Redis URL** of `erp-cache` |
+| all Python services | `PYTHON_VERSION` | `3.12.3` (what CI tests) |
+
+A worker log showing `transport: redis://localhost:6379/0` means
+`CELERY_BROKER_URL` is missing; `concurrency: 8 (prefork)` followed by
+`Out of memory` means the start command lacks `--pool=solo`.

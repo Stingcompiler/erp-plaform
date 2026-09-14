@@ -71,7 +71,10 @@ services:
           property: connectionString
 
   # ---------------------------------------------------------------------------
-  # erp-worker : Celery worker (Python native background worker)
+  # erp-worker : Celery worker (Python native background worker).
+  # Optional today: nothing in the product enqueues tasks at request time;
+  # the daily scans run from erp-daily-scans. Deploy this (with erp-cache)
+  # only when a feature needs background work, and then drop the cron.
   # ---------------------------------------------------------------------------
   - type: worker
     name: erp-worker
@@ -84,7 +87,10 @@ services:
     # -B embeds the beat scheduler: the daily scans in CELERY_BEAT_SCHEDULE
     # run from this same process. Keep exactly one worker instance while
     # beat is embedded, or the scans run once per instance.
-    startCommand: "celery -A config worker -B --loglevel=info"
+    # --pool=solo: no forked children. The default prefork pool spawned one
+    # Django process per CPU (8 on this instance) and blew the 512Mi limit
+    # before the first task; three daily scans need exactly one process.
+    startCommand: "celery -A config worker -B --loglevel=info --pool=solo"
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.3"
@@ -141,7 +147,42 @@ services:
           property: connectionString
 
   # ---------------------------------------------------------------------------
-  # erp-cache : managed Key Value store (Redis-compatible) — Celery broker
+  # erp-daily-scans : receivables, stock and subscription scans, once a day.
+  # Runs the same task functions the Celery worker would, in-process, so no
+  # worker or broker is needed for them. Deploy EITHER this cron OR the
+  # worker+cache pair below, never both (the scans would run twice).
+  # ---------------------------------------------------------------------------
+  - type: cron
+    name: erp-daily-scans
+    runtime: python
+    plan: starter
+    region: oregon
+    rootDir: backend
+    schedule: "30 3 * * *"   # daily 03:30 UTC, after the backup
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python manage.py run_daily_scans"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.3"
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings
+      - key: DJANGO_SECRET_KEY
+        fromService:
+          type: web
+          name: erp-api
+          envVarKey: DJANGO_SECRET_KEY
+      - key: DEBUG
+        value: "False"
+      - key: SUBSCRIPTION_POLICY
+        value: observe
+      - key: DATABASE_URL
+        fromDatabase:
+          name: erp-db
+          property: connectionString
+
+  # ---------------------------------------------------------------------------
+  # erp-cache : managed Key Value store (Redis-compatible) — Celery broker.
+  # Optional today: only needed together with erp-worker.
   # ---------------------------------------------------------------------------
   - type: keyvalue
     name: erp-cache
