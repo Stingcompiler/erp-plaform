@@ -239,6 +239,9 @@ class Invoice(models.Model):
     exchange_rate = models.DecimalField(max_digits=14, decimal_places=6, default=1)
     tax_rate_snapshot = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     subtotal = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    # Sum of every line's discount (line discounts plus the invoice-level
+    # discount allocated across lines). `subtotal` is already net of it.
+    discount_total = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     tax_amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     is_void = models.BooleanField(default=False)  # set only via a Credit Note (M5)
@@ -335,6 +338,10 @@ class InvoiceLine(models.Model):
     description = models.CharField(max_length=255, blank=True)
     quantity = models.DecimalField(max_digits=16, decimal_places=3)
     unit_price = models.DecimalField(max_digits=14, decimal_places=2)
+    # Money taken off this line before tax (its own discount plus its share
+    # of any invoice-level discount). unit_price stays the gross list price
+    # so the receipt can show "was / now"; line_subtotal is net of this.
+    discount_amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     line_subtotal = models.DecimalField(max_digits=16, decimal_places=2)
     line_tax = models.DecimalField(max_digits=16, decimal_places=2, default=0)

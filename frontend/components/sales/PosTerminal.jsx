@@ -37,6 +37,7 @@ export default function PosTerminal({
   const [reference, setReference] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [receipt, setReceipt] = useState(null);
+  const [ticketDiscount, setTicketDiscount] = useState("");
   const [docId, setDocId] = useState(null);
   const [error, setError] = useState("");
   const toast = useToast();
@@ -109,15 +110,30 @@ export default function PosTerminal({
     const n = Number(l.qty);
     return Number.isFinite(n) && n > 0 ? n : 0;
   };
-  const lineTotal = (l) => Number(l.price || 0) * qtyOf(l);
-  const subtotal = cart.reduce((s, l) => s + lineTotal(l), 0);
-  // Same rule as the server (POSCheckoutSerializer): per-line tax at the
-  // company's flat rate, rounded to cents, then summed. Without this the till
-  // collects the pre-tax figure and every invoice in a taxed jurisdiction is
-  // left "partially paid" by exactly the tax amount.
-  const taxRate = Number(user?.tax_rate ?? 0);
   const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
-  const taxTotal = cart.reduce((s, l) => s + round2((lineTotal(l) * taxRate) / 100), 0);
+  const lineGross = (l) => round2(Number(l.price || 0) * qtyOf(l));
+  const lineDiscount = (l) => {
+    const pct = Number(l.discountPercent || 0);
+    return pct > 0 ? round2((lineGross(l) * pct) / 100) : 0;
+  };
+  const lineTotal = (l) => lineGross(l) - lineDiscount(l);
+  // Same rules as the server (POSCheckoutSerializer): line discount off the
+  // gross, ticket discount spread pro-rata (last line takes the rounding),
+  // then per-line tax at the company's flat rate. Mirrored here so what the
+  // cashier collects is what the invoice will say.
+  const taxRate = Number(user?.tax_rate ?? 0);
+  const netBase = cart.reduce((s, l) => s + lineTotal(l), 0);
+  const ticket = Math.min(Number(ticketDiscount || 0), netBase);
+  let allocated = 0;
+  const netLines = cart.map((l, i) => {
+    const net = lineTotal(l);
+    const share = i === cart.length - 1 ? round2(ticket - allocated) : netBase > 0 ? round2((ticket * net) / netBase) : 0;
+    allocated += share;
+    return net - share;
+  });
+  const subtotal = round2(netLines.reduce((s, n) => s + n, 0));
+  const discountTotal = round2(cart.reduce((s, l) => s + lineDiscount(l), 0) + ticket);
+  const taxTotal = round2(netLines.reduce((s, n) => s + round2((n * taxRate) / 100), 0));
   const grandTotal = round2(subtotal + taxTotal);
 
   function addProduct(p) {
@@ -188,6 +204,7 @@ export default function PosTerminal({
     setCustomer("");
     saleUuid.current = null;
     localRef.current = null;
+    setTicketDiscount("");
     setBankAccount(""); setReference(""); setMethod("cash");
   }
 
@@ -240,7 +257,9 @@ export default function PosTerminal({
         ...(String(l.price) !== String(l.listPrice)
           ? { unit_price: String(Number(l.price || 0)) }
           : {}),
+        ...(Number(l.discountPercent || 0) > 0 ? { discount_percent: String(Number(l.discountPercent)) } : {}),
       })),
+      ...(ticket > 0 ? { discount_amount: String(round2(ticket)) } : {}),
       payment,
       // Stamped from the client, not the server clock: an offline sale can
       // sync after its shift closed and must still land in the drawer that
@@ -463,6 +482,21 @@ export default function PosTerminal({
                     />
                   </div>
 
+                  <div className="w-16">
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.5"
+                      min="0"
+                      max="100"
+                      value={l.discountPercent || ""}
+                      placeholder="%"
+                      onChange={(e) => patchLine(l.id, { discountPercent: e.target.value })}
+                      aria-label={t("sales.lineDiscount")}
+                      className="text-end"
+                    />
+                  </div>
+
                   <div className="tabular w-20 text-end text-sm font-medium text-ink">
                     {money(lineTotal(l))}
                   </div>
@@ -520,6 +554,25 @@ export default function PosTerminal({
               <span>{t("sales.subtotal")}</span>
               <span className="tabular">{money(subtotal)}</span>
             </div>
+            <div className="mt-1 flex items-center justify-between gap-3 text-sm text-muted">
+              <span>{t("sales.ticketDiscount")}</span>
+              <Input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                value={ticketDiscount}
+                onChange={(e) => setTicketDiscount(e.target.value)}
+                aria-label={t("sales.ticketDiscount")}
+                className="w-28 text-end"
+              />
+            </div>
+            {discountTotal > 0 && (
+              <div className="mt-1 flex items-center justify-between gap-3 text-sm text-muted">
+                <span>{t("sales.discountTotal")}</span>
+                <span className="tabular">−{money(discountTotal)}</span>
+              </div>
+            )}
             {taxRate > 0 && (
               <div className="mt-1 flex items-center justify-between gap-3 text-sm text-muted">
                 <span>{t("sales.tax")} ({taxRate}%)</span>
