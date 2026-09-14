@@ -45,9 +45,20 @@ class Command(BaseCommand):
         )
         self.stdout.write(self.style.SUCCESS(f"Public key:  {public_path}"))
         self.stdout.write("")
-        self.stdout.write("Put this in the customer's vezano.env (single line):")
+        self.stdout.write(
+            f"Ship {public_path.name} to every customer: copy it into the directory "
+            "named by VEZANO_LICENSE_PUBLIC_KEYS_DIR in their vezano.env "
+            "(the runbook uses /etc/vezano/license-keys). Adding a rotated key is "
+            "another file copy; existing licences keep verifying."
+        )
+        self.stdout.write("")
+        self.stdout.write(
+            "Alternative for environments without a file drop (no spaces — shells "
+            "split on them):"
+        )
         import json
 
         self.stdout.write(
-            "VEZANO_LICENSE_PUBLIC_KEYS=" + json.dumps({key_id: public_pem}, ensure_ascii=False)
+            "VEZANO_LICENSE_PUBLIC_KEYS="
+            + json.dumps({key_id: public_pem}, ensure_ascii=False, separators=(",", ":"))
         )

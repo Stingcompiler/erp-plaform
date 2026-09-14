@@ -84,6 +84,38 @@ class RunPreflightTests(TestCase):
             "migrations",
             "media",
             "frontend_build",
+            "licence_keys",
             "licence",
         ):
             self.assertIn(expected, codes)
+
+
+class LicenceKeyTests(TestCase):
+    def test_not_applicable_on_saas(self):
+        with override_settings(VEZANO_DEPLOYMENT_MODE="saas", VEZANO_LICENSE_PUBLIC_KEYS={}):
+            self.assertEqual(preflight.check_licence_keys().level, preflight.OK)
+
+    def test_standalone_without_a_key_is_blocking(self):
+        with override_settings(
+            VEZANO_DEPLOYMENT_MODE="standalone", VEZANO_LICENSE_PUBLIC_KEYS={}
+        ):
+            self.assertEqual(preflight.check_licence_keys().level, preflight.FAIL)
+
+    def test_standalone_with_a_mangled_key_is_blocking(self):
+        # What a shell makes of the JSON form when it strips the quotes.
+        with override_settings(
+            VEZANO_DEPLOYMENT_MODE="standalone",
+            VEZANO_LICENSE_PUBLIC_KEYS={"k": "-----BEGIN PUBLIC KEY-----\n"[:5]},
+        ):
+            finding = preflight.check_licence_keys()
+            self.assertEqual(finding.level, preflight.FAIL)
+            self.assertIn("k", finding.detail)
+
+    def test_standalone_with_a_pem_key_passes(self):
+        with override_settings(
+            VEZANO_DEPLOYMENT_MODE="standalone",
+            VEZANO_LICENSE_PUBLIC_KEYS={
+                "k": "-----BEGIN PUBLIC KEY-----\nx\n-----END PUBLIC KEY-----\n"
+            },
+        ):
+            self.assertEqual(preflight.check_licence_keys().level, preflight.OK)

@@ -8,24 +8,29 @@ does not depend on Render.
 
 - Ubuntu LTS or an equivalent maintained Linux distribution.
 - PostgreSQL with a dedicated database and least-privilege login.
-- Python 3.12 virtual environment, Node.js 20 for release builds, and TLS at the reverse proxy.
-- One Gunicorn web service and optional Celery worker. The frontend is built once and served by Django.
+- Python 3.12 virtual environment **inside each release** (`<release>/venv`), Node.js 20 or newer on the build machine, and TLS at the reverse proxy (Caddy: see `Caddyfile.example`).
+- One Gunicorn web service and optional Celery worker (the worker needs Redis; the web service does not). The frontend is built once and served by Django.
 - `VEZANO_DEPLOYMENT_MODE=standalone`; this value is fixed for the life of the database.
 
-Copy `vezano.env.example` outside the repository, fill it with unique secrets,
-set mode `0600`, and reference it from the service units. Never package a real
-environment file, database, uploaded media, signing private key, or developer
-virtual environment in a customer release.
+Copy `vezano.env.example` to `/etc/vezano/vezano.env`, fill it with unique
+secrets, set mode `0600`. Django reads that file itself (`VEZANO_ENV_FILE`, set
+by the service units and exported by the scripts); it is never sourced by a
+shell. `package_release.sh` refuses to build an archive that contains a real
+environment file, a database, media, a key, or a developer virtual environment.
 
 ## First installation
 
-1. Verify the signed release checksum and unpack it into `/opt/vezano/releases/<version>`.
-2. Create the Python environment and install `backend/requirements.txt`.
-3. Run `npm ci && npm run build` inside `frontend`.
-4. Run `python backend/manage.py migrate` and `python backend/manage.py collectstatic --noinput`.
-5. Run `python backend/manage.py bootstrap_standalone --organisation "Customer legal name"`.
-6. Create the first owner with an interactive, unique password. Do not ship a common password.
-7. Start the native services, import the signed licence from **Subscription & licence**, and run health checks.
+The step-by-step commands are in `OPERATIONS.md`. In outline:
+
+1. Verify the signed release checksum and signature; unpack into `/opt/vezano/releases/<version>`; link `/opt/vezano/current`.
+2. Create `<release>/venv` and install `backend/requirements.txt`.
+3. Write `/etc/vezano/vezano.env`; drop the vendor's public key into `/etc/vezano/license-keys/`.
+4. `migrate`, `collectstatic --noinput`, `bootstrap_standalone --organisation "Customer legal name" --app-version <version>`.
+5. `create_owner --email <owner>` — prompts for a unique password and creates the company, its main branch, the role set and the Business Owner. No default password exists anywhere.
+6. Start the services, sign in, import the signed licence from **Subscription & licence**, then `preflight` must pass.
+
+The frontend export ships inside the archive (`frontend/out`), so the customer
+host does not need Node.js; `npm ci && npm run build` is a build-machine step.
 
 ## Upgrade
 
@@ -59,10 +64,12 @@ replacement for this full recovery procedure.
    python backend/manage.py license_keygen --key-id vezano-2026 --out-dir ~/vezano-keys
    ```
 
-   The command prints the `VEZANO_LICENSE_PUBLIC_KEYS` line to put in every
-   customer's `vezano.env`. Rotating keys later = a new `--key-id`, the new
-   public key added alongside the old one, new licences signed with the new
-   key; existing licences keep verifying.
+   Ship `vezano-2026.public.pem` with every release: the customer copies it
+   into `/etc/vezano/license-keys/` (`VEZANO_LICENSE_PUBLIC_KEYS_DIR`).
+   Rotating keys later = a new `--key-id`, its public key copied beside the
+   old one, new licences signed with the new key; existing licences keep
+   verifying. (The single-line `VEZANO_LICENSE_PUBLIC_KEYS` JSON form still
+   works for environments without a file drop.)
 
 2. Per customer, after they ran `bootstrap_standalone` and sent you the
    installation ID shown on their Subscription & licence page:

@@ -12,15 +12,20 @@ Nothing here needs a connection to Vezano.
 | Path | Purpose |
 |---|---|
 | `/opt/vezano/releases/<version>` | one unpacked release per version |
-| `/opt/vezano/current` | symlink to the release in service |
-| `/opt/vezano/venv` | the Python environment for the release in service |
-| `/etc/vezano/vezano.env` | protected environment file, mode `0600` |
+| `/opt/vezano/releases/<version>/venv` | that release's Python environment (built on the host, never shipped) |
+| `/opt/vezano/current` | symlink to the release in service — code **and** venv move together |
+| `/etc/vezano/vezano.env` | protected environment file, mode `0600`, read by Django via `VEZANO_ENV_FILE` |
+| `/etc/vezano/license-keys/` | the vendor's licence public key(s), `<key-id>.public.pem` |
 | `/var/backups/vezano` | backup directories, one per run |
 | `<MEDIA_ROOT>` | uploaded files; pointed at by `MEDIA_ROOT` in the env file |
 
 ## First installation
 
-1. Verify the release archive against the checksum and signature shipped beside it:
+Run as the `vezano` user unless stated. Every command below was executed in
+this order on 2026-09-14 (see *Acceptance record*).
+
+1. Verify the release archive against the checksum and signature shipped beside it,
+   from inside the download directory:
 
    ```bash
    sha256sum -c vezano-1.0.0.tar.gz.sha256
@@ -28,83 +33,117 @@ Nothing here needs a connection to Vezano.
        -signature vezano-1.0.0.tar.gz.sig vezano-1.0.0.tar.gz
    ```
 
-2. Unpack into `/opt/vezano/releases/1.0.0` and create the symlink
-   `/opt/vezano/current`.
-
-3. Create the virtual environment and install the pinned dependencies:
+2. Unpack and link:
 
    ```bash
-   python3 -m venv /opt/vezano/venv
-   /opt/vezano/venv/bin/pip install -r backend/requirements.txt
+   mkdir -p /opt/vezano/releases/1.0.0
+   tar -xzf vezano-1.0.0.tar.gz -C /opt/vezano/releases/1.0.0
+   ln -sfn /opt/vezano/releases/1.0.0 /opt/vezano/current
    ```
 
-4. Build the frontend once, on a machine with Node.js 20:
+3. Create the release's own environment (Ubuntu 24.04: `apt install python3.12-venv`):
 
    ```bash
-   cd frontend && npm ci && npm run build
+   python3.12 -m venv /opt/vezano/current/venv
+   /opt/vezano/current/venv/bin/pip install --upgrade pip
+   /opt/vezano/current/venv/bin/pip install -r /opt/vezano/current/backend/requirements.txt
    ```
 
-   The export lands in `frontend/out` and is served by Django. Given the export
-   is committed, a build machine is not required if the archive already carries
-   a current `frontend/out`.
+   The frontend export is inside the archive (`frontend/out`); Node.js is only
+   needed on the machine that runs `package_release.sh`.
 
-5. Write `/etc/vezano/vezano.env` from `vezano.env.example`: unique
-   `DJANGO_SECRET_KEY`, `VEZANO_DEPLOYMENT_MODE=standalone`,
-   `SUBSCRIPTION_POLICY=enforce`, the database URL, and the trusted licence
-   public keys. Set `MEDIA_ROOT` if media lives on a separate volume. `chmod 600`.
+4. PostgreSQL: a dedicated role and database (as the `postgres` superuser):
 
-6. Apply the schema and collect static files:
+   ```sql
+   CREATE ROLE vezano LOGIN PASSWORD '<unique>';
+   CREATE DATABASE vezano OWNER vezano;
+   ```
+
+5. Write `/etc/vezano/vezano.env` from `vezano.env.example` — unique
+   `DJANGO_SECRET_KEY` (`openssl rand -hex 32`), `DJANGO_ALLOWED_HOSTS`,
+   `DATABASE_URL`, `MEDIA_ROOT`, `VEZANO_LICENSE_PUBLIC_KEYS_DIR` — then
+   `chmod 600`. Copy the vendor's `<key-id>.public.pem` into
+   `/etc/vezano/license-keys/`. Keep `FORCE_HTTPS=True` behind the TLS proxy.
+
+   For the rest of this shell:
 
    ```bash
+   export VEZANO_ENV_FILE=/etc/vezano/vezano.env
    cd /opt/vezano/current/backend
-   /opt/vezano/venv/bin/python manage.py migrate
-   /opt/vezano/venv/bin/python manage.py collectstatic --noinput
    ```
 
-7. Record the installation identity and check readiness:
+6. Prove the tree, apply the schema, collect static files:
 
    ```bash
-   /opt/vezano/venv/bin/python manage.py bootstrap_standalone \
-       --organisation "Customer legal name" --app-version 1.0.0
-   /opt/vezano/venv/bin/python manage.py preflight
+   ../venv/bin/python manage.py verify_release --manifest ../release-manifest.json
+   ../venv/bin/python manage.py migrate
+   ../venv/bin/python manage.py collectstatic --noinput
    ```
 
-8. Create the first owner with an interactive, unique password — never a shared
-   default. Then install the signed licence from **Subscription & licence**, and
-   start the services.
+7. Record the installation identity, create the first owner, check readiness:
 
-`preflight` exits non-zero while any check *fails* (as opposed to warns). In
-standalone enforce mode, a missing licence is a blocking failure; import the
-signed licence before accepting the installation. Empty static files produce a
-warning until `collectstatic` has run.
+   ```bash
+   ../venv/bin/python manage.py bootstrap_standalone \
+       --organisation "Customer legal name" --app-version 1.0.0
+   ../venv/bin/python manage.py create_owner --email owner@customer.example --full-name "Name"
+   ../venv/bin/python manage.py preflight
+   ```
+
+   `bootstrap_standalone` prints the **installation ID**; the customer sends it
+   to Vezano to receive their licence file. `create_owner` prompts twice for a
+   password, runs the project's validators, and creates the company (named
+   after the organisation), a `MAIN` branch, the role set and the Business
+   Owner. There is no default account.
+
+   `preflight` exits non-zero while any check *fails*. At this point exactly
+   one failure is expected — `licence: No standalone licence is installed` —
+   and it clears in the next step. `licence_keys` must already be `ok`;
+   if it is not, the public key file is missing or not a PEM public key.
+
+8. Install the services and TLS, then import the licence:
+
+   ```bash
+   sudo cp deploy/standalone/vezano-web.service /etc/systemd/system/
+   sudo systemctl daemon-reload && sudo systemctl enable --now vezano-web
+   sudo cp deploy/standalone/Caddyfile.example /etc/caddy/Caddyfile   # edit the host name
+   sudo systemctl reload caddy
+   curl -s https://<host>/api/health/
+   ```
+
+   `/api/health/` reports `deployment_mode`, `version`, `installation_id` and
+   the licence state (`unlicensed` until the import). Sign in as the owner,
+   open **Subscription & licence**, upload the JSON file from Vezano. The
+   state becomes `active`, and `manage.py preflight` now passes.
+
+   The worker unit (`vezano-worker.service`) is optional and needs Redis.
 
 ## Backup
 
 ```bash
 VEZANO_HOME=/opt/vezano/current \
 VEZANO_ENV_FILE=/etc/vezano/vezano.env \
-VEZANO_MEDIA_ROOT=/var/lib/vezano/media \
     deploy/standalone/backup.sh --label nightly
 ```
 
-Produces one dated directory holding `database.dump`, `media.tar.gz`,
-`fingerprint.json`, a protected copy of the environment file, and
-`backup-manifest.json` with a SHA-256 for each. The directory is written to a
-`.partial` staging name and renamed only on success, so a failed run never looks
-like a usable backup.
+The media directory is taken from `MEDIA_ROOT` in the env file (override with
+`VEZANO_MEDIA_ROOT` only for a deliberate reason). Produces one dated
+directory holding `database.dump`, `media.tar.gz`, `fingerprint.json`, a
+protected copy of the environment file, and `backup-manifest.json` with a
+SHA-256 for each. The directory is written to a `.partial` staging name and
+renamed only on success, so a failed run never looks like a usable backup.
 
 **A backup is not accepted until a restore into an isolated database succeeds.**
 
 ## Restore (and prove it)
 
 ```bash
-createdb -h 127.0.0.1 -U postgres vezano_verify
+createdb -h 127.0.0.1 -U postgres -O vezano vezano_verify
 
 VEZANO_HOME=/opt/vezano/current \
-VEZANO_PYTHON=/opt/vezano/venv/bin/python \
+VEZANO_ENV_FILE=/etc/vezano/vezano.env \
     deploy/standalone/restore.sh \
-    --from /var/backups/vezano/20260913T055205Z \
-    --database-url "postgres://vezano@127.0.0.1/vezano_verify" \
+    --from /var/backups/vezano/20260914T210202Z-nightly \
+    --database-url "postgres://vezano:<password>@127.0.0.1/vezano_verify" \
     --media-root /var/lib/vezano/media-verify
 ```
 
@@ -114,29 +153,44 @@ then runs `verify_restore`, which compares the restored database and media
 against the fingerprint. A non-zero exit means the restore did **not** reproduce
 the backup and the instance must not go live.
 
+To also prove login and health on the restored copy without touching the
+live service, start a throwaway Gunicorn on another port against it:
+
+```bash
+DATABASE_URL="postgres://vezano:<password>@127.0.0.1/vezano_verify" \
+MEDIA_ROOT=/var/lib/vezano/media-verify \
+    /opt/vezano/current/venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8001
+```
+
 Promotion is a deliberate act: stop the web service, point the environment file
-at the verified database, move media into place, and restart.
+at the verified database, move media into place, and restart. The installation
+identity lives in the database, so a restored copy keeps its licence binding.
 
 ## Upgrade
 
 ```bash
-deploy/standalone/upgrade.sh --release /opt/vezano/releases/1.1.0
+mkdir -p /opt/vezano/releases/1.1.0 && tar -xzf vezano-1.1.0.tar.gz -C /opt/vezano/releases/1.1.0
+deploy/standalone/upgrade.sh --release /opt/vezano/releases/1.1.0 --python3 python3.12
 ```
 
 The order is fixed and matters:
 
-1. `verify_release` proves the new tree matches its own manifest.
-2. A pre-upgrade backup is taken — a backup after migrating cannot undo it.
-3. `migrate --plan` is printed and confirmed.
-4. The worker is paused; migrations and `collectstatic` run against the new code.
-5. `check --deploy` runs before the tree can serve.
-6. The `current` symlink moves.
-7. Services restart and `preflight` runs again.
+1. The release's own `venv` is created and its dependencies installed if missing.
+2. `verify_release` proves the new tree matches its own manifest.
+3. A pre-upgrade backup is taken — a backup after migrating cannot undo it.
+4. `migrate --plan` is printed and confirmed.
+5. The services are stopped; migrations and `collectstatic` run against the new code.
+6. `check --deploy` runs before the tree can serve. With `FORCE_HTTPS=True`
+   it reports no issues; the four `security.W0xx` warnings seen with
+   `FORCE_HTTPS=False` are that setting, not a fault. Warnings do not block,
+   errors do.
+7. The `current` symlink moves — code and venv together.
+8. Services restart and `preflight` runs again.
 
-**Rollback.** Reverting application files alone is not a rollback once an
-incompatible migration has run. Restore the matching pre-upgrade database and
-media backup using the procedure above, then point `current` at the previous
-release.
+**Rollback.** If no migration ran, `ln -sfn /opt/vezano/releases/<previous> /opt/vezano/current`
+and restart the services. Once an incompatible migration has run, reverting
+application files alone is not a rollback: restore the matching pre-upgrade
+database and media backup using the procedure above, then move the link.
 
 ## Building a release
 
@@ -146,9 +200,11 @@ deploy/standalone/package_release.sh --output /tmp/releases \
 ```
 
 This writes `release-manifest.json` and `SHA256SUMS` into the tree, then creates
-`vezano-<version>.tar.gz`, its `.sha256`, and — when a key is given — a detached
-`.sig`. The archive excludes the virtual environment, `node_modules`, the local
-database, collected static files, uploaded media, and the git history.
+`vezano-<version>.tar.gz`, its `.sha256` (in `sha256sum -c` format) and — when a
+key is given — a detached `.sig`. The archive excludes the virtual environments,
+`node_modules`, databases, collected static files, uploaded media, `.env`
+files, editor/agent settings, test caches and the git history, and the script
+**fails the build** if any such file is still found in the archive.
 
 **Distribution of an unsigned archive is not supported.** Without a signature an
 operator cannot tell a genuine release from a tampered one.
@@ -157,14 +213,40 @@ operator cannot tell a genuine release from a tampered one.
 
 Verified in the repository test environment: the Django migration graph is
 complete, transfer and fingerprint comparisons detect mismatches, release
-manifests detect an edited migration or manifest, and `preflight` reports
-blocking configurations. The current automated suite uses SQLite.
+manifests detect an edited migration or manifest, `preflight` reports blocking
+configurations, and `create_owner` refuses weak passwords and hosted mode.
 
-Required before a standalone release is approved: a clean PostgreSQL 16 install,
-a real `pg_dump`/`pg_restore` round trip including media, a signed package
-verification, service startup under the target Linux distribution, and TLS at
-the reverse proxy. Restoring a production-scale database remains a separate
-capacity test.
+### Acceptance record — 2026-09-14, local dry run against PostgreSQL 16.15
+
+Run literally, in the order above, on macOS with the release tree under a
+scratch root (paths substituted; no systemd, no TLS proxy, `FORCE_HTTPS=False`):
+
+| Step | Result |
+|---|---|
+| `package_release.sh` + `sha256sum -c` + `openssl dgst -verify` | 652 files, `OK`, `Verified OK` |
+| unpack, per-release venv, `verify_release` | 85 migrations, frontend hash matches |
+| `migrate`, `collectstatic` | 91 tables, 162 static files |
+| `bootstrap_standalone`, `create_owner`, `preflight` | installation ID issued; only `licence` failing |
+| Gunicorn from the unit's `ExecStart`, `/api/health/` | `unlicensed`, root → login, SaaS routes 404 |
+| `issue_license` (vendor) → import on Subscription & licence | HTTP 201, state `active`, `preflight` passes |
+| POS: +10 stock, sale of 3 (cash), offline batch of 2 replayed twice | invoices 3, on hand 12, replay applied once |
+| Browser: login through the Django-served export, licence page | dashboard and licence details render |
+| `backup.sh --label nightly` | 4 artefacts, media 20 KB from `MEDIA_ROOT` |
+| `restore.sh` into empty `vezano_verify` | 91 tables and media match; login + invoices on port 8001 |
+| `restore.sh` again into the same database | refused: not empty |
+| `upgrade.sh` 1.0.0 → 1.0.1 (`--yes`) | venv built, pre-upgrade backup, no migrations, link moved, `preflight` passes |
+
+Breaks found by this run and fixed in the scripts: the developer `.env`,
+`.claude/`, `.pytest_cache/` and a SQLite backup were being shipped; the
+`.sha256` file was not `sha256sum -c` readable; the JSON public-key line could
+not survive `. vezano.env` (so `backup.sh` crashed); `upgrade.sh` looked for a
+venv that the layout never created; and there was no command to create the
+first owner.
+
+Still required before a standalone release is approved: the same run on a
+clean Ubuntu 24.04 host with systemd units, Caddy TLS in front, PostgreSQL
+from the distribution packages, and a browser going offline and back.
+Restoring a production-scale database remains a separate capacity test.
 
 ## Moving one SaaS company to a standalone installation
 

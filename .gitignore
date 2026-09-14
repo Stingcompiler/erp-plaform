@@ -26,3 +26,8 @@ frontend/.env.local
 # --- General ---
 .DS_Store
 *.log
+
+# --- Standalone release build (deploy/standalone/package_release.sh) ---
+# Written into the tree at packaging time and shipped inside the archive.
+/release-manifest.json
+/SHA256SUMS
