@@ -1,4 +1,4 @@
-# Handoff — where the work stands (2026-09-14, after PR #14)
+# Handoff — where the work stands (2026-09-14, after PR #15)
 
 Read this first in a new session. It is the human-readable copy of the
 session memory; the plan and decisions below are already agreed with the owner.
@@ -46,9 +46,18 @@ the pre-upgrade backup into a fresh DB + media dir, verify, repoint
 exited 1 after a successful restore with `--media-root` (EXIT trap + `set -e`).
 `VERSION` in the repo is still 1.0.0 — bump it when cutting the real 1.1.0.
 
-Next: phase E (Arabic customer guide, ship/never-ship checklist, contract
-terms: perpetual + annual maintenance; term → grace → read-only, no data
-loss), and phase C on a real Ubuntu host when a VPS exists.
+## Standalone phase E — done (PR #15)
+
+`deploy/standalone/CUSTOMER_GUIDE.ar.md` (customer, Arabic),
+`SHIP_CHECKLIST.md` (vendor gates: ship / never-ship / issue / never-issue),
+`LICENCE_TERMS.md` (perpetual + maintenance, term → grace → read-only,
+no-data-loss clause; each term mapped to the `issue_license` flag and the
+runtime state). Counsel still has to turn the terms into a contract.
+
+**The one thing left on the standalone plan:** phase C on a real Ubuntu
+24.04 host (systemd, Caddy TLS, distro PostgreSQL, browser offline/online)
+— needs a VPS from the owner. `OPERATIONS.md` is the exact sequence; the
+acceptance table there is where the result goes.
 
 ## Operator reminders
 
@@ -59,6 +68,6 @@ loss), and phase C on a real Ubuntu host when a VPS exists.
 
 ## To resume in a new chat
 
-> واصل خطة النسخة المستقلة — المرحلة E، أو المرحلة C على VPS حقيقي
+> نفّذ المرحلة C على VPS حقيقي: <العنوان> — ssh <المستخدم>@<العنوان>
 
 Add the VPS address and SSH access in the same message if one exists.
