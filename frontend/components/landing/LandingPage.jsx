@@ -1,42 +1,33 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+// Public landing page for the hosted product. Every screenshot under
+// /marketing is a real capture of the demo company (Arabic, light and dark),
+// so the copy next to it describes what the visitor is actually looking at.
+
+import { useRef, useState } from "react";
 import Link from "next/link";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   Boxes,
+  Briefcase,
+  Check,
   Contact,
   Globe,
-  Languages,
   LayoutDashboard,
-  Menu,
-  MoonStar,
   Package,
   RotateCcw,
-  ShieldCheck,
   ShoppingCart,
-  Sun,
-  SunMoon,
   Truck,
   Users,
-  X,
+  Wallet,
 } from "lucide-react";
 
 import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 
 import { demoRequests } from "@/lib/api";
-import { DEMO_URL, HAS_LIVE_DEMO } from "@/lib/demo";
 import { MarketingFooter, MarketingHeader } from "@/components/marketing/Chrome";
 import PlanCards from "@/components/marketing/PlanCards";
-
-const FEATURES = [
-  { icon: Package, titleKey: "landing.feature1Title", bodyKey: "landing.feature1Body" },
-  { icon: ShoppingCart, titleKey: "landing.feature2Title", bodyKey: "landing.feature2Body" },
-  { icon: Truck, titleKey: "landing.feature3Title", bodyKey: "landing.feature3Body" },
-  { icon: Contact, titleKey: "landing.feature4Title", bodyKey: "landing.feature4Body" },
-  { icon: Languages, titleKey: "landing.feature5Title", bodyKey: "landing.feature5Body" },
-  { icon: ShieldCheck, titleKey: "landing.feature6Title", bodyKey: "landing.feature6Body" },
-];
 
 const MODULES = [
   { icon: LayoutDashboard, key: "nav.dashboard" },
@@ -45,61 +36,241 @@ const MODULES = [
   { icon: Truck, key: "nav.purchasing" },
   { icon: RotateCcw, key: "nav.returns" },
   { icon: Contact, key: "nav.crm" },
+  { icon: Wallet, key: "nav.finance" },
+  { icon: Briefcase, key: "nav.hr" },
   { icon: Boxes, key: "nav.reports" },
   { icon: Globe, key: "nav.website" },
   { icon: Users, key: "nav.users" },
 ];
+
+const STORY_SHOTS = [
+  { light: "/marketing/pos.png", dark: "/marketing/pos-dark.png" },
+  { light: "/marketing/inventory.png", dark: "/marketing/inventory.png" },
+  { light: "/marketing/debts.png", dark: "/marketing/debts.png" },
+];
+
+// A screenshot inside a browser-window frame. Both themes are rendered and
+// CSS picks one, so the picture follows the visitor's theme without JS.
+function Shot({ light, dark, alt, priority = false, className = "" }) {
+  const shared = "block w-full";
+  return (
+    <figure className={`overflow-hidden rounded-card border border-line bg-surface shadow-card ${className}`}>
+      <div className="flex items-center gap-1.5 border-b border-line bg-paper px-3 py-2">
+        <span className="h-2.5 w-2.5 rounded-full bg-danger/60" />
+        <span className="h-2.5 w-2.5 rounded-full bg-warn/60" />
+        <span className="h-2.5 w-2.5 rounded-full bg-ok/60" />
+      </div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={light} alt={alt} className={`${shared} ${dark !== light ? "dark:hidden" : ""}`} loading={priority ? "eager" : "lazy"} decoding="async" />
+      {dark !== light && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={dark} alt="" aria-hidden="true" className={`${shared} hidden dark:block`} loading="lazy" decoding="async" />
+      )}
+    </figure>
+  );
+}
+
+// Above the fold (`immediate`) animates on mount; everything else waits until
+// it scrolls into view. Reduced-motion users get the final state at once.
+function Reveal({ children, delay = 0, className = "", immediate = false }) {
+  const reduce = useReducedMotion();
+  const visible = { opacity: 1, y: 0 };
+  return (
+    <motion.div
+      className={className}
+      initial={reduce ? false : { opacity: 0, y: 18 }}
+      animate={immediate ? visible : undefined}
+      whileInView={immediate ? undefined : visible}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.5, delay, ease: "easeOut" }}
+    >
+      {children}
+    </motion.div>
+  );
+}
 
 function Hero() {
   const { t } = useI18n();
   const { user } = useAuth();
   return (
     <section className="relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-accent/10 to-transparent" />
-      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24 lg:py-28">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-accent/10 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute start-1/2 top-24 -z-10 h-[480px] w-[900px] -translate-x-1/2 rounded-full bg-accent/10 blur-3xl" />
+      <div className="mx-auto max-w-6xl px-4 pb-10 pt-14 sm:px-6 sm:pt-20">
         <div className="mx-auto max-w-3xl text-center">
-          <span className="inline-flex items-center rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-muted">
-            {t("improvements.productBadge")}
-          </span>
-          <h1 className="mt-5 font-display text-3xl font-bold leading-tight tracking-tight sm:text-5xl">
-            {t("improvements.productTitle")}
-          </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-base text-muted sm:text-lg">
-            {t("improvements.productSubtitle")}
-          </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <a
-              href="/register"
-              className="w-full rounded-control bg-accent px-6 py-3 text-center font-medium text-white hover:bg-accent-strong sm:w-auto"
-            >
-              {t("landing.heroCtaPrimary")}
-            </a>
-            <a
-              href={DEMO_URL}
-              target={HAS_LIVE_DEMO ? "_blank" : undefined}
-              rel={HAS_LIVE_DEMO ? "noreferrer" : undefined}
-              className="w-full rounded-control border border-line bg-surface px-6 py-3 text-center font-medium text-ink hover:border-accent sm:w-auto"
-            >
-              {t(HAS_LIVE_DEMO ? "landing.heroCtaDemo" : "landing.heroCtaTrial")}
-            </a>
-            <Link
-              href={user ? "/dashboard" : "/login"}
-              className="w-full rounded-control border border-line bg-surface px-6 py-3 text-center font-medium text-ink hover:border-accent sm:w-auto"
-            >
-              {user ? t("nav.dashboard") : t("landing.heroCtaSecondary")}
-            </Link>
-          </div>
-          <p className="mt-6 text-sm text-muted">{t("improvements.productProof")}</p>
-          <div className="mt-10 rounded-card border border-line bg-surface p-5 text-start shadow-card">
-            <p className="text-xs text-muted">{t("improvements.previewLabel")}</p>
-            <h2 className="mt-2 font-display text-xl font-semibold">{t("improvements.previewTitle")}</h2>
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              {[["previewSales","24,500"],["previewStock","8"],["previewDue","6,200"]].map(([key,value]) =>
-                <div key={key} className="rounded-control bg-paper p-4"><div className="text-xs text-muted">{t(`improvements.${key}`)}</div><div className="tabular mt-2 text-2xl text-accent">{value}</div></div>)}
+          <Reveal immediate>
+            <span className="inline-flex items-center rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-muted">
+              {t("home.heroBadge")}
+            </span>
+          </Reveal>
+          <Reveal immediate delay={0.05}>
+            <h1 className="mt-5 font-display text-4xl font-bold leading-[1.15] tracking-tight sm:text-6xl">
+              {t("home.heroTitle")}
+            </h1>
+          </Reveal>
+          <Reveal immediate delay={0.1}>
+            <p className="mx-auto mt-5 max-w-2xl text-base text-muted sm:text-lg">{t("home.heroSubtitle")}</p>
+          </Reveal>
+          <Reveal immediate delay={0.15}>
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link href="/register" className="w-full rounded-control bg-accent px-6 py-3 text-center font-medium text-white shadow-card hover:bg-accent-strong sm:w-auto">
+                {t("home.heroPrimary")}
+              </Link>
+              <Link href="/pricing" className="w-full rounded-control border border-line bg-surface px-6 py-3 text-center font-medium text-ink hover:border-accent sm:w-auto">
+                {t("home.heroSecondary")}
+              </Link>
+              {user && (
+                <Link href="/dashboard" className="w-full rounded-control px-6 py-3 text-center font-medium text-accent hover:underline sm:w-auto">
+                  {t("nav.dashboard")}
+                </Link>
+              )}
             </div>
-            <p className="mt-5 font-medium text-accent">{t("improvements.previewAction")}</p>
-            <p className="mt-2 text-sm text-muted">{t("improvements.previewHint")}</p>
+            <p className="mt-4 text-sm text-muted">{t("home.heroNote")}</p>
+          </Reveal>
+        </div>
+        <Reveal immediate delay={0.2} className="mx-auto mt-12 max-w-5xl">
+          <Shot light="/marketing/dashboard.png" dark="/marketing/dashboard-dark.png" alt={t("home.heroCaption")} priority />
+          <p className="mt-3 text-center text-xs text-muted">{t("home.heroCaption")}</p>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+function TrustStrip() {
+  const { t } = useI18n();
+  const items = t("home.trust");
+  if (!Array.isArray(items)) return null;
+  return (
+    <section className="border-y border-line bg-surface">
+      <div className="mx-auto grid max-w-6xl gap-3 px-4 py-6 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
+        {items.map((item) => (
+          <div key={item} className="flex items-center justify-center gap-2 text-sm font-medium text-ink">
+            <Check size={16} className="shrink-0 text-accent" />
+            {item}
           </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Stories() {
+  const { t } = useI18n();
+  const stories = t("home.stories");
+  if (!Array.isArray(stories)) return null;
+  return (
+    <section id="features" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+      <h2 className="text-center font-display text-2xl font-bold tracking-tight sm:text-3xl">{t("home.storiesTitle")}</h2>
+      <div className="mt-14 space-y-20">
+        {stories.map((story, index) => {
+          const shot = STORY_SHOTS[index] || STORY_SHOTS[0];
+          const flip = index % 2 === 1;
+          return (
+            <Reveal key={story.title}>
+              <div className={`grid items-center gap-8 lg:grid-cols-2 lg:gap-14 ${flip ? "lg:[&>*:first-child]:order-2" : ""}`}>
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-wide text-accent">{story.eyebrow}</p>
+                  <h3 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">{story.title}</h3>
+                  <p className="mt-4 text-muted sm:text-lg">{story.body}</p>
+                  <ul className="mt-6 space-y-2.5">
+                    {story.bullets.map((line) => (
+                      <li key={line} className="flex items-start gap-2 text-sm sm:text-base">
+                        <Check size={18} className="mt-0.5 shrink-0 text-accent" />
+                        <span>{line}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <Shot light={shot.light} dark={shot.dark} alt={story.title} />
+              </div>
+            </Reveal>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function Modules() {
+  const { t } = useI18n();
+  return (
+    <section id="modules" className="border-t border-line bg-surface">
+      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">{t("landing.modulesTitle")}</h2>
+          <p className="mt-3 text-muted">{t("landing.modulesSubtitle")}</p>
+        </div>
+        <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {MODULES.map(({ icon: Icon, key }, index) => (
+            <Reveal key={key} delay={index * 0.03}>
+              <div className="flex items-center gap-3 rounded-card border border-line bg-paper px-4 py-3.5 shadow-card">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-control bg-accent/10 text-accent"><Icon size={18} /></span>
+                <span className="text-sm font-medium">{t(key)}</span>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HowItWorks() {
+  const { t } = useI18n();
+  const steps = t("home.how");
+  if (!Array.isArray(steps)) return null;
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+      <h2 className="text-center font-display text-2xl font-bold tracking-tight sm:text-3xl">{t("home.howTitle")}</h2>
+      <div className="mt-10 grid gap-5 md:grid-cols-3">
+        {steps.map(([title, body], index) => (
+          <Reveal key={title} delay={index * 0.08}>
+            <div className="h-full rounded-card border border-line bg-paper p-6 shadow-card">
+              <span className="grid h-9 w-9 place-items-center rounded-full bg-accent font-display text-sm font-bold text-white">{index + 1}</span>
+              <h3 className="mt-4 font-display text-lg font-semibold">{title}</h3>
+              <p className="mt-2 text-sm text-muted">{body}</p>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Faq() {
+  const { t } = useI18n();
+  const items = t("home.faq");
+  if (!Array.isArray(items)) return null;
+  return (
+    <section className="border-t border-line bg-surface">
+      <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 sm:py-24">
+        <h2 className="text-center font-display text-2xl font-bold tracking-tight sm:text-3xl">{t("home.faqTitle")}</h2>
+        <div className="mt-8 space-y-3">
+          {items.map(([question, answer]) => (
+            <details key={question} className="group rounded-card border border-line bg-paper p-5">
+              <summary className="cursor-pointer list-none font-medium marker:content-none">{question}</summary>
+              <p className="mt-3 text-sm text-muted">{answer}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FinalCta() {
+  const { t } = useI18n();
+  return (
+    <section className="mx-auto max-w-6xl px-4 pb-4 pt-16 sm:px-6">
+      <div className="relative overflow-hidden rounded-card bg-ink px-6 py-12 text-center text-paper shadow-card sm:px-12 sm:py-16">
+        <div className="pointer-events-none absolute -end-24 -top-24 h-72 w-72 rounded-full bg-accent/30 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -start-24 h-72 w-72 rounded-full bg-accent/20 blur-3xl" />
+        <h2 className="relative font-display text-2xl font-bold tracking-tight sm:text-4xl">{t("home.finalTitle")}</h2>
+        <p className="relative mx-auto mt-3 max-w-xl text-paper/70">{t("home.finalBody")}</p>
+        <div className="relative mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <Link href="/register" className="w-full rounded-control bg-accent px-6 py-3 font-medium text-white hover:bg-accent-strong sm:w-auto">{t("home.finalPrimary")}</Link>
+          <a href="#contact" className="w-full rounded-control border border-white/20 px-6 py-3 font-medium text-paper hover:bg-white/10 sm:w-auto">{t("home.finalSecondary")}</a>
         </div>
       </div>
     </section>
@@ -122,69 +293,6 @@ function PricingPreview() {
           <Link href="/pricing" className="inline-flex items-center gap-2 rounded-control border border-line bg-paper px-5 py-3 font-medium text-ink hover:border-accent">
             {t("pricing.seeAll")}
           </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function ValueProp() {
-  const { t } = useI18n();
-  return (
-    <section className="border-y border-line bg-surface">
-      <div className="mx-auto max-w-4xl px-4 py-14 text-center sm:px-6 sm:py-20">
-        <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-          {t("landing.valueTitle")}
-        </h2>
-        <p className="mx-auto mt-4 max-w-2xl text-muted">{t("landing.valueSubtitle")}</p>
-      </div>
-    </section>
-  );
-}
-
-function Features() {
-  const { t } = useI18n();
-  return (
-    <section id="features" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
-      <div className="mx-auto max-w-2xl text-center">
-        <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-          {t("landing.modulesTitle")}
-        </h2>
-        <p className="mt-3 text-muted">{t("landing.modulesSubtitle")}</p>
-      </div>
-      <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {FEATURES.map(({ icon: Icon, titleKey, bodyKey }) => (
-          <div
-            key={titleKey}
-            className="rounded-card border border-line bg-surface p-6 shadow-card"
-          >
-            <div className="grid h-11 w-11 place-items-center rounded-control bg-accent/10 text-accent">
-              <Icon size={22} />
-            </div>
-            <h3 className="mt-4 font-display text-lg font-semibold">{t(titleKey)}</h3>
-            <p className="mt-2 text-sm text-muted">{t(bodyKey)}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function Modules() {
-  const { t } = useI18n();
-  return (
-    <section id="modules" className="border-t border-line bg-surface">
-      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {MODULES.map(({ icon: Icon, key }) => (
-            <div
-              key={key}
-              className="flex items-center gap-3 rounded-control border border-line bg-paper px-4 py-3"
-            >
-              <Icon size={18} className="shrink-0 text-accent" />
-              <span className="text-sm font-medium">{t(key)}</span>
-            </div>
-          ))}
         </div>
       </div>
     </section>
@@ -265,10 +373,13 @@ export default function LandingPage() {
       <MarketingHeader />
       <main>
         <Hero />
-        <ValueProp />
-        <Features />
+        <TrustStrip />
+        <Stories />
         <Modules />
+        <HowItWorks />
         <PricingPreview />
+        <Faq />
+        <FinalCta />
         <ContactCTA />
       </main>
       <MarketingFooter />

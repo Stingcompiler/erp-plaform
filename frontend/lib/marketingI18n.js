@@ -169,3 +169,103 @@ export const MODULE_LABEL_KEYS = {
   finance: "nav.finance",
   website: "nav.website",
 };
+
+// Landing page (public home). Screenshots are real captures of the demo
+// company; the copy must describe what is in the picture.
+export const homeEn = {
+  heroBadge: "For shops, wholesalers and distributors · Arabic & English",
+  heroTitle: "Sales, stock and collections in one clear place.",
+  heroSubtitle: "Vezano runs your daily sales, knows what you own and what you are owed, and keeps selling when the internet does not.",
+  heroPrimary: "Start free trial",
+  heroSecondary: "See pricing",
+  heroNote: "14-day trial · no card · your data stays yours",
+  heroCaption: "The owner's dashboard of a demo company — real screen, sample data.",
+  trust: ["Offline-first POS", "Arabic & English, RTL", "PostgreSQL, audited ledger", "Cloud or your own server"],
+  storiesTitle: "Built around how a trading business actually runs",
+  stories: [
+    {
+      eyebrow: "Point of sale",
+      title: "A till that never stops selling",
+      body: "Scan or search, weigh by the kilo, discount a line or the ticket, take cash or bank transfer. If the connection drops, sales are saved on the device and synced when it is back — exactly once.",
+      bullets: ["Barcodes, packs and weighed goods", "Held carts and cash shifts with a counted drawer", "Works through an outage, no duplicates on sync"],
+    },
+    {
+      eyebrow: "Inventory",
+      title: "Stock you can trust to the unit",
+      body: "Every movement — sale, receipt, transfer, adjustment, return — posts to one ledger, so on-hand is always derivable. Batches and expiry dates sell first-expiry-first, and reorder points warn before the shelf is empty.",
+      bullets: ["Batches, expiry and FEFO", "Multi-warehouse, transfers and periodic counts", "Low-stock and expiry alerts every morning"],
+    },
+    {
+      eyebrow: "Collections",
+      title: "Know who owes you, and since when",
+      body: "Credit sales, partial payments and returns land on one customer ledger. Overdue balances surface on the dashboard, statements print in a click, and every payment needs the right approval.",
+      bullets: ["Customer statements and ageing", "Cash, bank transfer with proof, partial payments", "Approval thresholds for large payments"],
+    },
+  ],
+  howTitle: "Up and running in three steps",
+  how: [
+    ["Request a trial", "Tell us about your company. We create the workspace and send the owner an activation link."],
+    ["Set up in an afternoon", "Add branches, products and opening stock — or import them. Invite your team with the right roles."],
+    ["Sell from day one", "The till, the stock book and the debt ledger update each other. Upgrade your plan as you grow."],
+  ],
+  faqTitle: "Common questions",
+  faq: [
+    ["Does it work without internet?", "The point of sale keeps selling from cached products; sales are saved on the device and synced when the connection returns. The on-server edition needs no internet at all."],
+    ["Is it in Arabic?", "Fully — right-to-left layout, Arabic documents and receipts, with an English switch on every screen."],
+    ["Who owns the data?", "You do. Export a whole company at any time, or run the on-server edition where the database is on your own machine."],
+    ["Can we start small?", "Yes. A single shop starts on the smallest plan and turns into a multi-branch business by changing a setting, not the product."],
+  ],
+  finalTitle: "Ready to see it on your data?",
+  finalBody: "Start the trial today, or ask for a walkthrough and we will tailor it to how your business runs.",
+  finalPrimary: "Start free trial",
+  finalSecondary: "Request a walkthrough",
+};
+
+export const homeAr = {
+  heroBadge: "للمحلات وتجار الجملة والموزعين · العربية والإنجليزية",
+  heroTitle: "مبيعاتك ومخزونك وتحصيلاتك في مكان واحد واضح.",
+  heroSubtitle: "فيزانو يدير بيعك اليومي، ويعرف ما تملكه وما لك عند الآخرين، ويواصل البيع حين ينقطع الإنترنت.",
+  heroPrimary: "ابدأ التجربة المجانية",
+  heroSecondary: "شاهد الأسعار",
+  heroNote: "تجربة 14 يومًا · بلا بطاقة · بياناتك ملكك",
+  heroCaption: "لوحة المالك لشركة تجريبية — شاشة حقيقية ببيانات نموذجية.",
+  trust: ["نقطة بيع تعمل بلا اتصال", "عربي وإنجليزي من اليمين لليسار", "PostgreSQL ودفتر حركات مُدقَّق", "على السحابة أو خادمك"],
+  storiesTitle: "مبني على الطريقة التي يعمل بها التاجر فعلًا",
+  stories: [
+    {
+      eyebrow: "نقطة البيع",
+      title: "كاشير لا يتوقف عن البيع",
+      body: "امسح أو ابحث، بِع بالكيلو، اخصم على سطر أو على الفاتورة، استلم نقدًا أو تحويلًا. إن انقطع الاتصال تُحفظ المبيعات على الجهاز وتُزامَن عند عودته — مرة واحدة فقط.",
+      bullets: ["باركود وعبوات وبضائع موزونة", "تعليق السلة ووردية صندوق بجرد فعلي", "يعمل أثناء الانقطاع بلا تكرار عند المزامنة"],
+    },
+    {
+      eyebrow: "المخزون",
+      title: "مخزون تثق به حتى القطعة",
+      body: "كل حركة — بيع، استلام، تحويل، تسوية، مرتجع — تُسجَّل في دفتر واحد، فالرصيد دائمًا قابل للاشتقاق. الدفعات وتواريخ الصلاحية تُباع الأقرب انتهاءً أولًا، وحدود إعادة الطلب تنبّهك قبل أن يفرغ الرف.",
+      bullets: ["دفعات وصلاحية وFEFO", "مستودعات متعددة وتحويلات وجرد دوري", "تنبيهات النقص والصلاحية كل صباح"],
+    },
+    {
+      eyebrow: "التحصيل",
+      title: "اعرف من يدين لك، ومنذ متى",
+      body: "البيع الآجل والدفعات الجزئية والمرتجعات تصب في دفتر عميل واحد. الأرصدة المتأخرة تظهر على اللوحة، وكشف الحساب يُطبع بنقرة، وكل دفعة تمر بالاعتماد الصحيح.",
+      bullets: ["كشوف حساب وأعمار الديون", "نقد، تحويل بنكي بإثبات، دفعات جزئية", "حدود اعتماد للدفعات الكبيرة"],
+    },
+  ],
+  howTitle: "تبدأ في ثلاث خطوات",
+  how: [
+    ["اطلب التجربة", "أخبرنا عن شركتك. ننشئ مساحة العمل ونرسل للمالك رابط التفعيل."],
+    ["جهّز في ظهيرة واحدة", "أضف الفروع والمنتجات والرصيد الافتتاحي — أو استوردها. ادعُ فريقك بالأدوار المناسبة."],
+    ["بِع من اليوم الأول", "الكاشير ودفتر المخزون ودفتر الديون يحدّث بعضها بعضًا. ارفع باقتك كلما كبرت."],
+  ],
+  faqTitle: "أسئلة شائعة",
+  faq: [
+    ["هل يعمل بدون إنترنت؟", "نقطة البيع تواصل البيع من المنتجات المخزنة، وتُحفظ المبيعات على الجهاز وتُزامَن عند عودة الاتصال. نسخة الخادم الخاص لا تحتاج إنترنت أصلًا."],
+    ["هل هو بالعربية؟", "بالكامل — تخطيط من اليمين لليسار، مستندات وإيصالات عربية، مع مبدّل إنجليزي في كل شاشة."],
+    ["من يملك البيانات؟", "أنت. صدّر الشركة كاملة في أي وقت، أو شغّل نسخة الخادم الخاص حيث قاعدة البيانات على جهازك."],
+    ["هل نستطيع البدء صغارًا؟", "نعم. المحل الواحد يبدأ بأصغر باقة ويتحول إلى أعمال متعددة الفروع بتغيير إعداد، لا بتغيير المنتج."],
+  ],
+  finalTitle: "جاهز لتراه على بياناتك؟",
+  finalBody: "ابدأ التجربة اليوم، أو اطلب عرضًا توضيحيًا نفصّله على طريقة عملك.",
+  finalPrimary: "ابدأ التجربة المجانية",
+  finalSecondary: "اطلب عرضًا توضيحيًا",
+};

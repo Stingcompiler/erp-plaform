@@ -1,7 +1,7 @@
 import { improvementsEn, improvementsAr } from "./improvementsI18n.js";
 import { debtEn, debtAr } from "./debtI18n.js";
 import { subscriptionEn, subscriptionAr } from "./subscriptionI18n.js";
-import { pricingAr, pricingEn, registerAr, registerEn } from "./marketingI18n.js";
+import { homeAr, homeEn, pricingAr, pricingEn, registerAr, registerEn } from "./marketingI18n.js";
 // Central translation catalog. Keys are dot-namespaced by surface. `t(key)`
 // (from useI18n) looks a key up in the active language, falling back to English,
 // then to the raw key — so a missing translation is visible, never a crash.
@@ -3014,6 +3014,8 @@ en.pricing = pricingEn;
 ar.pricing = pricingAr;
 en.register = registerEn;
 ar.register = registerAr;
+en.home = homeEn;
+ar.home = homeAr;
 const CATALOG = { en, ar };
 
 function lookup(obj, path) {
