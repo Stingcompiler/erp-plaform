@@ -60,6 +60,7 @@ class SimpleTaxHandler(TaxHandler):
             "payment_terms_days": invoice.payment_terms_days,
             "tax_rate": str(invoice.tax_rate_snapshot),
             "subtotal": money(invoice.subtotal),
+            "discount": money(invoice.discount_total),
             "tax": money(invoice.tax_amount),
             "total": money(invoice.total),
             # Settlement is derived from the payment ledger, never stored, so
@@ -78,6 +79,7 @@ class SimpleTaxHandler(TaxHandler):
                     "description": line.description or line.product.name,
                     "quantity": str(line.quantity),
                     "unit_price": money(line.unit_price),
+                    "discount": money(line.discount_amount),
                     "line_total": money(line.line_total),
                 }
                 for line in invoice.lines.all()

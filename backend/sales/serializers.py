@@ -6,7 +6,7 @@ from rest_framework import serializers
 
 from core.scoping import assert_user_branch
 
-from inventory.models import Product, StockMovement, Warehouse
+from inventory.models import Product, StockBatch, StockMovement, Warehouse
 from sales.models import (
     CashDrawerMovement,
     CashShift,
@@ -250,7 +250,7 @@ class InvoiceLineSerializer(serializers.ModelSerializer):
     class Meta:
         model = InvoiceLine
         fields = [
-            "id", "product", "description", "quantity", "unit_price",
+            "id", "product", "description", "quantity", "unit_price", "discount_amount",
             "tax_rate", "line_subtotal", "line_tax", "line_total",
             "product_name", "product_sku",
             "returned_quantity", "returnable_quantity",
@@ -272,7 +272,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
             "id", "company", "customer", "branch", "warehouse", "number",
             "number_display", "local_reference", "received_at", "currency", "exchange_rate",
             "tax_rate_snapshot",
-            "subtotal", "tax_amount", "total", "is_void", "status",
+            "subtotal", "discount_total", "tax_amount", "total", "is_void", "status",
             "amount_paid", "amount_due", "lines", "client_uuid", "issued_at",
             "payment_terms_days", "due_date", "days_overdue", "is_overdue",
             "updated_at",
@@ -377,11 +377,31 @@ class PaymentSerializer(serializers.ModelSerializer):
 
 class POSLineSerializer(serializers.Serializer):
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
+    # A scanned lot. Optional: without it a batch-tracked product is drawn
+    # down first-expired-first-out (inventory/fefo.py).
+    batch = serializers.PrimaryKeyRelatedField(
+        queryset=StockBatch.objects.all(), required=False, allow_null=True
+    )
     quantity = serializers.DecimalField(max_digits=16, decimal_places=3, min_value=Decimal("0.001"))
     unit_price = serializers.DecimalField(
         max_digits=14, decimal_places=2, required=False, min_value=Decimal("0")
     )
     description = serializers.CharField(required=False, allow_blank=True)
+    # Either a percentage of the line or a fixed amount, never both.
+    discount_percent = serializers.DecimalField(
+        max_digits=5, decimal_places=2, required=False,
+        min_value=Decimal("0"), max_value=Decimal("100"),
+    )
+    discount_amount = serializers.DecimalField(
+        max_digits=16, decimal_places=2, required=False, min_value=Decimal("0")
+    )
+
+    def validate(self, attrs):
+        if attrs.get("discount_percent") is not None and attrs.get("discount_amount") is not None:
+            raise serializers.ValidationError(
+                "Use either discount_percent or discount_amount on a line, not both."
+            )
+        return attrs
 
 
 class POSPaymentSerializer(serializers.Serializer):
@@ -554,6 +574,11 @@ class POSCheckoutSerializer(serializers.Serializer):
     )
     lines = POSLineSerializer(many=True)
     payment = POSPaymentSerializer(required=False, allow_null=True)
+    # A discount on the whole ticket, spread across lines in proportion to
+    # their net value so per-line tax and per-line returns stay exact.
+    discount_amount = serializers.DecimalField(
+        max_digits=16, decimal_places=2, required=False, min_value=Decimal("0")
+    )
     # When the sale actually happened at the till. Absent (older clients) it
     # is the server clock, which is only right for an online sale.
     occurred_at = serializers.DateTimeField(required=False, allow_null=True)
@@ -639,47 +664,104 @@ class POSCheckoutSerializer(serializers.Serializer):
             local_reference=validated_data.get("local_reference", ""),
         )
 
-        subtotal = Decimal("0")
-        tax_total = Decimal("0")
+        # Pass 1: gross and own-discount per line, so the ticket discount
+        # can be allocated before anything is written.
+        priced = []
         for ln in validated_data["lines"]:
             product = ln["product"]
             qty = ln["quantity"]
             price = ln.get("unit_price")
             if price is None:
                 price = product.sale_price
-            line_subtotal = _q2(qty * price)
+            gross = _q2(qty * price)
+            if ln.get("discount_percent") is not None:
+                own = _q2(gross * ln["discount_percent"] / 100)
+            else:
+                own = _q2(ln.get("discount_amount") or 0)
+            if own > gross:
+                raise serializers.ValidationError(
+                    {"lines": f"Discount on {product.sku} exceeds the line value."}
+                )
+            priced.append([ln, product, qty, price, gross, own])
+        ticket_discount = _q2(validated_data.get("discount_amount") or 0)
+        net_base = sum((row[4] - row[5] for row in priced), Decimal("0"))
+        if ticket_discount > net_base:
+            raise serializers.ValidationError(
+                {"discount_amount": "The ticket discount exceeds the sale value."}
+            )
+        # Allocate proportionally; the last line absorbs rounding so the
+        # allocated parts sum exactly to the ticket discount.
+        allocated = Decimal("0")
+        for index, row in enumerate(priced):
+            net = row[4] - row[5]
+            if index == len(priced) - 1:
+                share = ticket_discount - allocated
+            elif net_base > 0:
+                share = _q2(ticket_discount * net / net_base)
+            else:
+                share = Decimal("0")
+            allocated += share
+            row.append(share)
+
+        subtotal = Decimal("0")
+        tax_total = Decimal("0")
+        discount_total = Decimal("0")
+        for ln, product, qty, price, gross, own, share in priced:
+            discount = own + share
+            line_subtotal = gross - discount
             line_tax = _q2(line_subtotal * rate / 100)
             InvoiceLine.objects.create(
                 invoice=invoice, product=product,
                 description=ln.get("description", ""),
-                quantity=qty, unit_price=price, tax_rate=rate,
+                quantity=qty, unit_price=price, discount_amount=discount, tax_rate=rate,
                 line_subtotal=line_subtotal, line_tax=line_tax,
                 line_total=line_subtotal + line_tax,
             )
             subtotal += line_subtotal
             tax_total += line_tax
+            discount_total += discount
             # sale_out movement (negative) — offline-first: we record the sale
             # even if it drives stock negative; reconciliation is a later step.
             # Skipped for non-stock lines (a bag, a delivery charge, the
             # miscellaneous catch-all): there is no inventory behind them, so a
             # movement would only invent a deficit.
             if product.is_stock_tracked:
-                StockMovement.objects.create(
-                    company_id=company_id, product=product, warehouse=warehouse,
-                    movement_type=StockMovement.SALE_OUT, quantity=-qty,
-                    # Snapshot the cost at the moment of sale so standard-cost
-                    # COGS is reproducible; re-pricing a product later must
-                    # not rewrite last quarter's margin.
-                    unit_cost=product.cost_price,
-                    reference_type="Invoice", reference_id=str(invoice.id),
-                    created_by=user if user.is_authenticated else None,
-                    created_at=occurred_at,
-                )
+                # Batch-tracked products leave lot by lot (FEFO, or the lot
+                # the cashier scanned) so batch balances and the expiry
+                # report stay true; everything else is one movement.
+                preferred = ln.get("batch")
+                if preferred is not None:
+                    self._assert_company(preferred, company_id, "batch")
+                    if preferred.product_id != product.pk:
+                        raise serializers.ValidationError(
+                            {"batch": "That lot belongs to a different product."}
+                        )
+                if product.track_batches:
+                    from inventory.fefo import allocate_fefo
+                    plan = allocate_fefo(
+                        product, warehouse, qty, preferred_batch=preferred, as_of=occurred_at
+                    )
+                else:
+                    plan = [(None, qty)]
+                for batch, part in plan:
+                    StockMovement.objects.create(
+                        company_id=company_id, product=product, warehouse=warehouse,
+                        batch=batch,
+                        movement_type=StockMovement.SALE_OUT, quantity=-part,
+                        # Snapshot the cost at the moment of sale so
+                        # standard-cost COGS is reproducible; re-pricing a
+                        # product later must not rewrite last quarter's margin.
+                        unit_cost=product.cost_price,
+                        reference_type="Invoice", reference_id=str(invoice.id),
+                        created_by=user if user.is_authenticated else None,
+                        created_at=occurred_at,
+                    )
 
         invoice.subtotal = _q2(subtotal)
+        invoice.discount_total = _q2(discount_total)
         invoice.tax_amount = _q2(tax_total)
         invoice.total = invoice.subtotal + invoice.tax_amount
-        invoice.save(update_fields=["subtotal", "tax_amount", "total"])
+        invoice.save(update_fields=["subtotal", "discount_total", "tax_amount", "total"])
 
         pay = validated_data.get("payment")
         if pay:
