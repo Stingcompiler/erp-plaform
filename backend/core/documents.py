@@ -93,7 +93,7 @@ def credit_note_document(note):
     """
     return {
         "doc_type": "credit_note",
-        "number": f"CN-{note.id:06d}",
+        "number": note.number_display,
         "date": _date(note.created_at),
         "currency": note.company.currency,
         "issuer": issuer_block(note.company),
@@ -114,7 +114,7 @@ def debit_note_document(note):
     """The supplier-facing mirror of a credit note."""
     return {
         "doc_type": "debit_note",
-        "number": f"DN-{note.id:06d}",
+        "number": note.number_display,
         "date": _date(note.created_at),
         "currency": note.company.currency,
         "issuer": issuer_block(note.company),

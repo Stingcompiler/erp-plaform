@@ -7,11 +7,20 @@ logic here — this file should only ever grow INSTALLED_APPS / middleware /
 infra config as later milestones land their own Django apps.
 """
 
+import decimal
 from datetime import timedelta
 from pathlib import Path
 import sys
 
 import environ
+
+# Money rounds half-up everywhere (0.125 -> 0.13). Python's default is
+# banker's rounding (half-even), which tax authorities in the target markets
+# do not use; a per-line VAT that rounds 0.125 down fails invoice matching.
+# Set on DefaultContext so every new thread's context inherits it, and on the
+# current context for the thread importing settings.
+decimal.DefaultContext.rounding = decimal.ROUND_HALF_UP
+decimal.getcontext().rounding = decimal.ROUND_HALF_UP
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -151,6 +160,10 @@ USE_TZ = True
 # Commercial defaults are configuration, not hard-coded workflow rules. The
 # hosted registration service uses this only when it creates a new trial.
 VEZANO_TRIAL_DAYS = env.int("VEZANO_TRIAL_DAYS", default=14)
+# How far back an offline client may date a sale or payment it queued. Long
+# enough for a multi-week outage, short enough that a forgotten device cannot
+# rewrite a closed period.
+VEZANO_MAX_BACKDATE_DAYS = env.int("VEZANO_MAX_BACKDATE_DAYS", default=31)
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"

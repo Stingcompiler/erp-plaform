@@ -173,12 +173,37 @@ class CreditNote(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     client_uuid = models.UUIDField(null=True, blank=True, unique=True)
+    # Rule #6: a formal, sequentially numbered document per company. Allocated
+    # on first save from core.DocumentSequence; nullable only so rows that
+    # predate numbering could be backfilled by the migration.
+    number = models.PositiveIntegerField(null=True, blank=True)
+
+    DOC_TYPE = "credit_note"
+    NUMBER_PREFIX = "CN"
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "number"], name="uniq_credit_note_number_per_company"
+            )
+        ]
+
+    @property
+    def number_display(self):
+        if not self.number:
+            return f"{self.NUMBER_PREFIX}-?"
+        return f"{self.NUMBER_PREFIX}-{self.number:06d}"
+
+    def save(self, *args, **kwargs):
+        if self.number is None and self.company_id:
+            from core.numbering import allocate_document_number
+
+            self.number = allocate_document_number(self.company_id, self.DOC_TYPE)
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"CreditNote #{self.id} {self.amount}"
+        return f"{self.number_display} {self.amount}"
 
 
 class DebitNote(models.Model):
@@ -211,12 +236,37 @@ class DebitNote(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     client_uuid = models.UUIDField(null=True, blank=True, unique=True)
+    # Rule #6: a formal, sequentially numbered document per company. Allocated
+    # on first save from core.DocumentSequence; nullable only so rows that
+    # predate numbering could be backfilled by the migration.
+    number = models.PositiveIntegerField(null=True, blank=True)
+
+    DOC_TYPE = "debit_note"
+    NUMBER_PREFIX = "DN"
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "number"], name="uniq_debit_note_number_per_company"
+            )
+        ]
+
+    @property
+    def number_display(self):
+        if not self.number:
+            return f"{self.NUMBER_PREFIX}-?"
+        return f"{self.NUMBER_PREFIX}-{self.number:06d}"
+
+    def save(self, *args, **kwargs):
+        if self.number is None and self.company_id:
+            from core.numbering import allocate_document_number
+
+            self.number = allocate_document_number(self.company_id, self.DOC_TYPE)
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"DebitNote #{self.id} {self.amount}"
+        return f"{self.number_display} {self.amount}"
 
 
 # Helper used by the AR/AP extensions in sales/purchasing (imported lazily

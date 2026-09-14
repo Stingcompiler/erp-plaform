@@ -425,6 +425,7 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
 # ---------- Credit / Debit notes ----------
 
 class CreditNoteSerializer(serializers.ModelSerializer):
+    number_display = serializers.CharField(read_only=True)
     # Names so a note list reads as documents rather than as foreign keys.
     customer_name = serializers.CharField(
         source="customer.name", read_only=True, default=None
@@ -439,8 +440,11 @@ class CreditNoteSerializer(serializers.ModelSerializer):
             "id", "company", "customer", "customer_name",
             "invoice", "invoice_number", "sales_return", "amount",
             "reason", "is_void", "created_by", "created_at", "client_uuid",
+            "number", "number_display",
         ]
-        read_only_fields = ["company", "is_void", "created_by", "created_at"]
+        read_only_fields = [
+            "company", "is_void", "created_by", "created_at", "number", "number_display",
+        ]
 
     def validate(self, attrs):
         if attrs.get("amount") is None or attrs["amount"] <= 0:
@@ -481,6 +485,7 @@ class CreditNoteSerializer(serializers.ModelSerializer):
 
 
 class DebitNoteSerializer(serializers.ModelSerializer):
+    number_display = serializers.CharField(read_only=True)
     supplier_name = serializers.CharField(source="supplier.name", read_only=True)
 
     class Meta:
@@ -489,8 +494,11 @@ class DebitNoteSerializer(serializers.ModelSerializer):
             "id", "company", "supplier", "supplier_name",
             "bill", "purchase_return", "amount",
             "reason", "is_void", "created_by", "created_at", "client_uuid",
+            "number", "number_display",
         ]
-        read_only_fields = ["company", "is_void", "created_by", "created_at"]
+        read_only_fields = [
+            "company", "is_void", "created_by", "created_at", "number", "number_display",
+        ]
 
     def validate(self, attrs):
         if attrs.get("amount") is None or attrs["amount"] <= 0:

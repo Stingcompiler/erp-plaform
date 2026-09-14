@@ -5,6 +5,7 @@ from django.conf import settings
 from django.db import models
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 
 
 class Customer(models.Model):
@@ -241,7 +242,13 @@ class Invoice(models.Model):
     tax_amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     is_void = models.BooleanField(default=False)  # set only via a Credit Note (M5)
-    issued_at = models.DateTimeField(auto_now_add=True)
+    # Business time vs. audit time. `issued_at` is WHEN THE SALE HAPPENED and
+    # is what every report, tax period, and costing walk reads; an offline
+    # sale sends it from the till and it may legitimately be hours or days
+    # before the row is written. `received_at` is when the server saw it and
+    # exists only for the audit trail.
+    issued_at = models.DateTimeField(default=timezone.now, db_index=True)
+    received_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
     # Credit terms. 0 = due on receipt. `due_date` is derived from issue date +
     # terms when not set explicitly, so aging measures *lateness*, not merely
@@ -263,14 +270,11 @@ class Invoice(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        # issued_at is only populated after the first insert, so derive the due
-        # date afterwards and persist it without re-running the full save.
         if self.due_date is None and self.issued_at:
             self.due_date = self.issued_at.date() + timedelta(
                 days=self.payment_terms_days or 0
             )
-            super().save(update_fields=["due_date"])
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"INV-{self.number:06d}"
@@ -546,7 +550,10 @@ class Payment(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="payments_recorded",
     )
-    recorded_at = models.DateTimeField(auto_now_add=True)
+    # Business time (when the money changed hands, client-supplied for offline
+    # sales) vs. audit time; see Invoice.issued_at.
+    recorded_at = models.DateTimeField(default=timezone.now, db_index=True)
+    received_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     # Manual reconciliation, filled later; never gates the sale.
     verified_at = models.DateTimeField(null=True, blank=True)
     verified_by = models.ForeignKey(

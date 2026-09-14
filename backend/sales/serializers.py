@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.db import transaction
@@ -26,6 +27,30 @@ TWO_PLACES = Decimal("0.01")
 
 def _q2(value):
     return Decimal(value).quantize(TWO_PLACES)
+
+
+def validate_business_time(value):
+    """A client-supplied business timestamp for an offline-capable write.
+
+    Accepted window: not in the future beyond clock skew, and not older than
+    VEZANO_MAX_BACKDATE_DAYS (default 31) so a forgotten queue cannot rewrite
+    a closed period. Returns the value unchanged; the server's own clock is
+    recorded separately in `received_at` for audit.
+    """
+    from django.conf import settings
+    from django.utils import timezone
+
+    if value is None:
+        return None
+    now = timezone.now()
+    if value > now + timedelta(minutes=10):
+        raise serializers.ValidationError("occurred_at cannot be in the future.")
+    max_days = getattr(settings, "VEZANO_MAX_BACKDATE_DAYS", 31)
+    if value < now - timedelta(days=max_days):
+        raise serializers.ValidationError(
+            f"occurred_at is older than {max_days} days; contact your manager to backdate."
+        )
+    return value
 
 
 def _company_tax_rate(company):
@@ -245,7 +270,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
         model = Invoice
         fields = [
             "id", "company", "customer", "branch", "warehouse", "number",
-            "number_display", "currency", "exchange_rate", "tax_rate_snapshot",
+            "number_display", "received_at", "currency", "exchange_rate", "tax_rate_snapshot",
             "subtotal", "tax_amount", "total", "is_void", "status",
             "amount_paid", "amount_due", "lines", "client_uuid", "issued_at",
             "payment_terms_days", "due_date", "days_overdue", "is_overdue",
@@ -268,11 +293,15 @@ class PaymentSerializer(serializers.ModelSerializer):
         fields = [
             "id", "company", "invoice", "method", "company_bank_account",
             "sender_bank_name", "reference_last4", "amount", "recorded_by",
-            "recorded_at", "verified_at", "verified_by", "client_uuid",
+            "recorded_at", "received_at", "verified_at", "verified_by", "client_uuid",
         ]
         read_only_fields = [
-            "company", "recorded_by", "recorded_at", "verified_at", "verified_by",
+            "company", "recorded_by", "received_at", "verified_at", "verified_by",
         ]
+        extra_kwargs = {"recorded_at": {"required": False}}
+
+    def validate_recorded_at(self, value):
+        return validate_business_time(value)
 
     def validate(self, attrs):
         method = attrs.get("method")
@@ -524,6 +553,12 @@ class POSCheckoutSerializer(serializers.Serializer):
     )
     lines = POSLineSerializer(many=True)
     payment = POSPaymentSerializer(required=False, allow_null=True)
+    # When the sale actually happened at the till. Absent (older clients) it
+    # is the server clock, which is only right for an online sale.
+    occurred_at = serializers.DateTimeField(required=False, allow_null=True)
+
+    def validate_occurred_at(self, value):
+        return validate_business_time(value)
 
     def validate_lines(self, lines):
         if not lines:
@@ -570,6 +605,22 @@ class POSCheckoutSerializer(serializers.Serializer):
         company = Company.objects.get(pk=company_id)
         rate = _company_tax_rate(company)
 
+        # Reports sum invoice totals per company without converting, so a
+        # foreign-currency invoice would silently corrupt every figure. Until
+        # multi-currency reporting exists, a sale is in the company currency.
+        currency = validated_data.get("currency") or company.currency
+        if currency != company.currency:
+            raise serializers.ValidationError(
+                {
+                    "currency": (
+                        f"Sales are recorded in the company currency ({company.currency})."
+                    )
+                }
+            )
+
+        from django.utils import timezone
+        occurred_at = validated_data.get("occurred_at") or timezone.now()
+
         number = allocate_invoice_number(company_id)
         invoice = Invoice.objects.create(
             company_id=company_id,
@@ -577,11 +628,12 @@ class POSCheckoutSerializer(serializers.Serializer):
             branch_id=validated_data.get("branch"),
             warehouse=warehouse,
             number=number,
-            currency=validated_data.get("currency", company.currency),
+            currency=currency,
             exchange_rate=validated_data.get("exchange_rate", Decimal("1")),
             tax_rate_snapshot=rate,
             created_by=user if user.is_authenticated else None,
             client_uuid=validated_data.get("client_uuid"),
+            issued_at=occurred_at,
         )
 
         subtotal = Decimal("0")
@@ -612,8 +664,13 @@ class POSCheckoutSerializer(serializers.Serializer):
                 StockMovement.objects.create(
                     company_id=company_id, product=product, warehouse=warehouse,
                     movement_type=StockMovement.SALE_OUT, quantity=-qty,
+                    # Snapshot the cost at the moment of sale so standard-cost
+                    # COGS is reproducible; re-pricing a product later must
+                    # not rewrite last quarter's margin.
+                    unit_cost=product.cost_price,
                     reference_type="Invoice", reference_id=str(invoice.id),
                     created_by=user if user.is_authenticated else None,
+                    created_at=occurred_at,
                 )
 
         invoice.subtotal = _q2(subtotal)
@@ -624,12 +681,12 @@ class POSCheckoutSerializer(serializers.Serializer):
         pay = validated_data.get("payment")
         if pay:
             self._record_payment(
-                invoice, pay, company_id, user, validated_data.get("shift")
+                invoice, pay, company_id, user, validated_data.get("shift"), occurred_at
             )
 
         return invoice
 
-    def _record_payment(self, invoice, pay, company_id, user, shift=None):
+    def _record_payment(self, invoice, pay, company_id, user, shift=None, occurred_at=None):
         if shift is not None:
             self._assert_company(shift, company_id, "shift")
             if shift.status != CashShift.OPEN:
@@ -666,6 +723,7 @@ class POSCheckoutSerializer(serializers.Serializer):
             reference_last4=ref, amount=pay["amount"],
             shift=shift,
             recorded_by=user if user.is_authenticated else None,
+            **({"recorded_at": occurred_at} if occurred_at else {}),
         )
 
     def to_representation(self, instance):
