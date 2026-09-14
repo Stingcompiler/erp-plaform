@@ -260,6 +260,11 @@ class Invoice(models.Model):
         related_name="invoices",
     )
     client_uuid = models.UUIDField(null=True, blank=True, unique=True)
+    # The human-readable reference the till printed BEFORE the server assigned
+    # `number` (e.g. "MAIN-7F3A-000012"): branch code, device id, per-device
+    # counter. Lets a receipt handed to a customer during an outage be matched
+    # to this invoice afterwards. Blank for online sales.
+    local_reference = models.CharField(max_length=48, blank=True, db_index=True)
 
     class Meta:
         ordering = ["-number"]

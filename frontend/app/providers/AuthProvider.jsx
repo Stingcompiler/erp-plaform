@@ -3,6 +3,13 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 import { setLocalIdentity } from "@/lib/localIdentity";
+import { registerServiceWorker } from "@/lib/registerServiceWorker";
+import {
+  clearSessionCache,
+  isConnectivityFailure,
+  readSessionCache,
+  writeSessionCache,
+} from "@/lib/sessionCache";
 
 import { auth, prefs, rbac } from "@/lib/api";
 import { useI18n } from "./I18nProvider";
@@ -13,6 +20,9 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [access, setAccess] = useState({});
   const [loading, setLoading] = useState(true);
+  // True while the identity on screen came from the local cache because the
+  // server could not be reached; the shell shows this state to the user.
+  const [offlineSession, setOfflineSession] = useState(false);
   const { hydrateFromServer } = useI18n();
 
   const loadSession = useCallback(async () => {
@@ -21,6 +31,8 @@ export function AuthProvider({ children }) {
       setLocalIdentity(meRes.data);
       setUser(meRes.data);
       setAccess(accessRes.data || {});
+      setOfflineSession(false);
+      writeSessionCache(meRes.data, accessRes.data);
       // Locale/theme are client-owned (I18nProvider); a fresh session hydrates
       // them from the server only if the user hasn't chosen locally yet.
       try {
@@ -30,10 +42,23 @@ export function AuthProvider({ children }) {
         /* no stored prefs / not critical */
       }
       return meRes.data;
-    } catch {
+    } catch (error) {
+      // Only a definite "you are not signed in" (401/403) ends the session.
+      // A network drop or a 5xx keeps the last known identity so the app —
+      // and the offline queue — stay usable until the server is back.
+      const cached = isConnectivityFailure(error) ? readSessionCache() : null;
+      if (cached) {
+        setLocalIdentity(cached.me);
+        setUser(cached.me);
+        setAccess(cached.access);
+        setOfflineSession(true);
+        return cached.me;
+      }
+      clearSessionCache();
       setLocalIdentity(null);
       setUser(null);
       setAccess({});
+      setOfflineSession(false);
       return null;
     } finally {
       setLoading(false);
@@ -41,6 +66,7 @@ export function AuthProvider({ children }) {
   }, [hydrateFromServer]);
 
   useEffect(() => {
+    registerServiceWorker();
     loadSession();
   }, [loadSession]);
 
@@ -57,9 +83,11 @@ export function AuthProvider({ children }) {
     try {
       await auth.logout();
     } finally {
+      clearSessionCache();
       setLocalIdentity(null);
       setUser(null);
       setAccess({});
+      setOfflineSession(false);
     }
   }, []);
 
@@ -78,6 +106,7 @@ export function AuthProvider({ children }) {
     user,
     access,
     loading,
+    offlineSession,
     login,
     logout,
     canRead,

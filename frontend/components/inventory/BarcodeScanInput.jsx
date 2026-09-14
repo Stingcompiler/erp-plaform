@@ -5,7 +5,7 @@ import { ScanLine } from "lucide-react";
 
 import { inventory } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
-import { cacheProducts, findCachedByBarcode } from "@/lib/productCache";
+import { cacheProducts, findProductOffline } from "@/lib/productCache";
 import { Input } from "@/components/ui/kit";
 
 /**
@@ -44,7 +44,7 @@ export default function BarcodeScanInput({ onScan, autoFocus = true, disabled })
       } catch (err) {
         // Offline (no response at all) → try the cached catalogue before failing.
         if (!err?.response) {
-          const cached = findCachedByBarcode(value);
+          const cached = await findProductOffline(value);
           if (cached) {
             onScan(cached);
             setStatus({ tone: "warn", text: t("inventory.scanOffline") });

@@ -198,8 +198,12 @@ class SyncPushView(APIView):
 # Curated set of entities a client pulls, with the timestamp field used for the
 # delta and the read-module that gates visibility.
 def _pull_specs():
-    from inventory.models import Product, StockMovement
-    from inventory.serializers import ProductSerializer, StockMovementSerializer
+    from inventory.models import Product, StockMovement, Warehouse
+    from inventory.serializers import (
+        ProductSerializer,
+        StockMovementSerializer,
+        WarehouseSerializer,
+    )
     from purchasing.models import Supplier
     from purchasing.serializers import SupplierSerializer
     from sales.models import Customer, Invoice
@@ -207,6 +211,7 @@ def _pull_specs():
 
     return [
         ("products", Product, ProductSerializer, "updated_at", "inventory"),
+        ("warehouses", Warehouse, WarehouseSerializer, "updated_at", "inventory"),
         (
             "stock_movements",
             StockMovement,

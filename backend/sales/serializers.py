@@ -270,7 +270,8 @@ class InvoiceSerializer(serializers.ModelSerializer):
         model = Invoice
         fields = [
             "id", "company", "customer", "branch", "warehouse", "number",
-            "number_display", "received_at", "currency", "exchange_rate", "tax_rate_snapshot",
+            "number_display", "local_reference", "received_at", "currency", "exchange_rate",
+            "tax_rate_snapshot",
             "subtotal", "tax_amount", "total", "is_void", "status",
             "amount_paid", "amount_due", "lines", "client_uuid", "issued_at",
             "payment_terms_days", "due_date", "days_overdue", "is_overdue",
@@ -556,6 +557,7 @@ class POSCheckoutSerializer(serializers.Serializer):
     # When the sale actually happened at the till. Absent (older clients) it
     # is the server clock, which is only right for an online sale.
     occurred_at = serializers.DateTimeField(required=False, allow_null=True)
+    local_reference = serializers.CharField(required=False, allow_blank=True, max_length=48)
 
     def validate_occurred_at(self, value):
         return validate_business_time(value)
@@ -634,6 +636,7 @@ class POSCheckoutSerializer(serializers.Serializer):
             created_by=user if user.is_authenticated else None,
             client_uuid=validated_data.get("client_uuid"),
             issued_at=occurred_at,
+            local_reference=validated_data.get("local_reference", ""),
         )
 
         subtotal = Decimal("0")

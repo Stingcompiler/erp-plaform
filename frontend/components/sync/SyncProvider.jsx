@@ -1,9 +1,10 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { sync } from "@/lib/api";
+import api, { sync } from "@/lib/api";
 import { queue } from "@/lib/syncQueue";
 import { identityScope } from "@/lib/localIdentity";
+import { offlineStore, pullCatalogue, requestPersistentStorage } from "@/lib/offlineStore";
 import { useAuth } from "../../app/providers/AuthProvider";
 
 const SyncContext = createContext(null);
@@ -11,6 +12,28 @@ export function useSync() {
   const context = useContext(SyncContext);
   if (!context) throw new Error("SyncProvider is required.");
   return context;
+}
+
+// navigator.onLine only says whether there is a network interface; a router
+// with no upstream (the common failure in the target market) reports "online"
+// forever. A real reachability probe against the API decides instead.
+const PROBE_INTERVAL_MS = 20000;
+const PROBE_TIMEOUT_MS = 3000;
+const PULL_INTERVAL_MS = 5 * 60 * 1000;
+
+async function probeServer() {
+  try {
+    const base = api.defaults.baseURL || "";
+    const response = await fetch(`${base}/health/`, {
+      method: "GET",
+      cache: "no-store",
+      credentials: "omit",
+      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
 }
 
 export function SyncProvider({ children }) {
@@ -21,9 +44,14 @@ export function SyncProvider({ children }) {
   const [flushing, setFlushing] = useState(false);
   const [error, setError] = useState("");
   const [legacy, setLegacy] = useState(false);
+  const [lastPulledAt, setLastPulledAt] = useState(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
+  const onlineRef = useRef(true);
   const busy = useRef(false);
+  const pulling = useRef(false);
   const retryAt = useRef(0);
   const failures = useRef(0);
+
   const refresh = useCallback(() => {
     try {
       setOperations(scope ? queue.list(scope) : []);
@@ -31,8 +59,13 @@ export function SyncProvider({ children }) {
     } catch { setError("storage"); }
   }, [scope]);
 
+  const setReachable = useCallback((value) => {
+    onlineRef.current = value;
+    setOnline(value);
+  }, []);
+
   const flush = useCallback(async (manual = true) => {
-    if (!scope || busy.current || !navigator.onLine) return;
+    if (!scope || busy.current || !onlineRef.current) return;
     if (!manual && Date.now() < retryAt.current) return;
     busy.current = true;
     setFlushing(true);
@@ -54,8 +87,10 @@ export function SyncProvider({ children }) {
           setError("");
           failures.current = 0;
           retryAt.current = 0;
+          setLastSyncedAt(new Date());
         } catch { setError("storage"); retryAt.current = Date.now() + 60000; }
       } catch (err) {
+        if (!err?.response) setReachable(false);
         setError(err?.response?.status === 409 ? "identity" : "network");
         failures.current += 1;
         retryAt.current = Date.now() + Math.min(300000, 15000 * 2 ** failures.current);
@@ -65,25 +100,58 @@ export function SyncProvider({ children }) {
       if (navigator.locks) await navigator.locks.request(`erp-sync:${scope}`, run);
       else await run();
     } finally { busy.current = false; setFlushing(false); refresh(); }
-  }, [scope, user?.company, user?.id, user?.branch, refresh]);
+  }, [scope, user?.company, user?.id, user?.branch, refresh, setReachable]);
+
+  // Mirror the catalogue/customers/suppliers/recent invoices locally so the
+  // till keeps working when the server is unreachable. Delta-based via the
+  // server's cursor, so after the first full pull each run is small.
+  const pull = useCallback(async () => {
+    if (!scope || pulling.current || !onlineRef.current) return;
+    pulling.current = true;
+    try {
+      await pullCatalogue(sync, scope);
+      const stamp = await offlineStore.getMeta("pulled_at", scope);
+      setLastPulledAt(stamp ? new Date(stamp) : new Date());
+    } catch (err) {
+      if (!err?.response) setReachable(false);
+    } finally { pulling.current = false; }
+  }, [scope, setReachable]);
 
   useEffect(() => {
     refresh();
-    setOnline(navigator.onLine);
-    const up = () => { setOnline(true); retryAt.current = 0; flush(false); };
-    const down = () => setOnline(false);
+    requestPersistentStorage();
+    if (scope) {
+      offlineStore.getMeta("pulled_at", scope)
+        .then((stamp) => stamp && setLastPulledAt(new Date(stamp)))
+        .catch(() => {});
+    }
+    let cancelled = false;
+    const check = async () => {
+      const reachable = navigator.onLine && (await probeServer());
+      if (cancelled) return;
+      const wasOffline = !onlineRef.current;
+      setReachable(reachable);
+      if (reachable && wasOffline) { retryAt.current = 0; flush(false); pull(); }
+    };
+    const up = () => check();
+    const down = () => setReachable(false);
     window.addEventListener("online", up);
     window.addEventListener("offline", down);
     window.addEventListener("storage", refresh);
-    const timer = setInterval(() => flush(false), 15000);
-    flush(false);
+    check().then(() => { flush(false); pull(); });
+    const probeTimer = setInterval(check, PROBE_INTERVAL_MS);
+    const flushTimer = setInterval(() => flush(false), 15000);
+    const pullTimer = setInterval(pull, PULL_INTERVAL_MS);
     return () => {
-      clearInterval(timer);
+      cancelled = true;
+      clearInterval(probeTimer);
+      clearInterval(flushTimer);
+      clearInterval(pullTimer);
       window.removeEventListener("online", up);
       window.removeEventListener("offline", down);
       window.removeEventListener("storage", refresh);
     };
-  }, [flush, refresh]);
+  }, [flush, pull, refresh, scope, setReachable]);
 
   const enqueue = useCallback((type, payload) => {
     try { const op = queue.enqueue(type, payload, scope); refresh(); return op; }
@@ -91,5 +159,6 @@ export function SyncProvider({ children }) {
   }, [scope, refresh]);
 
   return <SyncContext.Provider value={{ online, pending: operations.length, operations,
-    flushing, error, legacy, enqueue, flush, refresh, confirmation: (id) => queue.confirmation(id, scope) }}>{children}</SyncContext.Provider>;
+    flushing, error, legacy, enqueue, flush, refresh, pull, lastPulledAt, lastSyncedAt,
+    confirmation: (id) => queue.confirmation(id, scope) }}>{children}</SyncContext.Provider>;
 }

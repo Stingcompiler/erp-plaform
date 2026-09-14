@@ -88,6 +88,9 @@ class Warehouse(models.Model):
     name = models.CharField(max_length=255)
     code = models.CharField(max_length=32, blank=True)
     is_active = models.BooleanField(default=True)
+    # Lets the offline sync pull warehouses as a delta like every other
+    # mirrored record; a till cannot ring a sale without one.
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["name"]

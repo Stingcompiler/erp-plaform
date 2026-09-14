@@ -373,6 +373,11 @@ const en = {
     syncNow: "Sync queued changes now",
     offlineQueued: "Offline — changes are queued",
     offline: "Offline",
+    bannerOffline: "Working offline — sales are saved on this device and upload when the connection returns.",
+    bannerPending: "{count} change(s) waiting to upload",
+    bannerQueued: "{count} saved locally",
+    bannerCatalogue: "Local catalogue updated {time}",
+    bannerLastSync: "Last upload {time}",
   },
   shell: {
     workspace: "Workspace",
@@ -1772,6 +1777,11 @@ const ar = {
     syncNow: "مزامنة التغييرات المعلّقة الآن",
     offlineQueued: "دون اتصال — التغييرات في قائمة الانتظار",
     offline: "دون اتصال",
+    bannerOffline: "تعمل دون اتصال — تُحفظ المبيعات على هذا الجهاز وتُرفع عند عودة الاتصال.",
+    bannerPending: "{count} تغيير بانتظار الرفع",
+    bannerQueued: "{count} محفوظ محليًا",
+    bannerCatalogue: "آخر تحديث للكتالوج المحلي {time}",
+    bannerLastSync: "آخر رفع {time}",
   },
   shell: {
     workspace: "مساحة العمل",
