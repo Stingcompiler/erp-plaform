@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef } from "react";
+import { cloneElement, forwardRef, isValidElement, useId } from "react";
 
 export function Button({ variant = "primary", className = "", ...props }) {
   const base =
@@ -14,13 +14,31 @@ export function Button({ variant = "primary", className = "", ...props }) {
   return <button className={`${base} ${variants[variant]} ${className}`} {...props} />;
 }
 
-export function Field({ label, hint, children }) {
+// A labelled control with its hint and error wired for assistive tech: the
+// control gets a stable id, `aria-describedby` points at the hint/error text,
+// and `aria-invalid` follows `error`. Callers keep passing a bare <Input>;
+// nothing changes visually unless `error` is set.
+export function Field({ label, hint, error, children }) {
+  const generated = useId();
+  const control = isValidElement(children) ? children : null;
+  const id = control?.props?.id || generated;
+  const hintId = hint ? `${id}-hint` : null;
+  const errorId = error ? `${id}-error` : null;
+  const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
+  const child = control
+    ? cloneElement(control, {
+        id,
+        "aria-describedby": describedBy,
+        "aria-invalid": error ? true : undefined,
+      })
+    : children;
   return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium text-ink">{label}</span>
-      {children}
-      {hint && <span className="mt-1 block text-xs text-muted">{hint}</span>}
-    </label>
+    <div className="block">
+      <label htmlFor={id} className="mb-1 block text-sm font-medium text-ink">{label}</label>
+      {child}
+      {hint && <span id={hintId} className="mt-1 block text-xs text-muted">{hint}</span>}
+      {error && <span id={errorId} role="alert" className="mt-1 block text-xs text-danger">{error}</span>}
+    </div>
   );
 }
 

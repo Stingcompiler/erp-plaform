@@ -394,3 +394,87 @@ class BarcodeSequence(models.Model):
 
     def __str__(self):
         return f"BarcodeSequence<{self.company_id}: {self.last_number}>"
+
+
+class StockCount(models.Model):
+    """
+    A periodic physical count of one warehouse. The counter records what is
+    on the shelf; the system compares it with the ledger and a manager
+    approves the differences, which are then posted as ordinary
+    `adjustment` movements — the count itself never edits the ledger.
+
+    Two people, two steps: the person who counts is not the person who makes
+    the books agree with the count. That separation is what makes a stock
+    count evidence rather than an edit.
+    """
+
+    DRAFT = "draft"
+    SUBMITTED = "submitted"
+    APPROVED = "approved"
+    CANCELLED = "cancelled"
+    STATUS_CHOICES = [
+        (DRAFT, "Draft"),
+        (SUBMITTED, "Submitted"),
+        (APPROVED, "Approved"),
+        (CANCELLED, "Cancelled"),
+    ]
+
+    company = models.ForeignKey(
+        "org.Company", on_delete=models.CASCADE, related_name="stock_counts"
+    )
+    warehouse = models.ForeignKey(
+        Warehouse, on_delete=models.PROTECT, related_name="stock_counts"
+    )
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default=DRAFT)
+    note = models.CharField(max_length=255, blank=True)
+    # Ledger balances are frozen into the lines at submission so approval
+    # compares against what the counter saw, not against later sales.
+    counted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="stock_counts_counted",
+    )
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="stock_counts_approved",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    client_uuid = models.UUIDField(null=True, blank=True, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"StockCount #{self.pk} {self.warehouse.name} [{self.status}]"
+
+
+class StockCountLine(models.Model):
+    count = models.ForeignKey(StockCount, on_delete=models.CASCADE, related_name="lines")
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name="count_lines")
+    batch = models.ForeignKey(
+        StockBatch, on_delete=models.PROTECT, null=True, blank=True, related_name="count_lines"
+    )
+    counted_quantity = models.DecimalField(max_digits=16, decimal_places=3)
+    # Snapshot of the ledger at submission; None until then.
+    expected_quantity = models.DecimalField(
+        max_digits=16, decimal_places=3, null=True, blank=True
+    )
+    # The adjustment posted on approval (only for lines with a variance).
+    adjustment = models.OneToOneField(
+        StockAdjustment, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="count_line",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["count", "product", "batch"], name="uniq_count_line_per_product_batch"
+            )
+        ]
+
+    @property
+    def variance(self):
+        if self.expected_quantity is None:
+            return None
+        return self.counted_quantity - self.expected_quantity

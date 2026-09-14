@@ -291,3 +291,101 @@ class StockTransferSerializer(serializers.ModelSerializer):
             m.reference_id = str(transfer.id)
             m.save(update_fields=["reference_id"])
         return transfer
+
+
+class StockCountLineSerializer(serializers.ModelSerializer):
+    product_sku = serializers.CharField(source="product.sku", read_only=True)
+    product_name = serializers.CharField(source="product.name", read_only=True)
+    lot_number = serializers.CharField(source="batch.lot_number", read_only=True, default=None)
+    variance = serializers.DecimalField(max_digits=16, decimal_places=3, read_only=True)
+
+    class Meta:
+        from inventory.models import StockCountLine
+
+        model = StockCountLine
+        fields = [
+            "id", "product", "product_sku", "product_name", "batch", "lot_number",
+            "counted_quantity", "expected_quantity", "variance", "adjustment",
+        ]
+        read_only_fields = ["expected_quantity", "adjustment"]
+
+    def validate(self, attrs):
+        _assert_tenant_relations(self, attrs, ("product", "batch"))
+        batch = attrs.get("batch")
+        product = attrs.get("product")
+        if batch is not None and product is not None and batch.product_id != product.pk:
+            raise serializers.ValidationError({"batch": "That lot belongs to a different product."})
+        if attrs.get("counted_quantity") is not None and attrs["counted_quantity"] < 0:
+            raise serializers.ValidationError({"counted_quantity": "A count cannot be negative."})
+        return attrs
+
+
+class StockCountSerializer(serializers.ModelSerializer):
+    lines = StockCountLineSerializer(many=True)
+    warehouse_name = serializers.CharField(source="warehouse.name", read_only=True)
+    counted_by_name = serializers.SerializerMethodField()
+    approved_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        from inventory.models import StockCount
+
+        model = StockCount
+        fields = [
+            "id", "company", "warehouse", "warehouse_name", "status", "note", "lines",
+            "counted_by", "counted_by_name", "submitted_at",
+            "approved_by", "approved_by_name", "approved_at", "client_uuid", "created_at",
+        ]
+        read_only_fields = [
+            "company", "status", "counted_by", "submitted_at", "approved_by", "approved_at",
+            "created_at",
+        ]
+
+    def _person(self, user):
+        return (user.full_name or user.email) if user else None
+
+    def get_counted_by_name(self, obj):
+        return self._person(obj.counted_by)
+
+    def get_approved_by_name(self, obj):
+        return self._person(obj.approved_by)
+
+    def validate(self, attrs):
+        _assert_tenant_relations(self, attrs, ("warehouse",))
+        request = self.context.get("request")
+        if request is not None and attrs.get("warehouse") is not None:
+            assert_user_branch(request.user, attrs["warehouse"], "warehouse")
+        if self.instance is not None and self.instance.status != self.instance.DRAFT:
+            raise serializers.ValidationError("Only a draft count can be edited.")
+        return attrs
+
+    def _write_lines(self, count, lines):
+        from inventory.models import StockCountLine
+
+        count.lines.all().delete()
+        seen = set()
+        for line in lines:
+            key = (line["product"].pk, line.get("batch").pk if line.get("batch") else None)
+            if key in seen:
+                raise serializers.ValidationError(
+                    {"lines": f"{line['product'].sku} is listed twice for the same lot."}
+                )
+            seen.add(key)
+            StockCountLine.objects.create(count=count, **line)
+
+    @transaction.atomic
+    def create(self, validated_data):
+        lines = validated_data.pop("lines")
+        request = self.context.get("request")
+        if request is not None and request.user.is_authenticated:
+            validated_data.setdefault("counted_by", request.user)
+        count = super().create(validated_data)
+        self._write_lines(count, lines)
+        return count
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        lines = validated_data.pop("lines", None)
+        count = super().update(instance, validated_data)
+        if lines is not None:
+            self._write_lines(count, lines)
+        return count
