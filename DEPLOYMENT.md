@@ -128,3 +128,22 @@ changes.
   author this repo had no network to install Django, so the full test suite is
   verified by GitHub Actions on push (lint, system check, migration-sync check,
   deploy check, pytest) rather than locally.
+
+## Services created by hand (no Blueprint link)
+
+If the services were created from the dashboard rather than from this
+Blueprint, `render.yaml` is documentation only: Render never reads it again.
+Every change here must be copied into the service's **Settings** /
+**Environment** by hand. The values that have bitten before:
+
+| Service | Setting | Value |
+|---|---|---|
+| `erp-api` | Pre-Deploy Command | `python manage.py migrate --noinput && python manage.py seed_roles` |
+| `erp-api`, `erp-worker`, `erp-backup-cron` | `SUBSCRIPTION_POLICY` | `observe` (then `enforce`) |
+| `erp-worker` | Start Command | `celery -A config worker -B --loglevel=info --pool=solo` |
+| `erp-worker`, `erp-api` | `CELERY_BROKER_URL` | the **Internal Redis URL** of `erp-cache` |
+| all Python services | `PYTHON_VERSION` | `3.12.3` (what CI tests) |
+
+A worker log showing `transport: redis://localhost:6379/0` means
+`CELERY_BROKER_URL` is missing; `concurrency: 8 (prefork)` followed by
+`Out of memory` means the start command lacks `--pool=solo`.

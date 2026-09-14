@@ -84,7 +84,10 @@ services:
     # -B embeds the beat scheduler: the daily scans in CELERY_BEAT_SCHEDULE
     # run from this same process. Keep exactly one worker instance while
     # beat is embedded, or the scans run once per instance.
-    startCommand: "celery -A config worker -B --loglevel=info"
+    # --pool=solo: no forked children. The default prefork pool spawned one
+    # Django process per CPU (8 on this instance) and blew the 512Mi limit
+    # before the first task; three daily scans need exactly one process.
+    startCommand: "celery -A config worker -B --loglevel=info --pool=solo"
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.3"
