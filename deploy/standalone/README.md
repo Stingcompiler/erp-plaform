@@ -48,3 +48,49 @@ the database, so restoring it preserves licence binding.
 
 The existing in-app backup screen exports selected business rows and is not a
 replacement for this full recovery procedure.
+
+
+## Issuing a licence (vendor side, never on the customer server)
+
+1. Once: create the signing key pair, outside any repository, and back the
+   private key up in your secrets manager.
+
+   ```bash
+   python backend/manage.py license_keygen --key-id vezano-2026 --out-dir ~/vezano-keys
+   ```
+
+   The command prints the `VEZANO_LICENSE_PUBLIC_KEYS` line to put in every
+   customer's `vezano.env`. Rotating keys later = a new `--key-id`, the new
+   public key added alongside the old one, new licences signed with the new
+   key; existing licences keep verifying.
+
+2. Per customer, after they ran `bootstrap_standalone` and sent you the
+   installation ID shown on their Subscription & licence page:
+
+   ```bash
+   # perpetual licence, maintenance (upgrades) for one year, up to release 1.x
+   python backend/manage.py issue_license \
+     --private-key ~/vezano-keys/vezano-2026.private.pem --key-id vezano-2026 \
+     --installation-id <uuid from the customer> --organisation "Customer legal name" \
+     --kind perpetual --maintenance-until 2027-09-14 --max-version 1.99.99 \
+     --modules "*" --limit users=25 --limit branches=3 \
+     --out customer-2026-09.json
+
+   # fixed-term licence: last usable day, 14 days grace, then read-only
+   python backend/manage.py issue_license ... --kind term --usable-until 2027-09-14 --grace-days 14
+   ```
+
+3. Send the JSON file to the customer; they import it on **Subscription &
+   licence**. A licence is bound to one installation ID and one signing key;
+   a file for another installation or from an untrusted key is refused.
+
+What each field does at runtime:
+
+| Field | Effect |
+|---|---|
+| `kind=term`, `usable_until`, `grace_until` | active → grace (writes still allowed, banner warns) → read-only |
+| `maintenance_until` | informational; `preflight` warns once it has passed |
+| `max_application_version` | a release above it puts the installation in read-only until renewed or rolled back; `preflight` fails before the upgrade goes live |
+| `modules`, `limits` | same entitlement engine as SaaS plans |
+
+`SUBSCRIPTION_POLICY` is ignored in standalone: the licence always enforces.

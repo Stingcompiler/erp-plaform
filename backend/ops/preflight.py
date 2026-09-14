@@ -215,6 +215,26 @@ def check_licence():
                 FAIL,
                 f"The fixed-term licence ended on {activation.usable_until:%Y-%m-%d}.",
             )
+    from licensing.services import application_version, version_exceeds_licence
+
+    if version_exceeds_licence(activation):
+        return Finding(
+            "licence",
+            FAIL,
+            f"Release {application_version()} exceeds the licence ceiling "
+            f"{activation.max_application_version}; writes will be blocked. "
+            "Renew maintenance before upgrading, or roll back.",
+        )
+    if activation.maintenance_until:
+        from django.utils import timezone
+
+        if timezone.now().date() > activation.maintenance_until:
+            return Finding(
+                "licence",
+                WARN,
+                f"Maintenance ended on {activation.maintenance_until:%Y-%m-%d}; "
+                "this release keeps running but newer releases are not covered.",
+            )
     return Finding(
         "licence",
         OK,
