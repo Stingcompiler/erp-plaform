@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 
 import { useSync } from "@/components/sync/SyncProvider";
+import { useAttention } from "@/components/attention/AttentionProvider";
 
 // One path for every branch-level write (PROJECT_RULES Rule #2): try the
 // live endpoint when the server is reachable, otherwise — or when the request
@@ -16,12 +17,14 @@ import { useSync } from "@/components/sync/SyncProvider";
 // thrown untouched so the form can show the validation message.
 export function useOfflineMutation() {
   const { online, enqueue } = useSync();
+  const { refresh } = useAttention();
   return useCallback(
     async (opType, request, payload) => {
       if (!payload?.client_uuid) throw new Error(`${opType}: payload needs a client_uuid`);
       if (!online) return { queued: true, op: enqueue(opType, payload) };
       try {
         const response = await request(payload);
+        refresh();
         return { queued: false, data: response.data };
       } catch (error) {
         if (error?.code === "ERR_NETWORK" || !error?.response) {
@@ -30,6 +33,6 @@ export function useOfflineMutation() {
         throw error;
       }
     },
-    [online, enqueue],
+    [online, enqueue, refresh],
   );
 }

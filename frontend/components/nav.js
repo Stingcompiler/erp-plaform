@@ -60,7 +60,7 @@ export const NAV = [
         module: "sales",
         icon: BookUser,
       },
-      { labelKey: "nav.crm", href: "/crm", module: "crm", icon: Contact },
+      { labelKey: "nav.crm", href: "/crm", module: "crm", icon: Contact, attentionKey: "crm" },
     ],
   },
   {
@@ -143,6 +143,7 @@ export const NAV = [
         module: null,
         ownerOnly: true,
         icon: CreditCard,
+        attentionKey: "subscription",
       },
       { labelKey: "nav.org", href: "/org", module: "org", icon: Building2 },
       { labelKey: "nav.users", href: "/users", module: "users", icon: Users },
