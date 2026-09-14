@@ -392,3 +392,25 @@ def dashboard(request):
                  if role_can(user, module, write=True)]
     return Response({"role": getattr(user.role, "name", None), "sections": sections,
                      "setup": setup, "currency": user.company.currency if company_id else None})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def attention(request):
+    """Badge counts for the signed-in user: what appeared since they last looked."""
+    from core import attention as attention_service
+
+    return Response(attention_service.counts_for(request.user))
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def attention_seen(request):
+    """The user opened `key`; its badge starts again from now."""
+    from core import attention as attention_service
+
+    key = str(request.data.get("key") or "").strip()
+    if not key:
+        return Response({"key": ["This field is required."]}, status=400)
+    known = attention_service.mark_seen(request.user, key)
+    return Response({"key": key, "known": known, "seen_at": timezone.now().isoformat()})

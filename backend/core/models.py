@@ -80,3 +80,26 @@ class DocumentSequence(models.Model):
 
     def __str__(self):
         return f"{self.doc_type}@{self.company_id}={self.last_number}"
+
+
+class AttentionSeen(models.Model):
+    """When a user last opened a part of the app (see core/attention.py).
+
+    The attention badge for `key` counts items that appeared after `seen_at`;
+    this row is the only state the badges keep, so it is per user, per key,
+    and overwritten on every visit.
+    """
+
+    user = models.ForeignKey(
+        "accounts.User", on_delete=models.CASCADE, related_name="attention_seen"
+    )
+    key = models.CharField(max_length=48)
+    seen_at = models.DateTimeField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "key"], name="attention_seen_user_key")
+        ]
+
+    def __str__(self):
+        return f"{self.user_id}:{self.key}@{self.seen_at:%Y-%m-%d %H:%M}"
