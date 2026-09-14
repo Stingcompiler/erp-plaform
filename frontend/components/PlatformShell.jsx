@@ -5,15 +5,17 @@ import { usePathname } from "next/navigation";
 import { CreditCard, FileCheck2, Inbox, Languages, LayoutDashboard, LogOut, MoonStar, SlidersHorizontal, Sun, SunMoon, UsersRound } from "lucide-react";
 
 import VezanoMark from "@/components/brand/VezanoMark";
+import AttentionBadge, { badgeFor } from "@/components/attention/AttentionBadge";
+import { useAttention } from "@/components/attention/AttentionProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useI18n } from "@/app/providers/I18nProvider";
 
 const PLATFORM_NAV = [
   { href: "/platform", label: "nav.platform", icon: LayoutDashboard },
-  { href: "/platform-registrations", label: "nav.platformRegistrations", icon: FileCheck2 },
+  { href: "/platform-registrations", label: "nav.platformRegistrations", icon: FileCheck2, attentionKey: "platform-registrations" },
   { href: "/platform-plans", label: "nav.platformPlans", icon: SlidersHorizontal },
-  { href: "/platform-leads", label: "nav.platformLeads", icon: Inbox },
-  { href: "/platform-subscriptions", label: "nav.platformSubscriptions", icon: CreditCard },
+  { href: "/platform-leads", label: "nav.platformLeads", icon: Inbox, attentionKey: "platform-leads" },
+  { href: "/platform-subscriptions", label: "nav.platformSubscriptions", icon: CreditCard, attentionKey: "platform-subscriptions" },
   { href: "/platform-team", label: "nav.platformTeam", icon: UsersRound },
 ];
 
@@ -25,6 +27,7 @@ export default function PlatformShell({ children }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { t, language, toggleLanguage, theme, cycleTheme } = useI18n();
+  const { counts, tones, markSeen } = useAttention();
   const ThemeIcon = theme === "dark" ? MoonStar : theme === "light" ? Sun : SunMoon;
 
   return (
@@ -58,11 +61,13 @@ export default function PlatformShell({ children }) {
             </div>
           </div>
           <nav className="flex gap-2 overflow-x-auto" aria-label={t("shell.platformWorkspace")}>
-            {PLATFORM_NAV.map(({ href, label, icon: Icon }) => {
+            {PLATFORM_NAV.map(({ href, label, icon: Icon, attentionKey }) => {
               const active = pathname === href || pathname.startsWith(`${href}/`);
+              const badge = badgeFor(attentionKey, counts, tones);
               return (
-                <Link key={href} href={href} aria-current={active ? "page" : undefined} className={`flex shrink-0 items-center gap-2 rounded-control px-3 py-2 text-sm transition-colors ${active ? "bg-white text-sidebar" : "text-sidebarText/70 hover:bg-white/10 hover:text-sidebarText"}`}>
+                <Link key={href} href={href} onClick={() => attentionKey && markSeen(attentionKey)} aria-current={active ? "page" : undefined} className={`flex shrink-0 items-center gap-2 rounded-control px-3 py-2 text-sm transition-colors ${active ? "bg-white text-sidebar" : "text-sidebarText/70 hover:bg-white/10 hover:text-sidebarText"}`}>
                   <Icon size={17} />{t(label)}
+                  <AttentionBadge count={badge.count} tone={badge.tone} />
                 </Link>
               );
             })}

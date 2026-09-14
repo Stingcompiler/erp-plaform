@@ -17,6 +17,8 @@ import {
 
 import { storageKey } from "@/lib/localIdentity";
 import { countLeaves, visibleNav, SHOP_OPTIONAL } from "./nav";
+import AttentionBadge, { badgeFor } from "./attention/AttentionBadge";
+import { useAttention } from "./attention/AttentionProvider";
 import SetupPrompt from "./SetupPrompt";
 import SyncStatus from "./sync/SyncStatus";
 import OfflineBanner from "./sync/OfflineBanner";
@@ -56,11 +58,21 @@ function NavLeaf({ item, onNavigate, nested = false }) {
   const pathname = usePathname();
   const active = isActiveHref(pathname, item.href);
   const Icon = item.icon;
+  const { counts, tones, markSeen } = useAttention();
+  const badge = badgeFor(item.attentionKey, counts, tones);
+  const keys = Array.isArray(item.attentionKey) ? item.attentionKey : item.attentionKey ? [item.attentionKey] : [];
+
+  // Opening the page is the "I've seen it": the badge clears on the first
+  // click and the server moves this user's since-point for those keys.
+  const onClick = (event) => {
+    keys.forEach(markSeen);
+    onNavigate?.(event);
+  };
 
   return (
     <Link
       href={item.href}
-      onClick={onNavigate}
+      onClick={onClick}
       aria-current={active ? "page" : undefined}
       className={`relative flex items-center gap-3 rounded-control py-2.5 text-sm transition-colors ${
         nested ? "ps-9 pe-3" : "px-3"
@@ -74,7 +86,8 @@ function NavLeaf({ item, onNavigate, nested = false }) {
         <span className="absolute inset-y-1 start-0 w-1 rounded-full bg-accent" />
       )}
       <Icon size={18} strokeWidth={2} className="shrink-0" />
-      {t(item.labelKey)}
+      <span className="flex-1 truncate">{t(item.labelKey)}</span>
+      <AttentionBadge count={badge.count} tone={badge.tone} />
     </Link>
   );
 }
@@ -85,6 +98,8 @@ function NavGroup({ group, open, onToggle, onNavigate }) {
   const Icon = group.icon;
   // A collapsed group still has to show that the current page lives inside it.
   const holdsActive = group.children.some((c) => isActiveHref(pathname, c.href));
+  const { counts, tones } = useAttention();
+  const badge = badgeFor(group.children.flatMap((c) => c.attentionKey || []), counts, tones);
 
   return (
     <div>
@@ -100,7 +115,10 @@ function NavGroup({ group, open, onToggle, onNavigate }) {
       >
         <Icon size={18} strokeWidth={2} className="shrink-0" />
         <span className="flex-1 text-start">{t(group.labelKey)}</span>
-        {holdsActive && !open && (
+        {/* Collapsed: the sum of the children's badges; expanded: each child
+            carries its own, so the group stays quiet. */}
+        {!open && <AttentionBadge count={badge.count} tone={badge.tone} />}
+        {holdsActive && !open && !badge.count && (
           <span className="h-1.5 w-1.5 rounded-full bg-accent" />
         )}
         {/* Rotation rather than a left/right chevron, so the affordance reads
