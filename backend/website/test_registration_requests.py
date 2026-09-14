@@ -53,6 +53,27 @@ class RegistrationRequestTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual([row["id"] for row in response.data], [self.version.pk])
 
+    def test_public_plans_carry_marketing_copy_and_sort_order(self):
+        premium = Plan.objects.create(
+            code="premium", name="Premium", name_ar="المتقدمة", tagline_en="For chains",
+            features_en="Unlimited branches\n\nPriority support\n", features_ar="فروع بلا حد",
+            is_highlighted=True, sort_order=1,
+        )
+        PlanVersion.objects.create(
+            plan=premium, version=1, modules=["sales"], published_at=timezone.now()
+        )
+        response = self.client.get(reverse("public-plan-list"))
+        self.assertEqual(response.status_code, 200)
+        # sort_order 1 comes before the default 100 regardless of name.
+        self.assertEqual(response.data[0]["plan_code"], "premium")
+        display = response.data[0]["display"]
+        self.assertEqual(display["name"], {"en": "Premium", "ar": "المتقدمة"})
+        self.assertEqual(display["features"]["en"], ["Unlimited branches", "Priority support"])
+        self.assertTrue(display["is_highlighted"])
+        # Plans without Arabic copy fall back to the English text, never blank.
+        fallback = response.data[1]["display"]
+        self.assertEqual(fallback["name"]["ar"], fallback["name"]["en"])
+
     def test_platform_provisions_once_then_owner_activates(self):
         registration = RegistrationRequest.objects.create(
             request_uuid=uuid4(), company_name="Provisioned Co", contact_name="Owner",

@@ -1,6 +1,7 @@
 import { improvementsEn, improvementsAr } from "./improvementsI18n.js";
 import { debtEn, debtAr } from "./debtI18n.js";
 import { subscriptionEn, subscriptionAr } from "./subscriptionI18n.js";
+import { pricingAr, pricingEn, registerAr, registerEn } from "./marketingI18n.js";
 // Central translation catalog. Keys are dot-namespaced by surface. `t(key)`
 // (from useI18n) looks a key up in the active language, falling back to English,
 // then to the raw key — so a missing translation is visible, never a crash.
@@ -304,6 +305,17 @@ const en = {
     archived: "Archived",
     noLimits: "No usage limits",
     empty: "No commercial plans have been created yet.",
+    publicCopy: "Public pricing page copy",
+    nameAr: "Plan name (Arabic)",
+    taglineEn: "Tagline (English)",
+    taglineAr: "Tagline (Arabic)",
+    featuresEn: "Feature list (English)",
+    featuresAr: "Feature list (Arabic)",
+    featuresHint: "One feature per line; shown with a tick on the card.",
+    highlighted: "Highlight as the most popular plan",
+    sortOrder: "Display order",
+    sortOrderHint: "Lower comes first on the pricing page.",
+    editCopy: "Edit public copy",
   },
   setup: {
     title: "What kind of business is this?",
@@ -1788,6 +1800,17 @@ const ar = {
     archived: "مؤرشفة",
     noLimits: "لا توجد حدود استخدام",
     empty: "لم تُنشأ باقات تجارية بعد.",
+    publicCopy: "نصوص صفحة الأسعار العامة",
+    nameAr: "اسم الباقة (عربي)",
+    taglineEn: "سطر تعريفي (إنجليزي)",
+    taglineAr: "سطر تعريفي (عربي)",
+    featuresEn: "قائمة المزايا (إنجليزي)",
+    featuresAr: "قائمة المزايا (عربي)",
+    featuresHint: "ميزة في كل سطر؛ تظهر بعلامة ✓ على البطاقة.",
+    highlighted: "إبراز كأكثر باقة طلبًا",
+    sortOrder: "ترتيب العرض",
+    sortOrderHint: "الأصغر يظهر أولًا في صفحة الأسعار.",
+    editCopy: "تعديل النصوص العامة",
   },
   setup: {
     title: "ما نوع هذا النشاط؟",
@@ -2987,6 +3010,10 @@ en.debts = debtEn;
 ar.debts = debtAr;
 en.subscription = subscriptionEn;
 ar.subscription = subscriptionAr;
+en.pricing = pricingEn;
+ar.pricing = pricingAr;
+en.register = registerEn;
+ar.register = registerAr;
 const CATALOG = { en, ar };
 
 function lookup(obj, path) {

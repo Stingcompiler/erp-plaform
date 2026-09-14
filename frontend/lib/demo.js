@@ -4,4 +4,4 @@
 // account for — the trial *is* the demo in the current commercial model.
 export const LIVE_DEMO_URL = process.env.NEXT_PUBLIC_DEMO_URL || "";
 export const HAS_LIVE_DEMO = LIVE_DEMO_URL.startsWith("http");
-export const DEMO_URL = HAS_LIVE_DEMO ? LIVE_DEMO_URL : "#trial";
+export const DEMO_URL = HAS_LIVE_DEMO ? LIVE_DEMO_URL : "/register";
