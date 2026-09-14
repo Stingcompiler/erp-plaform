@@ -7,8 +7,12 @@ Type=simple
 User=vezano
 Group=vezano
 WorkingDirectory=/opt/vezano/current/backend
-EnvironmentFile=/etc/vezano/vezano.env
-ExecStart=/opt/vezano/venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 120
+# Django reads the protected file itself (VEZANO_ENV_FILE), so the same parser
+# serves the services, the backup/upgrade scripts and an operator's shell.
+Environment=VEZANO_ENV_FILE=/etc/vezano/vezano.env
+# The venv lives inside the release: moving /opt/vezano/current moves code and
+# dependencies together, which is what makes a rollback a symlink change.
+ExecStart=/opt/vezano/current/venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 120
 Restart=on-failure
 PrivateTmp=true
 NoNewPrivileges=true

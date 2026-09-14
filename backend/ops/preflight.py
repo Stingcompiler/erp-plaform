@@ -192,6 +192,31 @@ def check_frontend_build():
     )
 
 
+def check_licence_keys():
+    """Without a trusted public key every licence import is refused as untrusted."""
+    from config.deployment import get_deployment_config
+
+    if not get_deployment_config().is_standalone:
+        return Finding("licence_keys", OK, "Not applicable outside standalone deployments.")
+    keys = settings.VEZANO_LICENSE_PUBLIC_KEYS or {}
+    bad = [key_id for key_id, pem in keys.items() if "BEGIN PUBLIC KEY" not in str(pem)]
+    if bad:
+        return Finding(
+            "licence_keys",
+            FAIL,
+            f"Licence key(s) {', '.join(bad)} are not PEM public keys; check the "
+            "file(s) in VEZANO_LICENSE_PUBLIC_KEYS_DIR or the JSON value.",
+        )
+    if not keys:
+        return Finding(
+            "licence_keys",
+            FAIL,
+            "No licence public key is configured (VEZANO_LICENSE_PUBLIC_KEYS_DIR "
+            "or VEZANO_LICENSE_PUBLIC_KEYS); no licence can be imported.",
+        )
+    return Finding("licence_keys", OK, f"Trusted key id(s): {', '.join(sorted(keys))}.")
+
+
 def check_licence():
     from config.deployment import get_deployment_config
 
@@ -253,5 +278,6 @@ def run_preflight():
         check_media_writable(),
         check_static_files(),
         check_frontend_build(),
+        check_licence_keys(),
         check_licence(),
     ]

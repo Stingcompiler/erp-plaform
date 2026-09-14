@@ -18,14 +18,15 @@
 #
 # Environment:
 #   VEZANO_HOME     install root        (default /opt/vezano/current)
-#   VEZANO_PYTHON   python interpreter  (default /opt/vezano/venv/bin/python)
+#   VEZANO_PYTHON   python interpreter  (default $VEZANO_HOME/venv/bin/python)
+#   VEZANO_ENV_FILE protected env file  (default /etc/vezano/vezano.env)
 #
 # Exit codes: 0 verified, non-zero on any failure.
 
 set -euo pipefail
 
 VEZANO_HOME="${VEZANO_HOME:-/opt/vezano/current}"
-VEZANO_PYTHON="${VEZANO_PYTHON:-/opt/vezano/venv/bin/python}"
+VEZANO_PYTHON="${VEZANO_PYTHON:-${VEZANO_HOME}/venv/bin/python}"
 
 FROM=""
 TARGET_URL=""
@@ -138,9 +139,13 @@ if [ "$SKIP_VERIFY" -eq 1 ]; then
     exit 0
 fi
 
+# The comparison must run with the installation's real settings (licence
+# keys, deployment mode) but against the TARGET database and media: explicit
+# variables win over the env file, so only those two are overridden.
 log "verifying the restored data against the fingerprint"
 (
     cd "$VEZANO_HOME/backend"
+    VEZANO_ENV_FILE="${VEZANO_ENV_FILE:-/etc/vezano/vezano.env}" \
     DATABASE_URL="$TARGET_URL" MEDIA_ROOT="$MEDIA_ROOT" "$VEZANO_PYTHON" manage.py \
         verify_restore --expected "$FROM/fingerprint.json"
 )

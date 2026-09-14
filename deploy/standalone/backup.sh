@@ -20,8 +20,8 @@
 #   VEZANO_HOME       install root                 (default /opt/vezano/current)
 #   VEZANO_ENV_FILE   protected env file           (default /etc/vezano/vezano.env)
 #   VEZANO_BACKUP_DIR destination root             (default /var/backups/vezano)
-#   VEZANO_PYTHON     python interpreter to use    (default /opt/vezano/venv/bin/python)
-#   VEZANO_MEDIA_ROOT media directory              (default $VEZANO_HOME/backend/media)
+#   VEZANO_PYTHON     python interpreter to use    (default $VEZANO_HOME/venv/bin/python)
+#   VEZANO_MEDIA_ROOT media directory              (default: MEDIA_ROOT from the env file)
 #
 # Exit codes: 0 success, non-zero on any failure. Nothing is left half-written:
 # the staging directory is removed on failure and only renamed into place on
@@ -32,8 +32,7 @@ set -euo pipefail
 VEZANO_HOME="${VEZANO_HOME:-/opt/vezano/current}"
 VEZANO_ENV_FILE="${VEZANO_ENV_FILE:-/etc/vezano/vezano.env}"
 VEZANO_BACKUP_DIR="${VEZANO_BACKUP_DIR:-/var/backups/vezano}"
-VEZANO_PYTHON="${VEZANO_PYTHON:-/opt/vezano/venv/bin/python}"
-VEZANO_MEDIA_ROOT="${VEZANO_MEDIA_ROOT:-${VEZANO_HOME}/backend/media}"
+VEZANO_PYTHON="${VEZANO_PYTHON:-${VEZANO_HOME}/venv/bin/python}"
 
 LABEL=""
 OUT_DIR=""
@@ -57,12 +56,28 @@ fail() { printf '[backup] ERROR: %s\n' "$*" >&2; exit 1; }
 [ -d "$VEZANO_HOME/backend" ] || fail "installation not found at: $VEZANO_HOME"
 command -v pg_dump >/dev/null 2>&1 || fail "pg_dump is not on PATH"
 
-# Load DATABASE_URL and anything else the app needs from the protected file.
-set -a
-# shellcheck disable=SC1090
-. "$VEZANO_ENV_FILE"
-set +a
-[ -n "${DATABASE_URL:-}" ] || fail "DATABASE_URL is not set in $VEZANO_ENV_FILE"
+# The protected file is read by Django's own parser (django-environ), not
+# sourced by this shell: a JSON value or a quoted string survives that parser
+# and does not survive `. file`. Exporting VEZANO_ENV_FILE makes every
+# manage.py call below see the same settings the services run with.
+export VEZANO_ENV_FILE
+env_value() {
+    "$VEZANO_PYTHON" - "$1" <<'PY'
+import os
+import sys
+
+import environ
+
+environ.Env.read_env(os.environ["VEZANO_ENV_FILE"])
+print(os.environ.get(sys.argv[1], ""))
+PY
+}
+DATABASE_URL="$(env_value DATABASE_URL)"
+[ -n "$DATABASE_URL" ] || fail "DATABASE_URL is not set in $VEZANO_ENV_FILE"
+if [ -z "${VEZANO_MEDIA_ROOT:-}" ]; then
+    VEZANO_MEDIA_ROOT="$(env_value MEDIA_ROOT)"
+    VEZANO_MEDIA_ROOT="${VEZANO_MEDIA_ROOT:-${VEZANO_HOME}/backend/media}"
+fi
 
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 NAME="${TIMESTAMP}${LABEL:+-$LABEL}"

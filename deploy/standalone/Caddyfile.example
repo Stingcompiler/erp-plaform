@@ -1,0 +1,9 @@
+# /etc/caddy/Caddyfile — TLS at the edge, one line of configuration.
+# Caddy obtains and renews the certificate itself (port 80/443 must be
+# reachable from the internet, and the DNS name must point at this host).
+# It forwards X-Forwarded-Proto, which Django's SECURE_PROXY_SSL_HEADER trusts,
+# so FORCE_HTTPS=True in vezano.env is correct behind it.
+vezano.example.com {
+    encode gzip
+    reverse_proxy 127.0.0.1:8000
+}

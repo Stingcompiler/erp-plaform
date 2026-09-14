@@ -4,8 +4,11 @@
 #
 # This is the controlled half of an upgrade: the operator has already unpacked
 # the new release beside the old one and verified its checksum and signature.
-# This script takes a backup, proves the new tree matches its manifest, applies
-# migrations, and only then switches the `current` symlink.
+# This script builds the release's own Python environment if it is missing,
+# takes a backup, proves the new tree matches its manifest, applies
+# migrations, and only then switches the `current` symlink. Each release owns
+# its venv (<release>/venv), so moving the symlink moves code and dependencies
+# together and the previous release stays runnable as it was.
 #
 # The order matters. A backup taken *after* migrating cannot undo the migration,
 # and switching the symlink before `check --deploy` runs can serve a tree whose
@@ -20,6 +23,7 @@
 #   --backup-dir DIR  where to write the pre-upgrade backup (default /var/backups/vezano)
 #   --skip-backup     DANGEROUS: proceed without a fresh backup
 #   --yes             do not prompt before applying migrations
+#   --python3 PATH    interpreter used to create the release venv (default python3)
 #
 # Exit codes: 0 upgraded, non-zero with the old release left in place on failure.
 
@@ -31,6 +35,7 @@ ENV_FILE="/etc/vezano/vezano.env"
 BACKUP_DIR="/var/backups/vezano"
 SKIP_BACKUP=0
 ASSUME_YES=0
+PYTHON3="python3"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 while [ $# -gt 0 ]; do
@@ -41,6 +46,7 @@ while [ $# -gt 0 ]; do
         --backup-dir) BACKUP_DIR="$2"; shift 2 ;;
         --skip-backup) SKIP_BACKUP=1; shift ;;
         --yes) ASSUME_YES=1; shift ;;
+        --python3) PYTHON3="$2"; shift 2 ;;
         -h|--help) sed -n '2,26p' "$0"; exit 0 ;;
         *) echo "Unknown option: $1" >&2; exit 2 ;;
     esac
@@ -55,13 +61,20 @@ fail() { printf '[upgrade] ERROR: %s\n' "$*" >&2; exit 1; }
 [ -f "$ENV_FILE" ] || fail "environment file not found: $ENV_FILE"
 [ -d "$LINK" ] || fail "current installation not found at $LINK"
 
-set -a
-# shellcheck disable=SC1090
-. "$ENV_FILE"
-set +a
+# Django reads the protected file itself (see backup.sh for why it is not
+# sourced here). Everything below inherits this.
+export VEZANO_ENV_FILE="$ENV_FILE"
 
+# 0. The new release's own environment, with its own pinned dependencies.
 NEW_PYTHON="${RELEASE}/venv/bin/python"
-[ -x "$NEW_PYTHON" ] || NEW_PYTHON="$(command -v python3)"
+if [ ! -x "$NEW_PYTHON" ]; then
+    log "creating the release environment at ${RELEASE}/venv"
+    "$PYTHON3" -m venv "${RELEASE}/venv" || fail "could not create the venv"
+    "${RELEASE}/venv/bin/pip" install --quiet --upgrade pip \
+        || fail "could not upgrade pip in the new venv"
+    "${RELEASE}/venv/bin/pip" install --quiet -r "${RELEASE}/backend/requirements.txt" \
+        || fail "dependency installation failed; the old release is untouched"
+fi
 
 # 1. Prove the new tree matches the manifest the vendor signed.
 log "verifying the new release"
@@ -75,6 +88,7 @@ if [ "$SKIP_BACKUP" -eq 1 ]; then
 else
     log "taking a pre-upgrade backup"
     VEZANO_HOME="$LINK" VEZANO_ENV_FILE="$ENV_FILE" VEZANO_BACKUP_DIR="$BACKUP_DIR" \
+    VEZANO_PYTHON="${VEZANO_PYTHON:-$LINK/venv/bin/python}" \
         bash "$SCRIPT_DIR/backup.sh" --label "pre-upgrade" \
         || fail "backup failed; refusing to upgrade without a restore point"
 fi

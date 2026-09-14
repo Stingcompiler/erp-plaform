@@ -10,8 +10,11 @@
 #
 # The archive deliberately excludes everything that is not application code:
 # the virtual environment, node_modules, the local database, collected static
-# files, uploaded media and the git history. Shipping any of those would either
-# bloat the release or leak one installation's data into another's.
+# files, uploaded media, the developer's .env, editor/agent settings, test
+# caches and the git history. Shipping any of those would either bloat the
+# release or leak one installation's data (or the vendor's secrets) into
+# another's. The archive is listed against a deny-pattern after it is written,
+# so a new kind of stray file fails the build instead of shipping quietly.
 #
 # Usage:
 #   package_release.sh --output DIR [--signing-key PRIVATE_KEY.pem] [--version VERSION]
@@ -59,25 +62,51 @@ log "building release manifest (version $VERSION)"
 log "creating archive"
 tar -czf "$ARCHIVE" \
     --exclude='.git' \
+    --exclude='.github' \
+    --exclude='.claude' \
     --exclude='.venv' \
-    --exclude='.venv312' \
+    --exclude='.venv*' \
     --exclude='venv' \
     --exclude='node_modules' \
     --exclude='.next' \
     --exclude='__pycache__' \
+    --exclude='.pytest_cache' \
     --exclude='*.pyc' \
     --exclude='*.sqlite3' \
+    --exclude='*.sqlite3.*' \
+    --exclude='.env' \
+    --exclude='.env.*' \
     --exclude='backend/staticfiles' \
     --exclude='backend/media' \
+    --exclude='.DS_Store' \
     --exclude='*.log' \
     -C "$REPO_ROOT" .
 
-log "hashing archive"
-if command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$ARCHIVE" | awk '{print $1}' > "${ARCHIVE}.sha256"
-else
-    sha256sum "$ARCHIVE" | awk '{print $1}' > "${ARCHIVE}.sha256"
+# Belt and braces: refuse to ship if anything secret-shaped or host-specific
+# still made it in. The patterns are the things that have leaked in practice.
+log "auditing archive contents"
+STRAY="$(tar -tzf "$ARCHIVE" | grep -Ei \
+    '(^|/)(\.env|\.env\.[^/]*|\.git|\.github|\.claude|\.pytest_cache|node_modules|\.next|\.venv[^/]*|venv|__pycache__|\.DS_Store)(/|$)|\.(sqlite3|pem|key|log)(\.|$)|^\./backend/(staticfiles|media)/' \
+    | grep -Ev '(^|/)\.env\.example$' || true)"
+if [ -n "$STRAY" ]; then
+    printf '%s\n' "$STRAY" | head -20 >&2
+    rm -f "$ARCHIVE"
+    fail "the archive contains files that must never ship (listed above); fix the exclusions"
 fi
+log "$(tar -tzf "$ARCHIVE" | grep -vc '/$') file(s) in the archive"
+
+# `<hash>  <basename>` is the format `sha256sum -c` / `shasum -c` expect, so
+# the operator can verify with the command in OPERATIONS.md from inside the
+# download directory.
+log "hashing archive"
+(
+    cd "$OUTPUT"
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$(basename "$ARCHIVE")" > "${ARCHIVE}.sha256"
+    else
+        shasum -a 256 "$(basename "$ARCHIVE")" > "${ARCHIVE}.sha256"
+    fi
+)
 
 if [ -n "$SIGNING_KEY" ]; then
     [ -f "$SIGNING_KEY" ] || fail "signing key not found: $SIGNING_KEY"

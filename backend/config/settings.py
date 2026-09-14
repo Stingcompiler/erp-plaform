@@ -9,6 +9,7 @@ infra config as later milestones land their own Django apps.
 
 import decimal
 from datetime import timedelta
+import os
 from pathlib import Path
 import sys
 
@@ -27,8 +28,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env(
     DEBUG=(bool, False),
 )
-# .env is optional locally; on Render, env vars are injected directly.
-environ.Env.read_env(BASE_DIR / ".env")
+# .env is optional locally; on Render, env vars are injected directly. A
+# standalone installation keeps its protected file outside the release tree
+# and names it in VEZANO_ENV_FILE, so every process (service units, the
+# backup/upgrade scripts, an operator's shell) reads it with this one parser
+# instead of each shell quoting it differently.
+environ.Env.read_env(os.environ.get("VEZANO_ENV_FILE") or BASE_DIR / ".env")
 
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-insecure-secret-key-change-me")
 DEBUG = env("DEBUG")
@@ -299,6 +304,16 @@ CELERY_BEAT_SCHEDULE = {
 VEZANO_DEPLOYMENT_MODE = env("VEZANO_DEPLOYMENT_MODE", default="saas")
 SUBSCRIPTION_POLICY = env("SUBSCRIPTION_POLICY", default="disabled")
 VEZANO_LICENSE_PUBLIC_KEYS = env.json("VEZANO_LICENSE_PUBLIC_KEYS", default={})
+# A directory of PEM files is the operator-friendly form: one file per key,
+# named <key-id>.pem or <key-id>.public.pem. Rotating a key is a file copy,
+# and nothing has to fit a multi-line PEM into one environment line.
+VEZANO_LICENSE_PUBLIC_KEYS_DIR = env("VEZANO_LICENSE_PUBLIC_KEYS_DIR", default="")
+if VEZANO_LICENSE_PUBLIC_KEYS_DIR:
+    for _pem in sorted(Path(VEZANO_LICENSE_PUBLIC_KEYS_DIR).glob("*.pem")):
+        _key_id = _pem.name[: -len(".pem")]
+        if _key_id.endswith(".public"):
+            _key_id = _key_id[: -len(".public")]
+        VEZANO_LICENSE_PUBLIC_KEYS.setdefault(_key_id, _pem.read_text(encoding="utf-8"))
 
 # --- M10 security hardening ---
 # Applied always:
