@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { returns, sales } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
+import { useOfflineMutation } from "@/components/sync/useOfflineMutation";
 import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
 import BarcodeScanInput from "@/components/inventory/BarcodeScanInput";
@@ -15,6 +16,7 @@ import { Button, Field, Input, Select } from "@/components/ui/kit";
 // price the credit note, and returns land uncredited.
 export default function NewReturnDrawer({ open, onClose, onCreated }) {
   const { t } = useI18n();
+  const mutate = useOfflineMutation();
   const toast = useToast();
   const [invoices, setInvoices] = useState([]);
   const [invoiceId, setInvoiceId] = useState("");
@@ -98,7 +100,7 @@ export default function NewReturnDrawer({ open, onClose, onCreated }) {
     if (payloadLines.length === 0) return setError(t("returns.addProductErr"));
     setSaving(true);
     try {
-      await returns.createSalesReturn({
+      await mutate("sales_return", returns.createSalesReturn, {
         client_uuid: crypto.randomUUID(),
         invoice: invoice.id,
         reason,

@@ -11,7 +11,7 @@ op is:
 
 from dataclasses import dataclass
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from rest_framework.exceptions import ValidationError
 
 from core.rbac import role_can
@@ -114,6 +114,18 @@ def process_operation(request, op):
         return APPLIED, spec.model.__name__, str(obj.pk), "", client_uuid
     except ValidationError as exc:
         return ERROR, "", "", _stringify(exc.detail), client_uuid
+    except IntegrityError as exc:
+        # Two devices (or two tabs) pushed the same client_uuid at once: the
+        # pre-check above missed it, the unique index caught it. That is a
+        # duplicate, not a failure — report the row that won so the client
+        # clears its queue instead of retrying forever.
+        if client_uuid:
+            existing = spec.model.objects.filter(
+                company_id=company_id, client_uuid=client_uuid
+            ).first()
+            if existing:
+                return DUPLICATE, spec.model.__name__, str(existing.pk), "", client_uuid
+        return ERROR, "", "", str(exc), client_uuid
     except Exception as exc:  # noqa: BLE001 - report, don't crash the batch
         return ERROR, "", "", str(exc), client_uuid
 

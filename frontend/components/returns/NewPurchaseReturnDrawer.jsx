@@ -5,6 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 
 import { purchasing, returns } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
+import { useOfflineMutation } from "@/components/sync/useOfflineMutation";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Field, Input, Select } from "@/components/ui/kit";
 
@@ -21,6 +22,7 @@ import { Button, Field, Input, Select } from "@/components/ui/kit";
  */
 export default function NewPurchaseReturnDrawer({ open, onClose, onCreated }) {
   const { t } = useI18n();
+  const mutate = useOfflineMutation();
   const [suppliers, setSuppliers] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [bills, setBills] = useState([]);
@@ -102,7 +104,7 @@ export default function NewPurchaseReturnDrawer({ open, onClose, onCreated }) {
     }
     setBusy(true);
     try {
-      await returns.createPurchaseReturn({
+      await mutate("purchase_return", returns.createPurchaseReturn, {
         client_uuid: crypto.randomUUID(),
         supplier: Number(supplier),
         warehouse: Number(warehouse),
