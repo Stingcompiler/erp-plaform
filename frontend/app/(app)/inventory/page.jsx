@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, Input, PageHeader } from "@/components/ui/kit";
 import ProductForm from "@/components/inventory/ProductForm";
 import StockDrawer from "@/components/inventory/StockDrawer";
+import StockCountPanel from "@/components/inventory/StockCountPanel";
 
 const PAGE_SIZE = 50;
 
@@ -204,6 +205,8 @@ export default function InventoryPage() {
           {t("inventory.showArchived")}
         </label>
       </div>
+
+      <StockCountPanel warehouses={warehouses} canWrite={writable} />
 
       {expiring.length > 0 && (
         <Card className="mb-4 border-warn/40 p-4">

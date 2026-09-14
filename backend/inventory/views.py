@@ -18,6 +18,7 @@ from core.scoping import (
 )
 from inventory.barcodes import next_internal_barcode
 from inventory.models import (
+    StockCount,
     Brand,
     Category,
     Product,
@@ -28,7 +29,9 @@ from inventory.models import (
     Unit,
     Warehouse,
 )
+from inventory.counts import approve_count, cancel_count, submit_count
 from inventory.serializers import (
+    StockCountSerializer,
     BrandSerializer,
     CategorySerializer,
     ProductSerializer,
@@ -318,3 +321,36 @@ class StockTransferViewSet(AppendOnlyScopedViewSet):
     ).all()
     serializer_class = StockTransferSerializer
     activity_entity_type = "StockTransfer"
+
+
+class StockCountViewSet(CompanyScopedModelViewSet):
+    """Periodic physical counts. Draft is editable; submit freezes ledger
+    balances into the lines; approve (a manager other than the counter) posts
+    the variances as adjustments. Approved counts are immutable."""
+
+    branch_field = "warehouse__branch"
+    include_unassigned_branch_rows = False
+    queryset = StockCount.objects.select_related(
+        "warehouse", "counted_by", "approved_by"
+    ).prefetch_related("lines__product", "lines__batch")
+    serializer_class = StockCountSerializer
+    activity_entity_type = "StockCount"
+    http_method_names = ["get", "post", "patch", "head", "options"]
+
+    def _transition(self, request, service):
+        count = self.get_object()
+        result = service(count.pk, request.user, request)
+        count = result[0] if isinstance(result, tuple) else result
+        return Response(self.get_serializer(count).data)
+
+    @action(detail=True, methods=["post"])
+    def submit(self, request, pk=None):
+        return self._transition(request, submit_count)
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        return self._transition(request, approve_count)
+
+    @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        return self._transition(request, cancel_count)

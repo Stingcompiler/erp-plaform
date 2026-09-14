@@ -1,0 +1,177 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { ClipboardCheck, Plus, Trash2 } from "lucide-react";
+
+import { inventory } from "@/lib/api";
+import { useAuth } from "../../app/providers/AuthProvider";
+import { useI18n } from "../../app/providers/I18nProvider";
+import { useToast } from "@/components/ui/Toast";
+import Drawer from "@/components/ui/Drawer";
+import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
+
+const TONES = { draft: "muted", submitted: "warn", approved: "ok", cancelled: "danger" };
+
+// Periodic stock count: count what is on the shelf, submit (the server
+// freezes ledger balances into the sheet), and a manager other than the
+// counter approves — which posts the differences as ordinary adjustments.
+export default function StockCountPanel({ warehouses, canWrite }) {
+  const { t, language } = useI18n();
+  const { user, can } = useAuth();
+  const toast = useToast();
+  const [rows, setRows] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(null);
+  const [error, setError] = useState("");
+  const [draft, setDraft] = useState({ warehouse: "", note: "", lines: [] });
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const canApprove = can("users.manage_company") || can("users.manage_branch");
+
+  const load = useCallback(() => {
+    inventory.stockCounts().then((r) => setRows(r.data.results || r.data)).catch(() => setRows([]));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!query.trim()) { setResults([]); return undefined; }
+    const timer = setTimeout(() => {
+      inventory.products({ search: query }).then((r) => setResults(r.data.results.slice(0, 6))).catch(() => setResults([]));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const addLine = (product) => {
+    setDraft((d) => d.lines.some((l) => l.product === product.id)
+      ? d
+      : { ...d, lines: [...d.lines, { product: product.id, sku: product.sku, name: product.name, counted_quantity: "" }] });
+    setQuery("");
+    setResults([]);
+  };
+
+  const fail = (err) => {
+    const data = err?.response?.data;
+    const first = data?.detail || (data && Object.values(data).flat()[0]);
+    const msg = typeof first === "string" ? first : t("count.saveError");
+    setError(msg);
+    toast.error(msg);
+  };
+
+  const saveDraft = async () => {
+    setError("");
+    if (!draft.warehouse) return setError(t("count.chooseWarehouse"));
+    if (draft.lines.some((l) => l.counted_quantity === "")) return setError(t("count.fillQuantities"));
+    setBusy("save");
+    try {
+      await inventory.createStockCount({
+        warehouse: Number(draft.warehouse),
+        note: draft.note,
+        lines: draft.lines.map((l) => ({ product: l.product, counted_quantity: String(l.counted_quantity) })),
+      });
+      setOpen(false);
+      setDraft({ warehouse: "", note: "", lines: [] });
+      toast.success(t("count.saved"));
+      load();
+    } catch (err) { fail(err); } finally { setBusy(null); }
+  };
+
+  const run = async (row, action) => {
+    setBusy(`${action}-${row.id}`);
+    setError("");
+    try {
+      const fn = { submit: inventory.submitStockCount, approve: inventory.approveStockCount, cancel: inventory.cancelStockCount }[action];
+      await fn(row.id);
+      toast.success(t(`count.${action}Done`));
+      load();
+    } catch (err) { fail(err); } finally { setBusy(null); }
+  };
+
+  const fmt = (v) => (v ? new Date(v).toLocaleString(language === "ar" ? "ar" : "en", { dateStyle: "medium", timeStyle: "short" }) : "—");
+
+  return (
+    <Card className="mb-4 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 font-medium text-ink"><ClipboardCheck size={16} /> {t("count.title")}</div>
+        {canWrite && <Button variant="outline" onClick={() => setOpen(true)}><Plus size={16} /> {t("count.new")}</Button>}
+      </div>
+      <p className="mt-1 text-xs text-muted">{t("count.hint")}</p>
+      {error && !open && <p role="alert" className="mt-2 text-sm text-danger">{error}</p>}
+      {rows.length > 0 && (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
+              <th className="px-2 py-2 text-start">#</th><th className="px-2 py-2 text-start">{t("inventory.warehouse")}</th>
+              <th className="px-2 py-2 text-start">{t("common.status")}</th><th className="px-2 py-2 text-start">{t("count.lines")}</th>
+              <th className="px-2 py-2 text-start">{t("count.countedBy")}</th><th className="px-2 py-2 text-start">{t("count.variances")}</th><th />
+            </tr></thead>
+            <tbody>
+              {rows.map((row) => {
+                const variances = row.lines.filter((l) => l.variance != null && Number(l.variance) !== 0);
+                const mine = row.counted_by === user?.id;
+                return (
+                  <tr key={row.id} className="border-b border-line last:border-0">
+                    <td className="tabular px-2 py-2">{row.id}</td>
+                    <td className="px-2 py-2">{row.warehouse_name}</td>
+                    <td className="px-2 py-2"><Badge tone={TONES[row.status]}>{t(`count.status.${row.status}`)}</Badge></td>
+                    <td className="tabular px-2 py-2">{row.lines.length}</td>
+                    <td className="px-2 py-2 text-muted">{row.counted_by_name || "—"} · {fmt(row.submitted_at || row.created_at)}</td>
+                    <td className="px-2 py-2 text-muted">
+                      {row.status === "draft" ? "—" : variances.length === 0 ? t("count.noVariance") : variances.map((l) => `${l.product_sku}: ${Number(l.variance) > 0 ? "+" : ""}${l.variance}`).join(" · ")}
+                    </td>
+                    <td className="px-2 py-2">
+                      <div className="flex justify-end gap-1">
+                        {row.status === "draft" && canWrite && <Button variant="outline" disabled={busy === `submit-${row.id}`} onClick={() => run(row, "submit")}>{t("count.submit")}</Button>}
+                        {row.status === "submitted" && canApprove && !mine && <Button disabled={busy === `approve-${row.id}`} onClick={() => run(row, "approve")}>{t("count.approve")}</Button>}
+                        {row.status === "submitted" && mine && <span className="text-xs text-muted">{t("count.awaitingOther")}</span>}
+                        {["draft", "submitted"].includes(row.status) && canWrite && <Button variant="ghost" disabled={busy === `cancel-${row.id}`} onClick={() => run(row, "cancel")}>{t("common.cancel")}</Button>}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <Drawer open={open} onClose={() => setOpen(false)} title={t("count.new")} wide
+        footer={<div className="flex gap-2"><Button disabled={busy === "save"} onClick={saveDraft}>{t("count.saveDraft")}</Button><Button variant="outline" onClick={() => setOpen(false)}>{t("common.cancel")}</Button></div>}>
+        <div className="space-y-4">
+          {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+          <Field label={t("inventory.warehouse")}>
+            <Select value={draft.warehouse} onChange={(e) => setDraft((d) => ({ ...d, warehouse: e.target.value }))}>
+              <option value="">{t("common.choose")}</option>
+              {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </Select>
+          </Field>
+          <Field label={t("count.note")}><Input value={draft.note} maxLength={255} onChange={(e) => setDraft((d) => ({ ...d, note: e.target.value }))} /></Field>
+          <Field label={t("count.addProduct")} hint={t("count.addProductHint")}>
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("inventory.searchPlaceholder")} />
+          </Field>
+          {results.length > 0 && (
+            <ul className="divide-y divide-line rounded-card border border-line">
+              {results.map((p) => <li key={p.id}><button type="button" className="flex w-full items-center justify-between px-3 py-2 text-start text-sm hover:bg-paper" onClick={() => addLine(p)}><span>{p.name}</span><span className="text-muted">{p.sku}</span></button></li>)}
+            </ul>
+          )}
+          {draft.lines.length > 0 && (
+            <table className="w-full text-sm">
+              <thead><tr className="text-xs uppercase text-muted"><th className="py-1 text-start">{t("inventory.product")}</th><th className="py-1 text-start">{t("count.counted")}</th><th /></tr></thead>
+              <tbody>
+                {draft.lines.map((l) => (
+                  <tr key={l.product} className="border-t border-line">
+                    <td className="py-2">{l.name} <span className="text-muted">{l.sku}</span></td>
+                    <td className="py-2">
+                      <Input type="number" inputMode="decimal" step="0.001" min="0" className="w-28" value={l.counted_quantity} aria-label={`${t("count.counted")} ${l.sku}`}
+                        onChange={(e) => setDraft((d) => ({ ...d, lines: d.lines.map((x) => x.product === l.product ? { ...x, counted_quantity: e.target.value } : x) }))} />
+                    </td>
+                    <td className="py-2 text-end"><button type="button" aria-label={t("common.remove")} className="rounded-control p-1 text-muted hover:text-danger" onClick={() => setDraft((d) => ({ ...d, lines: d.lines.filter((x) => x.product !== l.product) }))}><Trash2 size={14} /></button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </Drawer>
+    </Card>
+  );
+}
