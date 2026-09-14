@@ -42,6 +42,14 @@ checks pass. A rollback after an incompatible database migration requires the
 matching pre-upgrade database and media backup; changing application files
 alone is not a safe rollback.
 
+## Rollback
+
+`deploy/standalone/rollback.sh` restores the pre-upgrade backup into a fresh
+database and media directory, proves the restore, then repoints the
+environment file and the `current` link to the previous release. Whatever was
+written after that backup is gone — that is what a rollback is; agree it with
+the customer first. See `OPERATIONS.md`.
+
 ## Backup and recovery
 
 Back up the complete PostgreSQL database with `pg_dump --format=custom`, the

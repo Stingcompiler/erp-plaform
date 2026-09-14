@@ -1,4 +1,4 @@
-# Handoff — where the work stands (2026-09-14, after PR #13)
+# Handoff — where the work stands (2026-09-14, after PR #14)
 
 Read this first in a new session. It is the human-readable copy of the
 session memory; the plan and decisions below are already agreed with the owner.
@@ -36,10 +36,19 @@ each release (`<release>/venv`), units use `/opt/vezano/current/venv`.
 systemd units, Caddy TLS (`Caddyfile.example`), distro PostgreSQL, a browser
 going offline and back. Needs a VPS from the owner.
 
-Then phase D (upgrade n→n+1 **with a real migration**, rollback via the
-`current` symlink after restoring the pre-upgrade backup) and phase E
-(Arabic customer guide, ship/never-ship checklist, contract terms: perpetual
-+ annual maintenance; term → grace → read-only, no data loss).
+## Standalone phase D — done locally (PR #14)
+
+Upgrade 1.0.0 → 1.1.0 with a real migration (`licensing.0003`, the
+installation now records `previous_version`/`upgraded_at`; `upgrade.sh`
+records the version after the link moves), then `rollback.sh` (new): restore
+the pre-upgrade backup into a fresh DB + media dir, verify, repoint
+`vezano.env`, move `current` back, preflight. Found and fixed: `restore.sh`
+exited 1 after a successful restore with `--media-root` (EXIT trap + `set -e`).
+`VERSION` in the repo is still 1.0.0 — bump it when cutting the real 1.1.0.
+
+Next: phase E (Arabic customer guide, ship/never-ship checklist, contract
+terms: perpetual + annual maintenance; term → grace → read-only, no data
+loss), and phase C on a real Ubuntu host when a VPS exists.
 
 ## Operator reminders
 
@@ -50,6 +59,6 @@ Then phase D (upgrade n→n+1 **with a real migration**, rollback via the
 
 ## To resume in a new chat
 
-> واصل خطة النسخة المستقلة — المرحلة C على VPS حقيقي، أو المرحلة D
+> واصل خطة النسخة المستقلة — المرحلة E، أو المرحلة C على VPS حقيقي
 
 Add the VPS address and SSH access in the same message if one exists.

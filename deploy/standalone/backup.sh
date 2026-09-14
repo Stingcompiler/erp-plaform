@@ -89,7 +89,7 @@ STAGE="${DEST}.partial"
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
 
-cleanup() { [ -d "$STAGE" ] && rm -rf "$STAGE"; }
+cleanup() { if [ -d "$STAGE" ]; then rm -rf "$STAGE"; fi; }
 trap cleanup EXIT
 
 log "capturing data fingerprint"
