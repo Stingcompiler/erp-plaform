@@ -36,6 +36,10 @@ import {
 //
 // `labelKey` is a key into lib/i18n so labels translate at render time, and
 // `id` is the stable key for remembering which groups the user left open.
+//
+// `attentionKey` names the attention source(s) (backend core/attention.py)
+// whose count sits on this leaf as a badge; a group shows the sum of its
+// children. Opening the leaf marks those keys seen.
 export const NAV = [
   {
     labelKey: "nav.dashboard",
@@ -48,8 +52,8 @@ export const NAV = [
     labelKey: "nav.groups.sales",
     icon: ShoppingCart,
     children: [
-      { labelKey: "nav.sales", href: "/sales", module: "sales", icon: ShoppingCart },
-      { labelKey: "nav.debts", href: "/debts", module: "sales", icon: Wallet },
+      { labelKey: "nav.sales", href: "/sales", module: "sales", icon: ShoppingCart, attentionKey: "sales" },
+      { labelKey: "nav.debts", href: "/debts", module: "sales", icon: Wallet, attentionKey: "debts" },
       {
         labelKey: "nav.customerRecords",
         href: "/customer-records",
@@ -88,6 +92,7 @@ export const NAV = [
         href: "/inventory",
         module: "inventory",
         icon: Package,
+        attentionKey: ["inventory", "stock"],
       },
       {
         labelKey: "nav.labels",
@@ -108,9 +113,10 @@ export const NAV = [
     module: "sales_returns",
     altModule: "purchase_returns",
     icon: RotateCcw,
+    attentionKey: "returns",
   },
-  { labelKey: "nav.finance", href: "/finance", module: "finance", icon: Wallet },
-  { labelKey: "nav.hr", href: "/hr", module: "hr", icon: UsersRound },
+  { labelKey: "nav.finance", href: "/finance", module: "finance", icon: Wallet, attentionKey: "finance" },
+  { labelKey: "nav.hr", href: "/hr", module: "hr", icon: UsersRound, attentionKey: "hr" },
   { labelKey: "nav.reports", href: "/reports", module: "reports", icon: BarChart3 },
   {
     id: "admin",

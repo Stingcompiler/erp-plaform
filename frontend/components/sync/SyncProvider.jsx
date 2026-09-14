@@ -13,6 +13,11 @@ export function useSync() {
   if (!context) throw new Error("SyncProvider is required.");
   return context;
 }
+// For components that may render outside the sync tree (the platform
+// console has no offline queue): null instead of a throw.
+export function useOptionalSync() {
+  return useContext(SyncContext);
+}
 
 // navigator.onLine only says whether there is a network interface; a router
 // with no upstream (the common failure in the target market) reports "online"

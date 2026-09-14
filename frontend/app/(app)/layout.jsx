@@ -7,6 +7,7 @@ import AppShell from "@/components/AppShell";
 import PlatformShell, { isPlatformPath } from "@/components/PlatformShell";
 import { ToastProvider } from "@/components/ui/Toast";
 import { SyncProvider } from "@/components/sync/SyncProvider";
+import { AttentionProvider } from "@/components/attention/AttentionProvider";
 import { useAuth } from "../providers/AuthProvider";
 import { useI18n } from "../providers/I18nProvider";
 
@@ -49,7 +50,9 @@ export default function AppLayout({ children }) {
     }
     return (
       <ToastProvider>
-        <PlatformShell>{children}</PlatformShell>
+        <AttentionProvider>
+          <PlatformShell>{children}</PlatformShell>
+        </AttentionProvider>
       </ToastProvider>
     );
   }
@@ -57,7 +60,9 @@ export default function AppLayout({ children }) {
   return (
     <ToastProvider>
       <SyncProvider>
-        <AppShell>{children}</AppShell>
+        <AttentionProvider>
+          <AppShell>{children}</AppShell>
+        </AttentionProvider>
       </SyncProvider>
     </ToastProvider>
   );

@@ -71,6 +71,12 @@ export const dashboard = {
   get: () => api.get("/dashboard/"),
 };
 
+// Attention badges: what appeared for this user since they last looked.
+export const attention = {
+  get: () => api.get("/attention/"),
+  seen: (key) => api.post("/attention/seen/", { key }),
+};
+
 export const inventory = {
   products: (params) => api.get("/products/", { params }),
   lowStock: (params) => api.get("/products/low_stock/", { params }),
