@@ -184,3 +184,33 @@ class EndpointTests(AttentionBase):
 
     def test_anonymous_is_rejected(self):
         self.assertEqual(APIClient().get(reverse("attention")).status_code, 401)
+
+
+class StateSourceTests(AttentionBase):
+    def test_subscription_badge_stays_after_seen_while_in_grace(self):
+        from unittest import mock
+
+        from core.entitlements import EntitlementDecision
+
+        grace = EntitlementDecision("saas", "grace", frozenset({"*"}), {}, True)
+        with mock.patch("core.entitlements.resolve_entitlements", return_value=grace), \
+                self.settings(VEZANO_DEPLOYMENT_MODE="saas", SUBSCRIPTION_POLICY="enforce"):
+            owner = attention.counts_for(self.owner, use_cache=False)["counts"]
+            self.assertEqual(owner["subscription"], 1)
+            attention.mark_seen(self.owner, "subscription")
+            owner = attention.counts_for(self.owner, use_cache=False)["counts"]
+            self.assertEqual(owner["subscription"], 1)
+            # Not the cashier's concern: the page is owner-only.
+            cashier = attention.counts_for(self.cashier_omd, use_cache=False)["counts"]
+            self.assertNotIn("subscription", cashier)
+
+    def test_crm_follow_up_due_today_counts_once(self):
+        from crm.models import FollowUp, Lead
+
+        lead = Lead.objects.create(company=self.company, name="Lead")
+        FollowUp.objects.create(
+            company=self.company, lead=lead, due_date=timezone.localdate(), summary="call"
+        )
+        self.assertEqual(attention.counts_for(self.owner, use_cache=False)["counts"]["crm"], 1)
+        attention.mark_seen(self.owner, "crm")
+        self.assertNotIn("crm", attention.counts_for(self.owner, use_cache=False)["counts"])

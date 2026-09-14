@@ -11,6 +11,7 @@ import NewReturnDrawer from "@/components/returns/NewReturnDrawer";
 import DispositionDrawer from "@/components/returns/DispositionDrawer";
 import NotesList from "@/components/returns/NotesList";
 import PurchaseReturnList from "@/components/returns/PurchaseReturnList";
+import TabBar from "@/components/ui/TabBar";
 
 export default function ReturnsPage() {
   const { canRead, canWrite } = useAuth();
@@ -79,21 +80,16 @@ export default function ReturnsPage() {
 
       {/* The notes are the documents the other party actually receives, so they
           belong beside the returns that generated them (Rule #6). */}
-      <div className="mb-4 flex gap-1 border-b border-line">
-        {tabs.map((key) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm transition-colors ${
-              tab === key
-                ? "border-accent font-medium text-ink"
-                : "border-transparent text-muted hover:text-ink"
-            }`}
-          >
-            {t(`returns.tab.${key}`)}
-          </button>
-        ))}
-      </div>
+      <TabBar
+        className="mb-4"
+        value={tab}
+        onChange={setTab}
+        tabs={tabs.map((key) => ({
+          id: key,
+          label: t(`returns.tab.${key}`),
+          attentionKey: key === "returns" ? "returns" : undefined,
+        }))}
+      />
 
       {tab === "creditNotes" && <NotesList kind="credit" />}
       {tab === "purchaseReturns" && (

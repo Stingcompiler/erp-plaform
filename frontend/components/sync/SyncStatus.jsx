@@ -5,18 +5,23 @@ import { useSync } from "@/components/sync/SyncProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import Drawer from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/kit";
+import AttentionBadge from "@/components/attention/AttentionBadge";
 
 export default function SyncStatus() {
   const { online, pending, flushing, flush, operations, error, legacy } = useSync();
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const failed = operations.some((op) => op.error);
+  const failedCount = operations.filter((op) => op.error).length;
+  const failed = failedCount > 0;
   const Icon = error || failed || legacy ? AlertTriangle : online ? Cloud : CloudOff;
   const errorKey = { storage: "syncStorage", network: "syncNetwork", identity: "syncIdentity" }[error];
   return <>
     <button onClick={() => setOpen(true)} title={t("improvements.syncReview")}
       className={`flex items-center gap-1.5 rounded-control px-2 py-1.5 text-sm ${error || failed ? "text-danger" : "text-muted"}`}>
       <Icon size={16} /><span>{online ? t("sync.sync") : t("sync.offline")} {pending || ""}</span>
+      {/* Operations that failed to sync are this device's own attention
+          item: nothing on the server knows about them yet. */}
+      <AttentionBadge count={failedCount} tone="danger" />
     </button>
     <Drawer open={open} onClose={() => setOpen(false)} title={t("improvements.syncTitle")}
       footer={<Button onClick={() => flush(true)} disabled={!online || flushing || !pending}>
