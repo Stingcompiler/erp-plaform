@@ -124,11 +124,11 @@ WSGI_APPLICATION = "config.wsgi.application"
 # --- Database ---
 # Dev default: SQLite. Prod: DATABASE_URL provided by Render's managed
 # PostgreSQL (erp-db), wired automatically via render.yaml.
+# An empty DATABASE_URL (a CI matrix leg, a blank dashboard field) means
+# "not configured", not "connect to nothing"; treat it like an unset variable.
+_SQLITE_URL = f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
 DATABASES = {
-    "default": env.db(
-        "DATABASE_URL",
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-    )
+    "default": env.db_url_config(env("DATABASE_URL", default="") or _SQLITE_URL)
 }
 
 AUTH_PASSWORD_VALIDATORS = [

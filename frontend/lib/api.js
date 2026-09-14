@@ -8,6 +8,31 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// The access cookie lives 30 minutes; the refresh cookie lives 7 days. Without
+// this interceptor every session died silently mid-work at the 30-minute mark.
+// On a 401 we refresh ONCE (a single shared promise so parallel failures don't
+// stampede the endpoint) and replay the original request; only when the
+// refresh itself fails is the session really over, and the caller's own error
+// handling (AuthProvider) takes it from there. Auth endpoints are excluded so
+// a wrong password or an expired refresh can't loop.
+let refreshInFlight = null;
+api.interceptors.response.use(null, async (error) => {
+  const { config, response } = error;
+  if (
+    response?.status !== 401 ||
+    !config ||
+    config._retried ||
+    String(config.url || "").includes("/auth/")
+  ) {
+    throw error;
+  }
+  refreshInFlight ||= api
+    .post("/auth/refresh/")
+    .finally(() => { refreshInFlight = null; });
+  await refreshInFlight; // a failed refresh rejects: the original 401 stands
+  return api({ ...config, _retried: true });
+});
+
 // Platform inboxes (subscriptions, payments, registrations) must show every
 // row, not the first page: a pending payment on page 2 is still pending. This
 // follows DRF's `next` links and resolves to a plain array, so callers keep

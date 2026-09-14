@@ -304,6 +304,18 @@ class PaymentSerializer(serializers.ModelSerializer):
                 )
 
         self._check_company(attrs)
+        invoice = attrs.get("invoice") or getattr(self.instance, "invoice", None)
+        if invoice is not None and amount is not None:
+            due = invoice.amount_due()
+            if amount > due:
+                raise serializers.ValidationError(
+                    {
+                        "amount": (
+                            f"Amount exceeds the balance due ({due}). Record the "
+                            "surplus separately instead of overpaying the invoice."
+                        )
+                    }
+                )
         return attrs
 
     def _check_company(self, attrs):
@@ -431,6 +443,25 @@ class CashShiftSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "status", "opened_at", "counted_cash", "closed_at", "reviewed_at",
         ]
+
+    def validate(self, attrs):
+        # A till session is a financial document: its branch must be one of
+        # this company's branches, and a branch-scoped cashier can only open
+        # a drawer at their own branch.
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        branch = attrs.get("branch")
+        if user is not None and branch is not None:
+            if branch.company_id != getattr(user, "company_id", None):
+                raise serializers.ValidationError(
+                    {"branch": "Not your company's branch."}
+                )
+            role = getattr(user, "role", None)
+            if role and role.scope_level == "branch" and branch.pk != user.branch_id:
+                raise serializers.ValidationError(
+                    {"branch": "A branch user can only open a drawer at their own branch."}
+                )
+        return attrs
 
     def _person(self, user):
         return (user.full_name or user.email) if user else None
@@ -605,6 +636,15 @@ class POSCheckoutSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     {"shift": "That till session is closed — open a new one."}
                 )
+        if pay["amount"] > invoice.total:
+            raise serializers.ValidationError(
+                {
+                    "payment": (
+                        "Payment exceeds the invoice total (tax included). "
+                        "Give change instead of overpaying."
+                    )
+                }
+            )
         method = pay["method"]
         ba = pay.get("company_bank_account")
         sender = pay.get("sender_bank_name", "")

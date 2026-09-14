@@ -11,6 +11,28 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # Production runs on PostgreSQL; a SQLite-only suite let a Postgres-only
+    # failure (FOR UPDATE on an outer join) reach production. Every test now
+    # runs twice: once on SQLite (dev parity) and once on Postgres 16 (prod).
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [sqlite, postgres]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: erp_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: ${{ matrix.database == 'postgres' && 'postgres://ci:ci@localhost:5432/erp_test' || '' }}
     steps:
       - uses: actions/checkout@v4
 

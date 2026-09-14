@@ -50,7 +50,10 @@ class CheckTests(TestCase):
             self.assertEqual(preflight.check_deployment_profile().level, preflight.FAIL)
 
     def test_database_check_warns_on_sqlite(self):
-        self.assertEqual(preflight.check_database().level, preflight.WARN)
+        from django.db import connection
+
+        expected = preflight.WARN if connection.vendor == "sqlite" else preflight.OK
+        self.assertEqual(preflight.check_database().level, expected)
 
     def test_frontend_build_is_present_in_this_tree(self):
         self.assertEqual(preflight.check_frontend_build().level, preflight.OK)

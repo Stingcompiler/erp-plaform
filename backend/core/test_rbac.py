@@ -144,7 +144,10 @@ class DashboardTests(RBACBase):
         cfo_client = self.client_class()
         cfo_client.force_authenticate(cfo)
         alert = cfo_client.get(reverse("dashboard")).data["sections"]["salary_advances"]
-        self.assertEqual(alert, {"pending_count": 1, "pending_total": "800"})
+        # Decimal-to-string formatting differs between SQLite ("800") and
+        # PostgreSQL ("800.00"); compare the value, not its rendering.
+        self.assertEqual(alert["pending_count"], 1)
+        self.assertEqual(Decimal(alert["pending_total"]), Decimal("800"))
 
     def test_hr_receives_salary_advance_status_summary_without_financial_alert(self):
         from hr.models import Employee, SalaryAdvance

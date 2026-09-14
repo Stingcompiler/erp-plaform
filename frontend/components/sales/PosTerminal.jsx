@@ -7,6 +7,7 @@ import { inventory, sales } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import { useSync } from "@/components/sync/SyncProvider";
+import { useAuth } from "../../app/providers/AuthProvider";
 import DocumentDrawer from "@/components/print/DocumentDrawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import BarcodeScanInput from "@/components/inventory/BarcodeScanInput";
@@ -60,6 +61,7 @@ export default function PosTerminal({
     return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("beforeunload", unload); };
   }, []);
   const { online, enqueue, confirmation } = useSync();
+  const { user } = useAuth();
   const confirmedId = receipt?.queued ? confirmation(receipt.reference)?.id : null;
   useEffect(() => {
     if (!confirmedId) return;
@@ -105,6 +107,14 @@ export default function PosTerminal({
   };
   const lineTotal = (l) => Number(l.price || 0) * qtyOf(l);
   const subtotal = cart.reduce((s, l) => s + lineTotal(l), 0);
+  // Same rule as the server (POSCheckoutSerializer): per-line tax at the
+  // company's flat rate, rounded to cents, then summed. Without this the till
+  // collects the pre-tax figure and every invoice in a taxed jurisdiction is
+  // left "partially paid" by exactly the tax amount.
+  const taxRate = Number(user?.tax_rate ?? 0);
+  const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+  const taxTotal = cart.reduce((s, l) => s + round2((lineTotal(l) * taxRate) / 100), 0);
+  const grandTotal = round2(subtotal + taxTotal);
 
   function addProduct(p) {
     if (!saleUuid.current) saleUuid.current = crypto.randomUUID();
@@ -195,10 +205,10 @@ export default function PosTerminal({
     // overpay the invoice and leave a phantom credit on the account, so the
     // payment is capped at what is owed and the surplus is handed back as
     // change. Typing less than the bill still records a partial payment.
-    const tendered = amount === "" ? subtotal : Number(amount || 0);
+    const tendered = amount === "" ? grandTotal : Number(amount || 0);
     const payment = {
       method,
-      amount: String(Math.min(tendered, subtotal)),
+      amount: String(Math.min(tendered, grandTotal)),
     };
     if (method === "bank_transfer") {
       payment.company_bank_account = Number(bankAccount);
@@ -230,7 +240,7 @@ export default function PosTerminal({
     const saveOffline = () => {
       try {
         const op = enqueue("pos_checkout", checkoutPayload);
-        setReceipt({ queued: true, reference: op.client_uuid, total: subtotal, subtotal, tax_amount: null });
+        setReceipt({ queued: true, reference: op.client_uuid, total: grandTotal, subtotal: round2(subtotal), tax_amount: round2(taxTotal) });
         resetSale(); onSold?.(); toast.info(t("sales.savedOffline"));
       } catch { setError(t("improvements.storageSale")); toast.error(t("improvements.storageSale")); }
     };
@@ -488,11 +498,22 @@ export default function PosTerminal({
             </Select>
           </Field>
 
-          <div className="flex items-center justify-between gap-3 rounded-xl bg-accent/5 p-4">
-            <span className="text-sm text-muted">{t("sales.subtotal")}</span>
-            <span className="tabular text-2xl font-semibold text-ink">{money(subtotal)}</span>
+          <div className="rounded-xl bg-accent/5 p-4">
+            <div className="flex items-center justify-between gap-3 text-sm text-muted">
+              <span>{t("sales.subtotal")}</span>
+              <span className="tabular">{money(subtotal)}</span>
+            </div>
+            {taxRate > 0 && (
+              <div className="mt-1 flex items-center justify-between gap-3 text-sm text-muted">
+                <span>{t("sales.tax")} ({taxRate}%)</span>
+                <span className="tabular">{money(taxTotal)}</span>
+              </div>
+            )}
+            <div className="mt-2 flex items-center justify-between gap-3 border-t border-line pt-2">
+              <span className="text-sm text-muted">{t("sales.total")}</span>
+              <span className="tabular text-2xl font-semibold text-ink">{money(grandTotal)}</span>
+            </div>
           </div>
-          <p className="text-xs text-muted">{t("sales.taxAtCheckout")}</p>
 
           <div className="grid grid-cols-2 gap-3">
             <Field label={t("sales.payment")}>
@@ -508,26 +529,26 @@ export default function PosTerminal({
                 ref={amountRef}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder={money(subtotal)}
+                placeholder={money(grandTotal)}
               />
             </Field>
           </div>
 
           {/* Change due. Cash only — there is nothing to hand back on a
               transfer, and showing a figure there would just be noise. */}
-          {method === "cash" && amount !== "" && Number(amount) > subtotal && (
+          {method === "cash" && amount !== "" && Number(amount) > grandTotal && (
             <div className="flex items-center justify-between rounded-card border border-ok/40 bg-ok/5 px-3 py-2">
               <span className="text-sm text-muted">{t("sales.changeDue")}</span>
               <span className="tabular text-lg font-semibold text-ok">
-                {money(Number(amount) - subtotal)}
+                {money(Number(amount) - grandTotal)}
               </span>
             </div>
           )}
-          {method === "cash" && amount !== "" && Number(amount) < subtotal && (
+          {method === "cash" && amount !== "" && Number(amount) < grandTotal && (
             <div className="flex items-center justify-between rounded-card border border-warn/40 bg-warn/5 px-3 py-2">
               <span className="text-sm text-muted">{t("sales.stillOwed")}</span>
               <span className="tabular text-lg font-semibold text-warn">
-                {money(subtotal - Number(amount))}
+                {money(grandTotal - Number(amount))}
               </span>
             </div>
           )}

@@ -209,6 +209,17 @@ class MeSerializer(serializers.ModelSerializer):
     def get_can_manage_system_mode(self, obj):
         return is_system_mode_owner(obj)
 
+    # The POS computes what the customer owes before the server confirms the
+    # sale (offline included), so it must apply the same tax rate the server
+    # will. Sent with the identity call: one source, no extra round trip.
+    tax_rate = serializers.SerializerMethodField()
+
+    def get_tax_rate(self, obj):
+        if not obj.company_id:
+            return "0"
+        profile = getattr(obj.company, "tax_profile", None)
+        return str(profile.flat_tax_rate) if profile else "0"
+
     def get_capabilities(self, obj):
         role_name = obj.role.name if obj.role_id else None
         owner = role_name == "Business Owner"
@@ -240,6 +251,7 @@ class MeSerializer(serializers.ModelSerializer):
             "branch",
             "role",
             "role_name",
+            "tax_rate",
             "is_platform_admin",
             "report_areas",
             "capabilities",
