@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Archive, ArchiveRestore, Download, Lock, Pencil, Plus, Search } from "lucide-react";
+import { AlertTriangle, Archive, ArchiveRestore, Download, Lock, Pencil, Plus, Search } from "lucide-react";
 
 import { inventory } from "@/lib/api";
 import { offlineStore } from "@/lib/offlineStore";
@@ -24,7 +24,16 @@ export default function InventoryPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
-  useEffect(() => { setLowOnly(new URLSearchParams(window.location.search).get("low_stock") === "1"); }, []);
+  const [negativeOnly, setNegativeOnly] = useState(false);
+  const [expiring, setExpiring] = useState([]);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setLowOnly(params.get("low_stock") === "1");
+    setNegativeOnly(params.get("negative") === "1");
+  }, []);
+  useEffect(() => {
+    inventory.expiringBatches().then((r) => setExpiring(r.data.results || [])).catch(() => setExpiring([]));
+  }, []);
   const [showArchived, setShowArchived] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -40,7 +49,9 @@ export default function InventoryPage() {
     setLoading(true);
     setError(false);
     try {
-      const res = lowOnly
+      const res = negativeOnly
+        ? await inventory.negativeStock({ page })
+        : lowOnly
         ? await inventory.lowStock({ page })
         : await inventory.products({
             page,
@@ -69,7 +80,7 @@ export default function InventoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, lowOnly, showArchived]);
+  }, [page, search, lowOnly, negativeOnly, showArchived]);
 
   async function toggleArchive(product) {
     try {
@@ -172,6 +183,17 @@ export default function InventoryPage() {
         <label className="flex items-center gap-2 text-sm text-ink">
           <input
             type="checkbox"
+            checked={negativeOnly}
+            onChange={(e) => {
+              setPage(1);
+              setNegativeOnly(e.target.checked);
+            }}
+          />
+          {t("inventory.negativeOnly")}
+        </label>
+        <label className="flex items-center gap-2 text-sm text-ink">
+          <input
+            type="checkbox"
             checked={showArchived}
             onChange={(e) => {
               setPage(1);
@@ -182,6 +204,23 @@ export default function InventoryPage() {
           {t("inventory.showArchived")}
         </label>
       </div>
+
+      {expiring.length > 0 && (
+        <Card className="mb-4 border-warn/40 p-4">
+          <div className="mb-2 flex items-center gap-2 font-medium text-ink">
+            <AlertTriangle size={16} className="text-warn" />
+            {t("inventory.expiringTitle", { count: expiring.length })}
+          </div>
+          <ul className="grid gap-1 text-sm sm:grid-cols-2 lg:grid-cols-3">
+            {expiring.slice(0, 9).map((row) => (
+              <li key={row.batch} className={`flex items-center justify-between gap-2 rounded-control px-2 py-1 ${row.expired ? "bg-danger/10 text-danger" : "bg-warn/10 text-ink"}`}>
+                <span className="truncate">{row.name} · {row.lot_number}</span>
+                <span className="tabular shrink-0 text-xs">{row.remaining} · {row.expiry_date}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <Card>
         <div className="overflow-x-auto">

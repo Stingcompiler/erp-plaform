@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.db import transaction
+from django.utils import timezone
 from django.db.models import F, Sum
 from django.db.models.functions import Coalesce
 from rest_framework import status
@@ -225,6 +226,38 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         if page is not None:
             return self.get_paginated_response(serializer.data)
         return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def negative_stock(self, request):
+        """Products with a ledger balance below zero — the reconciliation
+        worklist left by sales that went through against stale stock."""
+        qs = self.get_queryset().filter(is_stock_tracked=True, annotated_on_hand__lt=0)
+        page = self.paginate_queryset(qs)
+        serializer = self.get_serializer(page or qs, many=True)
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="expiring-batches")
+    def expiring_batches(self, request):
+        """Lots with stock that expire within 30 days (or already have)."""
+        from inventory.alerts import expiring_batches
+
+        company_id = getattr(request.user, "company_id", None)
+        rows = [
+            {
+                "batch": batch.pk,
+                "product": batch.product_id,
+                "sku": batch.product.sku,
+                "name": batch.product.name,
+                "lot_number": batch.lot_number,
+                "expiry_date": batch.expiry_date.isoformat(),
+                "remaining": str(batch.remaining),
+                "expired": batch.expiry_date < timezone.now().date(),
+            }
+            for batch in expiring_batches(company_id)
+        ]
+        return Response({"count": len(rows), "results": rows})
 
     @action(detail=True, methods=["get"])
     def stock(self, request, pk=None):
