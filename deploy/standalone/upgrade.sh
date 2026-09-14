@@ -125,9 +125,15 @@ log "running Django's deployment check"
 (cd "$RELEASE/backend" && "$NEW_PYTHON" manage.py check --deploy) \
     || fail "check --deploy failed; the old release link remains in place"
 
-# 7. Move the symlink only now.
+# 7. Move the symlink only now, and record the version change in the
+#    installation record (the licence page and support read it from there).
 log "switching $LINK -> $RELEASE"
 ln -sfn "$RELEASE" "$LINK"
+NEW_VERSION="$(tr -d '[:space:]' < "$RELEASE/VERSION" 2>/dev/null || true)"
+if [ -n "$NEW_VERSION" ]; then
+    (cd "$RELEASE/backend" && "$NEW_PYTHON" manage.py bootstrap_standalone --app-version "$NEW_VERSION") \
+        || log "WARNING: could not record version $NEW_VERSION on the installation"
+fi
 
 # 8. Restart services and confirm health.
 if command -v systemctl >/dev/null 2>&1; then

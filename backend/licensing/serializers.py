@@ -11,6 +11,8 @@ class InstallationSerializer(serializers.ModelSerializer):
             "organisation_name",
             "deployment_mode",
             "application_version",
+            "previous_version",
+            "upgraded_at",
             "installed_at",
         ]
 

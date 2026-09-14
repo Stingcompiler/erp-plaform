@@ -13,6 +13,11 @@ class Installation(models.Model):
         max_length=16, default="standalone", editable=False
     )
     application_version = models.CharField(max_length=40, blank=True)
+    # Set when `bootstrap_standalone --app-version` records a different
+    # version than before: the release that was running until the upgrade
+    # and when it stopped. Support reads these before touching anything.
+    previous_version = models.CharField(max_length=40, blank=True)
+    upgraded_at = models.DateTimeField(null=True, blank=True)
     installed_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

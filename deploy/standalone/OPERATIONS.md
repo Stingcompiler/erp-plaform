@@ -184,13 +184,36 @@ The order is fixed and matters:
    it reports no issues; the four `security.W0xx` warnings seen with
    `FORCE_HTTPS=False` are that setting, not a fault. Warnings do not block,
    errors do.
-7. The `current` symlink moves — code and venv together.
+7. The `current` symlink moves — code and venv together — and the new
+   version is recorded on the installation (`previous_version`,
+   `upgraded_at`; visible on Subscription & licence and in `/api/license/`).
 8. Services restart and `preflight` runs again.
 
-**Rollback.** If no migration ran, `ln -sfn /opt/vezano/releases/<previous> /opt/vezano/current`
-and restart the services. Once an incompatible migration has run, reverting
-application files alone is not a rollback: restore the matching pre-upgrade
-database and media backup using the procedure above, then move the link.
+## Rollback
+
+If no migration ran, `ln -sfn /opt/vezano/releases/<previous> /opt/vezano/current`
+and restart the services. Once a migration has run, reverting application
+files alone is not a rollback. Use the script, which restores the
+pre-upgrade backup into a **fresh** database and media directory, proves the
+restore, and only then repoints the installation:
+
+```bash
+createdb -h 127.0.0.1 -U postgres -O vezano vezano_rb1
+deploy/standalone/rollback.sh \
+    --to /opt/vezano/releases/1.0.0 \
+    --from /var/backups/vezano/<stamp>-pre-upgrade \
+    --database-url "postgres://vezano:<password>@127.0.0.1/vezano_rb1"
+```
+
+It writes `DATABASE_URL` and `MEDIA_ROOT` into `/etc/vezano/vezano.env`
+(keeping the old file beside it as `vezano.env.before-rollback-<stamp>`),
+moves `current`, restarts the services and runs `preflight`. The database and
+media the upgraded release was using are not touched — keep them until the
+cause is understood. **Everything written after the pre-upgrade backup is no
+longer visible after a rollback**; tell the customer before running it.
+Rolling back to a release older than 1.1.0 prints a harmless warning that the
+version could not be recorded (its `bootstrap_standalone` needed
+`--organisation`).
 
 ## Building a release
 
@@ -236,7 +259,23 @@ scratch root (paths substituted; no systemd, no TLS proxy, `FORCE_HTTPS=False`):
 | `restore.sh` again into the same database | refused: not empty |
 | `upgrade.sh` 1.0.0 → 1.0.1 (`--yes`) | venv built, pre-upgrade backup, no migrations, link moved, `preflight` passes |
 
-Breaks found by this run and fixed in the scripts: the developer `.env`,
+#### Phase D addendum — same day, same host: upgrade with a real migration, then rollback
+
+| Step | Result |
+|---|---|
+| cut 1.1.0 (adds `licensing.0003_installation_upgrade_trail`), verify checksum + signature | 654 files, `OK`, `Verified OK` |
+| `upgrade.sh --release …/1.1.0 --yes` | venv built, pre-upgrade backup, plan = 1 migration, applied, `check --deploy`, link moved, version recorded `1.1.0 (previously 1.0.0)`, `preflight` passes |
+| restart on 1.1.0; `/api/health/`, `/api/license/` | version 1.1.0, licence active, `previous_version` 1.0.0, `upgraded_at` set |
+| POS sale on 1.1.0 | invoice 4, on hand 11 |
+| `rollback.sh --to …/1.0.0 --from <pre-upgrade> --database-url …/vezano_rb1 --yes` | restore verified (91 tables + media), env repointed, link → 1.0.0, `preflight` passes |
+| restart on 1.0.0 | version 1.0.0, licence active, 3 invoices (invoice 4 gone by design); the upgraded database still holds 4 |
+
+Break found by this run: `restore.sh` exited 1 after a *successful* restore
+whenever `--media-root` was given (a false `[ … ] &&` as the last command of
+its EXIT trap under `set -e`), which made `rollback.sh` refuse to promote.
+Fixed in `restore.sh` and the same pattern in `backup.sh`.
+
+Breaks found by the phase C run and fixed in the scripts: the developer `.env`,
 `.claude/`, `.pytest_cache/` and a SQLite backup were being shipped; the
 `.sha256` file was not `sha256sum -c` readable; the JSON public-key line could
 not survive `. vezano.env` (so `backup.sh` crashed); `upgrade.sh` looked for a

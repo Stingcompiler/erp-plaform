@@ -59,7 +59,9 @@ command -v psql >/dev/null 2>&1 || fail "psql is not on PATH"
 [ -f "$FROM/backup-manifest.json" ] || fail "missing backup-manifest.json in $FROM"
 
 TEMP_MEDIA=""
-cleanup() { [ -n "$TEMP_MEDIA" ] && rm -rf "$TEMP_MEDIA"; }
+# `if`, not `[ ] &&`: a false test as the last command of an EXIT trap turns
+# a verified restore into exit status 1 under `set -e`.
+cleanup() { if [ -n "$TEMP_MEDIA" ]; then rm -rf "$TEMP_MEDIA"; fi; }
 trap cleanup EXIT
 
 # 1. Verify the archive against its own manifest before touching anything.
@@ -151,4 +153,9 @@ log "verifying the restored data against the fingerprint"
 )
 
 log "restore verified successfully"
-[ -n "$TEMP_MEDIA" ] && log "media was extracted to a temporary directory and will now be removed"
+# Not `[ ... ] && log`: as the last command under `set -e` that would make a
+# successful restore with --media-root exit 1.
+if [ -n "$TEMP_MEDIA" ]; then
+    log "media was extracted to a temporary directory and will now be removed"
+fi
+exit 0
