@@ -16,7 +16,7 @@ export default function SyncStatus() {
   const failedCount = operations.filter((op) => op.error).length;
   const failed = failedCount > 0;
   const Icon = error || failed || legacy ? AlertTriangle : online ? Cloud : CloudOff;
-  const errorKey = { storage: "syncStorage", network: "syncNetwork", identity: "syncIdentity" }[error];
+  const errorKey = { storage: "syncStorage", network: "syncNetwork", identity: "syncIdentity", auth: "syncAuth" }[error];
   return <>
     <button onClick={() => setOpen(true)} title={t("improvements.syncReview")}
       className={`flex items-center gap-1.5 rounded-control px-2 py-1.5 text-sm ${error || failed ? "text-danger" : "text-muted"}`}>

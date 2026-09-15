@@ -134,6 +134,30 @@ class SeenTests(AttentionBase):
         self.overdue_invoice(self.khartoum, self.wh_k, days_overdue=1)
         self.assertEqual(attention.counts_for(self.owner, use_cache=False)["counts"]["sales"], 1)
 
+    def test_replayed_offline_sale_with_old_business_time_still_flags_negative_stock(self):
+        # The manager looked an hour ago. A sale taken offline three hours ago
+        # is replayed now and drives the product negative: its stock movement
+        # carries the (old) business time, but the invoice arrived just now.
+        attention.mark_seen(self.owner, "stock")
+        AttentionSeen.objects.filter(user=self.owner, key="stock").update(
+            seen_at=timezone.now() - timedelta(hours=1)
+        )
+        sold_at = timezone.now() - timedelta(hours=3)
+        inv = Invoice.objects.create(
+            company=self.company, branch=self.khartoum, warehouse=self.wh_k, number=77,
+            total=Decimal("10"), subtotal=Decimal("10"), issued_at=sold_at,
+        )
+        StockMovement.objects.create(
+            company=self.company, product=self.product, warehouse=self.wh_k,
+            movement_type=StockMovement.SALE_OUT, quantity=Decimal("-1"),
+            reference_type="Invoice", reference_id=str(inv.id), created_at=sold_at,
+        )
+        StockMovement.objects.filter(reference_id=str(inv.id)).update(created_at=sold_at)
+        self.assertEqual(attention.counts_for(self.owner, use_cache=False)["counts"]["stock"], 1)
+        # Seen after it arrived: gone, even though the ledger stays negative.
+        attention.mark_seen(self.owner, "stock")
+        self.assertNotIn("stock", attention.counts_for(self.owner, use_cache=False)["counts"])
+
     def test_seen_is_per_user(self):
         self.overdue_invoice(self.omdurman, self.wh_o)
         attention.mark_seen(self.owner, "sales")
