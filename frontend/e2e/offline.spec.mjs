@@ -93,7 +93,10 @@ test("sales taken offline survive a reload and upload once when the network retu
   expect(uploaded).toHaveLength(2);
   expect(uploaded.every((inv) => /^[A-Z0-9]{1,8}-[A-Z0-9]{4}-\d{6}$/.test(inv.local_reference))).toBe(true);
 
-  const attention = await (await request.get("/api/attention/", { headers })).json();
-  expect(attention.counts.stock).toBeGreaterThanOrEqual(1);
-  expect(attention.tones.stock).toBe("danger");
+  // Attention counts are cached server-side for a short while; the page
+  // may have primed that cache before the upload landed, so poll past it.
+  await expect.poll(async () => {
+    const attention = await (await request.get("/api/attention/", { headers })).json();
+    return attention.counts.stock >= 1 && attention.tones.stock === "danger";
+  }, { timeout: 90_000, intervals: [2_000] }).toBe(true);
 });
