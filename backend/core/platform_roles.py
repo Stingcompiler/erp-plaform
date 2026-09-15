@@ -55,6 +55,11 @@ PLATFORM_ROLES = {
         "Collections: verifies or rejects payments and issues renewal invoices.",
         frozenset({BILLING_REVIEW}),
     ),
+    "Marketing Manager": (
+        "Owns the top of the funnel: works the demo requests and leads that "
+        "arrive from the public site; reads everything else.",
+        frozenset({LEADS_MANAGE}),
+    ),
     "Support Agent": (
         "Read-only across the platform; answers demo requests and resends "
         "owner activation links.",

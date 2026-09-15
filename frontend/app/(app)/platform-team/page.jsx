@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { CheckCircle2, Copy, KeyRound, Lock, ShieldCheck, UserPlus } from "lucide-react";
 
 import { useAuth } from "../../providers/AuthProvider";
@@ -178,7 +179,13 @@ export default function PlatformTeamPage() {
                 <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold">{row.full_name || row.email}</span>
+                      <Link
+                        href={`/platform-team/member/?id=${row.id}`}
+                        className="font-semibold hover:text-accent hover:underline"
+                        title={t("platformTeam.viewMember")}
+                      >
+                        {row.full_name || row.email}
+                      </Link>
                       {isMe && <Badge tone="accent">{t("platformTeam.you")}</Badge>}
                       <Badge tone={status.tone}>{status.label}</Badge>
                     </div>
