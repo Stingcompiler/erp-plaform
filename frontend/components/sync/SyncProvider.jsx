@@ -5,6 +5,7 @@ import api, { sync } from "@/lib/api";
 import { queue } from "@/lib/syncQueue";
 import { identityScope } from "@/lib/localIdentity";
 import { offlineStore, pullCatalogue, requestPersistentStorage } from "@/lib/offlineStore";
+import { isStoragePersisted } from "@/lib/installPrompt";
 import { useAuth } from "../../app/providers/AuthProvider";
 
 const SyncContext = createContext(null);
@@ -51,6 +52,9 @@ export function SyncProvider({ children }) {
   const [legacy, setLegacy] = useState(false);
   const [lastPulledAt, setLastPulledAt] = useState(null);
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
+  // Whether the browser has promised not to evict this origin's storage.
+  // null until asked; false is the normal answer for an uninstalled tab.
+  const [persisted, setPersisted] = useState(null);
   const onlineRef = useRef(true);
   const busy = useRef(false);
   const pulling = useRef(false);
@@ -122,9 +126,23 @@ export function SyncProvider({ children }) {
     } finally { pulling.current = false; }
   }, [scope, setReachable]);
 
+  // Ask for durable storage now and again after an install, when the
+  // browser is far more likely to say yes; surface the answer so the sync
+  // drawer can tell the cashier whether queued sales are actually safe.
+  useEffect(() => {
+    let active = true;
+    const ask = async () => {
+      await requestPersistentStorage();
+      const granted = await isStoragePersisted();
+      if (active) setPersisted(granted);
+    };
+    ask();
+    window.addEventListener("appinstalled", ask);
+    return () => { active = false; window.removeEventListener("appinstalled", ask); };
+  }, []);
+
   useEffect(() => {
     refresh();
-    requestPersistentStorage();
     if (scope) {
       offlineStore.getMeta("pulled_at", scope)
         .then((stamp) => stamp && setLastPulledAt(new Date(stamp)))
@@ -164,6 +182,6 @@ export function SyncProvider({ children }) {
   }, [scope, refresh]);
 
   return <SyncContext.Provider value={{ online, pending: operations.length, operations,
-    flushing, error, legacy, enqueue, flush, refresh, pull, lastPulledAt, lastSyncedAt,
+    flushing, error, legacy, enqueue, flush, refresh, pull, lastPulledAt, lastSyncedAt, persisted,
     confirmation: (id) => queue.confirmation(id, scope) }}>{children}</SyncContext.Provider>;
 }

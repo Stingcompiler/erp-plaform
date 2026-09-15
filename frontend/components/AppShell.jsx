@@ -21,6 +21,7 @@ import AttentionBadge, { badgeFor } from "./attention/AttentionBadge";
 import { useAttention } from "./attention/AttentionProvider";
 import SetupPrompt from "./SetupPrompt";
 import SyncStatus from "./sync/SyncStatus";
+import InstallButton from "./sync/InstallButton";
 import OfflineBanner from "./sync/OfflineBanner";
 import AccessBanner from "./AccessBanner";
 import { useSync } from "./sync/SyncProvider";
@@ -234,6 +235,7 @@ function SidebarContent({ onNavigate }) {
         {all.filter((item) => SHOP_OPTIONAL.includes(item.labelKey)).map((item) =>
           <label key={item.labelKey} className="flex items-center gap-2 py-1.5"><input type="checkbox" checked={optional.includes(item.labelKey)} onChange={() => toggleSection(item.labelKey)} />{t(item.labelKey)}</label>)}
       </details>}
+      <InstallButton />
       {/* Shop mode hides seven pages. Without a marker their absence looks
           like a fault rather than a setting, and there is no trail back to the
           switch that caused it. */}

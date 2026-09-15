@@ -12,7 +12,7 @@
  * CACHE is stamped per build by scripts/stamp-sw.mjs so a deploy retires the
  * previous shell; hashed chunks from an old build simply stop being asked for.
  */
-const BUILD = "77L1pceV3rK6YJEr14DxD";
+const BUILD = "VioX66zkVdIurBkgC-cnC";
 const CACHE = `vezano-shell-${BUILD}`;
 // Routes a cashier needs reachable with no network at all. Precached on
 // install; everything else is cached as it is visited.

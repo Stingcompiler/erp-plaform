@@ -37,6 +37,25 @@ const tajawal = Tajawal({
 export const metadata = {
   title: "VEZANO | Business Management Platform",
   description: "Run your business. Simply.",
+  // Installable app: the manifest is what lets a browser offer "install",
+  // and an installed app is what gets durable storage for queued sales
+  // (see lib/installPrompt.js).
+  manifest: "/manifest.webmanifest",
+  applicationName: "Vezano",
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Vezano" },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/icons/apple-touch-icon.png",
+  },
+};
+
+export const viewport = {
+  themeColor: "#0f1d2c",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }) {
