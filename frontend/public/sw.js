@@ -5,24 +5,33 @@
  * cached here (IndexedDB owns that); this only keeps the shell available.
  *
  *   _next/static/*   cache-first   (content-hashed, immutable per build)
- *   navigations      network-first (fresh HTML when online, cached when not)
+ *   navigations      network-first with a short timeout, then the cached page
  *   other same-origin GET assets  stale-while-revalidate
  *   /api/*           never touched
  *
- * CACHE is stamped per build by scripts/stamp-sw.mjs so a deploy retires the
- * previous shell; hashed chunks from an old build simply stop being asked for.
+ * Install is ATOMIC: every page and every asset of this build is fetched
+ * into a fresh cache before the worker is allowed to install, so a shell is
+ * either complete or not there. This worker never calls skipWaiting() on
+ * its own: a new build waits until the page asks for it (see
+ * lib/serviceWorker.js), because activating mid-session would delete the
+ * cache the running page still loads chunks from — a white screen on the
+ * next navigation, offline. BUILD and PRECACHE_ASSETS are stamped per build
+ * by scripts/stamp-sw.mjs.
  */
 const BUILD = "__BUILD__";
 const CACHE = `vezano-shell-${BUILD}`;
-// Routes a cashier needs reachable with no network at all. Precached on
-// install; everything else is cached as it is visited.
-const PRECACHE = ["/", "/login/", "/dashboard/", "/sales/", "/inventory/", "/returns/"];
+// Routes a cashier needs reachable with no network at all.
+const PRECACHE_PAGES = ["/", "/login/", "/dashboard/", "/sales/", "/inventory/", "/returns/"];
+// Every hashed chunk, stylesheet and font of this build, plus the manifest
+// and icons — filled in at build time from the export.
+const PRECACHE_ASSETS = __PRECACHE_ASSETS__;
+const NAVIGATION_TIMEOUT_MS = 3000;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE).then((cache) =>
-      Promise.allSettled(PRECACHE.map((url) => cache.add(url))),
-    ).then(() => self.skipWaiting()),
+      cache.addAll([...PRECACHE_PAGES, ...PRECACHE_ASSETS].map((url) => new Request(url, { cache: "reload" }))),
+    ),
   );
 });
 
@@ -32,6 +41,12 @@ self.addEventListener("activate", (event) => {
       Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))),
     ).then(() => self.clients.claim()),
   );
+});
+
+// The page decides when a waiting build may take over (queue empty, online,
+// nothing on screen worth keeping).
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("fetch", (event) => {
@@ -61,10 +76,19 @@ async function cacheFirst(request) {
   return response;
 }
 
+// A router with no upstream — the common failure — accepts the TCP
+// connection and then hangs, so "network first" without a deadline would
+// keep the till staring at a blank tab for the whole browser timeout.
+function fetchWithTimeout(request, ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return fetch(request, { signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 async function networkFirst(request) {
   const cache = await caches.open(CACHE);
   try {
-    const response = await fetch(request);
+    const response = await fetchWithTimeout(request, NAVIGATION_TIMEOUT_MS);
     if (response.ok) cache.put(request, response.clone());
     return response;
   } catch {

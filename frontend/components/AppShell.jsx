@@ -23,6 +23,7 @@ import SetupPrompt from "./SetupPrompt";
 import SyncStatus from "./sync/SyncStatus";
 import InstallButton from "./sync/InstallButton";
 import OfflineBanner from "./sync/OfflineBanner";
+import UpdateBanner from "./sync/UpdateBanner";
 import AccessBanner from "./AccessBanner";
 import { useSync } from "./sync/SyncProvider";
 import { useAuth } from "../app/providers/AuthProvider";
@@ -375,6 +376,7 @@ export default function AppShell({ children }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onOpenMenu={() => setMenuOpen(true)} />
         <OfflineBanner />
+        <UpdateBanner />
         <AccessBanner />
         <main className="workspace-main flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
