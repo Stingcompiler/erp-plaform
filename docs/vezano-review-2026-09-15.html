@@ -1,0 +1,207 @@
+<title>مراجعة فيزانو 0112076</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&family=Tajawal:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --paper:#f6f8f7; --surface:#ffffff; --ink:#14202c; --muted:#5f6d78; --line:#d9e0e0;
+    --accent:#0e7c86; --accent-soft:#e3f1f2;
+    --ok:#2f7d4f; --ok-soft:#e4f2e9; --warn:#a8690f; --warn-soft:#fbf0dc; --danger:#b3402d; --danger-soft:#f9e5e0;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0f1a22; --surface:#16232c; --ink:#eef2f3; --muted:#9aa8b1; --line:#2a3a44;
+      --accent:#3db4bc; --accent-soft:#12333a;
+      --ok:#5fc58a; --ok-soft:#173327; --warn:#e2a64b; --warn-soft:#3a2b12; --danger:#ee7d68; --danger-soft:#3f1e18;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0f1a22; --surface:#16232c; --ink:#eef2f3; --muted:#9aa8b1; --line:#2a3a44;
+    --accent:#3db4bc; --accent-soft:#12333a;
+    --ok:#5fc58a; --ok-soft:#173327; --warn:#e2a64b; --warn-soft:#3a2b12; --danger:#ee7d68; --danger-soft:#3f1e18;
+  }
+  html{direction:rtl}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:Cairo,"Segoe UI",system-ui,sans-serif;font-size:16px;line-height:1.75;padding-inline:20px;padding-block:32px 64px}
+  .wrap{max-width:860px;margin-inline:auto}
+  h1,h2,h3{font-family:Tajawal,Cairo,sans-serif;line-height:1.3;text-wrap:balance;margin:0}
+  h1{font-size:2rem;font-weight:700}
+  h2{font-size:1.35rem;font-weight:700;margin-top:3rem;padding-bottom:.4rem;border-bottom:2px solid var(--accent);display:inline-block}
+  h3{font-size:1.05rem;font-weight:700;margin-top:1.6rem}
+  p{margin:.6rem 0;max-width:72ch}
+  .eyebrow{font-size:.78rem;letter-spacing:.08em;color:var(--accent);font-weight:600;text-transform:uppercase}
+  .meta{color:var(--muted);font-size:.9rem;display:flex;flex-wrap:wrap;gap:.4rem 1.4rem;margin-top:.6rem}
+  code,.mono{font-family:var(--mono);font-size:.86em;direction:ltr;unicode-bidi:isolate}
+  code{background:var(--accent-soft);padding:.05em .35em;border-radius:4px}
+  .score{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:1.6rem}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .tile .n{font-family:var(--mono);font-size:1.6rem;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.1}
+  .tile .l{color:var(--muted);font-size:.85rem;margin-top:.3rem}
+  .verdict{margin-top:1.6rem;padding:16px 20px;border-radius:10px;background:var(--surface);border:1px solid var(--line);border-inline-start:5px solid var(--warn)}
+  .verdict strong{color:var(--warn)}
+  table{width:100%;border-collapse:collapse;font-size:.93rem;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .tbl{overflow-x:auto;margin-top:1rem}
+  th,td{padding:.6rem .8rem;text-align:start;vertical-align:top;border-bottom:1px solid var(--line)}
+  th{background:var(--accent-soft);font-weight:600;font-size:.85rem}
+  tr:last-child td{border-bottom:0}
+  td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .pill{display:inline-block;padding:.1em .6em;border-radius:999px;font-size:.78rem;font-weight:600;white-space:nowrap}
+  .ok{background:var(--ok-soft);color:var(--ok)} .warn{background:var(--warn-soft);color:var(--warn)} .danger{background:var(--danger-soft);color:var(--danger)} .info{background:var(--accent-soft);color:var(--accent)}
+  .finding{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin-top:12px;border-inline-start:5px solid var(--line)}
+  .finding.high{border-inline-start-color:var(--danger)} .finding.mid{border-inline-start-color:var(--warn)} .finding.low{border-inline-start-color:var(--accent)}
+  .finding .head{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem}
+  .finding h3{margin:0}
+  .finding dl{display:grid;grid-template-columns:max-content 1fr;gap:.25rem 1rem;margin:.6rem 0 0;font-size:.93rem}
+  .finding dt{color:var(--muted);font-weight:600} .finding dd{margin:0;max-width:70ch}
+  ul{padding-inline-start:1.3rem;margin:.5rem 0} li{margin:.25rem 0;max-width:72ch}
+  .reco{margin-top:1.2rem;padding:16px 20px;border-radius:10px;background:var(--accent-soft);border:1px solid var(--accent)}
+  .reco h3{margin-top:0;color:var(--accent)}
+  .foot{margin-top:3rem;color:var(--muted);font-size:.85rem;border-top:1px solid var(--line);padding-top:1rem}
+  @media (max-width:520px){h1{font-size:1.6rem} .finding dl{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Vezano ERP · مراجعة شاملة</div>
+  <h1>مراجعة فيزانو عند الالتزام 0112076</h1>
+  <div class="meta">
+    <span>التاريخ: 2026-09-15</span>
+    <span>الفرع: <code>main</code> بعد دمج PRs #22–#27</span>
+    <span>الإنتاج: <code>enterprise.vezano.app</code> (Render)</span>
+  </div>
+
+  <div class="score">
+    <div class="tile"><div class="n">696</div><div class="l">اختبار backend ناجح (5:56 دقيقة، SQLite)</div></div>
+    <div class="tile"><div class="n">16 + 1</div><div class="l">اختبار frontend وحدة + سيناريو Chromium أوفلاين</div></div>
+    <div class="tile"><div class="n">0</div><div class="l">مشاكل في <span class="mono">check --deploy</span> وflake8 وتوافق الهجرات</div></div>
+    <div class="tile"><div class="n">2</div><div class="l">ثغرات في التبعيات بدرجة حرجة/عالية تخص الإنتاج</div></div>
+    <div class="tile"><div class="n">89</div><div class="l">نموذج بيانات · 109 مسار API · 74 هجرة</div></div>
+  </div>
+
+  <div class="verdict">
+    <strong>الحكم:</strong> الكود سليم وظيفيًا ومختبَر (كل فحوصات CI خضراء على <code>main</code>، ولا خطأ منطقي مفتوح وجدته). ما ينقص ليس ميزات بل <strong>صيانة تبعيات متأخرة</strong> (Django وNext خارج نافذة الدعم الأمني) و<strong>ثلاث فجوات تشغيلية</strong> في الاستضافة: النسخ الاحتياطي خارج الجهاز، مراقبة الأخطاء، وذاكرة مشتركة للتحكم بالمعدل. ولا تزال النسخة المستقلة غير معتمدة للبيع حتى تُنفَّذ المرحلة C على مضيف حقيقي.
+  </div>
+
+  <h2>١ · ما تحقّقتُ منه فعليًا</h2>
+  <div class="tbl"><table>
+    <tr><th>الفحص</th><th>النتيجة</th><th>ملاحظة</th></tr>
+    <tr><td><code>pytest</code> كامل</td><td><span class="pill ok">696 ناجح</span></td><td>315 تحذيرًا، لا فشل. CI يكرره على PostgreSQL 16 أيضًا.</td></tr>
+    <tr><td><code>npm test</code> + Playwright</td><td><span class="pill ok">16 + 1 ناجح</span></td><td>سيناريو الأوفلاين يعمل في CI منذ #27 (2:16 دقيقة).</td></tr>
+    <tr><td><code>flake8</code></td><td><span class="pill ok">نظيف</span></td><td>الضجيج الوحيد من مجلد <code>.venv312/</code> غير المتتبَّع محليًا.</td></tr>
+    <tr><td><code>manage.py check --deploy</code> بإعدادات إنتاج</td><td><span class="pill ok">0 مشاكل</span></td><td>HSTS سنة، كوكيز آمنة، nosniff، X-Frame DENY، SSL redirect.</td></tr>
+    <tr><td><code>makemigrations --check</code></td><td><span class="pill ok">متزامن</span></td><td>—</td></tr>
+    <tr><td><code>scripts/repo_audit.py</code></td><td><span class="pill ok">ناجح</span></td><td>12 تطبيقًا موصولة، رسم الهجرات سليم، لا Docker.</td></tr>
+    <tr><td>ملفات حساسة في git</td><td><span class="pill ok">لا شيء</span></td><td>فقط <code>.env.example</code> و<code>.env.production</code> (يحوي مسارًا نسبيًا لا سرًّا).</td></tr>
+    <tr><td>TODO/FIXME في الكود</td><td><span class="pill ok">0</span></td><td>(ما يظهر هو داخل أصول Django Admin المُجمّعة فقط).</td></tr>
+    <tr><td>آخر CI على <code>main</code></td><td><span class="pill ok">أخضر</span></td><td>2026-09-15 07:19 UTC.</td></tr>
+  </table></div>
+
+  <h2>٢ · الأخطاء والمخاطر — مرتبة بالأثر</h2>
+
+  <div class="finding high">
+    <div class="head"><span class="pill danger">عالٍ</span><h3>Django 5.0.14 خارج الدعم الأمني منذ أبريل 2025</h3></div>
+    <dl>
+      <dt>الدليل</dt><dd><code>requirements.txt</code> يثبّت <code>Django>=5.0,&lt;5.1</code>. سلسلة 5.0 انتهى دعمها الممتد في أبريل 2025؛ أي ثغرة تُصلح اليوم لا تصلكم.</dd>
+      <dt>الأثر</dt><dd>خادم عام يستقبل تسجيل دخول ورفع ملفات بلا تصحيحات أمنية لـ 17 شهرًا.</dd>
+      <dt>الإصلاح</dt><dd>الترقية إلى <strong>Django 5.2 LTS</strong> (مدعوم حتى أبريل 2028) مع DRF 3.16+ وcryptography 45+. التغييرات المتوقعة صغيرة (الكود لا يستخدم ميزات مُهمَلة ظاهرة)، والاختبارات الـ 696 هي شبكة الأمان. PR واحد.</dd>
+    </dl>
+  </div>
+
+  <div class="finding high">
+    <div class="head"><span class="pill danger">عالٍ</span><h3>Next.js 14.2.35 يحمل تنبيهًا حرجًا في <code>npm audit</code></h3></div>
+    <dl>
+      <dt>الدليل</dt><dd>10 تنبيهات: 1 حرج (<code>next</code>)، 8 عالية (منها <code>postcss</code> و<code>eslint-config-next</code>)، 1 متوسط. الإصلاح المتاح يتطلب Next 16 وReact 19.</dd>
+      <dt>الأثر</dt><dd>التصدير ثابت (static export) فلا خادم Next يعمل في الإنتاج — وهذا يقلّص سطح الهجوم كثيرًا؛ الخطر الفعلي أقل من التصنيف لكنه لا يُهمل.</dd>
+      <dt>الإصلاح</dt><dd>ترقية Next 14 → 15 (أقل كسرًا؛ React 19) ثم 16 لاحقًا. المخاطر: <code>output: "export"</code> وسلوك <code>trailingSlash</code> وخطوط <code>next/font</code>. سيناريو Playwright هو ما يثبت أن الأوفلاين لم ينكسر بعد الترقية.</dd>
+    </dl>
+  </div>
+
+  <div class="finding mid">
+    <div class="head"><span class="pill warn">متوسط</span><h3>لا ذاكرة مشتركة (<code>CACHES</code> غير مُعرَّف) — التحكم بالمعدل والشارات لكل عامل على حدة</h3></div>
+    <dl>
+      <dt>الدليل</dt><dd>لا مفتاح <code>CACHES</code> في <code>settings.py</code> → Django يستخدم LocMemCache داخل كل عملية gunicorn. مع 2×CPU+1 عمّال، حدّ تسجيل الدخول "10/دقيقة" يصبح فعليًا 10 × عدد العمّال، وإبطال كاش شارات الانتباه عند "شوهد" لا يصل للعمّال الآخرين (ركود حتى 30 ثانية).</dd>
+      <dt>الإصلاح</dt><dd>بدون Redis: <code>django.core.cache.backends.db.DatabaseCache</code> (جدول واحد، أمر <code>createcachetable</code> في pre-deploy). كافٍ لهذا الحجم ويُصلح الحالتين.</dd>
+    </dl>
+  </div>
+
+  <div class="finding mid">
+    <div class="head"><span class="pill warn">متوسط</span><h3>النسخ الاحتياطي الليلي بلا حمولة إلا إذا ضُبط <code>BACKUP_S3_BUCKET</code></h3></div>
+    <dl>
+      <dt>الدليل</dt><dd><code>run_scheduled_backup</code> يولّد التفريغ في الذاكرة ويسجّل <code>BackupRecord</code>؛ <code>upload_backup()</code> يعيد <code>None</code> ما لم يُفعَّل التخزين. لا أستطيع رؤية لوحة Render لأتأكد هل المتغير مضبوط.</dd>
+      <dt>الأثر</dt><dd>إن لم يكن مضبوطًا فالنسخ "الناجحة" في الواجهة هي سجلات فقط، والاعتماد الوحيد هو نسخ Render لقاعدة البيانات (تتوقف على خطة PostgreSQL).</dd>
+      <dt>الإصلاح</dt><dd>تأكيد المتغير في الخدمة والـcron. إن لم يكن: Cloudflare R2 (10 GB مجانًا، متوافق S3) — خمسة متغيرات في اللوحة، لا كود.</dd>
+    </dl>
+  </div>
+
+  <div class="finding mid">
+    <div class="head"><span class="pill warn">متوسط</span><h3>لا مراقبة أخطاء ولا تنبيه توقّف</h3></div>
+    <dl>
+      <dt>الدليل</dt><dd>السجلات إلى stdout فقط؛ لا Sentry ولا مراقب على <code>/api/health/</code>. حادثة OOM للعامل اكتُشفت بالصدفة.</dd>
+      <dt>الإصلاح</dt><dd>Sentry (الخطة المجانية تكفي: 5k حدث/شهر) + مراقب خارجي مجاني (UptimeRobot / Better Stack) على <code>/api/health/</code> يفحص أيضًا <code>"database":"ok"</code>.</dd>
+    </dl>
+  </div>
+
+  <div class="finding mid">
+    <div class="head"><span class="pill warn">متوسط</span><h3>لا بريد صادر إطلاقًا</h3></div>
+    <dl>
+      <dt>الدليل</dt><dd>لا <code>EMAIL_BACKEND</code> ولا استدعاء <code>send_mail</code> في الريبو. إعادة تعيين كلمة المرور إدارية فقط (مقصود وموثّق)، لكن طلبات التسجيل والدعوات من صفحة التسويق لا تصل لأحد إلا بفتح لوحة المنصة.</dd>
+      <dt>الإصلاح</dt><dd>مزوّد واحد (Resend أو Postmark أو SES) عبر <code>django-anymail</code>؛ أول استخدامين: إشعار المالك بطلب تسجيل جديد، ورابط الدعوة. باقي السلوك يبقى كما هو.</dd>
+    </dl>
+  </div>
+
+  <div class="finding low">
+    <div class="head"><span class="pill info">منخفض</span><h3>المنطقة الزمنية UTC على مستوى النظام ولا حقل منطقة للشركة</h3></div>
+    <dl>
+      <dt>الدليل</dt><dd><code>TIME_ZONE = "UTC"</code> ولا حقل timezone في <code>org.Company</code>. حدود "اليوم" في التقارير وورديات الصندوق تُحسب بـUTC؛ للخرطوم (UTC+2) البيع الساعة 23:30 محليًا يقع في "غد".</dd>
+      <dt>الإصلاح</dt><dd>حقل <code>timezone</code> على الشركة (افتراضي <code>Africa/Khartoum</code>) وتفعيله في middleware. صغير لكنه يمس أرقام التقارير.</dd>
+    </dl>
+  </div>
+
+  <div class="finding low">
+    <div class="head"><span class="pill info">منخفض</span><h3>اتصالات قاعدة البيانات بلا إعادة استخدام</h3></div>
+    <dl>
+      <dt>الدليل</dt><dd>لا <code>CONN_MAX_AGE</code> → اتصال جديد لكل طلب. على PostgreSQL الصغيرة في Render حد الاتصالات منخفض.</dd>
+      <dt>الإصلاح</dt><dd><code>conn_max_age=60</code> و<code>CONN_HEALTH_CHECKS=True</code> في <code>db_url_config</code>. سطران.</dd>
+    </dl>
+  </div>
+
+  <div class="finding low">
+    <div class="head"><span class="pill info">منخفض</span><h3>انجراف بين <code>render.yaml</code> والواقع</h3></div>
+    <dl>
+      <dt>الدليل</dt><dd>الملف والوثائق تذكر <code>erp-worker</code> و<code>erp-cache</code> اللذين لم يُنشآ قط (موثّق في قسم "ما هو منشور فعلًا"). الخدمات يدوية؛ أي تعديل بيئي يُنسخ يدويًا.</dd>
+      <dt>الإصلاح</dt><dd>مقبول كما هو ما دام الجدول في <code>DEPLOYMENT.md</code> محدّثًا؛ أو حذف كتلتي worker/cache من الملف لإزالة الالتباس.</dd>
+    </dl>
+  </div>
+
+  <h2>٣ · المراحل الناقصة</h2>
+  <div class="tbl"><table>
+    <tr><th>البند</th><th>الحالة</th><th>ما يلزم</th></tr>
+    <tr><td>النسخة المستقلة — المرحلة C على Ubuntu 24.04 حقيقي (systemd، Caddy، PostgreSQL من التوزيعة، تثبيت التطبيق على جهاز كاشير، أوفلاين/أونلاين)</td><td><span class="pill danger">مفتوح</span></td><td>خادم VPS وSSH منك. هذا هو الشرط الوحيد الباقي قبل "معتمد للبيع" في الوثائق. أُضيف صف HTTPS-على-LAN وتسلسل القبول في <code>OPERATIONS.md</code> (#27).</td></tr>
+    <tr><td>زر "تثبيت على هذا الجهاز" على متصفح حقيقي</td><td><span class="pill warn">غير مُختبَر</span></td><td>جزء من المرحلة C. المتصفح المضمَّن وPlaywright لا يطلقان <code>beforeinstallprompt</code>.</td></tr>
+    <tr><td>الاشتراكات: التحويل من <code>observe</code> إلى <code>enforce</code></td><td><span class="pill warn">مؤجَّل</span></td><td>مراجعة سطور <code>subscription_observe</code> في سجلات الإنتاج ثم تغيير متغير واحد في اللوحة.</td></tr>
+    <tr><td>تخزين النسخ الاحتياطية خارج الجهاز</td><td><span class="pill warn">يحتاج تأكيدًا</span></td><td>انظر البند ٢.</td></tr>
+    <tr><td>ترقيات Django / Next</td><td><span class="pill danger">مطلوبة</span></td><td>PR لكلٍّ منهما؛ الاختبارات الحالية تغطيهما.</td></tr>
+    <tr><td>خطة PWA (P1–P5)</td><td><span class="pill ok">مكتملة</span></td><td>—</td></tr>
+    <tr><td>الشارات، التسويق، الترخيص، النسخ/الاسترجاع/الترقية/التراجع</td><td><span class="pill ok">مكتملة ومُثبَتة</span></td><td>—</td></tr>
+  </table></div>
+
+  <h2>٤ · ملاحظات الاستضافة</h2>
+  <p>الوضع الحالي: خدمة ويب واحدة (Starter، 512 MB) + PostgreSQL + مهمّتا cron على Render في منطقة <strong>Oregon</strong>، بلا Redis ولا عامل. هذا صحيح ورخيص لمنتج بهذا الحجم، ومشاكله الثلاث كلها قابلة للحل بلا تغيير كود تقريبًا.</p>
+
+  <div class="tbl"><table>
+    <tr><th>الخيار</th><th>يناسب</th><th>التكلفة التقريبية/شهر*</th><th>المقابل</th></tr>
+    <tr><td><strong>أ · البقاء على Render وتقويته</strong><br>ترقية الويب إلى Standard (2 GB) عند الحاجة، خطة PostgreSQL بنسخ يومية، R2 للنسخ، Sentry، مراقب خارجي، DatabaseCache</td><td>الوضع الحالي حتى ~عشرات الشركات</td><td class="num">$15–45</td><td>بلا عناء تشغيل. المنطقة بعيدة عن السودان (~250 ms). نقل المنطقة إلى <strong>Frankfurt</strong> يتطلب إعادة إنشاء الخدمات ونقل القاعدة بـ<code>pg_dump</code> — أفضل وقت له هو عند أي إعادة إنشاء قادمة.</td></tr>
+    <tr><td><strong>ب · VPS واحد (Hetzner Falkenstein/Helsinki)</strong><br>بنفس runbook النسخة المستقلة: systemd + Caddy + PostgreSQL محلي + <code>backup.sh</code> إلى R2</td><td>أقل تكلفة، أقرب جغرافيًا (~120 ms)، وسيادة على البيانات</td><td class="num">€4–9</td><td>التشغيل عليك: تحديثات النظام، مراقبة القرص، استرجاع النسخ. الريبو يحوي كل السكربتات والوثائق لذلك أصلًا.</td></tr>
+    <tr><td><strong>ج · لكل عميل نسخة مستقلة</strong><br>(النموذج التجاري المقرر: رخصة دائمة + صيانة سنوية)</td><td>العملاء الأكبر</td><td class="num">على العميل</td><td>يحتاج إثبات المرحلة C أولًا؛ ثم يصبح الخيار ب هو بيئة العرض/الاختبار الدائمة لهذا المسار.</td></tr>
+  </table></div>
+  <p style="color:var(--muted);font-size:.85rem">* أسعار تقريبية حسب قوائم 2025؛ تحقّق قبل القرار.</p>
+
+  <div class="reco">
+    <h3>التوصية</h3>
+    <ul>
+      <li><strong>الآن (بلا كود، ساعة عمل):</strong> تأكيد/ضبط <code>BACKUP_S3_*</code> إلى R2 على الويب والـcron، Sentry بالخطة المجانية، مراقب مجاني على <code>/api/health/</code>.</li>
+      <li><strong>هذا الأسبوع (PRs):</strong> Django 5.2 LTS، DatabaseCache، <code>CONN_MAX_AGE</code>، منطقة زمنية للشركة. ثم Next 15 في PR منفصل يُثبته سيناريو Playwright.</li>
+      <li><strong>استئجار VPS واحد (Hetzner CX22/CPX21)</strong>: يغلق المرحلة C ويصبح بيئة العرض للنسخة المستقلة — أرخص استثمار متبقٍّ يفتح مسار البيع.</li>
+      <li><strong>إبقاء الإنتاج على Render</strong> ما لم تتجاوز الحاجة 512 MB أو يصبح البُعد الجغرافي شكوى حقيقية؛ حينها Frankfurt أولًا قبل التفكير بالانتقال.</li>
+    </ul>
+  </div>
+
+  <div class="foot">المصادر: تنفيذ محلي لـpytest/npm test/Playwright/flake8/check --deploy/npm audit/pip list --outdated على الالتزام 0112076؛ <code>DEPLOYMENT.md</code>، <code>docs/HANDOFF.md</code>، <code>deploy/standalone/OPERATIONS.md</code>. لم أطّلع على لوحة Render؛ كل ما يخصها مُعلَّم "يحتاج تأكيدًا".</div>
+</div>
