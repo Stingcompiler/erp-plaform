@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { useI18n } from "../providers/I18nProvider";
+import { useI18n } from "@/app/providers/I18nProvider";
 import { MarketingPage } from "@/components/marketing/Chrome";
 import RegisterForm from "@/components/marketing/RegisterForm";
 

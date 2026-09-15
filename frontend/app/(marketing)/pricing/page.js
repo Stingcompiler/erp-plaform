@@ -2,7 +2,7 @@
 
 import { Check, Minus } from "lucide-react";
 
-import { useI18n } from "../providers/I18nProvider";
+import { useI18n } from "@/app/providers/I18nProvider";
 import { MarketingPage } from "@/components/marketing/Chrome";
 import PlanCards from "@/components/marketing/PlanCards";
 

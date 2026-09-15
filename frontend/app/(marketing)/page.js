@@ -8,6 +8,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import LandingPage from "@/components/landing/LandingPage";
+import JsonLd from "@/components/seo/JsonLd";
+import { homeFaqJsonLd } from "@/lib/seo";
 import { cachedDeploymentMode, fetchDeploymentMode } from "@/lib/deploymentMode";
 
 export default function Home() {
@@ -25,5 +27,12 @@ export default function Home() {
   }, [mode, router]);
 
   if (mode === "standalone") return null;
-  return <LandingPage />;
+  return (
+    <>
+      {/* The FAQ block is pre-rendered into out/index.html, which is what a
+          crawler reads; it lists the same questions the page shows. */}
+      <JsonLd data={homeFaqJsonLd()} />
+      <LandingPage />
+    </>
+  );
 }

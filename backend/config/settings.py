@@ -46,13 +46,25 @@ FORCE_HTTPS = env.bool("FORCE_HTTPS", default=not DEBUG)
 
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
-# The hosted SaaS has one canonical public hostname. Keep it in the effective
+# The hosted SaaS answers on the apex domain (the canonical one: what the
+# marketing pages, sitemap and Open Graph tags advertise), the www alias, and
+# the older enterprise.* subdomain that existing customers, their installed
+# PWAs and their cookies still live on. All three stay in the effective
 # allow-list even while an existing Render service still carries an older
-# DJANGO_ALLOWED_HOSTS value; otherwise Django rejects the custom domain before
-# it can serve either the app or the admin panel with a 400 response.
-VEZANO_PUBLIC_HOST = "enterprise.vezano.app"
-if VEZANO_PUBLIC_HOST not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append(VEZANO_PUBLIC_HOST)
+# DJANGO_ALLOWED_HOSTS value; otherwise Django rejects the custom domain with
+# a 400 before it can serve either the app or the admin panel.
+VEZANO_CANONICAL_HOST = "vezano.app"
+VEZANO_PUBLIC_HOSTS = [VEZANO_CANONICAL_HOST, "www.vezano.app", "enterprise.vezano.app"]
+for _host in VEZANO_PUBLIC_HOSTS:
+    if _host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_host)
+
+# The admin panel and any session-authenticated POST check the Origin header
+# against this list; the JWT cookie API is same-origin on every host anyway.
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+for _host in VEZANO_PUBLIC_HOSTS:
+    if f"https://{_host}" not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(f"https://{_host}")
 
 # Render sets RENDER_EXTERNAL_HOSTNAME on every deployed service.
 RENDER_EXTERNAL_HOSTNAME = env("RENDER_EXTERNAL_HOSTNAME", default=None)
@@ -290,7 +302,7 @@ SIMPLE_JWT = {
     "AUTH_COOKIE_DOMAIN": env("AUTH_COOKIE_DOMAIN", default=None),
     "AUTH_COOKIE_PATH": "/",
     # Secure cookies whenever actually served over HTTPS; SameSite=Lax works
-    # for the same-origin frontend/API pairing on enterprise.vezano.app.
+    # for the same-origin frontend/API pairing on every public host.
     "AUTH_COOKIE_SECURE": FORCE_HTTPS,
     "AUTH_COOKIE_SAMESITE": env("AUTH_COOKIE_SAMESITE", default="Lax"),
 }
