@@ -12,6 +12,8 @@ import { Languages, Menu, MoonStar, Sun, SunMoon, X } from "lucide-react";
 import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { DEMO_URL, HAS_LIVE_DEMO } from "@/lib/demo";
+import { GUIDES } from "@/lib/content/guides";
+import { SOLUTIONS } from "@/lib/content/solutions";
 import { cachedDeploymentMode, fetchDeploymentMode } from "@/lib/deploymentMode";
 import VezanoMark from "@/components/brand/VezanoMark";
 
@@ -47,7 +49,8 @@ function LangToggle() {
 // from the landing page itself.
 const NAV_LINKS = [
   ["/product", "landing.navFeatures"],
-  ["/#modules", "landing.navModules"],
+  ["/solutions", "landing.navSolutions"],
+  ["/guides", "landing.navGuides"],
   ["/pricing", "landing.navPricing"],
   ["/#contact", "landing.navContact"],
 ];
@@ -154,7 +157,8 @@ export function MarketingHeader() {
 }
 
 export function MarketingFooter() {
-  const { t, href } = useI18n();
+  const { t, href, language } = useI18n();
+  const contentLanguage = language === "en" ? "en" : "ar";
   const year = new Date().getFullYear();
   return (
     <footer className="border-t border-line bg-ink text-paper">
@@ -167,7 +171,28 @@ export function MarketingFooter() {
             </div>
             <p className="mt-2 text-sm text-paper/60">{t("landing.footerTagline")}</p>
           </div>
-          <div className="flex gap-12">
+          <div className="flex flex-wrap gap-x-12 gap-y-8">
+            <div>
+              <div className="text-sm font-semibold text-paper/90">
+                {t("landing.footerSolutions")}
+              </div>
+              <ul className="mt-3 space-y-2 text-sm text-paper/60">
+                {SOLUTIONS.map((item) => (
+                  <li key={item.slug}><Link href={href(`/solutions/${item.slug}`)} className="hover:text-paper">{item[contentLanguage].title}</Link></li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-paper/90">
+                {t("landing.footerLearn")}
+              </div>
+              <ul className="mt-3 space-y-2 text-sm text-paper/60">
+                {GUIDES.map((item) => (
+                  <li key={item.slug}><Link href={href(`/guides/${item.slug}`)} className="hover:text-paper">{item[contentLanguage].title}</Link></li>
+                ))}
+                <li><Link href={href("/compare/excel-and-paper")} className="hover:text-paper">{t("content.compareEyebrow")}</Link></li>
+              </ul>
+            </div>
             <div>
               <div className="text-sm font-semibold text-paper/90">
                 {t("landing.footerProduct")}

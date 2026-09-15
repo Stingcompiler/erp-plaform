@@ -12,8 +12,18 @@
 export const EN_PREFIX = "/en";
 
 // Root-relative public pages, without the language prefix and without the
-// trailing slash the export adds.
+// trailing slash the export adds. The content sections (lib/content) add
+// pages under these prefixes; anything below them is a marketing page too.
 export const MARKETING_PATHS = ["/", "/product", "/pricing", "/register"];
+export const MARKETING_PREFIXES = ["/solutions", "/guides", "/compare"];
+
+function isMarketingPath(bare) {
+  const path = stripTrailingSlash(bare);
+  return (
+    MARKETING_PATHS.includes(path) ||
+    MARKETING_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
+  );
+}
 
 function stripTrailingSlash(path) {
   return path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
@@ -30,7 +40,7 @@ export function marketingLanguage(pathname) {
   if (!pathname) return null;
   const [bare] = splitPath(pathname);
   if (bare === EN_PREFIX || bare.startsWith(`${EN_PREFIX}/`)) return "en";
-  return MARKETING_PATHS.includes(stripTrailingSlash(bare)) ? "ar" : null;
+  return isMarketingPath(bare) ? "ar" : null;
 }
 
 // The same page in the other language, keeping query string and hash:

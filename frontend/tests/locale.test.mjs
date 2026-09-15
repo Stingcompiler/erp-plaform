@@ -34,3 +34,13 @@ test("the counterpart URL keeps query and hash", () => {
   assert.equal(counterpartPath("/", "en"), "/en/");
   assert.equal(counterpartPath("/pricing/", "en"), "/en/pricing/");
 });
+
+test("content sections are marketing pages in both languages", () => {
+  assert.equal(marketingLanguage("/solutions/"), "ar");
+  assert.equal(marketingLanguage("/solutions/offline-pos/"), "ar");
+  assert.equal(marketingLanguage("/guides/sell-during-outages"), "ar");
+  assert.equal(marketingLanguage("/compare/excel-and-paper/"), "ar");
+  assert.equal(marketingLanguage("/en/guides/"), "en");
+  assert.equal(marketingLanguage("/solutionsx/"), null);
+  assert.equal(localizePath("/solutions/offline-pos", "en"), "/en/solutions/offline-pos");
+});
