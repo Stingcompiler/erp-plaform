@@ -459,6 +459,12 @@ const en = {
       purchase_return: "Purchase return",
     },
   },
+  update: {
+    ready: "A new version of Vezano is ready.",
+    apply: "Update now",
+    waitQueue: "Upload the queued sales first.",
+    waitOnline: "Available once the connection returns.",
+  },
   install: {
     button: "Install on this device",
     installed: "Installed as an app on this device",
@@ -1960,6 +1966,12 @@ const ar = {
       sales_return: "مرتجع مبيعات",
       purchase_return: "مرتجع مشتريات",
     },
+  },
+  update: {
+    ready: "إصدار جديد من فيزانو جاهز.",
+    apply: "تحديث الآن",
+    waitQueue: "ارفع المبيعات المعلّقة أولًا.",
+    waitOnline: "متاح عند عودة الاتصال.",
   },
   install: {
     button: "تثبيت على هذا الجهاز",

@@ -8,6 +8,7 @@ import { Languages } from "lucide-react";
 import { useAuth } from "../providers/AuthProvider";
 import { useI18n } from "../providers/I18nProvider";
 import VezanoMark from "@/components/brand/VezanoMark";
+import { applyUpdate, updateAvailable } from "@/lib/registerServiceWorker";
 
 export default function LoginPage() {
   const { user, loading, login } = useAuth();
@@ -24,6 +25,12 @@ export default function LoginPage() {
       router.replace(user.is_platform_admin ? "/platform" : "/dashboard");
     }
   }, [loading, user, router]);
+
+  // Nobody is signed in here, so nothing on screen or in a queue can be
+  // lost: the safest moment to let a waiting build take over.
+  useEffect(() => {
+    if (!loading && !user && updateAvailable()) applyUpdate();
+  }, [loading, user]);
 
   async function onSubmit(e) {
     e.preventDefault();
