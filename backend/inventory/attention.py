@@ -35,16 +35,28 @@ def batches_newly_expiring(user, since):
 
 @register("stock", "inventory", TONE_DANGER)
 def negative_stock_movements(user, since):
-    """Products pushed below zero by a movement recorded since the last look."""
+    """Products pushed below zero by a movement that ARRIVED since the last
+    look. A movement's created_at is business time, so an offline sale
+    replayed hours later carries a timestamp older than the manager's last
+    visit and would slip past a plain created_at filter — exactly the sale
+    that most needs a second look. Its invoice's received_at is the server
+    clock, so replayed sales are counted by when they arrived."""
+    from django.db.models import Q
+
     from inventory.alerts import negative_stock
     from inventory.models import StockMovement
+    from sales.models import Invoice
 
     negative_ids = negative_stock(user.company_id).values_list("pk", flat=True)
+    arrived = Invoice.objects.filter(
+        company_id=user.company_id, received_at__gt=since
+    ).values_list("id", flat=True)
     qs = StockMovement.objects.filter(
+        Q(created_at__gt=since)
+        | Q(reference_type="Invoice", reference_id__in=[str(i) for i in arrived]),
         company_id=user.company_id,
         product_id__in=negative_ids,
         quantity__lt=0,
-        created_at__gt=since,
         **_warehouse_filter(user, ""),
     )
     return qs.values("product_id").distinct().count()

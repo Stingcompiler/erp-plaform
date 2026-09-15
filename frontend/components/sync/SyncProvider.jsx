@@ -112,7 +112,11 @@ export function SyncProvider({ children }) {
         } catch { setError("storage"); retryAt.current = Date.now() + 60000; }
       } catch (err) {
         if (!err?.response) setReachable(false);
-        setError(err?.response?.status === 409 ? "identity" : "network");
+        const status = err?.response?.status;
+        // 401/403 after a long outage: the refresh cookie (7 days) expired or
+        // the account lost the module. The queue is intact and scoped to this
+        // user; what it needs is a fresh sign-in, not another retry.
+        setError(status === 409 ? "identity" : status === 401 || status === 403 ? "auth" : "network");
         failures.current += 1;
         retryAt.current = Date.now() + Math.min(300000, 15000 * 2 ** failures.current);
       }
