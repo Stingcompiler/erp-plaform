@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import api, { sync } from "@/lib/api";
-import { queue } from "@/lib/syncQueue";
+import { queue, storageHeadroom } from "@/lib/syncQueue";
 import { identityScope } from "@/lib/localIdentity";
 import { offlineStore, pullCatalogue, requestPersistentStorage } from "@/lib/offlineStore";
 import { isStoragePersisted } from "@/lib/installPrompt";
@@ -55,16 +55,22 @@ export function SyncProvider({ children }) {
   // Whether the browser has promised not to evict this origin's storage.
   // null until asked; false is the normal answer for an uninstalled tab.
   const [persisted, setPersisted] = useState(null);
+  const [storageLow, setStorageLow] = useState(false);
+  // client_uuid → {id} for offline sales the server has confirmed, kept in
+  // state so the receipt screen can read it synchronously.
+  const [receipts, setReceipts] = useState({});
   const onlineRef = useRef(true);
   const busy = useRef(false);
   const pulling = useRef(false);
   const retryAt = useRef(0);
   const failures = useRef(0);
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback(async () => {
     try {
-      setOperations(scope ? queue.list(scope) : []);
+      setOperations(scope ? await queue.list(scope) : []);
       setLegacy(queue.hasLegacy());
+      const headroom = await storageHeadroom();
+      setStorageLow(Boolean(headroom?.low));
     } catch { setError("storage"); }
   }, [scope]);
 
@@ -81,7 +87,7 @@ export function SyncProvider({ children }) {
     const run = async () => {
       let ops;
       try {
-        ops = queue.list(scope).filter((op) => manual || !op.error).slice(0, 100);
+        ops = (await queue.list(scope)).filter((op) => manual || !op.error).slice(0, 100);
         if (!ops.length) return;
       } catch { setError("storage"); return; }
       try {
@@ -92,7 +98,13 @@ export function SyncProvider({ children }) {
           operations: ops.map(({ op_type, client_uuid, payload }) => ({ op_type, client_uuid, payload })),
         });
         try {
-          queue.acknowledge(ops, res.data.results, scope);
+          await queue.acknowledge(ops, res.data.results, scope);
+          const confirmed = {};
+          for (const op of ops) {
+            const receipt = await queue.confirmation(op.client_uuid, scope);
+            if (receipt) confirmed[op.client_uuid] = receipt;
+          }
+          setReceipts((prev) => ({ ...prev, ...confirmed }));
           setError("");
           failures.current = 0;
           retryAt.current = 0;
@@ -176,12 +188,22 @@ export function SyncProvider({ children }) {
     };
   }, [flush, pull, refresh, scope, setReachable]);
 
-  const enqueue = useCallback((type, payload) => {
-    try { const op = queue.enqueue(type, payload, scope); refresh(); return op; }
+  // Resolves only once the operation is durable; rejects otherwise, and the
+  // caller keeps the sale on screen.
+  const enqueue = useCallback(async (type, payload) => {
+    try { const op = await queue.enqueue(type, payload, scope); refresh(); return op; }
     catch (err) { setError("storage"); throw err; }
   }, [scope, refresh]);
 
+  // A receipt for a sale queued before this page loaded (e.g. the till was
+  // rebooted between the sale and the upload) is looked up on demand.
+  const lookupReceipt = useCallback(async (id) => {
+    const receipt = await queue.confirmation(id, scope);
+    if (receipt) setReceipts((prev) => (prev[id] ? prev : { ...prev, [id]: receipt }));
+    return receipt;
+  }, [scope]);
+
   return <SyncContext.Provider value={{ online, pending: operations.length, operations,
     flushing, error, legacy, enqueue, flush, refresh, pull, lastPulledAt, lastSyncedAt, persisted,
-    confirmation: (id) => queue.confirmation(id, scope) }}>{children}</SyncContext.Provider>;
+    storageLow, confirmation: (id) => receipts[id] || null, lookupReceipt }}>{children}</SyncContext.Provider>;
 }

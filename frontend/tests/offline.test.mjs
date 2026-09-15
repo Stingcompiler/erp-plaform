@@ -1,8 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { queue } from "../lib/syncQueue.js";
+import "fake-indexeddb/auto";
+import { IDBFactory } from "fake-indexeddb";
+import { queue, heldCarts } from "../lib/syncQueue.js";
+import { queue as localQueue } from "../lib/syncQueueLocal.js";
 import { setLocalIdentity } from "../lib/localIdentity.js";
 import { cacheProducts, findCachedByBarcode } from "../lib/productCache.js";
+
 class Storage {
   data = new Map(); fail = false;
   get length() { return this.data.size; }
@@ -11,41 +15,71 @@ class Storage {
   setItem(k, v) { if (this.fail) throw new Error("QuotaExceeded"); this.data.set(k, v); }
   removeItem(k) { this.data.delete(k); }
 }
-function setup() { globalThis.localStorage = new Storage(); globalThis.window = { localStorage }; }
-test("partial failure retains rejected and unconfirmed sales", () => {
-  setup(); const a = queue.enqueue("pos_checkout", {}, "1:1");
-  const b = queue.enqueue("pos_checkout", {}, "1:1");
-  const c = queue.enqueue("pos_checkout", {}, "1:1");
-  queue.acknowledge([a,b,c], [{ client_uuid: a.client_uuid, status:"applied" },
+function setup() {
+  globalThis.localStorage = new Storage(); globalThis.window = { localStorage };
+  globalThis.indexedDB = new IDBFactory(); // a fresh, empty browser profile
+}
+
+test("partial failure retains rejected and unconfirmed sales", async () => {
+  setup(); const a = await queue.enqueue("pos_checkout", {}, "1:1");
+  const b = await queue.enqueue("pos_checkout", {}, "1:1");
+  const c = await queue.enqueue("pos_checkout", {}, "1:1");
+  await queue.acknowledge([a,b,c], [{ client_uuid: a.client_uuid, status:"applied" },
     { client_uuid: b.client_uuid, status:"error", error:"Insufficient stock" }], "1:1");
-  assert.equal(queue.count("1:1"), 2);
-  assert.equal(queue.list("1:1")[0].error, "Insufficient stock");
-  assert.ok(queue.list("1:1")[1].error);
-  queue.acknowledge([b], [{ client_uuid: b.client_uuid, status:"duplicate" }], "1:1");
-  assert.equal(queue.count("1:1"), 1);
+  assert.equal(await queue.count("1:1"), 2);
+  assert.equal((await queue.list("1:1"))[0].error, "Insufficient stock");
+  assert.ok((await queue.list("1:1"))[1].error);
+  await queue.acknowledge([b], [{ client_uuid: b.client_uuid, status:"duplicate" }], "1:1");
+  assert.equal(await queue.count("1:1"), 1);
 });
-test("retry keeps online idempotency key and never overwrites an uncertain sale", () => {
+
+test("retry keeps online idempotency key and never overwrites an uncertain sale", async () => {
   setup(); const id = crypto.randomUUID();
-  queue.enqueue("pos_checkout", { client_uuid: id, amount: 20 }, "1:1");
-  queue.enqueue("pos_checkout", { client_uuid: id, amount: 50 }, "1:1");
-  assert.equal(queue.count("1:1"), 1);
-  assert.equal(queue.list("1:1")[0].client_uuid, id);
-  assert.equal(queue.list("1:1")[0].payload.amount, 20);
+  await queue.enqueue("pos_checkout", { client_uuid: id, amount: 20 }, "1:1");
+  const second = await queue.enqueue("pos_checkout", { client_uuid: id, amount: 50 }, "1:1");
+  assert.equal(await queue.count("1:1"), 1);
+  assert.equal((await queue.list("1:1"))[0].client_uuid, id);
+  assert.equal((await queue.list("1:1"))[0].payload.amount, 20);
+  assert.equal(second.payload.amount, 20, "the stored body is what a retry gets back");
 });
-test("company, user and branch queues do not mix", () => {
-  setup(); queue.enqueue("pos_checkout", {}, "1:1:1");
-  assert.equal(queue.count("2:1:1"), 0);
-  assert.equal(queue.count("1:2:1"), 0);
-  assert.equal(queue.count("1:1:2"), 0);
+
+test("company, user and branch queues do not mix", async () => {
+  setup(); await queue.enqueue("pos_checkout", {}, "1:1:1");
+  assert.equal(await queue.count("2:1:1"), 0);
+  assert.equal(await queue.count("1:2:1"), 0);
+  assert.equal(await queue.count("1:1:2"), 0);
 });
-test("storage failure propagates; corrupt data is never treated as an empty queue", () => {
-  setup(); localStorage.fail = true;
-  assert.throws(() => queue.enqueue("pos_checkout", {}, "1:1"));
-  localStorage.fail = false;
-  localStorage.setItem("erp.sync.v2:1:1:broken", "invalid");
-  assert.throws(() => queue.list("1:1"));
+
+test("a write that does not commit rejects; a scope is required", async () => {
+  setup();
+  await assert.rejects(queue.enqueue("pos_checkout", {}, null));
+  // Simulate the browser refusing the write: a store that throws on add.
+  const original = IDBObjectStore.prototype.add;
+  IDBObjectStore.prototype.add = function () { throw new Error("QuotaExceededError"); };
+  try { await assert.rejects(queue.enqueue("pos_checkout", {}, "1:1")); }
+  finally { IDBObjectStore.prototype.add = original; }
+  assert.equal(await queue.count("1:1"), 0);
 });
-test("catalogue isolation and legacy queue quarantine", () => {
+
+test("rows saved by the localStorage version migrate once, then leave localStorage", async () => {
+  setup();
+  const op = localQueue.enqueue("pos_checkout", { amount: 7 }, "1:1");
+  localStorage.setItem("erp.syncReceipt.v2:1:1:" + "old-uuid", JSON.stringify({ id: 99, confirmed_at: 1 }));
+  localStorage.setItem("erp.heldCart.v2:1:1:cart-1", JSON.stringify({ id: "cart-1", cart: [{ id: 1 }], saved_at: 5 }));
+  localStorage.setItem("erp.sync.v2:1:1:broken", "not json");
+  const rows = await queue.list("1:1");
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].client_uuid, op.client_uuid);
+  assert.equal(rows[0].payload.amount, 7);
+  assert.equal((await queue.confirmation("old-uuid", "1:1")).id, 99);
+  assert.equal((await heldCarts.list("1:1"))[0].id, "cart-1");
+  assert.equal(localStorage.getItem("erp.sync.v2:1:1:" + op.client_uuid), null, "moved out of localStorage");
+  assert.equal(localStorage.getItem("erp.sync.v2:1:1:broken"), "not json", "unreadable rows are left alone");
+  // A second open must not duplicate anything.
+  assert.equal(await queue.count("1:1"), 1);
+});
+
+test("catalogue isolation and legacy queue quarantine", async () => {
   setup(); setLocalIdentity({id:1,company:1});
   cacheProducts([{id:1,barcode:"123",name:"Private product"}]);
   assert.equal(findCachedByBarcode("123").id, 1);
@@ -55,25 +89,30 @@ test("catalogue isolation and legacy queue quarantine", () => {
   assert.equal(findCachedByBarcode("123"), null);
   localStorage.setItem("erp.sync.queue.v1", '[{"payload":{}}]');
   assert.equal(queue.hasLegacy(), true);
-  assert.equal(queue.count("2:2"), 0);
+  assert.equal(await queue.count("2:2"), 0);
 });
 
 test("held carts retain contents and are isolated across accounts", async () => {
-  const { heldCarts } = await import("../lib/heldCarts.js");
-  setup(); setLocalIdentity({id:1, company:1, branch:1});
-  const row = heldCarts.save({cart:[{id:7, qty:"0.25", price:"12.50"}], sale_uuid:crypto.randomUUID()});
-  assert.equal(heldCarts.list()[0].cart[0].qty, "0.25");
-  setLocalIdentity({id:2, company:1, branch:1});
-  assert.equal(heldCarts.list().length, 0);
-  setLocalIdentity({id:1, company:1, branch:1});
-  heldCarts.remove(row.id);
-  assert.equal(heldCarts.list().length, 0);
+  setup();
+  const row = await heldCarts.save({cart:[{id:7, qty:"0.25", price:"12.50"}], sale_uuid:crypto.randomUUID()}, "1:1:1");
+  assert.equal((await heldCarts.list("1:1:1"))[0].cart[0].qty, "0.25");
+  assert.equal((await heldCarts.list("1:2:1")).length, 0);
+  await heldCarts.remove(row.id, "1:1:1");
+  assert.equal((await heldCarts.list("1:1:1")).length, 0);
 });
 
-test("confirmed offline sale can resolve to its invoice without exposing another account", () => {
-  setup(); const op = queue.enqueue("pos_checkout", {}, "1:1");
-  queue.acknowledge([op], [{client_uuid:op.client_uuid, status:"applied", id:42}], "1:1");
-  assert.equal(queue.count("1:1"), 0);
-  assert.equal(queue.confirmation(op.client_uuid, "1:1").id, 42);
-  assert.equal(queue.confirmation(op.client_uuid, "2:1"), null);
+test("confirmed offline sale can resolve to its invoice without exposing another account", async () => {
+  setup(); const op = await queue.enqueue("pos_checkout", {}, "1:1");
+  await queue.acknowledge([op], [{client_uuid:op.client_uuid, status:"applied", id:42}], "1:1");
+  assert.equal(await queue.count("1:1"), 0);
+  assert.equal((await queue.confirmation(op.client_uuid, "1:1")).id, 42);
+  assert.equal(await queue.confirmation(op.client_uuid, "2:1"), null);
+});
+
+test("without IndexedDB the localStorage queue still takes the sale", async () => {
+  setup(); delete globalThis.indexedDB;
+  const { queue: fresh } = await import("../lib/syncQueue.js?nodb");
+  const op = await fresh.enqueue("pos_checkout", { amount: 3 }, "1:1");
+  assert.equal(localQueue.count("1:1"), 1);
+  assert.equal((await fresh.list("1:1"))[0].client_uuid, op.client_uuid);
 });
