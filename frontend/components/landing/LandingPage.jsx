@@ -68,7 +68,7 @@ function Reveal({ children, delay = 0, className = "", immediate = false }) {
 }
 
 function Hero() {
-  const { t } = useI18n();
+  const { t, href } = useI18n();
   const { user } = useAuth();
   return (
     <section className="relative overflow-hidden">
@@ -91,10 +91,10 @@ function Hero() {
           </Reveal>
           <Reveal immediate delay={0.15}>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link href="/register" className="w-full rounded-control bg-accent px-6 py-3 text-center font-medium text-white shadow-card hover:bg-accent-strong sm:w-auto">
+              <Link href={href("/register")} className="w-full rounded-control bg-accent px-6 py-3 text-center font-medium text-white shadow-card hover:bg-accent-strong sm:w-auto">
                 {t("home.heroPrimary")}
               </Link>
-              <Link href="/pricing" className="w-full rounded-control border border-line bg-surface px-6 py-3 text-center font-medium text-ink hover:border-accent sm:w-auto">
+              <Link href={href("/pricing")} className="w-full rounded-control border border-line bg-surface px-6 py-3 text-center font-medium text-ink hover:border-accent sm:w-auto">
                 {t("home.heroSecondary")}
               </Link>
               {user && (
@@ -238,7 +238,7 @@ function Faq() {
 }
 
 function FinalCta() {
-  const { t } = useI18n();
+  const { t, href } = useI18n();
   return (
     <section className="mx-auto max-w-6xl px-4 pb-4 pt-16 sm:px-6">
       <div className="relative overflow-hidden rounded-card bg-ink px-6 py-12 text-center text-paper shadow-card sm:px-12 sm:py-16">
@@ -247,7 +247,7 @@ function FinalCta() {
         <h2 className="relative font-display text-2xl font-bold tracking-tight sm:text-4xl">{t("home.finalTitle")}</h2>
         <p className="relative mx-auto mt-3 max-w-xl text-paper/70">{t("home.finalBody")}</p>
         <div className="relative mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link href="/register" className="w-full rounded-control bg-accent px-6 py-3 font-medium text-white hover:bg-accent-strong sm:w-auto">{t("home.finalPrimary")}</Link>
+          <Link href={href("/register")} className="w-full rounded-control bg-accent px-6 py-3 font-medium text-white hover:bg-accent-strong sm:w-auto">{t("home.finalPrimary")}</Link>
           <a href="#contact" className="w-full rounded-control border border-white/20 px-6 py-3 font-medium text-paper hover:bg-white/10 sm:w-auto">{t("home.finalSecondary")}</a>
         </div>
       </div>
@@ -256,7 +256,7 @@ function FinalCta() {
 }
 
 function PricingPreview() {
-  const { t } = useI18n();
+  const { t, href } = useI18n();
   return (
     <section id="pricing" className="border-t border-line bg-surface">
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
@@ -268,7 +268,7 @@ function PricingPreview() {
           <PlanCards compact />
         </div>
         <div className="mt-8 text-center">
-          <Link href="/pricing" className="inline-flex items-center gap-2 rounded-control border border-line bg-paper px-5 py-3 font-medium text-ink hover:border-accent">
+          <Link href={href("/pricing")} className="inline-flex items-center gap-2 rounded-control border border-line bg-paper px-5 py-3 font-medium text-ink hover:border-accent">
             {t("pricing.seeAll")}
           </Link>
         </div>

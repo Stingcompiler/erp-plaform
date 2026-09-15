@@ -87,7 +87,7 @@ function Security() {
 }
 
 function Deploy() {
-  const { t } = useI18n();
+  const { t, href: localize } = useI18n();
   const options = t("product.deploy");
   const tech = t("product.tech");
   return (
@@ -99,7 +99,7 @@ function Deploy() {
             <div key={title} className={`flex flex-col rounded-card border p-6 shadow-card ${index === 1 ? "border-line bg-ink text-paper" : "border-line bg-paper"}`}>
               <h3 className="font-display text-xl font-semibold">{title}</h3>
               <p className={`mt-2 ${index === 1 ? "text-paper/70" : "text-muted"}`}>{body}</p>
-              <Link href={href} className={`mt-auto pt-6 font-medium ${index === 1 ? "text-accent" : "text-accent"} hover:underline`}>{cta} →</Link>
+              <Link href={localize(href)} className={`mt-auto pt-6 font-medium ${index === 1 ? "text-accent" : "text-accent"} hover:underline`}>{cta} →</Link>
             </div>
           ))}
         </div>
@@ -117,7 +117,7 @@ function Deploy() {
 }
 
 export default function ProductPage() {
-  const { t } = useI18n();
+  const { t, href } = useI18n();
   const modules = t("product.modules");
   const list = Array.isArray(modules) ? modules : [];
   return (
@@ -147,8 +147,8 @@ export default function ProductPage() {
           <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">{t("product.ctaTitle")}</h2>
           <p className="mx-auto mt-3 max-w-xl text-muted">{t("product.ctaBody")}</p>
           <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/register" className="w-full rounded-control bg-accent px-6 py-3 font-medium text-white hover:bg-accent-strong sm:w-auto">{t("home.finalPrimary")}</Link>
-            <Link href="/#contact" className="w-full rounded-control border border-line bg-surface px-6 py-3 font-medium text-ink hover:border-accent sm:w-auto">{t("home.finalSecondary")}</Link>
+            <Link href={href("/register")} className="w-full rounded-control bg-accent px-6 py-3 font-medium text-white hover:bg-accent-strong sm:w-auto">{t("home.finalPrimary")}</Link>
+            <Link href={href("/#contact")} className="w-full rounded-control border border-line bg-surface px-6 py-3 font-medium text-ink hover:border-accent sm:w-auto">{t("home.finalSecondary")}</Link>
           </div>
         </div>
       </section>

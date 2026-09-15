@@ -77,7 +77,7 @@ function ModuleChips({ modules }) {
 }
 
 function HostedCard({ plan, compact }) {
-  const { t, language } = useI18n();
+  const { t, language, href } = useI18n();
   const display = plan.display || {};
   const name = display.name?.[language] || plan.plan_name;
   const tagline = display.tagline?.[language] || "";
@@ -120,7 +120,7 @@ function HostedCard({ plan, compact }) {
       {!compact && <ModuleChips modules={plan.modules} />}
       <div className="mt-auto pt-6">
         <Link
-          href={`/register?plan=${plan.id}`}
+          href={href(`/register?plan=${plan.id}`)}
           className={`block rounded-control px-4 py-3 text-center font-medium ${
             highlighted ? "bg-accent text-white hover:bg-accent-strong" : "border border-line bg-surface text-ink hover:border-accent"
           }`}
@@ -133,7 +133,7 @@ function HostedCard({ plan, compact }) {
 }
 
 function StandaloneCard({ compact }) {
-  const { t } = useI18n();
+  const { t, href } = useI18n();
   const features = t("pricing.standaloneFeatures");
   return (
     <article className="flex flex-col rounded-card border border-line bg-ink p-6 text-paper shadow-card">
@@ -156,7 +156,7 @@ function StandaloneCard({ compact }) {
       )}
       <div className="mt-auto pt-6">
         <Link
-          href="/register?mode=standalone"
+          href={href("/register?mode=standalone")}
           className="block rounded-control bg-white/10 px-4 py-3 text-center font-medium text-paper hover:bg-white/20"
         >
           {t("pricing.requestQuote")}

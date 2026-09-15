@@ -17,7 +17,7 @@ import { formatPrice, usePublicPlans } from "./PlanCards";
 const inputClass = "w-full rounded-control border border-line bg-surface px-3 py-3 outline-none focus:border-accent";
 
 export default function RegisterForm() {
-  const { t, language } = useI18n();
+  const { t, language, href } = useI18n();
   const params = useSearchParams();
   const { plans } = usePublicPlans();
   const [mode, setMode] = useState(params.get("mode") === "standalone" ? "standalone" : "saas");
@@ -72,7 +72,7 @@ export default function RegisterForm() {
         <h2 className="mt-4 font-display text-xl font-semibold">{t("register.sentTitle")}</h2>
         <p className="mt-2 text-muted">{t("register.sentBody")}</p>
         <p className="tabular mt-3 rounded-control bg-surface px-3 py-2 font-mono text-sm">{sent}</p>
-        <Link href="/" className="mt-6 inline-block rounded-control border border-line bg-surface px-5 py-3 font-medium hover:border-accent">
+        <Link href={href("/")} className="mt-6 inline-block rounded-control border border-line bg-surface px-5 py-3 font-medium hover:border-accent">
           {t("register.backHome")}
         </Link>
       </div>
@@ -149,7 +149,7 @@ export default function RegisterForm() {
             </p>
             {selected.trial_days > 0 && <p className="mt-2 text-sm text-accent">{t("pricing.trialBadge", { days: selected.trial_days })}</p>}
             <p className="mt-4 text-sm text-muted">{t("registration.trialLength", { days: selected.trial_days })}</p>
-            <Link href="/pricing" className="mt-4 inline-block text-sm text-accent hover:underline">{t("register.changePlan")}</Link>
+            <Link href={href("/pricing")} className="mt-4 inline-block text-sm text-accent hover:underline">{t("register.changePlan")}</Link>
           </>
         ) : (
           <p className="text-sm text-muted">{t("pricing.quoteOnly")}</p>

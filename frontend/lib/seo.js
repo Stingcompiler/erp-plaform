@@ -1,9 +1,10 @@
 // schema.org descriptions of the platform, rendered by components/seo/JsonLd.
 // Search engines use these for rich results (organization panel, software
-// listing, FAQ dropdowns under the snippet). Copy is Arabic to match the
-// document language; keep it in step with lib/marketingI18n.js when the
-// marketing pages change.
-import { homeAr, pricingAr } from "./marketingI18n";
+// listing, FAQ dropdowns under the snippet). The site-wide blocks are Arabic
+// (the default document language); the per-page blocks follow the page's
+// language. Keep them in step with lib/marketingI18n.js.
+import { homeAr, homeEn, pricingAr, pricingEn } from "./marketingI18n";
+import { marketingCopy, marketingUrl } from "./marketingMeta";
 import { OG_IMAGE, SITE_NAME, SITE_NAME_LATIN, SITE_URL } from "./site";
 
 const ORGANIZATION_ID = `${SITE_URL}/#organization`;
@@ -73,19 +74,21 @@ function faqPage(pairs) {
   };
 }
 
-// The same questions the page shows; a FAQPage block whose content is not
-// visible on the page is against Google's guidelines.
-export const homeFaqJsonLd = () => faqPage(homeAr.faq);
-export const pricingFaqJsonLd = () => faqPage(pricingAr.faq);
+// The same questions the page shows in that language; a FAQPage block whose
+// content is not visible on the page is against Google's guidelines.
+export const homeFaqJsonLd = (language = "ar") => faqPage((language === "en" ? homeEn : homeAr).faq);
+export const pricingFaqJsonLd = (language = "ar") =>
+  faqPage((language === "en" ? pricingEn : pricingAr).faq);
 
-export function webPageJsonLd({ path, name, description }) {
+export function webPageJsonLd(path, language = "ar") {
+  const { title, description } = marketingCopy(path, language);
   return {
     "@context": "https://schema.org",
     "@type": "WebPage",
-    url: `${SITE_URL}${path}`,
-    name,
+    url: `${SITE_URL}${marketingUrl(path, language)}`,
+    name: title,
     description,
-    inLanguage: "ar",
+    inLanguage: language,
     isPartOf: { "@type": "WebSite", url: `${SITE_URL}/`, name: SITE_NAME_LATIN },
     about: { "@id": APPLICATION_ID },
   };
