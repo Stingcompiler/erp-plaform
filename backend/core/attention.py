@@ -39,17 +39,21 @@ class Source:
     module: str | None   # RBAC module the user must be able to read; None = platform team
     tone: str
     count_since: object  # callable(user, since) -> int
+    # Platform sources only: the view capability a member needs for the badge.
+    capability: str | None = None
 
 
 _REGISTRY: dict[str, Source] = {}
 _discovered = False
 
 
-def register(key, module, tone=TONE_INFO):
+def register(key, module, tone=TONE_INFO, capability=None):
     """Decorator: `@register("returns", "sales_returns")` over a `(user, since) -> int`."""
 
     def wrap(fn):
-        _REGISTRY[key] = Source(key=key, module=module, tone=tone, count_since=fn)
+        _REGISTRY[key] = Source(
+            key=key, module=module, tone=tone, count_since=fn, capability=capability
+        )
         return fn
 
     return wrap
@@ -66,12 +70,16 @@ def sources():
 
 
 def visible_sources(user):
+    from core.platform_roles import user_has_platform_capability
     from core.rbac import role_can
 
     platform = bool(getattr(user, "is_platform_admin", False))
     for source in sources().values():
         if source.module is None:
-            if platform:
+            if platform and (
+                source.capability is None
+                or user_has_platform_capability(user, source.capability)
+            ):
                 yield source
         elif not platform and role_can(user, source.module, write=False):
             yield source

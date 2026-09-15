@@ -13,6 +13,7 @@ const TONES = { new: "accent", contacted: "warn", qualified: "ok", closed: "mute
 
 export default function PlatformLeadsPage() {
   const { user, can } = useAuth();
+  const canView = can("platform.leads.view");
   const canManageLeads = can("platform.leads.manage");
   const { t, language } = useI18n();
   const [rows, setRows] = useState([]);
@@ -23,7 +24,7 @@ export default function PlatformLeadsPage() {
   const [error, setError] = useState("");
 
   const load = useCallback(() => {
-    if (!user?.is_platform_admin) {
+    if (!canView) {
       setLoading(false);
       return;
     }
@@ -41,7 +42,7 @@ export default function PlatformLeadsPage() {
         setError(t("platformLeads.loadError"));
       })
       .finally(() => setLoading(false));
-  }, [search, status, t, user?.is_platform_admin]);
+  }, [search, status, t, canView]);
 
   useEffect(() => {
     const timer = setTimeout(load, 250);
@@ -62,7 +63,7 @@ export default function PlatformLeadsPage() {
   const statusLabel = (value) => t(`platformLeads.status${value.charAt(0).toUpperCase()}${value.slice(1)}`);
   const dateLabel = (value) => new Date(value).toLocaleString(language === "ar" ? "ar" : "en");
 
-  if (!user?.is_platform_admin) {
+  if (!canView) {
     return (
       <div className="mx-auto mt-16 max-w-md rounded-card border border-line bg-surface p-8 text-center">
         <Lock className="mx-auto text-muted" />
