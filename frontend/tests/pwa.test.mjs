@@ -65,3 +65,10 @@ test("stamp script lists every chunk, stylesheet, font, icon and the manifest", 
     "/icons/icon-192.png", "/manifest.webmanifest",
   ]);
 });
+
+test("every cache lookup in the worker ignores Vary (Django varies static responses on Accept-Language and Origin)", () => {
+  const sw = readFileSync(pub("sw.js"), "utf8");
+  const lookups = sw.split("\n").filter((line) => line.includes("cache.match("));
+  assert.ok(lookups.length >= 3, "expected cache.match calls");
+  for (const call of lookups) assert.ok(call.includes("MATCH"), `${call} does not pass ignoreVary`);
+});

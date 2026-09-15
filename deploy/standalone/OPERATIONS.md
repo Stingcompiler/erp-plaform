@@ -117,6 +117,37 @@ this order on 2026-09-14 (see *Acceptance record*).
 
    The worker unit (`vezano-worker.service`) is optional and needs Redis.
 
+   **HTTPS is required even on a private LAN.** The offline mode of the POS
+   is a service worker plus IndexedDB, and browsers only run a service
+   worker on a secure origin (`https://…` or `localhost`). A till opened at
+   `http://192.168.1.10/` has no offline shell at all — the sale queue still
+   works, but the page will not open after a reboot with the server down.
+   With no public DNS name, let Caddy issue its own certificate and install
+   its root on every till:
+
+   ```caddyfile
+   vezano.lan {
+       tls internal
+       encode gzip
+       reverse_proxy 127.0.0.1:8000
+   }
+   ```
+
+   ```bash
+   # on the server, once:
+   sudo caddy trust                                   # trusts the local CA on the server
+   sudo cp /var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt /srv/vezano-root.crt
+   # on each till: import /srv/vezano-root.crt as a trusted root
+   # (Windows: certmgr → Trusted Root Certification Authorities; macOS: Keychain → System;
+   #  Android: Settings → Security → Install certificate → CA certificate),
+   # and resolve vezano.lan to the server in the router's DNS or the hosts file.
+   ```
+
+   `DJANGO_ALLOWED_HOSTS` and `CORS_ALLOWED_ORIGINS` in `vezano.env` must
+   name the same host. After the first visit while online, the sync drawer on
+   the till should say *installed as an app* and *local storage is protected*
+   — that is the state the acceptance row below expects.
+
 ## Backup
 
 ```bash
@@ -283,9 +314,16 @@ venv that the layout never created; and there was no command to create the
 first owner.
 
 Still required before a standalone release is approved: the same run on a
-clean Ubuntu 24.04 host with systemd units, Caddy TLS in front, PostgreSQL
-from the distribution packages, and a browser going offline and back.
-Restoring a production-scale database remains a separate capacity test.
+clean Ubuntu 24.04 host with systemd units, Caddy TLS in front (`tls
+internal` when there is no public name — see step 8), PostgreSQL from the
+distribution packages, and on a till: install the app from the browser,
+confirm the sync drawer reports *local storage is protected*, unplug the
+network, take two sales, reboot the till, confirm the POS opens and still
+lists the two queued sales, reconnect, confirm both upload once. The same
+sequence runs in CI against the export on every push (`E2E (offline POS in
+Chromium)`); what CI cannot do is the install prompt and the TLS trust on a
+real device. Restoring a production-scale database remains a separate
+capacity test.
 
 ## Moving one SaaS company to a standalone installation
 
