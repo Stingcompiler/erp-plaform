@@ -29,9 +29,22 @@ application records.
 1. Push this repo to GitHub.
 2. In Render: **New → Blueprint**, select the repo. Render reads `render.yaml`
    and provisions all five components.
-   - The web service declares `enterprise.vezano.app` as its custom domain.
-     Point that DNS name to the Render hostname shown for `erp-api`, then use
-     Render's **Verify** action so its managed TLS certificate is issued.
+   - The web service answers on three custom domains, all of which must be
+     added to `erp-api` in Render (**Settings → Custom Domains**) and verified
+     so a managed TLS certificate is issued for each:
+     - `vezano.app` — the canonical host. Every marketing page's canonical
+       tag, the sitemap and the Open Graph URLs point here. It is an apex
+       domain, so at the DNS provider use an ALIAS/ANAME record (or the A
+       record Render shows for apex domains), not a CNAME.
+     - `www.vezano.app` — CNAME to the `erp-api` Render hostname.
+     - `enterprise.vezano.app` — the original host. Keep it: existing
+       customers have cookies and installed PWAs on it, and it keeps working
+       without any redirect.
+
+     The three hosts are always in `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS`
+     (config/settings.py `VEZANO_PUBLIC_HOSTS`); `DJANGO_ALLOWED_HOSTS` only
+     needs `.onrender.com`. Leave `AUTH_COOKIE_DOMAIN` unset so each host keeps
+     its own host-only auth cookie.
    - Confirm the existing `erp-api` disk is mounted at exactly
      `/var/data/media/`. Render disks are attached to one runtime service, so
      it belongs on `erp-api`, which receives and serves the protected uploads.
@@ -81,11 +94,12 @@ site (M8).
 ## Smoke test
 
 ```bash
-curl https://enterprise.vezano.app/api/health/        # -> {"status":"ok",...}
+curl https://vezano.app/api/health/                   # -> {"status":"ok",...}
+curl -sI https://vezano.app/robots.txt | head -1      # -> 200, and /sitemap.xml likewise
 # Log in, then hit an authenticated endpoint (cookies set by /api/auth/login/).
 ```
 
-Open `https://enterprise.vezano.app/` — same origin serves the frontend, which
+Open `https://vezano.app/` — same origin serves the frontend, which
 pings `/api/health/` and shows whether the API is reachable.
 
 ## Environment variables
