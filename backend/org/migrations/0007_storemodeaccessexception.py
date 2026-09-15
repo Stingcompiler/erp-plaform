@@ -25,7 +25,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="storemodeaccessexception",
             constraint=models.CheckConstraint(
-                check=models.Q(("role__isnull", True), ("user__isnull", False)) | models.Q(("role__isnull", False), ("user__isnull", True)),
+                condition=models.Q(("role__isnull", True), ("user__isnull", False)) | models.Q(("role__isnull", False), ("user__isnull", True)),
                 name="store_mode_exception_exactly_one_subject",
             ),
         ),

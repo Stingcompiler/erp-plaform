@@ -1,6 +1,7 @@
 from core.activity import log_activity
 from core.deletion import ArchiveOnDeleteMixin
 from core.permissions import EntitlementAccess, IsPlatformAdminOrReadOnly
+from core.timezone import is_valid_timezone
 from core.rbac import RoleModuleAccess
 from core.scoping import (
     ActivityLoggingMixin,
@@ -71,6 +72,7 @@ class CompanyProfileView(APIView):
         "tax_number",
         "registration_number",
         "currency",
+        "timezone",
         "business_type",
     ]
 
@@ -123,6 +125,15 @@ class CompanyProfileView(APIView):
                 if field == "business_type" and value not in dict(Company.BUSINESS_TYPE_CHOICES):
                     return Response(
                         {"business_type": "Unknown business type."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if field == "timezone" and not is_valid_timezone(value):
+                    return Response(
+                        {
+                            "timezone": (
+                                "Unknown time zone; use an IANA name such as Africa/Khartoum."
+                            )
+                        },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 setattr(company, field, value)

@@ -26,4 +26,7 @@ class CookieJWTAuthentication(JWTAuthentication):
                 "The system is currently operating in shop mode.",
                 code="store_mode_restricted",
             )
+        from core.timezone import activate_for_user
+
+        activate_for_user(user)
         return user, validated_token

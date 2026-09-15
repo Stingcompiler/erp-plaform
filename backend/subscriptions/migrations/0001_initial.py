@@ -390,7 +390,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="entitlementoverride",
             constraint=models.CheckConstraint(
-                check=models.Q(("ends_at__gt", models.F("starts_at"))),
+                condition=models.Q(("ends_at__gt", models.F("starts_at"))),
                 name="override_end_after_start",
             ),
         ),
@@ -403,14 +403,14 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="subscriptioninvoice",
             constraint=models.CheckConstraint(
-                check=models.Q(("amount__gte", 0)),
+                condition=models.Q(("amount__gte", 0)),
                 name="subscription_invoice_amount_nonnegative",
             ),
         ),
         migrations.AddConstraint(
             model_name="subscriptionpayment",
             constraint=models.CheckConstraint(
-                check=models.Q(("amount__gt", 0)),
+                condition=models.Q(("amount__gt", 0)),
                 name="subscription_payment_amount_positive",
             ),
         ),
@@ -423,7 +423,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="paymentallocation",
             constraint=models.CheckConstraint(
-                check=models.Q(("amount__gt", 0)),
+                condition=models.Q(("amount__gt", 0)),
                 name="subscription_allocation_positive",
             ),
         ),

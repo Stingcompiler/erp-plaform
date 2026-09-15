@@ -205,7 +205,7 @@ class ProductPack(models.Model):
                 name="uniq_pack_barcode_per_company",
             ),
             models.CheckConstraint(
-                check=models.Q(quantity__gt=0), name="pack_quantity_positive"
+                condition=models.Q(quantity__gt=0), name="pack_quantity_positive"
             ),
         ]
 
