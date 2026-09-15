@@ -104,3 +104,73 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  e2e-offline:
+    # The offline-first contract in a real browser: build the export, serve
+    # it from Django exactly as production does, take sales with the network
+    # cut, reload from the service worker, reconnect, and check the server.
+    name: E2E (offline POS in Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Chromium for Playwright
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Build the production export
+        working-directory: frontend
+        run: npm run build
+
+      - name: Migrate and seed the fixture company
+        working-directory: backend
+        env:
+          DJANGO_SECRET_KEY: ci-test-secret-key
+          DEBUG: "True"
+        run: |
+          python manage.py migrate -v0
+          python manage.py seed_e2e
+
+      - name: Serve the export from Django
+        working-directory: backend
+        env:
+          DJANGO_SECRET_KEY: ci-test-secret-key
+          DEBUG: "True"
+        run: |
+          nohup python manage.py runserver 8000 --noreload > /tmp/django.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8000/api/health/ >/dev/null && break; sleep 1; done
+          curl -sf http://localhost:8000/sw.js | head -c 200
+
+      - name: Run the offline suite
+        working-directory: frontend
+        env:
+          CI: "true"
+        run: npx playwright test
+
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+            /tmp/django.log

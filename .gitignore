@@ -31,3 +31,7 @@ frontend/.env.local
 # Written into the tree at packaging time and shipped inside the archive.
 /release-manifest.json
 /SHA256SUMS
+
+# Playwright output (frontend/e2e)
+frontend/playwright-report/
+frontend/test-results/
