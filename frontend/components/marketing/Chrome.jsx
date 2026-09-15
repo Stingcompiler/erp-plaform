@@ -174,7 +174,7 @@ export function MarketingFooter() {
               </div>
               <ul className="mt-3 space-y-2 text-sm text-paper/60">
                 <li><Link href="/product" className="hover:text-paper">{t("landing.navFeatures")}</Link></li>
-                <li><a href="/#modules" className="hover:text-paper">{t("landing.navModules")}</a></li>
+                <li><Link href="/#modules" className="hover:text-paper">{t("landing.navModules")}</Link></li>
                 <li><Link href="/pricing" className="hover:text-paper">{t("landing.navPricing")}</Link></li>
                 <li><Link href="/login" className="hover:text-paper">{t("common.signIn")}</Link></li>
               </ul>
@@ -184,7 +184,7 @@ export function MarketingFooter() {
                 {t("landing.footerCompany")}
               </div>
               <ul className="mt-3 space-y-2 text-sm text-paper/60">
-                <li><a href="/#contact" className="hover:text-paper">{t("landing.navContact")}</a></li>
+                <li><Link href="/#contact" className="hover:text-paper">{t("landing.navContact")}</Link></li>
               </ul>
             </div>
           </div>
