@@ -345,6 +345,7 @@ export const registration = {
 
 export const platformTeam = {
   list: () => listAll("/platform/team/"),
+  get: (id) => api.get(`/platform/team/${id}/`),
   invite: (body) => api.post("/platform/team/", body),
   reissue: (id) => api.post(`/platform/team/${id}/reissue-invitation/`),
   deactivate: (id) => api.post(`/platform/team/${id}/deactivate/`),

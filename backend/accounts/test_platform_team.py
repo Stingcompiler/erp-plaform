@@ -147,7 +147,8 @@ class PlatformRoleCapabilityTests(APITestCase):
         self.root = User.objects.create_superuser("root@vezano.test", "secure-password")
         self.client.force_authenticate(self.root)
         self.members = {}
-        for role in ("Subscription Manager", "Billing Reviewer", "Support Agent"):
+        roles = ("Subscription Manager", "Billing Reviewer", "Marketing Manager", "Support Agent")
+        for role in roles:
             slug = role.lower().replace(" ", "-")
             response = self.client.post(
                 reverse("platform-team-list"),
@@ -237,3 +238,94 @@ class PlatformRoleCapabilityTests(APITestCase):
             {"role": "Support Agent"}, format="json",
         )
         self.assertEqual(me.status_code, 400)
+
+    def test_marketing_manager_works_leads_and_nothing_else(self):
+        from website.models import PlatformLead
+
+        lead = PlatformLead.objects.create(name="Shop", email="shop@example.com")
+        url = reverse("platform-lead-detail", args=[lead.pk])
+        self._as("Marketing Manager")
+        moved = self.client.patch(url, {"status": "contacted"}, format="json")
+        self.assertEqual(moved.status_code, 200, moved.data)
+        caps = self.client.get(reverse("auth-me")).data["capabilities"]
+        self.assertTrue(caps["platform.leads.manage"])
+        for capability in (
+            "platform.team.manage", "platform.plans.manage", "platform.billing.review",
+            "platform.registrations.provision", "platform.invitations.reissue",
+        ):
+            self.assertNotIn(capability, caps, capability)
+        self._as("Billing Reviewer")
+        refused = self.client.patch(url, {"status": "closed"}, format="json")
+        self.assertEqual(refused.status_code, 403)
+
+
+class SuperAdministratorRoleTests(APITestCase):
+    """A member holding the Super Administrator *role* (not a Django superuser)
+    has the same full control of the team as the platform owner."""
+
+    def setUp(self):
+        root = User.objects.create_superuser("root@vezano.test", "secure-password")
+        self.client.force_authenticate(root)
+        response = self.client.post(
+            reverse("platform-team-list"),
+            {"email": "gm@vezano.test", "full_name": "General Manager",
+             "role": "Super Administrator"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.gm = User.objects.get(email="gm@vezano.test")
+        self.assertFalse(self.gm.is_superuser)
+        self.client.force_authenticate(self.gm)
+
+    def test_super_administrator_role_runs_the_whole_team(self):
+        caps = self.client.get(reverse("auth-me")).data["capabilities"]
+        self.assertTrue(caps["platform.team.manage"])
+        invited = self.client.post(
+            reverse("platform-team-list"),
+            {"email": "mkt@vezano.test", "full_name": "Marketing", "role": "Marketing Manager"},
+            format="json",
+        )
+        self.assertEqual(invited.status_code, 201, invited.data)
+        member_id = invited.data["id"]
+        for name, body in (
+            ("platform-team-set-role", {"role": "Support Agent"}),
+            ("platform-team-reissue-invitation", {}),
+            ("platform-team-deactivate", {}),
+            ("platform-team-activate", {}),
+        ):
+            response = self.client.post(reverse(name, args=[member_id]), body, format="json")
+            self.assertIn(response.status_code, (200, 201), (name, response.data))
+        plan = self.client.post(
+            reverse("platform-plan-list"), {"code": "p", "name": "P"}, format="json"
+        )
+        self.assertEqual(plan.status_code, 201, plan.data)
+
+    def test_member_detail_carries_capabilities_provenance_and_history(self):
+        invited = self.client.post(
+            reverse("platform-team-list"),
+            {"email": "mkt@vezano.test", "full_name": "Marketing", "role": "Marketing Manager"},
+            format="json",
+        )
+        member_id = invited.data["id"]
+        self.client.post(
+            reverse("platform-team-set-role", args=[member_id]), {"role": "Support Agent"},
+            format="json",
+        )
+        detail = self.client.get(reverse("platform-team-detail", args=[member_id])).data
+        self.assertEqual(detail["role_name"], "Support Agent")
+        self.assertEqual(
+            detail["capabilities"], ["platform.invitations.reissue", "platform.leads.manage"]
+        )
+        self.assertEqual(detail["invited_by"]["email"], "gm@vezano.test")
+        self.assertEqual(len(detail["invitations"]), 1)
+        self.assertIsNone(detail["invitations"][0]["accepted_at"])
+        actions = [(row["action"], row["metadata"].get("role_to")) for row in detail["history"]]
+        self.assertIn(("update", "Support Agent"), actions)
+        self.assertIn(("create", None), actions)
+        self.assertTrue(all(row["user"]["email"] == "gm@vezano.test" for row in detail["history"]))
+        # A member who has never signed in has no activity of their own yet.
+        self.assertEqual(detail["activity"], [])
+        # The list endpoint stays lean.
+        listed = self.client.get(reverse("platform-team-list")).data
+        rows = listed["results"] if isinstance(listed, dict) else listed
+        self.assertNotIn("activity", rows[0])
