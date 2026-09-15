@@ -71,7 +71,10 @@ class BusinessTimeTests(APITestCase):
         self.assertIn("occurred_at", stale.data)
 
     def test_reports_read_business_time(self):
-        last_month = (timezone.now().replace(day=15) - timedelta(days=31))
+        # 30 days back, inside the 31-day backdate window on every calendar
+        # day; the previous "15th minus 31 days" fell outside it from the
+        # 15th of each month onward and failed the suite for half the month.
+        last_month = timezone.now() - timedelta(days=30)
         self._checkout(last_month)
         self._checkout()  # today
         response = self.client.get(

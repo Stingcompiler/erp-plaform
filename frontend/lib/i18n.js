@@ -459,6 +459,15 @@ const en = {
       purchase_return: "Purchase return",
     },
   },
+  install: {
+    button: "Install on this device",
+    installed: "Installed as an app on this device",
+    notInstalled: "Running in a browser tab",
+    manualHint: "To install: Safari — Share → Add to Home Screen; Firefox — the browser menu → Install.",
+    storageDurable: "Local storage is protected — queued sales will not be evicted by the browser.",
+    storageBestEffort: "Local storage is not protected — the browser may clear queued sales if space runs low. Installing the app fixes this.",
+    storageUnknown: "Checking local storage…",
+  },
   shell: {
     workspace: "Workspace",
     noRole: "No role",
@@ -1951,6 +1960,15 @@ const ar = {
       sales_return: "مرتجع مبيعات",
       purchase_return: "مرتجع مشتريات",
     },
+  },
+  install: {
+    button: "تثبيت على هذا الجهاز",
+    installed: "مثبَّت كتطبيق على هذا الجهاز",
+    notInstalled: "يعمل داخل تبويب المتصفح",
+    manualHint: "للتثبيت: في Safari — مشاركة ← إضافة إلى الشاشة الرئيسية؛ في Firefox — قائمة المتصفح ← تثبيت.",
+    storageDurable: "التخزين المحلي محمي — لن يحذف المتصفح المبيعات المعلّقة.",
+    storageBestEffort: "التخزين المحلي غير محمي — قد يحذف المتصفح المبيعات المعلّقة عند امتلاء المساحة. تثبيت التطبيق يعالج ذلك.",
+    storageUnknown: "جارٍ فحص التخزين المحلي…",
   },
   shell: {
     workspace: "مساحة العمل",

@@ -11,6 +11,10 @@ from django.http import FileResponse, Http404
 
 FRONTEND_DIST = settings.BASE_DIR.parent / "frontend" / "out"
 
+# Not in every distribution's mime.types; without it the manifest would go
+# out as application/octet-stream and the browser would refuse to install.
+mimetypes.add_type("application/manifest+json", ".webmanifest")
+
 # Next's static export hashes filenames under _next/static/, so those are
 # safe to cache indefinitely; every other exported file is plain HTML/JSON
 # that can change on each deploy.
