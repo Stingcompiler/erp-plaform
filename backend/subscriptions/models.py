@@ -214,7 +214,7 @@ class SubscriptionInvoice(models.Model):
         ordering = ["-created_at"]
         constraints = [
             models.CheckConstraint(
-                check=Q(amount__gte=0), name="subscription_invoice_amount_nonnegative"
+                condition=Q(amount__gte=0), name="subscription_invoice_amount_nonnegative"
             )
         ]
 
@@ -257,7 +257,7 @@ class SubscriptionPayment(models.Model):
         ordering = ["-created_at"]
         constraints = [
             models.CheckConstraint(
-                check=Q(amount__gt=0), name="subscription_payment_amount_positive"
+                condition=Q(amount__gt=0), name="subscription_payment_amount_positive"
             )
         ]
 
@@ -284,7 +284,7 @@ class PaymentAllocation(models.Model):
                 fields=["payment", "invoice"], name="uniq_subscription_payment_invoice"
             ),
             models.CheckConstraint(
-                check=Q(amount__gt=0), name="subscription_allocation_positive"
+                condition=Q(amount__gt=0), name="subscription_allocation_positive"
             ),
         ]
 
@@ -316,7 +316,7 @@ class EntitlementOverride(models.Model):
         ordering = ["-created_at"]
         constraints = [
             models.CheckConstraint(
-                check=Q(ends_at__gt=models.F("starts_at")),
+                condition=Q(ends_at__gt=models.F("starts_at")),
                 name="override_end_after_start",
             )
         ]

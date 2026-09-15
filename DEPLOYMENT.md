@@ -113,6 +113,19 @@ rollback that predates a migration may require restoring the database from a
 Render backup. Take a manual backup (`POST /api/ops/backups/`) before risky
 changes.
 
+## Runtime facts worth knowing
+
+- **Shared cache without Redis.** `CACHES` is Django's `DatabaseCache` on the
+  table `vezano_cache`, created by migration `core.0004` (so every path that
+  runs `migrate` has it). Login throttling and attention badges are therefore
+  consistent across gunicorn workers. Tests use an in-memory cache.
+- **Connection reuse.** `CONN_MAX_AGE` defaults to 60 s on PostgreSQL (env
+  `CONN_MAX_AGE` overrides) with `CONN_HEALTH_CHECKS` on. SQLite never pools.
+- **Business time zone.** `Company.timezone` (default `Africa/Khartoum`,
+  editable under Settings → Company) decides what "today" means for the
+  dashboard, overdue and expiry checks and report day boundaries. The server
+  clock and all stored timestamps stay UTC.
+
 ## Known caveats
 
 - **Backup retention.** `POST /api/ops/backups/` and the nightly cron generate

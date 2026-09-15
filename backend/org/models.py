@@ -26,6 +26,12 @@ class Company(models.Model):
     # Used later by M8's auto-generated public site; unique per deployment.
     slug = models.SlugField(max_length=255, unique=True, blank=True)
     currency = models.CharField(max_length=8, default="SDG")
+    # Where the business day starts and ends. Every "today" the system
+    # computes — the dashboard's sales, overdue invoices, expiring batches,
+    # the day a sale falls on in a report — is taken in this zone (activated
+    # per request by core.timezone once the user is known). The server clock
+    # stays UTC; this is display and day-boundary only.
+    timezone = models.CharField(max_length=64, default="Africa/Khartoum")
     # Defaults to enterprise so no existing tenant silently loses screens on
     # upgrade; a new shop opts in.
     business_type = models.CharField(
@@ -108,7 +114,7 @@ class StoreModeAccessException(models.Model):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(user__isnull=False, role__isnull=True)
                     | models.Q(user__isnull=True, role__isnull=False)
                 ),

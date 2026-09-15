@@ -10,6 +10,12 @@ import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/compone
 
 const bytes = (n) => (n > 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
 
+// The zones a Vezano customer is likely in; any IANA name is accepted.
+const TIMEZONES = [
+  "Africa/Khartoum", "Africa/Cairo", "Africa/Nairobi", "Africa/Addis_Ababa", "Africa/Juba",
+  "Asia/Riyadh", "Asia/Dubai", "Asia/Qatar", "Asia/Kuwait", "Asia/Amman", "Europe/London", "UTC",
+];
+
 export default function SettingsPage() {
   const { user, canRead, canWrite, refresh } = useAuth();
   const { t, language } = useI18n();
@@ -106,6 +112,7 @@ export default function SettingsPage() {
         tax_number: company.tax_number,
         registration_number: company.registration_number,
         currency: company.currency,
+        timezone: company.timezone,
       });
       setCompany(r.data);
       setCompanyMsg(t("settings.companySaved"));
@@ -233,6 +240,18 @@ export default function SettingsPage() {
                   onChange={setCo("registration_number")}
                   disabled={!writable}
                 />
+              </Field>
+              <Field label={t("settings.timezone")} hint={t("settings.timezoneHint")}>
+                <Input
+                  list="timezone-options"
+                  value={company.timezone || ""}
+                  onChange={setCo("timezone")}
+                  disabled={!writable}
+                  dir="ltr"
+                />
+                <datalist id="timezone-options">
+                  {TIMEZONES.map((z) => <option key={z} value={z} />)}
+                </datalist>
               </Field>
             </div>
             {companyMsg && <p className="text-sm text-muted">{companyMsg}</p>}

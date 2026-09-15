@@ -846,6 +846,8 @@ const en = {
     },
   },
   settings: {
+    timezone: "Business time zone",
+    timezoneHint: "Sets where the business day starts and ends for reports and today's totals (IANA name, e.g. Africa/Khartoum).",
     title: "Settings",
     subtitle: "Company tax profile, invoicing and backups.",
     noAccess: "Your role doesn't include settings.",
@@ -2351,6 +2353,8 @@ const ar = {
     },
   },
   settings: {
+    timezone: "المنطقة الزمنية للنشاط",
+    timezoneHint: "تحدد بداية يوم العمل ونهايته في التقارير وإجماليات اليوم (اسم IANA مثل Africa/Khartoum).",
     title: "الإعدادات",
     subtitle: "ملف الضرائب والفوترة والنسخ الاحتياطي للشركة.",
     noAccess: "دورك لا يشمل الإعدادات.",

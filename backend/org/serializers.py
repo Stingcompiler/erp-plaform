@@ -27,6 +27,7 @@ class CompanySerializer(serializers.ModelSerializer):
             "legal_name",
             "slug",
             "currency",
+            "timezone",
             "business_type",
             "address",
             "phone",
@@ -38,6 +39,14 @@ class CompanySerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["slug", "created_at"]
+
+
+    def validate_timezone(self, value):
+        from core.timezone import is_valid_timezone
+
+        if not is_valid_timezone(value):
+            raise serializers.ValidationError("Unknown time zone; use an IANA name such as Africa/Khartoum.")
+        return value
 
 
 class BranchSerializer(serializers.ModelSerializer):

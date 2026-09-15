@@ -104,6 +104,9 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",  # M10: i18n (en / ar)
+    # Clears the active time zone per request; the company's zone is
+    # activated by accounts.authentication once the user is known.
+    "core.timezone.CompanyTimezoneMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -145,6 +148,33 @@ WSGI_APPLICATION = "config.wsgi.application"
 _SQLITE_URL = f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
 DATABASES = {
     "default": env.db_url_config(env("DATABASE_URL", default="") or _SQLITE_URL)
+}
+# Reuse a connection across requests instead of opening one per request —
+# Render's small PostgreSQL plans have a low connection ceiling and a
+# per-request handshake is the first thing to fall over under load. The
+# health check makes a stale connection reconnect instead of erroring once.
+if not DATABASES["default"]["ENGINE"].endswith("sqlite3"):
+    DATABASES["default"]["CONN_MAX_AGE"] = int(env("CONN_MAX_AGE", default="60"))
+    DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
+
+# --- Cache ---
+# Shared across gunicorn workers without Redis. Without a shared cache each
+# worker kept its own LocMemCache, so the login throttle was "10/min" PER
+# WORKER and an attention "seen" mark on one worker was invisible to the
+# others for the whole cache window. The table is created by
+# `manage.py createcachetable` (in the pre-deploy command and the standalone
+# runbook). Tests keep the in-memory cache: faster, and isolated per process.
+CACHES = {
+    "default": {
+        "BACKEND": (
+            "django.core.cache.backends.locmem.LocMemCache"
+            if "test" in sys.argv or "pytest" in sys.modules
+            else "django.core.cache.backends.db.DatabaseCache"
+        ),
+        "LOCATION": "vezano_cache",
+        "TIMEOUT": 300,
+        "OPTIONS": {"MAX_ENTRIES": 5000},
+    }
 }
 
 AUTH_PASSWORD_VALIDATORS = [
