@@ -50,17 +50,35 @@ class CrawlerFileTests(SimpleTestCase):
         response, body = self._get("sitemap.xml")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/xml")
-        for path in ("/", "/product/", "/pricing/", "/register/"):
+        public = (
+            "/", "/product/", "/pricing/", "/register/",
+            "/solutions/", "/solutions/offline-pos/", "/guides/",
+            "/guides/sell-during-outages/", "/compare/excel-and-paper/",
+        )
+        for path in public:
             self.assertIn(f"<loc>https://vezano.app{path}</loc>", body)
             self.assertIn(f"<loc>https://vezano.app/en{path}</loc>", body)
             self.assertIn(f'hreflang="en" href="https://vezano.app/en{path}"', body)
         self.assertNotIn("enterprise.vezano.app", body)
         self.assertNotIn("/dashboard/", body)
 
+    def test_content_pages_carry_structured_data(self):
+        html = (FRONTEND_DIST / "solutions/offline-pos/index.html").read_text()
+        self.assertIn('"@type":"FAQPage"', html)
+        self.assertIn('"@type":"BreadcrumbList"', html)
+        html = (FRONTEND_DIST / "en/guides/sell-during-outages/index.html").read_text()
+        self.assertIn('"@type":"Article"', html)
+        self.assertIn('property="og:type" content="article"', html)
+        self.assertIn('<html lang="en" dir="ltr"', html)
+
     def test_english_edition_is_exported_in_english(self):
         for page, expected in (
             ("en/index.html", "https://vezano.app/en/"),
             ("en/pricing/index.html", "https://vezano.app/en/pricing/"),
+            (
+                "en/solutions/customer-debts/index.html",
+                "https://vezano.app/en/solutions/customer-debts/",
+            ),
         ):
             html = (FRONTEND_DIST / page).read_text()
             self.assertIn('<html lang="en" dir="ltr"', html, page)

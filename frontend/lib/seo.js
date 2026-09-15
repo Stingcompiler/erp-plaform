@@ -62,6 +62,42 @@ export function softwareApplicationJsonLd() {
   };
 }
 
+export function faqJsonLd(pairs) {
+  return faqPage(pairs);
+}
+
+export function breadcrumbJsonLd(items, language = "ar") {
+  // items: [[name, path]] from the home page down to the current page.
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map(([name, path], index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name,
+      item: `${SITE_URL}${marketingUrl(path, language)}`,
+    })),
+  };
+}
+
+export function articleJsonLd({ path, language, title, description, published, modified, minutes }) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: title,
+    description,
+    inLanguage: language,
+    datePublished: published,
+    dateModified: modified,
+    timeRequired: `PT${minutes}M`,
+    mainEntityOfPage: `${SITE_URL}${marketingUrl(path, language)}`,
+    image: `${SITE_URL}${OG_IMAGE.url}`,
+    author: { "@id": ORGANIZATION_ID },
+    publisher: { "@id": ORGANIZATION_ID },
+    about: { "@id": APPLICATION_ID },
+  };
+}
+
 function faqPage(pairs) {
   return {
     "@context": "https://schema.org",

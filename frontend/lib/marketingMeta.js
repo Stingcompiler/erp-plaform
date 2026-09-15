@@ -2,6 +2,7 @@
 // route layout exports. Every page declares both language versions as
 // alternates (hreflang), with the Arabic root as x-default: it is the market
 // the platform sells into first, and what an unknown-language visitor gets.
+import { contentPages } from "./content";
 import { localizePath } from "./locale";
 import { OG_IMAGE, SITE_NAME, SITE_NAME_LATIN } from "./site";
 
@@ -60,8 +61,24 @@ export function marketingUrl(path, language) {
   return localized.endsWith("/") ? localized : `${localized}/`;
 }
 
+let generated = null;
+function generatedCopy(path, language) {
+  if (!generated) {
+    generated = {};
+    for (const page of contentPages()) generated[page.path] = page;
+  }
+  return generated[path]?.[language];
+}
+
 export function marketingCopy(path, language) {
-  return COPY[language][path];
+  const copy = COPY[language][path] || generatedCopy(path, language);
+  if (!copy) throw new Error(`No marketing copy for ${path} (${language})`);
+  return copy;
+}
+
+// Every public page, root-relative and without trailing slash.
+export function allMarketingPaths() {
+  return [...Object.keys(COPY.ar), ...contentPages().map((page) => page.path)];
 }
 
 export function marketingMetadata(path, language) {
