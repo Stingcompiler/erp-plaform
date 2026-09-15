@@ -473,6 +473,7 @@ const en = {
     storageDurable: "Local storage is protected — queued sales will not be evicted by the browser.",
     storageBestEffort: "Local storage is not protected — the browser may clear queued sales if space runs low. Installing the app fixes this.",
     storageUnknown: "Checking local storage…",
+    storageLow: "This device is nearly out of storage — free space before working offline, or queued sales may fail to save.",
   },
   shell: {
     workspace: "Workspace",
@@ -1981,6 +1982,7 @@ const ar = {
     storageDurable: "التخزين المحلي محمي — لن يحذف المتصفح المبيعات المعلّقة.",
     storageBestEffort: "التخزين المحلي غير محمي — قد يحذف المتصفح المبيعات المعلّقة عند امتلاء المساحة. تثبيت التطبيق يعالج ذلك.",
     storageUnknown: "جارٍ فحص التخزين المحلي…",
+    storageLow: "مساحة التخزين على هذا الجهاز شبه ممتلئة — أفرغ مساحة قبل العمل دون اتصال، وإلا قد يفشل حفظ المبيعات المعلّقة.",
   },
   shell: {
     workspace: "مساحة العمل",

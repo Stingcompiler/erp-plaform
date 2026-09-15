@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/kit";
 import AttentionBadge from "@/components/attention/AttentionBadge";
 
 export default function SyncStatus() {
-  const { online, pending, flushing, flush, operations, error, legacy, persisted } = useSync();
+  const { online, pending, flushing, flush, operations, error, legacy, persisted, storageLow } = useSync();
   const { installed, canPrompt, prompt } = useInstallPrompt();
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -49,6 +49,7 @@ export default function SyncStatus() {
           )}
         </div>
         {!installed && !canPrompt && <p className="text-xs text-muted">{t("install.manualHint")}</p>}
+        {storageLow && <p role="alert" className="text-xs text-danger">{t("install.storageLow")}</p>}
       </div>
       {errorKey && <p role="alert" className="mb-3 text-sm text-danger">{t(`improvements.${errorKey}`)}</p>}
       {legacy && <p role="alert" className="mb-3 rounded-control bg-warn/10 p-3 text-sm text-warn">{t("improvements.syncLegacy")}</p>}

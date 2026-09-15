@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Minus, Plus, Printer, Search, Trash2, ShoppingBag, CreditCard } from "lucide-react";
 
 import { inventory, sales } from "@/lib/api";
@@ -11,7 +11,7 @@ import { useAuth } from "../../app/providers/AuthProvider";
 import DocumentDrawer from "@/components/print/DocumentDrawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import BarcodeScanInput from "@/components/inventory/BarcodeScanInput";
-import { heldCarts } from "@/lib/heldCarts";
+import { heldCarts } from "@/lib/syncQueue";
 import { cacheProducts, searchProductsOffline } from "@/lib/productCache";
 import { nextLocalReference } from "@/lib/localReference";
 
@@ -47,9 +47,10 @@ export default function PosTerminal({
   const restoredId = useRef(null);
   const checkoutBusy = useRef(false);
   const keyboardActions = useRef(null);
-  useEffect(() => {
-    try { setHeld(heldCarts.list()); } catch { setError(t("improvements.heldError")); }
+  const reloadHeld = useCallback(async () => {
+    try { setHeld(await heldCarts.list()); } catch { setError(t("improvements.heldError")); }
   }, [t]);
+  useEffect(() => { reloadHeld(); }, [reloadHeld]);
   useEffect(() => {
     const onKey = (e) => {
       if (document.querySelector('[role="dialog"]')) return;
@@ -62,9 +63,12 @@ export default function PosTerminal({
     window.addEventListener("beforeunload", unload);
     return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("beforeunload", unload); };
   }, []);
-  const { online, enqueue, confirmation } = useSync();
+  const { online, enqueue, confirmation, lookupReceipt } = useSync();
   const { user } = useAuth();
   const confirmedId = receipt?.queued ? confirmation(receipt.reference)?.id : null;
+  useEffect(() => {
+    if (receipt?.queued && !confirmedId) lookupReceipt(receipt.reference);
+  }, [receipt, confirmedId, lookupReceipt]);
   useEffect(() => {
     if (!confirmedId) return;
     let cancelled = false;
@@ -204,14 +208,13 @@ export default function PosTerminal({
 
   const removeLine = (key) => setCart((c) => c.filter((l) => l.key !== key));
 
-  function holdCart() {
+  async function holdCart() {
     if (!cart.length || checkoutBusy.current) return;
     try {
-      heldCarts.save({ id: restoredId.current, cart, warehouse, customer, method, amount,
+      await heldCarts.save({ id: restoredId.current, cart, warehouse, customer, method, amount,
         bankAccount, reference, sale_uuid: saleUuid.current });
       restoredId.current = null;
-      setHeld(heldCarts.list());
-      resetSale();
+      await resetSale();
       toast.info(t("improvements.heldSaved"));
     } catch { setError(t("improvements.heldError")); }
   }
@@ -223,8 +226,8 @@ export default function PosTerminal({
     restoredId.current = row.id; setError("");
     // Keep the saved copy until the sale completes or is held again.
   }
-  function resetSale() {
-    try { heldCarts.remove(restoredId.current); setHeld(heldCarts.list()); }
+  async function resetSale() {
+    try { await heldCarts.remove(restoredId.current); setHeld(await heldCarts.list()); }
     catch { toast.error(t("improvements.heldError")); }
     restoredId.current = null;
     setCart([]);
@@ -298,9 +301,9 @@ export default function PosTerminal({
 
     checkoutBusy.current = true;
     setSubmitting(true);
-    const saveOffline = () => {
+    const saveOffline = async () => {
       try {
-        const op = enqueue("pos_checkout", checkoutPayload);
+        const op = await enqueue("pos_checkout", checkoutPayload);
         setReceipt({ queued: true, reference: op.client_uuid, local_reference: localRef.current, total: grandTotal, subtotal: round2(subtotal), tax_amount: round2(taxTotal) });
         resetSale(); onSold?.(); toast.info(t("sales.savedOffline"));
       } catch { setError(t("improvements.storageSale")); toast.error(t("improvements.storageSale")); }
@@ -313,7 +316,7 @@ export default function PosTerminal({
       // alone: a router with no upstream must not make the till wait out a
       // full request timeout before every sale.
       if (!online) {
-        saveOffline();
+        await saveOffline();
         return;
       }
 
@@ -326,7 +329,7 @@ export default function PosTerminal({
       // A network error while "online" (e.g. flaky connection): fall back to
       // the offline queue rather than losing the sale.
       if (err?.code === "ERR_NETWORK" || !err?.response) {
-        saveOffline();
+        await saveOffline();
         return;
       }
       const data = err?.response?.data;
