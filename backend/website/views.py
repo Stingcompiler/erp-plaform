@@ -47,6 +47,7 @@ class PlatformLeadViewSet(
 
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
     platform_capability = platform_roles.LEADS_MANAGE
+    platform_view_capability = platform_roles.LEADS_VIEW
     serializer_class = PlatformLeadSerializer
     queryset = PlatformLead.objects.all()
 
@@ -179,6 +180,7 @@ class PlatformRegistrationRequestViewSet(
 
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
     platform_capability = platform_roles.REGISTRATIONS_REVIEW
+    platform_view_capability = platform_roles.REGISTRATIONS_VIEW
     platform_action_capabilities = {
         "provision": platform_roles.REGISTRATIONS_PROVISION,
         "reissue_invitation": platform_roles.INVITATIONS_REISSUE,

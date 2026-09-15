@@ -1,14 +1,30 @@
 """Functional split of the Vezano platform team.
 
-Every platform member (company-less user with a platform-scoped role, or a
-Django superuser) can *read* every platform screen. Writes are gated by the
-capabilities below, so a collections reviewer cannot provision companies and
-a support agent cannot approve money. ``Super Administrator`` keeps
-everything, including managing the team and the price list.
+A platform member is a company-less user with a platform-scoped role, or a
+Django superuser. Each area of the console has a *view* capability and one
+or more *write* capabilities; a role sees only the areas it holds a view for
+and changes only what its write capabilities allow. The overview page is
+open to every member. ``Super Administrator`` keeps everything, including
+managing the team and the price list.
+
+The split follows who needs what: money (subscriptions, invoices, payment
+proofs) is visible to the commercial and collections roles only; the team
+list is the Super Administrator's alone; marketing sees the funnel — demo
+requests and registrations — and the price list it sells, nothing else.
 """
 
 from accounts.models import Role
 
+# View capabilities: one per console area. A write capability below implies
+# the view of its area (see _with_views).
+TEAM_VIEW = "platform.team.view"
+PLANS_VIEW = "platform.plans.view"
+REGISTRATIONS_VIEW = "platform.registrations.view"
+SUBSCRIPTIONS_VIEW = "platform.subscriptions.view"
+BILLING_VIEW = "platform.billing.view"
+LEADS_VIEW = "platform.leads.view"
+
+# Write capabilities.
 TEAM_MANAGE = "platform.team.manage"
 PLANS_MANAGE = "platform.plans.manage"
 REGISTRATIONS_REVIEW = "platform.registrations.review"
@@ -18,18 +34,27 @@ BILLING_REVIEW = "platform.billing.review"
 LEADS_MANAGE = "platform.leads.manage"
 INVITATIONS_REISSUE = "platform.invitations.reissue"
 
-ALL_CAPABILITIES = frozenset(
-    {
-        TEAM_MANAGE,
-        PLANS_MANAGE,
-        REGISTRATIONS_REVIEW,
-        REGISTRATIONS_PROVISION,
-        SUBSCRIPTIONS_MANAGE,
-        BILLING_REVIEW,
-        LEADS_MANAGE,
-        INVITATIONS_REISSUE,
-    }
-)
+VIEW_OF = {
+    TEAM_MANAGE: TEAM_VIEW,
+    PLANS_MANAGE: PLANS_VIEW,
+    REGISTRATIONS_REVIEW: REGISTRATIONS_VIEW,
+    REGISTRATIONS_PROVISION: REGISTRATIONS_VIEW,
+    INVITATIONS_REISSUE: REGISTRATIONS_VIEW,
+    SUBSCRIPTIONS_MANAGE: SUBSCRIPTIONS_VIEW,
+    BILLING_REVIEW: BILLING_VIEW,
+    LEADS_MANAGE: LEADS_VIEW,
+}
+
+VIEW_CAPABILITIES = frozenset(VIEW_OF.values())
+WRITE_CAPABILITIES = frozenset(VIEW_OF)
+ALL_CAPABILITIES = VIEW_CAPABILITIES | WRITE_CAPABILITIES
+
+
+def _with_views(*capabilities):
+    """A role's capability set: what was listed plus the view of every write."""
+    listed = set(capabilities)
+    return frozenset(listed | {VIEW_OF[c] for c in listed if c in VIEW_OF})
+
 
 # Name -> (description, capabilities). Order is the order shown to admins.
 PLATFORM_ROLES = {
@@ -39,31 +64,32 @@ PLATFORM_ROLES = {
     ),
     "Subscription Manager": (
         "Runs the commercial pipeline: registrations, provisioning, "
-        "subscriptions, invoices and payment review.",
-        frozenset(
-            {
-                REGISTRATIONS_REVIEW,
-                REGISTRATIONS_PROVISION,
-                SUBSCRIPTIONS_MANAGE,
-                BILLING_REVIEW,
-                LEADS_MANAGE,
-                INVITATIONS_REISSUE,
-            }
+        "subscriptions, invoices and payment review; reads the price list.",
+        _with_views(
+            REGISTRATIONS_REVIEW,
+            REGISTRATIONS_PROVISION,
+            SUBSCRIPTIONS_MANAGE,
+            BILLING_REVIEW,
+            LEADS_MANAGE,
+            INVITATIONS_REISSUE,
+            PLANS_VIEW,
         ),
     ),
     "Billing Reviewer": (
-        "Collections: verifies or rejects payments and issues renewal invoices.",
-        frozenset({BILLING_REVIEW}),
+        "Collections: sees subscriptions and money, verifies or rejects "
+        "payments and issues renewal invoices. Nothing else.",
+        _with_views(BILLING_REVIEW, SUBSCRIPTIONS_VIEW),
     ),
     "Marketing Manager": (
-        "Owns the top of the funnel: works the demo requests and leads that "
-        "arrive from the public site; reads everything else.",
-        frozenset({LEADS_MANAGE}),
+        "Owns the top of the funnel: works demo requests and leads, reads the "
+        "registrations they produce and the price list. No money, no team.",
+        _with_views(LEADS_MANAGE, REGISTRATIONS_VIEW, PLANS_VIEW),
     ),
     "Support Agent": (
-        "Read-only across the platform; answers demo requests and resends "
-        "owner activation links.",
-        frozenset({LEADS_MANAGE, INVITATIONS_REISSUE}),
+        "Answers demo requests, resends owner activation links, and reads "
+        "registrations and subscriptions to help a customer. No money, no "
+        "price list, no team.",
+        _with_views(LEADS_MANAGE, INVITATIONS_REISSUE, SUBSCRIPTIONS_VIEW),
     ),
 }
 

@@ -10,22 +10,30 @@ import { useAttention } from "@/components/attention/AttentionProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useI18n } from "@/app/providers/I18nProvider";
 
+// Each area names the view capability a member needs (core/platform_roles.py);
+// the overview has none and is open to every member. The API refuses reads
+// without it, so hiding the entry here only spares the member a 403.
 const PLATFORM_NAV = [
   { href: "/platform", label: "nav.platform", icon: LayoutDashboard },
-  { href: "/platform-registrations", label: "nav.platformRegistrations", icon: FileCheck2, attentionKey: "platform-registrations" },
-  { href: "/platform-plans", label: "nav.platformPlans", icon: SlidersHorizontal },
-  { href: "/platform-leads", label: "nav.platformLeads", icon: Inbox, attentionKey: "platform-leads" },
-  { href: "/platform-subscriptions", label: "nav.platformSubscriptions", icon: CreditCard, attentionKey: "platform-subscriptions" },
-  { href: "/platform-team", label: "nav.platformTeam", icon: UsersRound },
+  { href: "/platform-registrations", label: "nav.platformRegistrations", icon: FileCheck2, attentionKey: "platform-registrations", capability: "platform.registrations.view" },
+  { href: "/platform-plans", label: "nav.platformPlans", icon: SlidersHorizontal, capability: "platform.plans.view" },
+  { href: "/platform-leads", label: "nav.platformLeads", icon: Inbox, attentionKey: "platform-leads", capability: "platform.leads.view" },
+  { href: "/platform-subscriptions", label: "nav.platformSubscriptions", icon: CreditCard, attentionKey: "platform-subscriptions", capability: "platform.subscriptions.view" },
+  { href: "/platform-team", label: "nav.platformTeam", icon: UsersRound, capability: "platform.team.view" },
 ];
 
 export function isPlatformPath(pathname) {
   return PLATFORM_NAV.some(({ href }) => pathname === href || pathname.startsWith(`${href}/`));
 }
 
+// The nav entries this member may open.
+export function visiblePlatformNav(can) {
+  return PLATFORM_NAV.filter(({ capability }) => !capability || can(capability));
+}
+
 export default function PlatformShell({ children }) {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, logout, can } = useAuth();
   const { t, language, toggleLanguage, theme, cycleTheme } = useI18n();
   const { counts, tones, markSeen } = useAttention();
   const ThemeIcon = theme === "dark" ? MoonStar : theme === "light" ? Sun : SunMoon;
@@ -61,7 +69,7 @@ export default function PlatformShell({ children }) {
             </div>
           </div>
           <nav className="flex gap-2 overflow-x-auto" aria-label={t("shell.platformWorkspace")}>
-            {PLATFORM_NAV.map(({ href, label, icon: Icon, attentionKey }) => {
+            {visiblePlatformNav(can).map(({ href, label, icon: Icon, attentionKey }) => {
               const active = pathname === href || pathname.startsWith(`${href}/`);
               const badge = badgeFor(attentionKey, counts, tones);
               return (

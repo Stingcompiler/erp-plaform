@@ -16,6 +16,7 @@ const activationLink = (token) =>
 
 export default function PlatformTeamPage() {
   const { user, can } = useAuth();
+  const canView = can("platform.team.view");
   const { t, language } = useI18n();
   const canManage = can("platform.team.manage");
   const [rows, setRows] = useState([]);
@@ -27,7 +28,7 @@ export default function PlatformTeamPage() {
   const [form, setForm] = useState({ email: "", full_name: "", role: DEFAULT_ROLE });
 
   const load = useCallback(async () => {
-    if (!user?.is_platform_admin) return;
+    if (!canView) return;
     setLoading(true);
     setError("");
     try {
@@ -46,7 +47,7 @@ export default function PlatformTeamPage() {
     } finally {
       setLoading(false);
     }
-  }, [t, user?.is_platform_admin]);
+  }, [t, canView]);
   useEffect(() => { load(); }, [load]);
 
   const fail = (requestError) => {
@@ -100,7 +101,7 @@ export default function PlatformTeamPage() {
     return { tone: "ok", label: t("platformTeam.activated") };
   };
 
-  if (!user?.is_platform_admin) {
+  if (!canView) {
     return (
       <Card className="mx-auto mt-16 max-w-md p-8 text-center">
         <Lock className="mx-auto text-muted" />

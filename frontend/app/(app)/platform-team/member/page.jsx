@@ -55,7 +55,8 @@ function describeHistory(row, t, roleLabel) {
 }
 
 function MemberDetail() {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
+  const canView = can("platform.team.view");
   const { t, language, dir } = useI18n();
   const params = useSearchParams();
   const id = params.get("id");
@@ -64,7 +65,7 @@ function MemberDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.is_platform_admin || !id) return;
+    if (!canView || !id) return;
     let cancelled = false;
     setLoading(true);
     setError("");
@@ -77,7 +78,7 @@ function MemberDetail() {
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [id, t, user?.is_platform_admin]);
+  }, [id, t, canView]);
 
   const roleLabel = (name) => {
     if (!name) return "";
@@ -97,7 +98,7 @@ function MemberDetail() {
     </Link>
   );
 
-  if (!user?.is_platform_admin) {
+  if (!canView) {
     return (
       <Card className="mx-auto mt-16 max-w-md p-8 text-center">
         <Lock className="mx-auto text-muted" />

@@ -148,6 +148,7 @@ class PlatformTeamViewSet(
 
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
     platform_capability = platform_roles.TEAM_MANAGE
+    platform_view_capability = platform_roles.TEAM_VIEW
     entitlement_exempt = True
     serializer_class = PlatformMemberSerializer
 
