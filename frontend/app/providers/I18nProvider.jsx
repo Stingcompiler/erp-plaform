@@ -9,8 +9,10 @@ import {
   useRef,
   useState,
 } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 import { DEFAULT_LANGUAGE, LANGUAGES, dirFor, translate } from "@/lib/i18n";
+import { counterpartPath, localizePath, marketingLanguage } from "@/lib/locale";
 import { prefs } from "@/lib/api";
 
 // Locale + theme live here (not in AuthProvider) so public pages — the landing
@@ -18,6 +20,12 @@ import { prefs } from "@/lib/api";
 // is the source of truth, persisted in localStorage + a cookie; for logged-in
 // users, changes are also pushed to the server (best-effort) for cross-device
 // continuity, and a fresh session can hydrate these once from the server.
+//
+// On the public marketing pages the language is part of the URL instead
+// (lib/locale.js): / is Arabic, /en/ is English, and switching navigates to
+// the counterpart page so the address always matches what is on screen and
+// each language is indexable on its own. The stored preference still decides
+// where a returning visitor lands.
 
 const I18nContext = createContext(null);
 
@@ -43,6 +51,12 @@ function writeCookie(name, value) {
   }
 }
 
+// usePathname() has no query string or hash; the counterpart page must keep
+// both (/register?plan=3 -> /en/register?plan=3). Client only.
+function currentLocation(pathname) {
+  return pathname + window.location.search + window.location.hash;
+}
+
 function systemPrefersDark() {
   return (
     typeof window !== "undefined" &&
@@ -53,18 +67,37 @@ function systemPrefersDark() {
 
 export function I18nProvider({ children }) {
   const langCodes = LANGUAGES.map((l) => l.code);
-  const [language, setLanguageState] = useState(DEFAULT_LANGUAGE);
+  const pathname = usePathname();
+  const router = useRouter();
+  // "ar" | "en" on a public marketing page, null inside the app.
+  const routeLanguage = marketingLanguage(pathname);
+  const [language, setLanguageState] = useState(routeLanguage ?? DEFAULT_LANGUAGE);
   const [theme, setThemeState] = useState("system");
   // Tracks whether the user has made an explicit choice this session, so a
   // late-arriving server hydrate doesn't clobber a deliberate toggle.
   const userTouched = useRef(false);
 
-  // Hydrate from localStorage on mount (client only).
+  // Hydrate from localStorage on mount (client only). On a marketing page the
+  // URL wins; a stored preference for the other language sends the visitor
+  // to the counterpart page instead of re-rendering this one in place.
   useEffect(() => {
-    setLanguageState(readStored(LANG_KEY, langCodes, DEFAULT_LANGUAGE));
+    const stored = readStored(LANG_KEY, langCodes, null);
     setThemeState(readStored(THEME_KEY, THEMES, "system"));
+    if (routeLanguage) {
+      if (stored && stored !== routeLanguage) {
+        router.replace(counterpartPath(currentLocation(pathname), stored));
+      }
+      return;
+    }
+    setLanguageState(stored ?? DEFAULT_LANGUAGE);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Client-side navigation between / and /en/ (or into the app) re-derives
+  // the language from the new URL.
+  useEffect(() => {
+    if (routeLanguage) setLanguageState(routeLanguage);
+  }, [routeLanguage]);
 
   // Reflect language + direction on <html> whenever language changes.
   useEffect(() => {
@@ -105,8 +138,19 @@ export function I18nProvider({ children }) {
       }
       writeCookie("erp_language", lang);
       if (sync) syncServer({ language: lang });
+      if (routeLanguage && lang !== routeLanguage) {
+        router.push(counterpartPath(currentLocation(pathname), lang));
+      }
     },
-    [langCodes, syncServer]
+    [langCodes, syncServer, routeLanguage, pathname, router]
+  );
+
+  // A marketing href written for the Arabic root, in the page's language:
+  // href("/pricing") is "/en/pricing" on an English page. App routes such as
+  // /login are never prefixed; pass them through untouched.
+  const href = useCallback(
+    (path) => localizePath(path, routeLanguage),
+    [routeLanguage]
   );
 
   const toggleLanguage = useCallback(() => {
@@ -134,16 +178,21 @@ export function I18nProvider({ children }) {
   }, [theme, setTheme]);
 
   // Called once by AuthProvider after a session loads. Only applies the
-  // server's stored prefs if the user hasn't already chosen locally.
-  const hydrateFromServer = useCallback((serverPrefs) => {
-    if (userTouched.current || !serverPrefs) return;
-    if (serverPrefs.language && !readStored(LANG_KEY, ["en", "ar"], null)) {
-      setLanguageState(serverPrefs.language);
-    }
-    if (serverPrefs.theme && !readStored(THEME_KEY, THEMES, null)) {
-      setThemeState(serverPrefs.theme);
-    }
-  }, []);
+  // server's stored prefs if the user hasn't already chosen locally. On a
+  // marketing page the URL already names the language, so a signed-in
+  // visitor opening /en/ deliberately is not flipped back to Arabic.
+  const hydrateFromServer = useCallback(
+    (serverPrefs) => {
+      if (userTouched.current || !serverPrefs) return;
+      if (serverPrefs.language && !routeLanguage && !readStored(LANG_KEY, ["en", "ar"], null)) {
+        setLanguageState(serverPrefs.language);
+      }
+      if (serverPrefs.theme && !readStored(THEME_KEY, THEMES, null)) {
+        setThemeState(serverPrefs.theme);
+      }
+    },
+    [routeLanguage]
+  );
 
   const t = useCallback(
     (key, vars) => translate(language, key, vars),
@@ -156,13 +205,14 @@ export function I18nProvider({ children }) {
       dir: dirFor(language),
       theme,
       t,
+      href,
       setLanguage,
       toggleLanguage,
       setTheme,
       cycleTheme,
       hydrateFromServer,
     }),
-    [language, theme, t, setLanguage, toggleLanguage, setTheme, cycleTheme, hydrateFromServer]
+    [language, theme, t, href, setLanguage, toggleLanguage, setTheme, cycleTheme, hydrateFromServer]
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

@@ -1,11 +1,9 @@
-// The public pages. The group exists so the canonical and Open Graph URL of
-// the home page can be declared here (app/page.js is a client component and
-// cannot export metadata) without the root layout stamping a canonical onto
-// the noindex application routes. Nested layouts override per page.
-export const metadata = {
-  alternates: { canonical: "/" },
-  openGraph: { url: "/" },
-};
+import { marketingMetadata } from "@/lib/marketingMeta";
+
+// The public pages, Arabic at the root and English under /en/. This layout
+// carries the Arabic home metadata (app/page.js is a client component and
+// cannot export any); every other page overrides it in its own layout.
+export const metadata = marketingMetadata("/", "ar");
 
 export default function MarketingLayout({ children }) {
   return children;

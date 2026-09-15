@@ -46,21 +46,39 @@ class CrawlerFileTests(SimpleTestCase):
         self.assertIn("Disallow: /api/", body)
         self.assertIn("Disallow: /dashboard/", body)
 
-    def test_sitemap_lists_only_canonical_public_pages(self):
+    def test_sitemap_lists_both_languages_of_every_public_page(self):
         response, body = self._get("sitemap.xml")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/xml")
         for path in ("/", "/product/", "/pricing/", "/register/"):
             self.assertIn(f"<loc>https://vezano.app{path}</loc>", body)
+            self.assertIn(f"<loc>https://vezano.app/en{path}</loc>", body)
+            self.assertIn(f'hreflang="en" href="https://vezano.app/en{path}"', body)
         self.assertNotIn("enterprise.vezano.app", body)
         self.assertNotIn("/dashboard/", body)
+
+    def test_english_edition_is_exported_in_english(self):
+        for page, expected in (
+            ("en/index.html", "https://vezano.app/en/"),
+            ("en/pricing/index.html", "https://vezano.app/en/pricing/"),
+        ):
+            html = (FRONTEND_DIST / page).read_text()
+            self.assertIn('<html lang="en" dir="ltr"', html, page)
+            self.assertIn(f'<link rel="canonical" href="{expected}"', html, page)
+            arabic = expected.replace("/en/", "/")
+            self.assertIn(f'hrefLang="ar" href="{arabic}"', html, page)
+            self.assertIn(f'hrefLang="x-default" href="{arabic}"', html, page)
+            self.assertIn('property="og:locale" content="en_US"', html, page)
+            self.assertNotIn("noindex", html, page)
 
     def test_marketing_pages_carry_canonical_and_app_pages_noindex(self):
         public = ("index.html", "pricing/index.html", "product/index.html", "register/index.html")
         for page in public:
             html = (FRONTEND_DIST / page).read_text()
             expected = "https://vezano.app/" + page.replace("index.html", "")
+            self.assertIn('<html lang="ar" dir="rtl"', html, page)
             self.assertIn(f'<link rel="canonical" href="{expected}"', html, page)
+            self.assertIn(f'hrefLang="en" href="{expected.replace("app/", "app/en/")}"', html, page)
             self.assertNotIn("noindex", html, page)
         for page in ("login/index.html", "dashboard/index.html"):
             html = (FRONTEND_DIST / page).read_text()

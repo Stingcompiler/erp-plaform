@@ -7,6 +7,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { useI18n } from "@/app/providers/I18nProvider";
+
 import LandingPage from "@/components/landing/LandingPage";
 import JsonLd from "@/components/seo/JsonLd";
 import { homeFaqJsonLd } from "@/lib/seo";
@@ -14,6 +16,7 @@ import { cachedDeploymentMode, fetchDeploymentMode } from "@/lib/deploymentMode"
 
 export default function Home() {
   const router = useRouter();
+  const { language } = useI18n();
   const [mode, setMode] = useState(cachedDeploymentMode());
 
   useEffect(() => {
@@ -29,9 +32,9 @@ export default function Home() {
   if (mode === "standalone") return null;
   return (
     <>
-      {/* The FAQ block is pre-rendered into out/index.html, which is what a
-          crawler reads; it lists the same questions the page shows. */}
-      <JsonLd data={homeFaqJsonLd()} />
+      {/* Pre-rendered into the exported HTML (also under /en/), which is what
+          a crawler reads; it lists the same questions the page shows. */}
+      <JsonLd data={homeFaqJsonLd(language)} />
       <LandingPage />
     </>
   );

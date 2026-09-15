@@ -53,7 +53,7 @@ const NAV_LINKS = [
 ];
 
 export function MarketingHeader() {
-  const { t } = useI18n();
+  const { t, href } = useI18n();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
 
@@ -83,7 +83,7 @@ export function MarketingHeader() {
   );
   const trial = (className) => (
     <a
-      href={DEMO_URL}
+      href={HAS_LIVE_DEMO ? DEMO_URL : href(DEMO_URL)}
       target={HAS_LIVE_DEMO ? "_blank" : undefined}
       rel={HAS_LIVE_DEMO ? "noreferrer" : undefined}
       onClick={() => setOpen(false)}
@@ -96,13 +96,13 @@ export function MarketingHeader() {
   return (
     <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/80 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-4 sm:px-6">
-        <Link href="/" className="flex shrink-0 items-center gap-2 font-display text-lg font-bold tracking-tight">
+        <Link href={href("/")} className="flex shrink-0 items-center gap-2 font-display text-lg font-bold tracking-tight">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-white"><VezanoMark size={20} /></span>
           {t("common.appName")}
         </Link>
         <nav className="hidden items-center gap-6 text-sm text-muted md:flex">
-          {NAV_LINKS.map(([href, key]) => (
-            <a key={href} href={href} className="hover:text-ink">{t(key)}</a>
+          {NAV_LINKS.map(([path, key]) => (
+            <a key={path} href={href(path)} className="hover:text-ink">{t(key)}</a>
           ))}
         </nav>
         {/* Desktop / tablet: everything inline. */}
@@ -130,10 +130,10 @@ export function MarketingHeader() {
       {open && (
         <div id="landing-menu" className="border-t border-line/70 bg-paper md:hidden">
           <nav className="mx-auto flex max-w-6xl flex-col px-4 py-2 text-base">
-            {NAV_LINKS.map(([href, key]) => (
+            {NAV_LINKS.map(([path, key]) => (
               <a
-                key={href}
-                href={href}
+                key={path}
+                href={href(path)}
                 onClick={() => setOpen(false)}
                 className="rounded-control px-2 py-3 text-ink hover:bg-surface"
               >
@@ -154,7 +154,7 @@ export function MarketingHeader() {
 }
 
 export function MarketingFooter() {
-  const { t } = useI18n();
+  const { t, href } = useI18n();
   const year = new Date().getFullYear();
   return (
     <footer className="border-t border-line bg-ink text-paper">
@@ -173,9 +173,9 @@ export function MarketingFooter() {
                 {t("landing.footerProduct")}
               </div>
               <ul className="mt-3 space-y-2 text-sm text-paper/60">
-                <li><Link href="/product" className="hover:text-paper">{t("landing.navFeatures")}</Link></li>
-                <li><Link href="/#modules" className="hover:text-paper">{t("landing.navModules")}</Link></li>
-                <li><Link href="/pricing" className="hover:text-paper">{t("landing.navPricing")}</Link></li>
+                <li><Link href={href("/product")} className="hover:text-paper">{t("landing.navFeatures")}</Link></li>
+                <li><Link href={href("/#modules")} className="hover:text-paper">{t("landing.navModules")}</Link></li>
+                <li><Link href={href("/pricing")} className="hover:text-paper">{t("landing.navPricing")}</Link></li>
                 <li><Link href="/login" className="hover:text-paper">{t("common.signIn")}</Link></li>
               </ul>
             </div>
@@ -184,7 +184,7 @@ export function MarketingFooter() {
                 {t("landing.footerCompany")}
               </div>
               <ul className="mt-3 space-y-2 text-sm text-paper/60">
-                <li><Link href="/#contact" className="hover:text-paper">{t("landing.navContact")}</Link></li>
+                <li><Link href={href("/#contact")} className="hover:text-paper">{t("landing.navContact")}</Link></li>
               </ul>
             </div>
           </div>

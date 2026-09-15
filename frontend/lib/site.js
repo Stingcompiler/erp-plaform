@@ -12,10 +12,8 @@ export const SITE_URL = "https://vezano.app";
 export const SITE_NAME = "فيزانو";
 export const SITE_NAME_LATIN = "Vezano";
 
-// Pages that exist for the public and belong in the sitemap. Trailing slashes
-// match the static export (next.config.js trailingSlash) and what Django
-// serves, so the canonical URL and the served URL are byte-identical.
-export const PUBLIC_PATHS = ["/", "/product/", "/pricing/", "/register/"];
+// The public pages themselves are listed in lib/locale.js (MARKETING_PATHS);
+// each exists in Arabic at the root and in English under /en/.
 
 // Everything else is the signed-in application (or sign-in itself) and is
 // kept out of the index: it renders nothing useful without a session, and

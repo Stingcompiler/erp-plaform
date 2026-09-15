@@ -1,8 +1,8 @@
 import { Cairo, IBM_Plex_Mono, Inter, Sora, Tajawal } from "next/font/google";
 
 import "./globals.css";
-import { I18nProvider } from "./providers/I18nProvider";
 import { AuthProvider } from "./providers/AuthProvider";
+import HtmlShell from "@/components/HtmlShell";
 import JsonLd from "@/components/seo/JsonLd";
 import { organizationJsonLd, softwareApplicationJsonLd } from "@/lib/seo";
 import { OG_IMAGE, SITE_NAME, SITE_NAME_LATIN, SITE_URL } from "@/lib/site";
@@ -37,11 +37,11 @@ const tajawal = Tajawal({
   display: "swap",
 });
 
-// Site-wide defaults. Every public route overrides title/description/canonical
-// in its own layout.js; the signed-in app and sign-in pages add noindex. The
-// copy is Arabic first because that is the document language (lang="ar")
-// and the market the platform sells into; the Latin brand name stays in the
-// title so the English brand query still matches.
+// Site-wide defaults, reached by the routes that have no metadata of their
+// own (sign-in, activation, the app — all noindex). The public pages set
+// their own title, description, canonical, hreflang and Open Graph through
+// lib/marketingMeta.js. The copy is Arabic first because that is the default
+// document language and the market the platform sells into.
 export const metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
@@ -62,24 +62,17 @@ export const metadata = {
     "Vezano",
     "ERP",
     "POS",
+    "offline point of sale",
+    "inventory management",
   ],
   openGraph: {
     type: "website",
     siteName: SITE_NAME_LATIN,
     locale: "ar_AR",
     alternateLocale: ["en_US"],
-    title: `${SITE_NAME} | نظام إدارة المبيعات والمخزون ونقطة البيع`,
-    description:
-      "نقطة بيع تعمل بلا إنترنت، مخزون بالدفعات والصلاحية، دفتر ديون العملاء، فروع متعددة. تجربة مجانية 14 يومًا.",
     images: [OG_IMAGE],
   },
-  twitter: {
-    card: "summary_large_image",
-    title: `${SITE_NAME} | نظام إدارة المبيعات والمخزون ونقطة البيع`,
-    description:
-      "نقطة بيع تعمل بلا إنترنت، مخزون بالدفعات والصلاحية، دفتر ديون العملاء، فروع متعددة. تجربة مجانية 14 يومًا.",
-    images: [OG_IMAGE.url],
-  },
+  twitter: { card: "summary_large_image", images: [OG_IMAGE.url] },
   robots: { index: true, follow: true },
   category: "business",
   // Installable app: the manifest is what lets a browser offer "install",
@@ -105,18 +98,9 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html
-      lang="ar"
-      dir="rtl"
-      suppressHydrationWarning
-      className={`${inter.variable} ${sora.variable} ${mono.variable} ${cairo.variable} ${tajawal.variable}`}
-    >
-      <body>
-        <JsonLd data={[organizationJsonLd(), softwareApplicationJsonLd()]} />
-        <I18nProvider>
-          <AuthProvider>{children}</AuthProvider>
-        </I18nProvider>
-      </body>
-    </html>
+    <HtmlShell className={`${inter.variable} ${sora.variable} ${mono.variable} ${cairo.variable} ${tajawal.variable}`}>
+      <JsonLd data={[organizationJsonLd(), softwareApplicationJsonLd()]} />
+      <AuthProvider>{children}</AuthProvider>
+    </HtmlShell>
   );
 }
