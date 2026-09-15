@@ -26,6 +26,13 @@ const PRECACHE_PAGES = ["/", "/login/", "/dashboard/", "/sales/", "/inventory/",
 // and icons — filled in at build time from the export.
 const PRECACHE_ASSETS = __PRECACHE_ASSETS__;
 const NAVIGATION_TIMEOUT_MS = 3000;
+// Django stamps `Vary: Accept-Language, Origin` on every response, and the
+// Cache API honours Vary: a chunk stored by the worker's own fetch would
+// then only match a page request carrying byte-identical Accept-Language
+// and Origin headers — which a font (CORS, sends Origin) or a browser with
+// a different language list never does. The shell cache is keyed by URL
+// and every URL is content-hashed, so Vary carries no information here.
+const MATCH = { ignoreVary: true };
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -69,7 +76,7 @@ self.addEventListener("fetch", (event) => {
 
 async function cacheFirst(request) {
   const cache = await caches.open(CACHE);
-  const hit = await cache.match(request);
+  const hit = await cache.match(request, MATCH);
   if (hit) return hit;
   const response = await fetch(request);
   if (response.ok) cache.put(request, response.clone());
@@ -97,7 +104,7 @@ async function networkFirst(request) {
     const url = new URL(request.url);
     const variants = [url.pathname, url.pathname.replace(/\/?$/, "/"), "/sales/", "/dashboard/"];
     for (const path of variants) {
-      const hit = await cache.match(new Request(new URL(path, url.origin)));
+      const hit = await cache.match(new Request(new URL(path, url.origin)), MATCH);
       if (hit) return hit;
     }
     return new Response(
@@ -110,7 +117,7 @@ async function networkFirst(request) {
 
 async function staleWhileRevalidate(request) {
   const cache = await caches.open(CACHE);
-  const hit = await cache.match(request);
+  const hit = await cache.match(request, MATCH);
   const refresh = fetch(request)
     .then((response) => { if (response.ok) cache.put(request, response.clone()); return response; })
     .catch(() => null);
