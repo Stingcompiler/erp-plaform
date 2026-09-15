@@ -266,7 +266,7 @@ export const GUIDES = [
         {
           heading: "٣ · قسّم الديون بعمرها لا بحجمها",
           paragraphs: [
-            "الدين الكبير الحديث أقل خطرًا من الدين الصغير القديم. رتّب الأرصدة في أربع فئات: أقل من 30 يومًا، 30 إلى 60، 60 إلى 90، وأكثر من 90. الفئة الأولى لا تحتاج شيئًا سوى الكشف الشهري. الثانية تحتاج رسالة ودّية. الثالثة مكالمة. الرابعة إيقاف البيع الآجل حتى تسوية جزئية.",
+            "الدين الكبير الحديث أقل خطرًا من الدين الصغير القديم. رتّب المستحقات بعدد الأيام بعد تاريخ استحقاقها في أربع فئات: من 1 إلى 30 يومًا، من 31 إلى 60، من 61 إلى 90، وأكثر من 90. الفئة الأولى لا تحتاج شيئًا سوى الكشف الشهري. الثانية تحتاج رسالة ودّية. الثالثة مكالمة. الرابعة إيقاف البيع الآجل حتى تسوية جزئية.",
             "هذا التقسيم يحوّل التحصيل من مهمة عامة مزعجة إلى قائمة قصيرة محددة كل أسبوع: من انتقل إلى الفئة الثانية أو الثالثة هذا الأسبوع؟ هؤلاء فقط من تتصل بهم.",
           ],
         },
@@ -317,7 +317,7 @@ export const GUIDES = [
         {
           heading: "3 · Sort debts by age, not by size",
           paragraphs: [
-            "A large recent debt is less risky than a small old one. Arrange balances in four bands: under 30 days, 30 to 60, 60 to 90, and over 90. The first band needs nothing but the monthly statement. The second needs a friendly message. The third a phone call. The fourth a pause on credit sales until a partial settlement.",
+            "A large recent debt is less risky than a small old one. Arrange outstanding amounts by days past their due date in four bands: 1 to 30 days, 31 to 60, 61 to 90, and over 90. The first band needs nothing but the monthly statement. The second needs a friendly message. The third a phone call. The fourth a pause on credit sales until a partial settlement.",
             "This banding turns collection from a vague, unpleasant chore into a short, specific weekly list: who moved into the second or third band this week? Those are the only people you call.",
           ],
         },

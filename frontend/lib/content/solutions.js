@@ -208,86 +208,138 @@ export const SOLUTIONS = [
     slug: "customer-debts",
     shot: "debts",
     ar: {
-      title: "دفتر ديون العملاء وكشوف الحساب",
-      metaTitle: "برنامج ديون العملاء — كشف حساب، أعمار الديون، ودفعات جزئية",
+      title: "دفتر ديون العملاء",
+      metaTitle: "دفتر ديون العملاء — كشف حساب برصيد متحرك، أعمار الديون، وسداد موثّق",
       description:
-        "دفتر ديون رقمي لكل عميل: البيع الآجل والدفعات الجزئية والمرتجعات في حساب واحد، كشف حساب يُطبع بنقرة، وأعمار الديون على لوحة المالك كل صباح.",
+        "دفتر ديون رقمي يشتق رصيد كل عميل من فواتيره ودفعاته وإشعاراته الدائنة، لا من رقم يُكتب باليد: كشف حساب لأي فترة برصيد افتتاحي وختامي، أعمار الديون بعد تاريخ الاستحقاق، سداد نقدي أو بتحويل بنكي موثّق، وتنبيه على اللوحة بمن تأخر.",
       lead:
-        "البيع الآجل جزء من التجارة في أسواقنا، والمشكلة ليست في أن تبيع بالدين بل في ألا تعرف من يدين لك بكم ومنذ متى. الدفتر الورقي يجيب عن السؤال الأول بصعوبة ولا يجيب عن الثاني أبدًا.",
+        "البيع الآجل جزء من التجارة في أسواقنا، والمشكلة ليست في أن تبيع بالدين بل في ألا تعرف من يدين لك بكم ومنذ متى، وألا تملك ورقة تحسم الخلاف حين يقول العميل «دفعتها». دفتر الديون في فيزانو يجيب عن الأسئلة الثلاثة من المستندات نفسها.",
       sections: [
         {
-          heading: "حساب واحد لكل عميل",
+          heading: "كيف يولد الدين",
           body:
-            "كل فاتورة آجلة تُقيَّد على العميل، وكل دفعة تُخصم منها، وكل مرتجع يُرد إلى حسابه. الرصيد الحالي نتيجة هذه القيود لا رقمًا يُكتب باليد. كشف الحساب يعرض التسلسل كاملًا ويُطبع بالعربية أو الإنجليزية بنقرة واحدة.",
+            "الدين يبدأ فاتورة آجلة على عميل مسجّل، لا على «زبون» مجهول. عند البيع تختار العميل وتحدد شروط السداد بالأيام، فيحسب النظام تاريخ الاستحقاق تلقائيًا. هذا التاريخ هو ما يُقاس عليه التأخر لاحقًا، لا تاريخ الفاتورة.",
           bullets: [
-            "بيع آجل من نقطة البيع مباشرة على حساب العميل",
-            "دفعات نقدية أو تحويل بنكي بمرجع وإثبات، أو تسوية جزئية",
-            "المرتجعات تصدر إشعار دائن مرقّمًا يُخصم من الرصيد",
+            "بيع آجل من نقطة البيع مباشرة، والفاتورة تُقيَّد على حساب العميل فورًا",
+            "شروط سداد بالأيام لكل فاتورة، وتاريخ استحقاق يُشتق منها",
+            "لا بيع آجل بلا عميل محدد، فلا يضيع دين في فاتورة مجهولة",
           ],
+        },
+        {
+          heading: "ما تراه في شاشة الديون",
+          body:
+            "ثلاثة أرقام أعلى الشاشة تلخص الوضع: إجمالي المستحق على العملاء، الجزء المتأخر منه عن موعده، والأرصدة الدائنة التي لهم عندك. تحتها قائمة المدينين بالبحث بالاسم أو الهاتف، ورصيد كل عميل أمامه. اختيار عميل يفتح كشف حسابه في الصفحة نفسها.",
+        },
+        {
+          heading: "كشف الحساب: كل حركة بمستندها",
+          body:
+            "الكشف لأي فترة تختارها، يبدأ برصيد افتتاحي هو نتيجة كل ما سبق الفترة، ثم يعرض كل حركة بتاريخها ومرجعها: الفاتورة في خانة المدين، والدفعة أو الإشعار الدائن في خانة الدائن، ورصيد متحرك بعد كل سطر، وينتهي برصيد ختامي. لا يوجد حقل رصيد يُعدَّل باليد في أي مكان؛ الرصيد دائمًا حاصل جمع المستندات، فإن اختلف العميل معك تعودان إلى الفاتورة أو الدفعة بعينها.",
+          bullets: [
+            "رصيد افتتاحي وختامي للفترة، ورصيد متحرك بعد كل حركة",
+            "ثلاثة أنواع حركات فقط: فاتورة، دفعة، إشعار دائن، ولكل منها رقم مرجعي",
+            "ما تراه على الشاشة هو ما يُطبع، من المصدر نفسه",
+          ],
+        },
+        {
+          heading: "تسجيل السداد",
+          body:
+            "الدفعة تُسجَّل على الفاتورة نقدًا أو تحويلًا بنكيًا. التحويل يحمل اسم بنك المرسل وآخر أربعة أرقام من مرجعه والحساب البنكي للشركة الذي استقبله، فتُطابقه مع كشف البنك لاحقًا. الدفعة الجزئية تُخصم ويبقى الباقي مستحقًا بتاريخ استحقاقه الأصلي. كل دفعة تحمل من سجّلها ومتى.",
+          bullets: [
+            "نقد أو تحويل بنكي بمرجع وحساب مستلم",
+            "دفعات جزئية بلا حد لعددها",
+            "الدفعة التي تتجاوز حد الاعتماد الذي تحدده الشركة تحتاج تحقق مالك أو مدير عام أو مدير مالي",
+          ],
+        },
+        {
+          heading: "التخفيض الموثّق، لا الحذف",
+          body:
+            "المرتجع يصدر إشعارًا دائنًا مرقّمًا يُخصم من حساب العميل مرة واحدة. الحركة المالية المسجّلة لا تُعدَّل ولا تُحذف؛ الخطأ يُصحَّح بحركة مقابلة مرتبطة بالأصل. لهذا يبقى الكشف صالحًا كدليل: كل سطر فيه له مستند، وكل مستند له صاحب في سجل التدقيق.",
         },
         {
           heading: "من تأخر ومنذ متى",
           body:
-            "تقرير أعمار الديون يقسّم كل رصيد حسب مدته: أقل من 30 يومًا، 30 إلى 60، 60 إلى 90، وأكثر. الأرصدة المتأخرة تظهر على لوحة المالك تلقائيًا، فتعرف أين تركّز جهد التحصيل هذا الأسبوع دون أن تفتح تقريرًا.",
+            "تقرير أعمار الديون يصنّف كل مستحق بعدد الأيام بعد تاريخ استحقاقه: من 1 إلى 30 يومًا، من 31 إلى 60، من 61 إلى 90، وأكثر من 90. والفاتورة التي تجاوزت موعدها للتو تظهر في تنبيهات لوحة المالك في اليوم نفسه، فتعرف من تتصل به هذا الأسبوع دون أن تفتح تقريرًا.",
         },
         {
-          heading: "اعتماد الدفعات الكبيرة",
+          heading: "الفروع والصلاحيات",
           body:
-            "تسجيل المال واعتماده مسؤوليتان منفصلتان. الدفعة التي تتجاوز حدًا تحدده الشركة تحتاج اعتماد المالك أو المدير العام أو المدير المالي قبل أن تؤثر في الرصيد. الكاشير يسجّل، والمسؤول يعتمد، وسجل التدقيق يحفظ من فعل ماذا.",
-        },
-        {
-          heading: "مجموعات العملاء والمتابعة",
-          body:
-            "صنّف عملاءك في مجموعات، وسجّل الملاحظات والمتابعات لفريق المبيعات، وتابع العملاء المحتملين قبل أن يصبحوا عملاء. الموردون لهم الدفتر نفسه في الاتجاه المعاكس: ما تدين به ومتى يستحق.",
+            "مستخدم الفرع يرى ديون فرعه فقط، والمالك والمدير العام يريان الشركة كلها. حتى عرض كشف الحساب يُسجَّل في سجل التدقيق بمن عرضه ومتى. الموردون لهم الدفتر نفسه في الاتجاه المعاكس: ما تدين به لكل مورد وأعمار ذلك الدين.",
         },
       ],
       faq: [
-        ["هل يمكن للكاشير أن يبيع بالدين لأي عميل؟", "البيع الآجل يتطلب اختيار عميل مسجّل، ويمكن تقييد الصلاحية بحسب الدور. الفاتورة تُقيَّد على حسابه فورًا وتظهر في كشفه."],
-        ["كيف أرسل كشف الحساب للعميل؟", "كشف الحساب يُطبع أو يُحفظ كملف بالعربية أو الإنجليزية من صفحة العميل، مع كل الفواتير والدفعات والمرتجعات بالترتيب."],
-        ["ماذا لو دفع العميل جزءًا من المبلغ؟", "تُسجَّل دفعة جزئية على حسابه ويبقى الباقي مستحقًا ويظهر في أعمار الديون بتاريخ الفاتورة الأصلي."],
-        ["هل يمكن إلغاء فاتورة آجلة بعد تسجيلها؟", "لا شيء يُلغى في صمت. المرتجع أو التصحيح يصدر إشعار دائن مرقّمًا يُخصم من حساب العميل، ويبقى الأثر كاملًا في السجل."],
+        ["هل يمكن للكاشير أن يبيع بالدين لأي عميل؟", "البيع الآجل يتطلب اختيار عميل مسجّل بالاسم والهاتف، ويمكن حصر الصلاحية بحسب الدور. الفاتورة تُقيَّد على حسابه فورًا وتظهر في كشفه بتاريخ استحقاقها."],
+        ["كيف أُري العميل كشف حسابه؟", "افتح كشفه لأي فترة من شاشة الديون واطبعه من المتصفح، أو اعرضه على الشاشة أمامه. كل سطر فيه يحمل رقم الفاتورة أو الدفعة، فالخلاف يُحسم بالمستند لا بالذاكرة."],
+        ["ماذا لو دفع العميل جزءًا من المبلغ؟", "تُسجَّل دفعة جزئية على الفاتورة ويبقى الباقي مستحقًا بتاريخ الاستحقاق الأصلي، فيظهر في أعمار الديون بعمره الحقيقي لا من تاريخ آخر دفعة."],
+        ["هل يمكن إلغاء فاتورة آجلة بعد تسجيلها؟", "لا شيء يُلغى في صمت. المرتجع أو التصحيح يصدر إشعار دائن مرقّمًا يُخصم من حساب العميل، ويبقى الأثر كاملًا في الكشف وسجل التدقيق."],
+        ["هل للموردين دفتر مماثل؟", "نعم. لكل مورد رصيد وأعمار مستحقات، ودفعات الموردين تخضع لقواعد الاعتماد نفسها التي تخضع لها دفعات العملاء الكبيرة."],
       ],
       cta: "انقل دفتر ديونك إلى فيزانو",
     },
     en: {
-      title: "Customer debt ledger and statements",
-      metaTitle: "Customer debt software — statements, ageing and partial payments",
+      title: "Customer debt ledger",
+      metaTitle: "Customer debt ledger — running-balance statements, ageing and documented payments",
       description:
-        "A digital debt ledger per customer: credit sales, partial payments and returns in one account, a statement printed in one click, and receivables ageing on the owner's dashboard every morning.",
+        "A digital debt ledger that derives every customer's balance from their invoices, payments and credit notes, not from a hand-written number: a statement for any period with opening and closing balances, ageing past the due date, cash or documented bank-transfer payments, and a dashboard alert for who is late.",
       lead:
-        "Selling on credit is part of trade in our markets. The problem is not selling on credit; it is not knowing who owes you how much and since when. A paper ledger answers the first question with difficulty and never answers the second.",
+        "Selling on credit is part of trade in our markets. The problem is not selling on credit; it is not knowing who owes you how much and since when, and having no document to settle it when the customer says \"I paid that\". The debt ledger in Vezano answers all three from the documents themselves.",
       sections: [
         {
-          heading: "One account per customer",
+          heading: "How a debt is born",
           body:
-            "Every credit invoice is posted to the customer, every payment is deducted, every return is credited back. The current balance is the result of those entries, not a number written by hand. The statement shows the full sequence and prints in Arabic or English in one click.",
+            "A debt starts as a credit invoice on a registered customer, never on an anonymous walk-in. At the sale you pick the customer and set payment terms in days, and the system derives the due date. That due date, not the invoice date, is what lateness is measured against later.",
           bullets: [
-            "Credit sales straight from the point of sale onto the customer's account",
-            "Cash or bank-transfer payments with a reference and proof, or partial settlement",
-            "Returns issue a numbered credit note that reduces the balance",
+            "Credit sales straight from the point of sale, posted to the customer's account at once",
+            "Payment terms in days per invoice, with the due date derived from them",
+            "No credit sale without a named customer, so no debt is lost in an anonymous receipt",
           ],
+        },
+        {
+          heading: "What the debts screen shows",
+          body:
+            "Three figures at the top summarise the position: the total owed by customers, the part of it that is past due, and the credit balances customers hold with you. Below them, the list of debtors, searchable by name or phone, each with their balance. Choosing a customer opens their statement on the same page.",
+        },
+        {
+          heading: "The statement: every movement with its document",
+          body:
+            "The statement covers any period you choose. It opens with an opening balance, the result of everything before the period, then lists each movement with its date and reference: the invoice in the debit column, the payment or credit note in the credit column, a running balance after every line, and a closing balance at the end. There is no editable balance field anywhere; the balance is always the sum of the documents, so a dispute goes back to the specific invoice or payment.",
+          bullets: [
+            "Opening and closing balances for the period, and a running balance after each movement",
+            "Only three kinds of movement: invoice, payment, credit note, each with a reference number",
+            "What you see on screen is what prints, from the same source",
+          ],
+        },
+        {
+          heading: "Recording a payment",
+          body:
+            "A payment is recorded against the invoice in cash or by bank transfer. A transfer carries the sender's bank, the last four digits of its reference and the company bank account that received it, so you can match it to the bank statement later. A partial payment is deducted and the remainder stays due under its original due date. Every payment carries who recorded it and when.",
+          bullets: [
+            "Cash or bank transfer with a reference and a receiving account",
+            "Partial payments, as many as needed",
+            "A payment above the approval threshold the company sets needs verification by the owner, general manager or CFO",
+          ],
+        },
+        {
+          heading: "Documented reduction, never deletion",
+          body:
+            "A return issues a numbered credit note that reduces the customer's account exactly once. A recorded financial movement is never edited or deleted; a mistake is corrected by a counter-movement linked to the original. That is why the statement remains valid as evidence: every line has a document, and every document has an author in the audit log.",
         },
         {
           heading: "Who is late, and since when",
           body:
-            "The ageing report splits every balance by how long it has been outstanding: under 30 days, 30 to 60, 60 to 90, and beyond. Overdue balances appear on the owner's dashboard automatically, so you know where to focus this week's collection effort without opening a report.",
+            "The ageing report sorts every outstanding amount by days past its due date: 1 to 30, 31 to 60, 61 to 90, and over 90. An invoice that has just passed its due date appears in the owner's dashboard alerts the same day, so you know who to call this week without opening a report.",
         },
         {
-          heading: "Approval for large payments",
+          heading: "Branches and permissions",
           body:
-            "Recording money and authorising it are separate responsibilities. A payment above a threshold the company sets needs approval from the owner, general manager or CFO before it affects the balance. The cashier records, the manager approves, and the audit log keeps who did what.",
-        },
-        {
-          heading: "Customer groups and follow-up",
-          body:
-            "Group your customers, keep notes and follow-ups for the sales team, and track prospects before they become customers. Suppliers get the same ledger in reverse: what you owe and when it falls due.",
+            "A branch user sees only their branch's debts; the owner and general manager see the whole company. Even viewing a statement is written to the audit log with who viewed it and when. Suppliers get the same ledger in reverse: what you owe each supplier and how old that debt is.",
         },
       ],
       faq: [
-        ["Can the cashier sell on credit to anyone?", "A credit sale requires choosing a registered customer, and the permission can be limited by role. The invoice is posted to their account immediately and appears on their statement."],
-        ["How do I send a customer their statement?", "The statement prints or saves as a file in Arabic or English from the customer's page, with every invoice, payment and return in order."],
-        ["What if a customer pays part of the amount?", "A partial payment is recorded against the account; the remainder stays outstanding and appears in ageing under the original invoice date."],
-        ["Can a credit invoice be cancelled after it is recorded?", "Nothing is cancelled silently. A return or correction issues a numbered credit note that reduces the customer's account, and the full trail stays in the log."],
+        ["Can the cashier sell on credit to anyone?", "A credit sale requires choosing a registered customer with a name and phone, and the permission can be limited by role. The invoice is posted to their account at once and appears on their statement with its due date."],
+        ["How do I show a customer their statement?", "Open their statement for any period from the debts screen and print it from the browser, or show it on screen in front of them. Every line carries the invoice or payment number, so a dispute is settled by the document, not by memory."],
+        ["What if a customer pays part of the amount?", "A partial payment is recorded against the invoice and the remainder stays due under the original due date, so it appears in ageing at its true age, not from the date of the last payment."],
+        ["Can a credit invoice be cancelled after it is recorded?", "Nothing is cancelled silently. A return or correction issues a numbered credit note that reduces the customer's account, and the full trail stays in the statement and the audit log."],
+        ["Is there the same ledger for suppliers?", "Yes. Every supplier has a balance and an ageing of what is owed, and supplier payments follow the same approval rules as large customer payments."],
       ],
       cta: "Move your debt ledger into Vezano",
     },
