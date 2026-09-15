@@ -21,7 +21,9 @@ from sales.models import Invoice
 
 def login_client(user, password):
     client = APIClient()
-    response = client.post(reverse("auth-login"), {"email": user.email, "password": password}, format="json")
+    response = client.post(
+        reverse("auth-login"), {"email": user.email, "password": password}, format="json"
+    )
     assert response.status_code == 200, response.data
     return client
 
@@ -30,10 +32,15 @@ class CompanyTimezoneTests(APITestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Khartoum Shop", timezone="Africa/Khartoum")
         self.branch = Branch.objects.create(company=self.company, name="Main", code="MAIN")
-        self.warehouse = Warehouse.objects.create(company=self.company, branch=self.branch, name="W")
-        role, _ = Role.objects.get_or_create(name="Business Owner", defaults={"scope_level": Role.SCOPE_BUSINESS})
+        self.warehouse = Warehouse.objects.create(
+            company=self.company, branch=self.branch, name="W"
+        )
+        role, _ = Role.objects.get_or_create(
+            name="Business Owner", defaults={"scope_level": Role.SCOPE_BUSINESS}
+        )
         self.owner = User.objects.create_user(
-            email="owner@khartoum.test", password="passw0rd123", company=self.company, branch=self.branch, role=role,
+            email="owner@khartoum.test", password="passw0rd123",
+            company=self.company, branch=self.branch, role=role,
         )
 
     def test_default_zone_is_khartoum_and_validated(self):
@@ -58,7 +65,9 @@ class CompanyTimezoneTests(APITestCase):
         # = 23:00 UTC the previous day.
         khartoum = ZoneInfo("Africa/Khartoum")
         today_local = timezone.now().astimezone(khartoum).date()
-        sold_at = timezone.datetime(today_local.year, today_local.month, today_local.day, 1, 0, tzinfo=khartoum)
+        sold_at = timezone.datetime(
+            today_local.year, today_local.month, today_local.day, 1, 0, tzinfo=khartoum
+        )
         if sold_at > timezone.now():
             sold_at -= timedelta(days=1)
             today_local -= timedelta(days=1)
@@ -72,7 +81,8 @@ class CompanyTimezoneTests(APITestCase):
         # Only meaningful when the UTC date differs; assert on the company calendar.
         self.assertEqual(sold_at.astimezone(khartoum).date(), today_local)
         if sold_at.astimezone(ZoneInfo("UTC")).date() != today_local:
-            self.assertEqual(Decimal(response.data["sections"]["sales"]["today_total"]), Decimal("40"))
+            total = Decimal(response.data["sections"]["sales"]["today_total"])
+            self.assertEqual(total, Decimal("40"))
 
     def test_zone_does_not_leak_between_requests(self):
         activate_for_user(self.owner)

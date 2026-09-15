@@ -129,7 +129,11 @@ class CompanyProfileView(APIView):
                     )
                 if field == "timezone" and not is_valid_timezone(value):
                     return Response(
-                        {"timezone": "Unknown time zone; use an IANA name such as Africa/Khartoum."},
+                        {
+                            "timezone": (
+                                "Unknown time zone; use an IANA name such as Africa/Khartoum."
+                            )
+                        },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 setattr(company, field, value)
