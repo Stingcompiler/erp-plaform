@@ -1,10 +1,10 @@
-# Handoff — where the work stands (2026-09-16, after PR #47)
+# Handoff — where the work stands (2026-09-16, after PR #50)
 
 Read this first in a new session. It is the human-readable copy of the
 session memory (`~/.claude/projects/.../memory/`), which the assistant loads
 automatically; this file is the copy that lives with the code.
 
-## State on 2026-09-16 (PRs #30–#47)
+## State on 2026-09-16 (PRs #30–#50)
 
 | Area | What landed | Where |
 |---|---|---|
@@ -18,6 +18,9 @@ automatically; this file is the copy that lives with the code.
 | Directory cards + services (#45) | `/s/` shows a card for every listed site (placeholder cover in the company colour + initial mark when images are missing; complete sites first); `Website.services` (≤6 lines, ≤60 chars) edited under "ماذا تقدّم", shown as chips on the card and as a strip under the hero; falls back to featured product names; part of completeness | `website/public_pages.py` `site_card()`, `templates/website/public_directory.html`, `website/models.py` `service_lines()` |
 | Phone + WhatsApp links (#46) | `PhoneLink` renders any phone as `tel:` + a WhatsApp badge (`lib/phone.js`: `+`/`00` trusted, local `0…` completed with the country's dialling code, SD default). On registration requests (phone now shown, with the request's country), subscriptions (`company_phone`), debts, suppliers, branches, party records | `components/ui/PhoneLink.jsx`, `lib/phone.js`, `tests/phone.test.mjs` |
 | Demo requests with phone (#47) | `PlatformLead.phone` + `preferred_channel` (whatsapp default), email optional; public form needs phone or email; landing copy rewritten around the walkthrough; inbox shows call/WhatsApp + "prefers" badge | `website/models.py`, `website/serializers.py` `DemoRequestSerializer`, `components/landing/LandingPage.jsx` |
+| Platform contact on the site (#48) | `SeoSettings.support_whatsapp/phone/email` edited on `/platform-seo`; `GET /api/public/site-contact/` (5-min cache); floating WhatsApp button, footer lines and a direct link under the walkthrough form; nothing injected into the export | `website/seo_views.py` `PublicSiteContactView`, `components/marketing/SiteContact.jsx` |
+| Follow-ups (#49) | `FollowUpMixin` on leads + registrations (last contact, next follow-up, note); `POST …/contact/` logs `contact` activity from the call/WhatsApp/email links; `?due=1`; badges count due follow-ups; `FollowUpPanel` on both cards | `website/followups.py`, `components/platform/FollowUpPanel.jsx` |
+| Media health (#50) | `stored_public_url()` hides images whose file is gone (placeholder + "missing" in completeness); `/api/health/` → `media: {storage: configured|ephemeral, writable, public_files}` | `core/public_media.py` |
 | SEO control page, phase A (#43) | `/platform-seo`: site-wide verification tags, GA4 id, default share image, extra robots lines; per-path overrides (title, description, noindex, canonical, per language). Django injects them into the served export's `<head>` and into `/s/` pages at request time (60 s cache). Capabilities `platform.seo.view/manage` | `core/seo_inject.py` (pure rewriter + tests), `website/seo.py` (cache), `website/seo_views.py`, `core/frontend.py`, `app/(app)/platform-seo/page.jsx` |
 
 Production: Render, domains done, Search Console verified (domain property),
@@ -26,11 +29,12 @@ home indexed. Both sitemaps live. First real company page: `/s/nwafih/`
 
 ## Open threads (next session starts here)
 
-1. PRs #43 (SEO phase A), #44 (sign-in/presence), #45 (directory cards + services), #46 (call + WhatsApp links) and #47 (demo requests with phone + preferred channel) merged and verified on production 2026-09-16. Owner asked for both on 2026-09-16 after seeing "never signed in" on the team page and a text-only entry for نوافح in the directory. Nwafih's owner can now fill "ماذا تقدّم" in the site editor; until then the card shows the featured product names.
+1. PRs #43 (SEO phase A), #44 (sign-in/presence), #45 (directory cards + services), #46 (call + WhatsApp links) #47 (demo requests with phone + preferred channel), #48 (platform contact on the site), #49 (follow-ups) and #50 (media health) merged and verified on production 2026-09-16. Owner asked for both on 2026-09-16 after seeing "never signed in" on the team page and a text-only entry for نوافح in the directory. Nwafih's owner can now fill "ماذا تقدّم" in the site editor; until then the card shows the featured product names.
 2. **SEO admin, next phases** — not built: (B) a health dashboard on `/platform-seo` (public paths without overrides, store pages incomplete or opted out, sitemap counts, last deploy time); (C) a redirect manager (old path → new, 301) applied before the catch-all in `config/urls.py`. Editing solution/guide content from the UI stays out of scope (it lives in `lib/content/*`). To add an injected tag: extend `core/seo_inject.py` and its tests, then the `_seo_site.html` include for `/s/` pages.
 3. Owner actions still pending: R2 for media backups (now more important: store images live on the Render disk), Sentry, outbound email, VPS for standalone phase C, flip `SUBSCRIPTION_POLICY` observe → enforce.
-4. **Contact model, remaining gaps** (assessment 2026-09-16, owner has the list): (2) platform's own WhatsApp number on the marketing site, configurable from the console; (3) notes + next follow-up date on leads/registrations, log call/WhatsApp clicks as `contact` activity, attention badge for overdue follow-ups; (4) outbound sending — email provider (Resend/SES) for confirmations, activation links and invoices; WhatsApp Cloud API later. Needs the owner's pick and, for (4), an account.
-5. Store-page plan phases 1–4 are done; a custom domain per company page is on the roadmap (needs Render domain slots or a proxy).
+4. **Contact model — only outbound sending remains**: email provider (Resend/SES) for confirmations, activation links and invoices; WhatsApp Cloud API later. Needs the owner's pick and an account. Items 1–3 shipped (#47–#49).
+5. **Media on production**: after #50, `/api/health/` reports `media.storage = "configured"`, `writable = true`, `public_files = 0` — MEDIA_ROOT (`/var/data/media/`) is right now, but the نوافح cover/logo uploaded earlier are gone (404), so the card shows the placeholder. Owner re-uploads from the site editor; watch `public_files` grow and survive the next deploy. R2 backups still pending.
+6. Store-page plan phases 1–4 are done; a custom domain per company page is on the roadmap (needs Render domain slots or a proxy).
 
 ## How to continue in a fresh session
 
