@@ -42,16 +42,55 @@ def site_url(path=""):
     return f"https://{settings.VEZANO_CANONICAL_HOST}{path}"
 
 
+def absolute(url, request=None):
+    """Media URLs are site-relative; crawlers, Open Graph and JSON-LD need
+    absolute ones. On the canonical host in production; on whatever host is
+    serving in development so a local page shows its images."""
+    if not url or not url.startswith("/"):
+        return url
+    if settings.DEBUG and request is not None:
+        return request.build_absolute_uri(url)
+    return site_url(url)
+
+
+CATEGORY_LABELS = {
+    "ar": {
+        "grocery": "مواد غذائية",
+        "pharmacy": "صيدلية",
+        "wholesale": "جملة وتوزيع",
+        "electronics": "إلكترونيات",
+        "fashion": "أزياء وملابس",
+        "cosmetics": "تجميل وعطور",
+        "hardware": "عدد ومواد بناء",
+        "restaurant": "مطعم ومقهى",
+        "services": "خدمات",
+        "other": "أخرى",
+    },
+}
+
+
 def public_site_path(slug):
     return f"/s/{slug}/"
 
 
 def published_sites():
+    """Sites that are published *and* agreed to be listed. The page itself is
+    reachable by URL whenever it is published; the directory, the sitemap and
+    the platform's marketing sections need the merchant's consent too."""
     return (
-        Website.objects.filter(is_published=True, company__is_active=True)
+        Website.objects.filter(
+            is_published=True, company__is_active=True, list_in_directory=True
+        )
         .select_related("company")
         .order_by("business_name", "company__name")
     )
+
+
+def is_complete(site):
+    """A site with enough substance for the platform to show it off."""
+    from website.serializers import completeness
+
+    return not completeness(site)
 
 
 def _display_name(site):
@@ -94,15 +133,30 @@ def _json_ld(site, data, url, language):
         "url": url,
         "inLanguage": language,
     }
-    if data["logo_url"].startswith(("http://", "https://")):
-        business["logo"] = data["logo_url"]
-        business["image"] = data["logo_url"]
+    logo = data["logo_image_url"] or (
+        data["logo_url"] if data["logo_url"].startswith(("http://", "https://")) else ""
+    )
+    if logo:
+        business["logo"] = logo
+    images = [u for u in [data["cover_image_url"], logo] if u]
+    images += [g["url"] for g in data["gallery"]]
+    if images:
+        business["image"] = images
+    if data["opening_hours"]:
+        business["openingHours"] = _lines(data["opening_hours"])
+    if data["map_url"].startswith(("http://", "https://")):
+        business["hasMap"] = data["map_url"]
     if data["contact_phone"]:
         business["telephone"] = data["contact_phone"]
     if data["contact_email"]:
         business["email"] = data["contact_email"]
-    if data["address"]:
-        business["address"] = {"@type": "PostalAddress", "streetAddress": data["address"]}
+    if data["address"] or data["city"]:
+        address = {"@type": "PostalAddress"}
+        if data["address"]:
+            address["streetAddress"] = data["address"]
+        if data["city"]:
+            address["addressLocality"] = data["city"]
+        business["address"] = address
     same_as = [link for _, link in _social_links(data)]
     if same_as:
         business["sameAs"] = same_as
@@ -121,6 +175,7 @@ def _json_ld(site, data, url, language):
                             "name": product["name"],
                             "sku": product["sku"],
                             "description": product["caption"] or product["name"],
+                            **({"image": product["image_url"]} if product["image_url"] else {}),
                             "offers": {
                                 "@type": "Offer",
                                 "price": str(product["price"]),
@@ -138,15 +193,42 @@ def _json_ld(site, data, url, language):
     return [json.dumps(block, ensure_ascii=False).replace("<", "\\u003c") for block in blocks]
 
 
-def _sections_with_about(data):
-    """The merchant's sections; the profile's about text becomes an "about"
-    block right after the opening one when no such section exists."""
-    sections = list(data["sections"])
-    if data["about_text"] and not any(s["type"] == "about" for s in sections):
-        block = {"type": "about", "title": "", "order": 0, "content": {"text": data["about_text"]}}
-        position = 1 if sections and sections[0]["type"] == "hero" else 0
-        sections.insert(position, block)
-    return sections
+def _layout(data):
+    """Split the merchant's sections into the slots of the landing page: the
+    first hero/products/about/gallery/contact section fills its slot; any
+    further section, and every custom one, renders as a free block."""
+    slots = {"hero": None, "products": None, "about": None, "gallery": None, "contact": None}
+    custom = []
+    # The starter sections are created with English placeholder titles; an
+    # untouched one takes the page's own localised heading instead.
+    starter_titles = {"About us", "Contact", "Products", "Gallery"}
+    for section in data["sections"]:
+        if section["title"] in starter_titles:
+            section = {**section, "title": ""}
+        kind = section["type"]
+        if kind in slots and slots[kind] is None:
+            slots[kind] = section
+        else:
+            custom.append(section)
+    about = slots["about"]
+    about_text = (about["content"].get("text") if about else "") or data["about_text"]
+    return {
+        "hero": slots["hero"] or {"title": "", "content": {}},
+        "products_section": slots["products"] or {"title": "", "content": {}},
+        "about_section": about or {"title": "", "content": {}},
+        "gallery_section": slots["gallery"] or {"title": "", "content": {}},
+        "contact_section": slots["contact"] or {"title": "", "content": {}},
+        "about_text": about_text,
+        "custom_sections": [s for s in custom if s["title"] or s["content"].get("text")],
+    }
+
+
+def _lines(text):
+    return [line.strip() for line in (text or "").splitlines() if line.strip()]
+
+
+def _http_url(value):
+    return value if (value or "").startswith(("http://", "https://")) else ""
 
 
 def _site_or_404(slug):
@@ -165,10 +247,19 @@ def _site_or_404(slug):
 def public_site_page(request, slug):
     site = _site_or_404(slug)
     data = PublicSiteSerializer(site).data
+    data["cover_image_url"] = absolute(data["cover_image_url"], request)
+    data["logo_image_url"] = absolute(data["logo_image_url"], request)
+    for photo in data["gallery"]:
+        photo["url"] = absolute(photo["url"], request)
+    for product in data["featured_products"]:
+        product["image_url"] = absolute(product["image_url"], request)
     language = _language(site, data)
     url = site_url(public_site_path(slug))
     colour = data["primary_color"] if HEX_COLOUR.match(data["primary_color"] or "") else "#111827"
     whatsapp = re.sub(r"\D", "", data["contact_phone"] or "")
+    logo = data["logo_image_url"] or (
+        data["logo_url"] if data["logo_url"].startswith(("http://", "https://")) else ""
+    )
     context = {
         "site": site,
         "data": data,
@@ -178,14 +269,19 @@ def public_site_page(request, slug):
         "dir": "rtl" if language == "ar" else "ltr",
         "url": url,
         "colour": colour,
-        "logo": data["logo_url"] if data["logo_url"].startswith(("http://", "https://")) else "",
+        "logo": logo,
+        "cover": data["cover_image_url"],
+        "gallery": data["gallery"],
+        "hours": _lines(data["opening_hours"]),
+        "map_url": _http_url(data["map_url"]),
+        "category_label": CATEGORY_LABELS.get(language, {}).get(data["category"])
+        or dict(Website.CATEGORY_CHOICES).get(data["category"], ""),
         "social": _social_links(data),
         "whatsapp": whatsapp if len(whatsapp) >= 8 else "",
         "currency": site.company.currency,
         "json_ld": _json_ld(site, data, url, language),
-        "sections": _sections_with_about(data),
+        **_layout(data),
         "products": data["featured_products"],
-        "has_products_section": any(s["type"] == "products" for s in data["sections"]),
         "platform_url": site_url("/"),
         "directory_url": site_url("/s/"),
     }

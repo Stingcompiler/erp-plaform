@@ -8,6 +8,7 @@ from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
 
 from core.activity import log_activity
@@ -17,7 +18,12 @@ from core.rbac import RoleModuleAccess
 from core.scoping import CompanyScopedModelViewSet
 from org.models import Company
 from subscriptions.models import PlanVersion, Subscription, SubscriptionPayment
-from website.models import FeaturedProduct, PlatformLead, RegistrationRequest, Section, Website
+from website.images import (
+    COVER_SIDE, LOGO_SIDE, PHOTO_SIDE, clear_image, prepare_image, replace_image,
+)
+from website.models import (
+    FeaturedProduct, PlatformLead, RegistrationRequest, Section, Website, WebsiteImage,
+)
 from website.serializers import (
     FeaturedProductSerializer,
     OwnerInvitationAcceptSerializer,
@@ -27,7 +33,7 @@ from website.serializers import (
     PublicSiteSerializer,
     RegistrationRequestSerializer,
     SectionSerializer,
-    WebsiteSerializer,
+    WebsiteSerializer, WebsiteImageSerializer,
 )
 from website.services import (
     accept_owner_invitation,
@@ -395,6 +401,66 @@ class WebsiteView(APIView):
             entity_id=site.id,
         )
         return Response(serializer.data)
+
+
+class WebsiteImageUploadView(APIView):
+    """POST an `image` (multipart) to set the site's cover or logo; DELETE to
+    remove it. The file is validated, resized and stored as WebP under the
+    public media subtree (website.images)."""
+
+    permission_classes = [IsAuthenticated, RoleModuleAccess]
+    rbac_module = "website"
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    FIELDS = {"cover": ("cover_image", COVER_SIDE, False), "logo": ("logo_image", LOGO_SIDE, True)}
+
+    def _site(self, request):
+        return WebsiteView()._get_site(request)
+
+    def post(self, request, kind):
+        field, side, square = self.FIELDS[kind]
+        site = self._site(request)
+        content = prepare_image(request.FILES.get("image"), side, square=square)
+        replace_image(site, field, content)
+        log_activity(
+            action="update", request=request, entity_type="Website", entity_id=site.id,
+            metadata={"image": kind},
+        )
+        return Response(WebsiteSerializer(site, context={"request": request}).data)
+
+    def delete(self, request, kind):
+        field, _, _ = self.FIELDS[kind]
+        site = self._site(request)
+        clear_image(site, field)
+        log_activity(
+            action="update", request=request, entity_type="Website", entity_id=site.id,
+            metadata={"image": kind, "removed": True},
+        )
+        return Response(WebsiteSerializer(site, context={"request": request}).data)
+
+
+class WebsiteImageViewSet(CompanyScopedModelViewSet):
+    """Gallery photos. Create with a multipart `image`; PATCH caption/order."""
+
+    queryset = WebsiteImage.objects.select_related("website").all()
+    serializer_class = WebsiteImageSerializer
+    activity_entity_type = "WebsiteImage"
+    manager_only_delete = False
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    rbac_module = "website"
+
+    def perform_create(self, serializer):
+        content = prepare_image(self.request.FILES.get("image"), PHOTO_SIDE)
+        site = WebsiteView()._get_site(self.request)
+        # The scoped base stamps company_id and the logging mixin records the
+        # create; only the processed image and the site are added here.
+        serializer.validated_data["website"] = site
+        serializer.validated_data["image"] = content
+        super().perform_create(serializer)
+
+    def perform_destroy(self, instance):
+        if instance.image:
+            instance.image.delete(save=False)
+        super().perform_destroy(instance)
 
 
 class WebsitePublishView(APIView):

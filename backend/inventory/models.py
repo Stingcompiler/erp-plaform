@@ -104,6 +104,10 @@ class Warehouse(models.Model):
         return self.name
 
 
+def product_image_path(instance, filename):
+    return f"public/products/{instance.company_id}/{filename}"
+
+
 class Product(models.Model):
     company = models.ForeignKey(
         "org.Company", on_delete=models.CASCADE, related_name="products"
@@ -134,6 +138,10 @@ class Product(models.Model):
     # everywhere — these products simply never generate any.
     is_stock_tracked = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
+    # Shown on the company's public page when the product is featured there.
+    # Stored under MEDIA_ROOT/public/, the only media subtree served
+    # anonymously (core.public_media).
+    image = models.ImageField(upload_to=product_image_path, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

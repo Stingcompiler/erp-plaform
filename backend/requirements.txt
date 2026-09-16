@@ -15,3 +15,4 @@ cryptography>=45.0,<46.0  # Ed25519 verification for offline standalone licences
 pytest>=8.2,<8.3
 pytest-django>=4.8,<4.9
 flake8>=7.0,<7.1
+Pillow>=11.0,<12.0  # public site images: validation, resizing, WebP

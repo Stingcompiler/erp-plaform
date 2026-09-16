@@ -92,6 +92,7 @@ class ProductPackSerializer(serializers.ModelSerializer):
 
 
 class ProductSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
     on_hand = serializers.SerializerMethodField()
     # Selling units (carton, strip, sack) with their base-unit multiplier and
     # price, so the till can offer them without a second request.
@@ -109,10 +110,16 @@ class ProductSerializer(serializers.ModelSerializer):
             "barcode", "qr_code", "cost_price", "sale_price", "reorder_level",
             "track_batches", "is_stock_tracked", "is_active", "on_hand",
             "unit_name", "packs",
+            "image_url",
         ]
         read_only_fields = ["company"]
         # A house SKU is allocated when one isn't supplied — see create().
         extra_kwargs = {"sku": {"required": False, "allow_blank": True}}
+
+    def get_image_url(self, obj):
+        from core.public_media import public_media_url
+
+        return public_media_url(obj.image.name if obj.image else "")
 
     def create(self, validated_data):
         """Fill in a SKU when the caller left it blank.

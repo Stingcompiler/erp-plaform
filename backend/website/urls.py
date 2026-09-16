@@ -13,11 +13,12 @@ from website.views import (
     PublicSiteView,
     SectionViewSet,
     WebsitePublishView,
-    WebsiteView,
+    WebsiteView, WebsiteImageUploadView, WebsiteImageViewSet,
 )
 
 router = DefaultRouter()
 router.register("website/sections", SectionViewSet, basename="section")
+router.register("website/gallery", WebsiteImageViewSet, basename="website-image")
 router.register(
     "website/featured-products", FeaturedProductViewSet, basename="featuredproduct"
 )
@@ -41,6 +42,10 @@ urlpatterns = [
     ),
     path("website/page/", WebsiteView.as_view(), name="website-page"),
     path("website/page/publish/", WebsitePublishView.as_view(), name="website-publish"),
+    path(
+        "website/page/image/<str:kind>/", WebsiteImageUploadView.as_view(),
+        name="website-image",
+    ),
     # Public, unauthenticated read-only site by company slug.
     path("public/site/<slug:slug>/", PublicSiteView.as_view(), name="public-site"),
     path("", include(router.urls)),
