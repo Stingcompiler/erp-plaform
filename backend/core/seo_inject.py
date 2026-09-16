@@ -29,6 +29,9 @@ class SiteSeo:
     analytics_id: str = ""
     default_og_image_url: str = ""
     robots_extra: str = ""
+    support_whatsapp: str = ""
+    support_phone: str = ""
+    support_email: str = ""
 
     @property
     def empty(self):

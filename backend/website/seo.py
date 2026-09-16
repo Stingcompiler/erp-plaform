@@ -39,6 +39,9 @@ def _load():
                 settings_row.default_og_image.name if settings_row.default_og_image else ""
             ),
             robots_extra=settings_row.robots_extra,
+            support_whatsapp=settings_row.support_whatsapp.strip(),
+            support_phone=settings_row.support_phone.strip(),
+            support_email=settings_row.support_email.strip(),
         )
     pages = {
         (row.path, row.language): PageSeo(

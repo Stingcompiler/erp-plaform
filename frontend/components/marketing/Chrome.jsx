@@ -17,6 +17,7 @@ import { GUIDES } from "@/lib/content/guides";
 import { SOLUTIONS } from "@/lib/content/solutions";
 import { cachedDeploymentMode, fetchDeploymentMode } from "@/lib/deploymentMode";
 import VezanoMark from "@/components/brand/VezanoMark";
+import { SiteContactLines, SiteContactProvider, WhatsAppFloat } from "@/components/marketing/SiteContact";
 
 function ThemeToggle() {
   const { t, theme, cycleTheme } = useI18n();
@@ -237,6 +238,7 @@ export function MarketingFooter() {
               <ul className="mt-3 space-y-2 text-sm text-paper/60">
                 <li><Link href={href("/#contact")} className="hover:text-paper">{t("landing.navContact")}</Link></li>
               </ul>
+              <SiteContactLines className="mt-3 space-y-2 text-sm text-paper/60" />
             </div>
           </div>
         </div>
@@ -267,10 +269,13 @@ export function MarketingPage({ children }) {
 
   if (mode === "standalone") return null;
   return (
-    <div className="min-h-screen bg-paper text-ink">
-      <MarketingHeader />
-      <main>{children}</main>
-      <MarketingFooter />
-    </div>
+    <SiteContactProvider>
+      <div className="min-h-screen bg-paper text-ink">
+        <MarketingHeader />
+        <main>{children}</main>
+        <MarketingFooter />
+        <WhatsAppFloat />
+      </div>
+    </SiteContactProvider>
   );
 }

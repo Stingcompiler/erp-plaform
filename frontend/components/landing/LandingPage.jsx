@@ -28,6 +28,7 @@ import Showcase from "@/components/landing/Showcase";
 
 import { demoRequests } from "@/lib/api";
 import { MarketingFooter, MarketingHeader } from "@/components/marketing/Chrome";
+import { DirectWhatsAppLink, SiteContactProvider, WhatsAppFloat } from "@/components/marketing/SiteContact";
 import PlanCards from "@/components/marketing/PlanCards";
 import Shot from "@/components/marketing/Shot";
 
@@ -357,6 +358,7 @@ function ContactCTA() {
             </button>
           </form>
         )}
+        <DirectWhatsAppLink />
       </div>
     </section>
   );
@@ -364,21 +366,24 @@ function ContactCTA() {
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-paper text-ink">
-      <MarketingHeader />
-      <main>
-        <Hero />
-        <TrustStrip />
-        <Stories />
-        <Showcase />
-        <Modules />
-        <HowItWorks />
-        <PricingPreview />
-        <Faq />
-        <FinalCta />
-        <ContactCTA />
-      </main>
-      <MarketingFooter />
-    </div>
+    <SiteContactProvider>
+      <div className="min-h-screen bg-paper text-ink">
+        <MarketingHeader />
+        <main>
+          <Hero />
+          <TrustStrip />
+          <Stories />
+          <Showcase />
+          <Modules />
+          <HowItWorks />
+          <PricingPreview />
+          <Faq />
+          <FinalCta />
+          <ContactCTA />
+        </main>
+        <MarketingFooter />
+        <WhatsAppFloat />
+      </div>
+    </SiteContactProvider>
   );
 }

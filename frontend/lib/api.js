@@ -354,6 +354,7 @@ export const demoRequests = { create: (body) => api.post("/public/demo-requests/
 // Unauthenticated reads of the public company pages.
 export const publicSite = {
   showcase: () => api.get("/public/showcase/"),
+  contact: () => api.get("/public/site-contact/"),
 };
 
 export const registration = {
