@@ -273,8 +273,12 @@ export const finance = {
 
 export const users = {
   list: (params) => api.get("/users/", { params }),
+  get: (id) => api.get(`/users/${id}/`),
   create: (body) => api.post("/users/", body),
   update: (id, body) => api.patch(`/users/${id}/`, body),
+  // DELETE archives (is_active=false) — attribution on payments stays intact.
+  deactivate: (id) => api.delete(`/users/${id}/`),
+  reactivate: (id) => api.patch(`/users/${id}/`, { is_active: true }),
   roles: () => api.get("/roles/"),
   branches: () => api.get("/branches/"),
 };
@@ -382,6 +386,8 @@ export const platformTeam = {
   activate: (id) => api.post(`/platform/team/${id}/activate/`),
   roles: () => api.get("/platform/team/roles/"),
   setRole: (id, role) => api.post(`/platform/team/${id}/set-role/`, { role }),
+  updateProfile: (id, body) => api.patch(`/platform/team/${id}/`, body),
+  remove: (id) => api.delete(`/platform/team/${id}/`),
   activity: (params) => api.get("/platform/activity/", { params }),
   activityFacets: () => api.get("/platform/activity/facets/"),
 };

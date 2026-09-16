@@ -18,6 +18,7 @@ Disallow: /labels/
 Disallow: /logs/
 Disallow: /org/
 Disallow: /users/
+Disallow: /users/detail/
 Disallow: /settings/
 Disallow: /subscription/
 Disallow: /website/

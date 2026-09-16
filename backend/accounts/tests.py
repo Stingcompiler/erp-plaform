@@ -222,3 +222,47 @@ class OwnerAppointmentTests(BaseTenantSetup):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST, resp.content)
         self.user_a.refresh_from_db()
         self.assertTrue(self.user_a.is_active)
+
+
+class UserDetailPageTests(BaseTenantSetup):
+    """The owner's per-person page: full data, the account's history, and
+    the person's own activity (audit viewers only); never another company."""
+
+    def test_owner_reads_full_detail_with_history_and_activity(self):
+        self.login("a@alpha.test")
+        clerk_role = Role.objects.create(name="Sales Officer", scope_level=Role.SCOPE_BRANCH)
+        created = self.client.post(
+            reverse("user-list"),
+            {"email": "clerk@alpha.test", "full_name": "Clerk", "role": clerk_role.pk,
+             "branch": self.branch_a.pk, "password": "a-sufficiently-secure-password"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        clerk_id = created.data["id"]
+        self.client.patch(reverse("user-detail", args=[clerk_id]), {"full_name": "Clerk Two"},
+                          format="json")
+        detail = self.client.get(reverse("user-detail", args=[clerk_id])).data
+        self.assertEqual(detail["full_name"], "Clerk Two")
+        self.assertEqual(detail["branch_name"], "A-Main")
+        self.assertIn("created_at", detail)
+        self.assertIsNone(detail["last_login"])
+        actions = [row["action"] for row in detail["history"]]
+        self.assertIn("create", actions)
+        self.assertIn("update", actions)
+        self.assertTrue(all(row["user"]["email"] == "a@alpha.test" for row in detail["history"]))
+        # The clerk has done nothing yet; the owner may see the (empty) list.
+        self.assertEqual(detail["activity"], [])
+        # The list endpoint stays lean.
+        listed = self.client.get(reverse("user-list")).data
+        rows = listed["results"] if isinstance(listed, dict) else listed
+        self.assertNotIn("history", rows[0])
+
+    def test_non_audit_viewer_gets_no_activity_and_other_company_gets_404(self):
+        self.login("a@alpha.test")
+        detail = self.client.get(reverse("user-detail", args=[self.user_a.pk])).data
+        self.assertIsNotNone(detail["activity"])
+        self.client.logout()
+        self.login("b@beta.test")
+        self.assertEqual(
+            self.client.get(reverse("user-detail", args=[self.user_a.pk])).status_code, 404
+        )

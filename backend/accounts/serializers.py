@@ -174,6 +174,61 @@ class UserSerializer(serializers.ModelSerializer):
         return instance
 
 
+class UserDetailSerializer(UserSerializer):
+    """One company user in full for the people page: the profile fields plus
+    when the account was created and last used, the changes made to it, and
+    (for audit viewers) their own recent actions."""
+
+    branch_name = serializers.CharField(source="branch.name", read_only=True, default=None)
+    history = serializers.SerializerMethodField()
+    activity = serializers.SerializerMethodField()
+
+    class Meta(UserSerializer.Meta):
+        fields = UserSerializer.Meta.fields + [
+            "created_at", "updated_at", "last_login", "branch_name", "history", "activity",
+        ]
+        read_only_fields = UserSerializer.Meta.read_only_fields + [
+            "created_at", "updated_at", "last_login", "branch_name", "history", "activity",
+        ]
+
+    @staticmethod
+    def _person(user):
+        if user is None:
+            return None
+        return {"id": user.pk, "full_name": user.full_name, "email": user.email}
+
+    def _entry(self, row):
+        return {
+            "id": row.pk, "action": row.action, "entity_type": row.entity_type,
+            "entity_id": row.entity_id, "metadata": row.metadata,
+            "created_at": row.created_at, "user": self._person(row.user),
+        }
+
+    def get_history(self, obj):
+        from core.models import ActivityLog
+
+        rows = (
+            ActivityLog.objects.filter(
+                company_id=obj.company_id, entity_type="User", entity_id=str(obj.pk)
+            )
+            .select_related("user").order_by("-created_at")[:50]
+        )
+        return [self._entry(row) for row in rows]
+
+    def get_activity(self, obj):
+        from core.models import ActivityLog
+        from core.rbac import can_view_audit_log
+
+        request = self.context.get("request")
+        if request is None or not can_view_audit_log(request.user):
+            return None
+        rows = (
+            ActivityLog.objects.filter(company_id=obj.company_id, user=obj)
+            .select_related("user").order_by("-created_at")[:50]
+        )
+        return [self._entry(row) for row in rows]
+
+
 class MeSerializer(serializers.ModelSerializer):
     role_name = serializers.SerializerMethodField()
     company_name = serializers.SerializerMethodField()

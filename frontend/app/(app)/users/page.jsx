@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { Lock, Plus, ShieldCheck } from "lucide-react";
 
 import { users as usersApi } from "@/lib/api";
@@ -143,7 +144,9 @@ export default function UsersPage() {
               {!loading &&
                 rows.map((u) => (
                   <tr key={u.id} className="border-b border-line last:border-0">
-                    <td className="px-4 py-3 text-ink">{u.email}</td>
+                    <td className="px-4 py-3 text-ink">
+                      <Link href={`/users/detail/?id=${u.id}`} className="hover:text-accent hover:underline" title={t("users.viewUser")}>{u.email}</Link>
+                    </td>
                     <td className="px-4 py-3 text-muted">{u.full_name || "—"}</td>
                     <td className="px-4 py-3 text-muted">{u.role_name ? translateRole(u.role_name, t) : "—"}</td>
                     <td className="px-4 py-3 text-muted">

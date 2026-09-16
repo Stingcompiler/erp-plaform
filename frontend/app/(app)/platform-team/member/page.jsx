@@ -4,15 +4,15 @@
 // how they were invited, every change made to the account and their own
 // recent actions. Reached from the team list; the id travels in the query
 // string because the static export cannot have a dynamic segment.
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Clock, KeyRound, Lock, ShieldCheck, UserRound } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, ArrowRight, Clock, KeyRound, Lock, Pencil, ShieldCheck, Trash2, UserRound } from "lucide-react";
 
 import { useAuth } from "../../../providers/AuthProvider";
 import { useI18n } from "../../../providers/I18nProvider";
 import { platformTeam } from "@/lib/api";
-import { Badge, Card, PageHeader } from "@/components/ui/kit";
+import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 
 function Row({ label, children }) {
   return (
@@ -46,6 +46,8 @@ function describeHistory(row, t, roleLabel) {
     return t("platformTeam.member.events.reissued");
   }
   if (row.action === "create") return t("platformTeam.member.events.invited", { role: roleLabel(meta.role) });
+  if (meta.profile) return t("platformTeam.member.events.profile", { fields: Object.keys(meta.profile).map((k) => t(`platformTeam.member.fields.${k}`)).join("، ") });
+  if (row.action === "delete") return t("platformTeam.member.events.deleted");
   if (meta.role_to) {
     return t("platformTeam.member.events.roleChanged", { from: roleLabel(meta.role_from), to: roleLabel(meta.role_to) });
   }
@@ -57,21 +59,28 @@ function describeHistory(row, t, roleLabel) {
 function MemberDetail() {
   const { user, can } = useAuth();
   const canView = can("platform.team.view");
+  const canManage = can("platform.team.manage");
   const { t, language, dir } = useI18n();
   const params = useSearchParams();
+  const router = useRouter();
   const id = params.get("id");
   const [member, setMember] = useState(null);
+  const [roles, setRoles] = useState([]);
   const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ full_name: "", email: "" });
 
-  useEffect(() => {
-    if (!canView || !id) return;
+  const load = useCallback(() => {
+    if (!canView || !id) return undefined;
     let cancelled = false;
     setLoading(true);
     setError("");
     platformTeam
       .get(id)
-      .then((response) => { if (!cancelled) setMember(response.data); })
+      .then((response) => { if (!cancelled) { setMember(response.data); setForm({ full_name: response.data.full_name || "", email: response.data.email || "" }); } })
       .catch((requestError) => {
         if (cancelled) return;
         setError(t(requestError?.response?.status === 404 ? "platformTeam.member.notFound" : "platformTeam.member.loadError"));
@@ -79,6 +88,47 @@ function MemberDetail() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [id, t, canView]);
+  useEffect(() => load(), [load]);
+  useEffect(() => {
+    if (canManage) platformTeam.roles().then((r) => setRoles(r.data)).catch(() => {});
+  }, [canManage]);
+
+  const fail = (requestError) => {
+    const data = requestError?.response?.data;
+    const first = data?.detail || data?.email?.[0] || data?.full_name?.[0] || data?.role?.[0] || (Array.isArray(data) ? data[0] : null);
+    setActionError(typeof first === "string" ? first : t("platformTeam.saveError"));
+  };
+  const run = async (key, fn) => {
+    setSaving(key);
+    setActionError("");
+    try {
+      const response = await fn();
+      if (response?.data?.id) { setMember(response.data); setForm({ full_name: response.data.full_name || "", email: response.data.email || "" }); }
+      load();
+      return true;
+    } catch (requestError) {
+      fail(requestError);
+      return false;
+    } finally {
+      setSaving(null);
+    }
+  };
+  const saveProfile = async (event) => {
+    event.preventDefault();
+    if (await run("profile", () => platformTeam.updateProfile(member.id, form))) setEditing(false);
+  };
+  const remove = async () => {
+    if (!window.confirm(t("platformTeam.member.deleteConfirm", { email: member.email }))) return;
+    setSaving("delete");
+    setActionError("");
+    try {
+      await platformTeam.remove(member.id);
+      router.push("/platform-team");
+    } catch (requestError) {
+      fail(requestError);
+      setSaving(null);
+    }
+  };
 
   const roleLabel = (name) => {
     if (!name) return "";
@@ -122,6 +172,9 @@ function MemberDetail() {
       ? { tone: "warn", label: t("platformTeam.pendingActivation") }
       : { tone: "ok", label: t("platformTeam.activated") };
   const now = Date.now();
+  const isMe = member.id === user.id;
+  const manageable = canManage && !member.is_superuser;
+  const deletable = manageable && !isMe && !member.activated && !member.last_login;
 
   return (
     <div>
@@ -131,11 +184,71 @@ function MemberDetail() {
         subtitle={member.email}
         actions={
           <>
-            {member.id === user.id && <Badge tone="accent">{t("platformTeam.you")}</Badge>}
+            {isMe && <Badge tone="accent">{t("platformTeam.you")}</Badge>}
             <Badge tone={status.tone}>{status.label}</Badge>
           </>
         }
       />
+      {actionError && <p role="alert" className="mb-4 rounded-control bg-danger/10 p-3 text-sm text-danger">{actionError}</p>}
+
+      {manageable && (
+        <Card className="mb-4 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-display font-semibold">{t("platformTeam.member.manage")}</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              {!editing && (
+                <Button variant="outline" onClick={() => setEditing(true)}><Pencil size={15} />{t("platformTeam.member.edit")}</Button>
+              )}
+              {roles.length > 0 && (
+                <Select
+                  value={member.role_name}
+                  disabled={saving === "role"}
+                  onChange={(event) => run("role", () => platformTeam.setRole(member.id, event.target.value))}
+                  className="w-44"
+                  aria-label={t("platformTeam.changeRole")}
+                >
+                  {roles.map((role) => <option key={role.name} value={role.name}>{roleLabel(role.name)}</option>)}
+                </Select>
+              )}
+              {member.is_active && !member.activated && (
+                <Button variant="outline" disabled={saving === "reissue"} onClick={() => run("reissue", () => platformTeam.reissue(member.id))}>
+                  <KeyRound size={15} />{t("platformTeam.reissue")}
+                </Button>
+              )}
+              {!isMe && member.is_active && (
+                <Button variant="outline" disabled={saving === "deactivate"} onClick={() => run("deactivate", () => platformTeam.deactivate(member.id))}>
+                  {t("platformTeam.deactivate")}
+                </Button>
+              )}
+              {!member.is_active && (
+                <Button disabled={saving === "activate"} onClick={() => run("activate", () => platformTeam.activate(member.id))}>
+                  {t("platformTeam.activate")}
+                </Button>
+              )}
+              {deletable && (
+                <Button variant="danger" disabled={saving === "delete"} onClick={remove}><Trash2 size={15} />{t("platformTeam.member.delete")}</Button>
+              )}
+            </div>
+          </div>
+          {!deletable && !isMe && member.activated && (
+            <p className="mt-2 text-xs text-muted">{t("platformTeam.member.deleteWhy")}</p>
+          )}
+          {editing && (
+            <form onSubmit={saveProfile} className="mt-4 grid gap-3 sm:grid-cols-2">
+              <Field label={t("platformTeam.fullName")}>
+                <Input required maxLength={255} value={form.full_name} onChange={(event) => setForm({ ...form, full_name: event.target.value })} />
+              </Field>
+              <Field label={t("platformTeam.email")}>
+                <Input required type="email" maxLength={254} value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+              </Field>
+              <div className="flex gap-2 sm:col-span-2">
+                <Button type="submit" disabled={saving === "profile"}>{saving === "profile" ? t("common.saving") : t("common.save")}</Button>
+                <Button type="button" variant="ghost" onClick={() => { setEditing(false); setForm({ full_name: member.full_name || "", email: member.email || "" }); }}>{t("common.cancel")}</Button>
+              </div>
+            </form>
+          )}
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Section icon={UserRound} title={t("platformTeam.member.profile")}>

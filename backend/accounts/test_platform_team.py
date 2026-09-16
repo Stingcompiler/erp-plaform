@@ -473,3 +473,62 @@ class PlatformActivityTests(APITestCase):
         self.assertEqual(self.client.get(reverse("platform-activity-list")).status_code, 403)
         self.client.force_authenticate(None)
         self.assertEqual(self.client.get(reverse("platform-activity-list")).status_code, 401)
+
+
+class PlatformMemberProfileTests(APITestCase):
+    """Editing a member's details and deleting a mistaken invitation."""
+
+    def setUp(self):
+        self.root = User.objects.create_superuser("root@vezano.test", "secure-password")
+        self.client.force_authenticate(self.root)
+        invited = self.client.post(
+            reverse("platform-team-list"),
+            {"email": "mkt@vezano.test", "full_name": "Marketing", "role": "Marketing Manager"},
+            format="json",
+        )
+        self.member = User.objects.get(pk=invited.data["id"])
+
+    def test_profile_edit_is_validated_and_audited(self):
+        url = reverse("platform-team-detail", args=[self.member.pk])
+        edited = self.client.patch(
+            url, {"full_name": "Hassan", "email": "hassan@vezano.test"}, format="json"
+        )
+        self.assertEqual(edited.status_code, 200, edited.data)
+        self.assertEqual(edited.data["full_name"], "Hassan")
+        self.assertEqual(edited.data["email"], "hassan@vezano.test")
+        clash = self.client.patch(url, {"email": "ROOT@vezano.test"}, format="json")
+        self.assertEqual(clash.status_code, 400)
+        detail = self.client.get(url).data
+        edits = [r for r in detail["history"] if r["metadata"].get("profile")]
+        self.assertEqual(edits[0]["metadata"]["profile"]["email"],
+                         ["mkt@vezano.test", "hassan@vezano.test"])
+
+    def test_never_activated_member_can_be_deleted_but_a_signed_in_one_cannot(self):
+        url = reverse("platform-team-detail", args=[self.member.pk])
+        # A member who signed in keeps an account.
+        self.member.set_password("a-sufficiently-secure-password")
+        self.member.save()
+        refused = self.client.delete(url)
+        self.assertEqual(refused.status_code, 400)
+        self.assertTrue(User.objects.filter(pk=self.member.pk).exists())
+        # A pending invitation is simply removed, and the removal is recorded.
+        pending = self.client.post(
+            reverse("platform-team-list"),
+            {"email": "typo@vezano.test", "full_name": "Typo", "role": "Support Agent"},
+            format="json",
+        ).data["id"]
+        gone = self.client.delete(reverse("platform-team-detail", args=[pending]))
+        self.assertEqual(gone.status_code, 204)
+        self.assertFalse(User.objects.filter(pk=pending).exists())
+        trail = self.client.get(reverse("platform-activity-list"), {"action": "delete"}).data
+        rows = trail["results"] if isinstance(trail, dict) else trail
+        self.assertEqual(rows[0]["metadata"]["email"], "typo@vezano.test")
+        # Never yourself, never a superuser.
+        me = self.client.delete(reverse("platform-team-detail", args=[self.root.pk]))
+        self.assertEqual(me.status_code, 400)
+
+    def test_only_team_managers_edit_or_delete(self):
+        self.client.force_authenticate(self.member)
+        url = reverse("platform-team-detail", args=[self.member.pk])
+        self.assertEqual(self.client.patch(url, {"full_name": "x"}, format="json").status_code, 403)
+        self.assertEqual(self.client.delete(url).status_code, 403)
