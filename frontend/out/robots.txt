@@ -31,6 +31,7 @@ Disallow: /platform-registrations/
 Disallow: /platform-subscriptions/
 Disallow: /platform-team/
 Disallow: /platform-activity/
+Disallow: /platform-seo/
 
 Host: https://vezano.app
 Sitemap: https://vezano.app/sitemap.xml

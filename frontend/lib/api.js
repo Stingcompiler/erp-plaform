@@ -392,6 +392,22 @@ export const platformTeam = {
   activityFacets: () => api.get("/platform/activity/facets/"),
 };
 
+// The SEO control page: site-wide settings (one row) and per-path overrides.
+export const platformSeo = {
+  settings: () => api.get("/platform/seo/settings/"),
+  updateSettings: (body) => api.patch("/platform/seo/settings/", body),
+  uploadOgImage: (file) => {
+    const form = new FormData();
+    form.append("image", file);
+    return api.post("/platform/seo/settings/image/", form, { headers: { "Content-Type": "multipart/form-data" } });
+  },
+  removeOgImage: () => api.delete("/platform/seo/settings/image/"),
+  overrides: () => api.get("/platform/seo/overrides/"),
+  createOverride: (body) => api.post("/platform/seo/overrides/", body),
+  updateOverride: (id, body) => api.patch(`/platform/seo/overrides/${id}/`, body),
+  deleteOverride: (id) => api.delete(`/platform/seo/overrides/${id}/`),
+};
+
 export const platformLeads = {
   list: (params) => listAll("/platform/leads/", params),
   update: (id, body) => api.patch(`/platform/leads/${id}/`, body),

@@ -242,7 +242,7 @@ PLATFORM_ENTITY_TYPES = (
     "PlatformMember", "PlatformInvitation", "PlatformLead",
     "RegistrationRequest", "RegistrationProvision", "OwnerInvitation",
     "Subscription", "SubscriptionInvoice", "SubscriptionPayment",
-    "Plan", "PlanVersion",
+    "Plan", "PlanVersion", "SeoSettings", "SeoPageOverride",
 )
 
 

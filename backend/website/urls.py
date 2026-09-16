@@ -2,6 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from website.public_pages import public_showcase
+from website.seo_views import SeoOgImageView, SeoPageOverrideViewSet, SeoSettingsView
 from website.views import (
     FeaturedProductViewSet,
     DemoRequestView,
@@ -28,9 +29,17 @@ router.register(
     "platform/registration-requests", PlatformRegistrationRequestViewSet,
     basename="platform-registration-request",
 )
+router.register(
+    "platform/seo/overrides", SeoPageOverrideViewSet, basename="platform-seo-override"
+)
 
 urlpatterns = [
     path("platform/overview/", PlatformOverviewView.as_view(), name="platform-overview"),
+    path("platform/seo/settings/", SeoSettingsView.as_view(), name="platform-seo-settings"),
+    path(
+        "platform/seo/settings/image/", SeoOgImageView.as_view(),
+        name="platform-seo-settings-image",
+    ),
     path("public/demo-requests/", DemoRequestView.as_view(), name="demo-request"),
     path("public/plans/", PublicPlanListView.as_view(), name="public-plan-list"),
     path(

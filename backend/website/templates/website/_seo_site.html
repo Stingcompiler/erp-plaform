@@ -1,0 +1,4 @@
+{% if seo.google_site_verification %}<meta name="google-site-verification" content="{{ seo.google_site_verification }}">
+{% endif %}{% if seo.bing_site_verification %}<meta name="msvalidate.01" content="{{ seo.bing_site_verification }}">
+{% endif %}{% if seo.analytics %}{{ seo.analytics|safe }}
+{% endif %}

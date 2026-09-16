@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CreditCard, FileCheck2, Inbox, Languages, LayoutDashboard, LogOut, MoonStar, ScrollText, SlidersHorizontal, Sun, SunMoon, UsersRound } from "lucide-react";
+import { CreditCard, FileCheck2, Inbox, Languages, LayoutDashboard, LogOut, MoonStar, ScrollText, SearchCheck, SlidersHorizontal, Sun, SunMoon, UsersRound } from "lucide-react";
 
 import VezanoMark from "@/components/brand/VezanoMark";
 import AttentionBadge, { badgeFor } from "@/components/attention/AttentionBadge";
@@ -19,6 +19,7 @@ const PLATFORM_NAV = [
   { href: "/platform-plans", label: "nav.platformPlans", icon: SlidersHorizontal, capability: "platform.plans.view" },
   { href: "/platform-leads", label: "nav.platformLeads", icon: Inbox, attentionKey: "platform-leads", capability: "platform.leads.view" },
   { href: "/platform-subscriptions", label: "nav.platformSubscriptions", icon: CreditCard, attentionKey: "platform-subscriptions", capability: "platform.subscriptions.view" },
+  { href: "/platform-seo", label: "nav.platformSeo", icon: SearchCheck, capability: "platform.seo.view" },
   { href: "/platform-team", label: "nav.platformTeam", icon: UsersRound, capability: "platform.team.view" },
   { href: "/platform-activity", label: "nav.platformActivity", icon: ScrollText, capability: "platform.team.view" },
 ];

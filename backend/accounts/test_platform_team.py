@@ -170,12 +170,15 @@ class PlatformRoleCapabilityTests(APITestCase):
 
     # Which console areas each role may open. Money (subscriptions, payments)
     # is for the commercial and collections roles; the team list is the
-    # Super Administrator's; marketing sees the funnel and the price list.
+    # Super Administrator's; marketing sees the funnel, the price list and
+    # the public site's search settings (which support may read).
     VISIBLE = {
-        "Subscription Manager": {"registrations", "leads", "subscriptions", "payments", "plans"},
+        "Subscription Manager": {
+            "registrations", "leads", "subscriptions", "payments", "plans", "seo",
+        },
         "Billing Reviewer": {"subscriptions", "payments"},
-        "Marketing Manager": {"registrations", "leads", "plans"},
-        "Support Agent": {"registrations", "leads", "subscriptions"},
+        "Marketing Manager": {"registrations", "leads", "plans", "seo"},
+        "Support Agent": {"registrations", "leads", "subscriptions", "seo"},
     }
     SCREENS = {
         "team": "platform-team-list",
@@ -184,7 +187,10 @@ class PlatformRoleCapabilityTests(APITestCase):
         "subscriptions": "platform-subscription-list",
         "payments": "platform-subscription-payment-list",
         "plans": "platform-plan-list",
+        "seo": "platform-seo-override-list",
     }
+    # Who may change the search settings: marketing and the commercial lead.
+    SEO_WRITERS = {"Subscription Manager", "Marketing Manager"}
 
     def test_each_role_reads_only_its_areas(self):
         for role, visible in self.VISIBLE.items():
@@ -203,6 +209,23 @@ class PlatformRoleCapabilityTests(APITestCase):
             self.assertEqual("platform-registrations" in keys, "registrations" in visible, role)
             self.assertEqual("platform-leads" in keys, "leads" in visible, role)
             self.assertEqual("platform-subscriptions" in keys, "subscriptions" in visible, role)
+
+    def test_seo_settings_follow_the_seo_capabilities(self):
+        settings_url = reverse("platform-seo-settings")
+        for role, visible in self.VISIBLE.items():
+            self._as(role)
+            read = self.client.get(settings_url)
+            self.assertEqual(read.status_code, 200 if "seo" in visible else 403, role)
+            write = self.client.patch(settings_url, {"analytics_id": "G-TEST1"}, format="json")
+            self.assertEqual(
+                write.status_code, 200 if role in self.SEO_WRITERS else 403, (role, write.data)
+            )
+            override = self.client.post(
+                reverse("platform-seo-override-list"),
+                {"path": f"/{role.split()[0].lower()}", "title": "T"}, format="json",
+            )
+            expected = 201 if role in self.SEO_WRITERS else 403
+            self.assertEqual(override.status_code, expected, (role, override.data))
 
     def test_only_super_admin_manages_team_and_plans(self):
         for role in self.members:
@@ -354,6 +377,7 @@ class SuperAdministratorRoleTests(APITestCase):
                 "platform.leads.manage",
                 "platform.leads.view",
                 "platform.registrations.view",
+                "platform.seo.view",
                 "platform.subscriptions.view",
             ],
         )

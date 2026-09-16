@@ -268,3 +268,119 @@ class FeaturedProduct(models.Model):
 
     def __str__(self):
         return f"Featured {self.product_id} on {self.website_id}"
+
+
+def seo_upload_path(instance, filename):
+    """MEDIA_ROOT/public/seo/<file>: the default share image is meant for
+    every visitor and crawler, so it lives under the anonymous prefix."""
+    return f"public/seo/{filename}"
+
+
+def normalize_seo_path(path):
+    """The public path of a page as the team types it: leading slash, no
+    trailing slash except the root, no language prefix. '/pricing/',
+    'pricing' and '/pricing' all mean the same page."""
+    path = (path or "").strip()
+    if not path.startswith("/"):
+        path = "/" + path
+    if len(path) > 1:
+        path = path.rstrip("/") or "/"
+    return path
+
+
+class SeoSettings(models.Model):
+    """Site-wide search settings the platform team controls without a
+    deploy: verification tags, the analytics id, a default share image and
+    extra robots.txt lines. One row (pk=1); `load()` creates it on first use.
+
+    Everything is optional and blank by default, so an untouched row changes
+    nothing about what the export already ships."""
+
+    google_site_verification = models.CharField(max_length=255, blank=True)
+    bing_site_verification = models.CharField(max_length=255, blank=True)
+    # GA4 measurement id ("G-XXXXXXXXXX"); the tag is injected when set.
+    analytics_id = models.CharField(max_length=64, blank=True)
+    default_og_image = models.ImageField(upload_to=seo_upload_path, blank=True, null=True)
+    # Appended verbatim to the exported robots.txt.
+    robots_extra = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "SEO settings"
+        verbose_name_plural = "SEO settings"
+
+    SINGLETON_PK = 1
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=cls.SINGLETON_PK)
+        return obj
+
+    def save(self, *args, **kwargs):
+        self.pk = self.SINGLETON_PK
+        super().save(*args, **kwargs)
+        from website.seo import invalidate_seo_cache
+
+        invalidate_seo_cache()
+
+    def delete(self, *args, **kwargs):
+        # The singleton is cleared, never removed.
+        for field in ("google_site_verification", "bing_site_verification",
+                      "analytics_id", "robots_extra"):
+            setattr(self, field, "")
+        if self.default_og_image:
+            self.default_og_image.delete(save=False)
+            self.default_og_image = None
+        self.save()
+
+    def __str__(self):
+        return "SEO settings"
+
+
+class SeoPageOverride(models.Model):
+    """Per-page search metadata the team sets over what the export ships:
+    title, description, a noindex switch and a canonical URL, for one public
+    path in one language (or both). Applied while the page is served, so the
+    change is live without a deploy. A blank field keeps the page's own
+    value."""
+
+    LANGUAGE_AR = "ar"
+    LANGUAGE_EN = "en"
+    LANGUAGE_BOTH = "both"
+    LANGUAGE_CHOICES = [
+        (LANGUAGE_AR, "Arabic"),
+        (LANGUAGE_EN, "English"),
+        (LANGUAGE_BOTH, "Both"),
+    ]
+
+    path = models.CharField(max_length=255)
+    language = models.CharField(max_length=4, choices=LANGUAGE_CHOICES, default=LANGUAGE_BOTH)
+    title = models.CharField(max_length=255, blank=True)
+    description = models.CharField(max_length=400, blank=True)
+    noindex = models.BooleanField(default=False)
+    canonical = models.URLField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["path", "language"]
+        constraints = [
+            models.UniqueConstraint(fields=["path", "language"], name="seo_override_path_language"),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.path = normalize_seo_path(self.path)
+        super().save(*args, **kwargs)
+        from website.seo import invalidate_seo_cache
+
+        invalidate_seo_cache()
+
+    def delete(self, *args, **kwargs):
+        result = super().delete(*args, **kwargs)
+        from website.seo import invalidate_seo_cache
+
+        invalidate_seo_cache()
+        return result
+
+    def __str__(self):
+        return f"{self.path} [{self.language}]"

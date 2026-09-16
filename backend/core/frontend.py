@@ -7,7 +7,9 @@ urls.py when DEBUG is False, so the two workflows don't collide.
 import mimetypes
 
 from django.conf import settings
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponse
+
+from core.seo_inject import append_robots_extra, inject_seo
 
 FRONTEND_DIST = settings.BASE_DIR.parent / "frontend" / "out"
 
@@ -28,11 +30,36 @@ def _candidates(clean_path):
     return [base, base / "index.html", FRONTEND_DIST / f"{clean_path}.html"]
 
 
+def _rewritten(candidate, clean):
+    """The exported text with the platform team's SEO settings applied, or
+    None when the file is not one they can touch (assets, JSON, images) or
+    there is nothing to apply. HTML gets its <head> rewritten; robots.txt
+    gets the extra lines. See website.seo / core.seo_inject."""
+    if clean.startswith(IMMUTABLE_PREFIX):
+        return None
+    from website.seo import page_seo_for_url, site_seo
+
+    if candidate.suffix == ".html":
+        site, page = site_seo(), page_seo_for_url(clean)
+        if site.empty and page.empty:
+            return None
+        return inject_seo(candidate.read_text(encoding="utf-8"), site, page)
+    if clean == "robots.txt" and site_seo().robots_extra.strip():
+        return append_robots_extra(candidate.read_text(encoding="utf-8"), site_seo().robots_extra)
+    return None
+
+
 def _serve_file(candidate, clean, status=200):
     content_type, _ = mimetypes.guess_type(str(candidate))
-    response = FileResponse(
-        open(candidate, "rb"), content_type=content_type, status=status
-    )
+    rewritten = _rewritten(candidate, clean)
+    if rewritten is not None:
+        response = HttpResponse(
+            rewritten.encode("utf-8"), content_type=content_type, status=status
+        )
+    else:
+        response = FileResponse(
+            open(candidate, "rb"), content_type=content_type, status=status
+        )
     if clean.startswith(IMMUTABLE_PREFIX):
         # Content-hashed assets never change under a given name.
         response["Cache-Control"] = "public, max-age=31536000, immutable"
