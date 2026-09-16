@@ -15,6 +15,7 @@ const TONES = { submitted: "accent", under_review: "warn", needs_information: "w
 
 export default function PlatformRegistrationsPage() {
   const { user, can } = useAuth();
+  const canView = can("platform.registrations.view");
   const canReview = can("platform.registrations.review");
   const canProvision = can("platform.registrations.provision");
   const canReissue = can("platform.invitations.reissue");
@@ -27,7 +28,7 @@ export default function PlatformRegistrationsPage() {
   const [invite, setInvite] = useState(null);
 
   const load = useCallback(async () => {
-    if (!user?.is_platform_admin) return;
+    if (!canView) return;
     setLoading(true);
     setError("");
     try {
@@ -42,7 +43,7 @@ export default function PlatformRegistrationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [t, user?.is_platform_admin]);
+  }, [t, canView]);
   useEffect(() => { load(); }, [load]);
 
   const label = (status) => t(`platformRegistration.status${status.charAt(0).toUpperCase()}${status.slice(1)}`);
@@ -72,7 +73,7 @@ export default function PlatformRegistrationsPage() {
     }
   };
 
-  if (!user?.is_platform_admin) return <Card className="mx-auto mt-16 max-w-md p-8 text-center"><Lock className="mx-auto text-muted" /><p className="mt-3 text-muted">{t("platformRegistration.noAccess")}</p></Card>;
+  if (!canView) return <Card className="mx-auto mt-16 max-w-md p-8 text-center"><Lock className="mx-auto text-muted" /><p className="mt-3 text-muted">{t("platformRegistration.noAccess")}</p></Card>;
 
   return (
     <div>

@@ -56,6 +56,7 @@ function invoiceDefaultsForSubscription(subscription) {
 
 export default function PlatformSubscriptionsPage() {
   const { user, can } = useAuth();
+  const canView = can("platform.subscriptions.view");
   const canManageSubs = can("platform.subscriptions.manage");
   const canBill = can("platform.billing.review");
   const { t } = useI18n();
@@ -75,11 +76,23 @@ export default function PlatformSubscriptionsPage() {
     [plans],
   );
 
+  const canSeePlans = can("platform.plans.view");
+  const canSeeBilling = can("platform.billing.view");
+
   const load = useCallback(async () => {
     setError("");
     try {
+      // Plans, payments and invoices are separate areas; a member who may
+      // see subscriptions but not money (or not the price list) gets an
+      // empty list for those instead of a failed page.
+      const empty = { data: [] };
       const [subscriptionsResponse, plansResponse, paymentsResponse, invoicesResponse] =
-        await Promise.all([api.list(), api.plans(), api.payments(), api.invoices()]);
+        await Promise.all([
+          api.list(),
+          canSeePlans ? api.plans() : empty,
+          canSeeBilling ? api.payments() : empty,
+          canSeeBilling ? api.invoices() : empty,
+        ]);
       const nextRows = subscriptionsResponse.data.results || subscriptionsResponse.data;
       const nextPayments = paymentsResponse.data.results || paymentsResponse.data;
       setRows(nextRows);
@@ -95,11 +108,11 @@ export default function PlatformSubscriptionsPage() {
     } catch {
       setError(t("subscription.loadError"));
     }
-  }, [t]);
+  }, [t, canSeePlans, canSeeBilling]);
 
   useEffect(() => {
-    if (user?.is_platform_admin) load();
-  }, [load, user?.is_platform_admin]);
+    if (canView) load();
+  }, [load, canView]);
 
   const updateDraft = (id, field, value) => {
     setDrafts((current) => ({
@@ -204,7 +217,7 @@ export default function PlatformSubscriptionsPage() {
     }
   };
 
-  if (!user?.is_platform_admin) {
+  if (!canView) {
     return (
       <Card className="mx-auto mt-16 max-w-md p-8 text-center">
         <Lock className="mx-auto text-muted" />

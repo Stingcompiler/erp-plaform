@@ -161,10 +161,12 @@ class IsPlatformAdminOrReadOnly(BasePermission):
 class IsPlatformAdmin(BasePermission):
     """Allow access only to members of the Vezano platform team.
 
-    Every member may read. A write needs the capability the view declares:
-    ``platform_capability`` for the whole view, optionally overridden per
-    action with ``platform_action_capabilities = {"verify": "..."}``. A view
-    that declares neither keeps the old behaviour (any member may write).
+    A read needs ``platform_view_capability`` when the view declares one
+    (a view without it, such as the overview, is open to every member). A
+    write needs the capability the view declares: ``platform_capability`` for
+    the whole view, optionally overridden per action with
+    ``platform_action_capabilities = {"verify": "..."}``. A view that declares
+    no write capability keeps the old behaviour (any member may write).
     See core.platform_roles for the role -> capability map.
     """
 
@@ -174,8 +176,14 @@ class IsPlatformAdmin(BasePermission):
         user = request.user
         if not (user and user.is_authenticated and getattr(user, "is_platform_admin", False)):
             return False
+        from core.platform_roles import user_has_platform_capability
+
         if request.method in SAFE_METHODS:
-            return True
+            view_capability = getattr(view, "platform_view_capability", None)
+            if view_capability is None or user_has_platform_capability(user, view_capability):
+                return True
+            self.message = "Your platform role does not include this area."
+            return False
         action = getattr(view, "action", None)
         per_action = getattr(view, "platform_action_capabilities", {}) or {}
         capability = (
@@ -184,8 +192,6 @@ class IsPlatformAdmin(BasePermission):
         )
         if capability is None:
             return True
-        from core.platform_roles import user_has_platform_capability
-
         if user_has_platform_capability(user, capability):
             return True
         self.message = "Your platform role does not include this action."

@@ -168,13 +168,41 @@ class PlatformRoleCapabilityTests(APITestCase):
         self.assertNotIn("platform.team.manage", caps)
         self.assertNotIn("platform.registrations.provision", caps)
 
-    def test_every_member_can_read_platform_screens(self):
-        for role in self.members:
+    # Which console areas each role may open. Money (subscriptions, payments)
+    # is for the commercial and collections roles; the team list is the
+    # Super Administrator's; marketing sees the funnel and the price list.
+    VISIBLE = {
+        "Subscription Manager": {"registrations", "leads", "subscriptions", "payments", "plans"},
+        "Billing Reviewer": {"subscriptions", "payments"},
+        "Marketing Manager": {"registrations", "leads", "plans"},
+        "Support Agent": {"registrations", "leads", "subscriptions"},
+    }
+    SCREENS = {
+        "team": "platform-team-list",
+        "registrations": "platform-registration-request-list",
+        "leads": "platform-lead-list",
+        "subscriptions": "platform-subscription-list",
+        "payments": "platform-subscription-payment-list",
+        "plans": "platform-plan-list",
+    }
+
+    def test_each_role_reads_only_its_areas(self):
+        for role, visible in self.VISIBLE.items():
             self._as(role)
-            for name in ("platform-team-list", "platform-registration-request-list",
-                         "platform-subscription-list", "platform-subscription-payment-list",
-                         "platform-plan-list"):
-                self.assertEqual(self.client.get(reverse(name)).status_code, 200, (role, name))
+            self.assertEqual(self.client.get(reverse("platform-overview")).status_code, 200, role)
+            for area, name in self.SCREENS.items():
+                expected = 200 if area in visible else 403
+                response = self.client.get(reverse(name))
+                self.assertEqual(response.status_code, expected, (role, area, response.data))
+
+    def test_badges_follow_the_same_visibility(self):
+        from core.attention import visible_sources
+
+        for role, visible in self.VISIBLE.items():
+            keys = {source.key for source in visible_sources(self.members[role])}
+            self.assertEqual("platform-registrations" in keys, "registrations" in visible, role)
+            self.assertEqual("platform-leads" in keys, "leads" in visible, role)
+            self.assertEqual("platform-subscriptions" in keys, "subscriptions" in visible, role)
 
     def test_only_super_admin_manages_team_and_plans(self):
         for role in self.members:
@@ -248,10 +276,16 @@ class PlatformRoleCapabilityTests(APITestCase):
         moved = self.client.patch(url, {"status": "contacted"}, format="json")
         self.assertEqual(moved.status_code, 200, moved.data)
         caps = self.client.get(reverse("auth-me")).data["capabilities"]
-        self.assertTrue(caps["platform.leads.manage"])
         for capability in (
-            "platform.team.manage", "platform.plans.manage", "platform.billing.review",
-            "platform.registrations.provision", "platform.invitations.reissue",
+            "platform.leads.manage", "platform.leads.view",
+            "platform.registrations.view", "platform.plans.view",
+        ):
+            self.assertTrue(caps.get(capability), capability)
+        for capability in (
+            "platform.team.manage", "platform.team.view", "platform.plans.manage",
+            "platform.billing.review", "platform.billing.view",
+            "platform.subscriptions.view", "platform.registrations.provision",
+            "platform.invitations.reissue",
         ):
             self.assertNotIn(capability, caps, capability)
         self._as("Billing Reviewer")
@@ -314,7 +348,14 @@ class SuperAdministratorRoleTests(APITestCase):
         detail = self.client.get(reverse("platform-team-detail", args=[member_id])).data
         self.assertEqual(detail["role_name"], "Support Agent")
         self.assertEqual(
-            detail["capabilities"], ["platform.invitations.reissue", "platform.leads.manage"]
+            detail["capabilities"],
+            [
+                "platform.invitations.reissue",
+                "platform.leads.manage",
+                "platform.leads.view",
+                "platform.registrations.view",
+                "platform.subscriptions.view",
+            ],
         )
         self.assertEqual(detail["invited_by"]["email"], "gm@vezano.test")
         self.assertEqual(len(detail["invitations"]), 1)
