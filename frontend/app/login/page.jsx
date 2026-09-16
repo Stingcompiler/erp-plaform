@@ -8,6 +8,7 @@ import { Languages } from "lucide-react";
 import { useAuth } from "../providers/AuthProvider";
 import { useI18n } from "../providers/I18nProvider";
 import VezanoMark from "@/components/brand/VezanoMark";
+import PasswordInput from "@/components/ui/PasswordInput";
 import { applyUpdate, updateAvailable } from "@/lib/registerServiceWorker";
 
 export default function LoginPage() {
@@ -98,14 +99,15 @@ export default function LoginPage() {
           />
 
           <label className="mt-4 block text-sm font-medium">{t("auth.passwordLabel")}</label>
-          <input
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="mt-1 w-full rounded-control border border-line bg-surface px-3 py-2.5 outline-none focus:border-accent"
-          />
+          <div className="mt-1">
+            <PasswordInput
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full rounded-control border border-line bg-surface px-3 py-2.5 outline-none focus:border-accent"
+            />
+          </div>
 
           {error && (
             <div className="mt-3 rounded-control border border-warn/30 bg-warn/10 p-3 text-sm text-ink" role="alert">

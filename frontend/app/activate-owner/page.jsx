@@ -5,7 +5,8 @@ import Link from "next/link";
 import { CheckCircle2, KeyRound } from "lucide-react";
 
 import VezanoMark from "@/components/brand/VezanoMark";
-import { Button, Field, Input } from "@/components/ui/kit";
+import PasswordInput from "@/components/ui/PasswordInput";
+import { Button, Field, Input, controlClass as INPUT_CLASS } from "@/components/ui/kit";
 import { registration } from "@/lib/api";
 import { useI18n } from "../providers/I18nProvider";
 
@@ -90,10 +91,10 @@ export default function ActivateOwnerPage() {
                 <Input value={token} onChange={(event) => setToken(event.target.value)} required />
               </Field>
               <Field label={t("ownerActivation.password")} hint={t("users.passwordMin")}>
-                <Input type="password" autoComplete="new-password" minLength={10} value={password} onChange={(event) => setPassword(event.target.value)} required />
+                <PasswordInput autoComplete="new-password" minLength={10} value={password} onChange={(event) => setPassword(event.target.value)} required className={INPUT_CLASS} />
               </Field>
               <Field label={t("ownerActivation.confirmPassword")}>
-                <Input type="password" autoComplete="new-password" minLength={10} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required />
+                <PasswordInput autoComplete="new-password" minLength={10} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required className={INPUT_CLASS} />
               </Field>
               {error && (
                 <p role="alert" className="rounded-control border border-danger/25 bg-danger/10 p-3 text-sm text-danger">
