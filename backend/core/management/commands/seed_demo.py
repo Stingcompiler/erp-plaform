@@ -31,6 +31,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from accounts.models import User
+from core.public_media import stored_public_url
 
 DEMO_PREFIX = "DEMO-"
 
@@ -212,12 +213,14 @@ class Command(BaseCommand):
                         movement_type=StockMovement.ADJUSTMENT, quantity=Decimal(stock),
                         unit_cost=product.cost_price, reference_type="seed_demo",
                     )
-                    if index <= 8:
-                        product.image.save(
-                            "demo.png",
-                            _tile(800, 600, self._colour(index), self._colour(index, light=True)),
-                            save=True,
-                        )
+                # A photo is (re)generated when there is none on disk — also
+                # for a row whose file was lost with ephemeral storage.
+                if index <= 8 and not stored_public_url(product.image):
+                    product.image.save(
+                        "demo.png",
+                        _tile(800, 600, self._colour(index), self._colour(index, light=True)),
+                        save=True,
+                    )
                 products.append(product)
             out.append(f"Products: {len(products)} ({created_products} new, with opening stock)")
 
@@ -312,12 +315,12 @@ class Command(BaseCommand):
             if not getattr(site, field):
                 setattr(site, field, value)
                 changed.append(field)
-        if not site.cover_image:
+        if not stored_public_url(site.cover_image):
             site.cover_image.save(
                 "cover.png", _tile(1800, 700, (14, 124, 134), (52, 160, 170)), save=False
             )
             changed.append("cover_image")
-        if not site.logo_image:
+        if not stored_public_url(site.logo_image):
             site.logo_image.save(
                 "logo.png", _tile(512, 512, (17, 24, 39), (14, 124, 134)), save=False
             )
