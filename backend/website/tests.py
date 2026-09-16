@@ -192,13 +192,15 @@ class PublicCompanyPageTests(PublicSiteTests):
 
     def test_invalid_colour_falls_back(self):
         _, site = self._publish_with_content()
-        site.primary_color = "red;}</style><script>x</script>"
+        # The field is 16 characters wide (Postgres enforces it), which is
+        # still enough to try to break out of the stylesheet.
+        site.primary_color = "x;}</style><b>"
         site.save()
         html = self.client_class().get(
             reverse("public-site-page", args=[self.company_a.slug])
         ).content.decode()
         self.assertIn("--accent:#111827", html)
-        self.assertNotIn("<script>x</script>", html)
+        self.assertNotIn("</style><b>", html)
 
     def test_directory_and_sitemap_list_published_sites_only(self):
         self._publish_with_content()
