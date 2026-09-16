@@ -7,6 +7,7 @@ import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { sales } from "@/lib/api";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
+import PhoneLink from "@/components/ui/PhoneLink";
 
 const STATUS_TONE = { overdue: "danger", owing: "warn", credit: "accent", settled: "ok" };
 
@@ -150,7 +151,7 @@ export default function DebtsPage() {
             <>
               <Card className="mb-4 p-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div><h2 className="font-display text-xl font-semibold">{selected.name}</h2><p className="mt-1 text-sm text-muted">{selected.phone || "—"}</p></div>
+                  <div><h2 className="font-display text-xl font-semibold">{selected.name}</h2><p className="mt-1 text-sm text-muted"><PhoneLink phone={selected.phone} /></p></div>
                   <div className="text-end"><div className="text-xs text-muted">{t("debts.closingBalance")}</div><div className="tabular text-xl font-semibold">{amount(statement?.closing_balance, language)}</div></div>
                 </div>
               </Card>

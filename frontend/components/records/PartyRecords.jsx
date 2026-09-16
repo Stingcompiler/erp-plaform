@@ -6,6 +6,7 @@ import { Download, Lock, Search } from "lucide-react";
 import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
+import PhoneLink from "@/components/ui/PhoneLink";
 
 const STATUS_TONE = {
   active: "ok",
@@ -184,7 +185,7 @@ export default function PartyRecords({
                   <div className="min-w-0">
                     <h2 className="font-display text-xl font-semibold text-ink">{profile.name}</h2>
                     <div className="mt-1 flex flex-wrap gap-x-4 text-sm text-muted">
-                      {profile.phone && <span>{profile.phone}</span>}
+                      {profile.phone && <PhoneLink phone={profile.phone} />}
                       {profile.email && <span>{profile.email}</span>}
                       {profile.address && <span>{profile.address}</span>}
                     </div>

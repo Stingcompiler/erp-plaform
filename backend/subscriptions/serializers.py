@@ -107,6 +107,9 @@ class PlanSerializer(serializers.ModelSerializer):
 
 class SubscriptionSerializer(serializers.ModelSerializer):
     company_name = serializers.CharField(source="company.name", read_only=True)
+    # The company's own contact number, so the platform team can call or
+    # WhatsApp a customer from the subscription row.
+    company_phone = serializers.CharField(source="company.phone", read_only=True)
     plan = PlanVersionSerializer(source="plan_version", read_only=True)
 
     class Meta:
@@ -115,6 +118,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             "id",
             "company",
             "company_name",
+            "company_phone",
             "plan_version",
             "plan",
             "status",
