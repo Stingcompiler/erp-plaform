@@ -4,13 +4,9 @@
 // with an "all modules" switch. Dependencies are kept consistent as the
 // user clicks (returns need sales/purchasing + inventory).
 import { useI18n } from "@/app/providers/I18nProvider";
-import { ALL_MODULES, MODULE_DEPENDENCIES, PLAN_MODULES, toggleModule } from "@/lib/planModules";
+import { ALL_MODULES, MODULE_DEPENDENCIES, PLAN_MODULES, moduleLabel, toggleModule } from "@/lib/planModules";
 
-export function moduleLabel(code, t) {
-  if (code === ALL_MODULES) return t("platformPlans.allModules");
-  const label = t(`platformPlans.moduleNames.${code}`);
-  return label.startsWith("platformPlans.") ? code : label;
-}
+export { moduleLabel };
 
 export default function ModulePicker({ value, onChange, disabled = false }) {
   const { t } = useI18n();
