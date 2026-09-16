@@ -125,22 +125,50 @@ class CompanySubscriptionPaymentViewSet(
         return FileResponse(payment.proof.open("rb"), as_attachment=True)
 
 
-class PlatformPlanViewSet(viewsets.ModelViewSet):
+class _PlatformAuditMixin:
+    """create/update/delete on a platform catalogue object are audited, so
+    the price list has a history like everything else the team touches."""
+
+    audit_entity_type = None
+
+    def _audit(self, action, instance, **metadata):
+        log_activity(
+            action=action, request=self.request, entity_type=self.audit_entity_type,
+            entity_id=instance.pk, metadata={"label": str(instance), **metadata},
+        )
+
+    def perform_create(self, serializer):
+        serializer.save()
+        self._audit("create", serializer.instance)
+
+    def perform_update(self, serializer):
+        changed = sorted(serializer.validated_data)
+        serializer.save()
+        self._audit("update", serializer.instance, fields=changed)
+
+    def perform_destroy(self, instance):
+        self._audit("delete", instance)
+        instance.delete()
+
+
+class PlatformPlanViewSet(_PlatformAuditMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
     platform_capability = platform_roles.PLANS_MANAGE
     platform_view_capability = platform_roles.PLANS_VIEW
     entitlement_exempt = True
     queryset = Plan.objects.prefetch_related("versions")
     serializer_class = PlanSerializer
+    audit_entity_type = "Plan"
 
 
-class PlatformPlanVersionViewSet(viewsets.ModelViewSet):
+class PlatformPlanVersionViewSet(_PlatformAuditMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
     platform_capability = platform_roles.PLANS_MANAGE
     platform_view_capability = platform_roles.PLANS_VIEW
     entitlement_exempt = True
     queryset = PlanVersion.objects.select_related("plan")
     serializer_class = PlanVersionSerializer
+    audit_entity_type = "PlanVersion"
 
     def perform_update(self, serializer):
         if (
@@ -152,14 +180,14 @@ class PlatformPlanVersionViewSet(viewsets.ModelViewSet):
             raise ValidationError(
                 "A plan version in use is immutable; create a new version."
             )
-        serializer.save()
+        super().perform_update(serializer)
 
     def perform_destroy(self, instance):
         if instance.subscriptions.exists():
             from rest_framework.exceptions import ValidationError
 
             raise ValidationError("A plan version in use cannot be deleted.")
-        instance.delete()
+        super().perform_destroy(instance)
 
 
 class PlatformSubscriptionViewSet(viewsets.ModelViewSet):

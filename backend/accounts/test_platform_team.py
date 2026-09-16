@@ -370,3 +370,106 @@ class SuperAdministratorRoleTests(APITestCase):
         listed = self.client.get(reverse("platform-team-list")).data
         rows = listed["results"] if isinstance(listed, dict) else listed
         self.assertNotIn("activity", rows[0])
+
+
+class PlatformActivityTests(APITestCase):
+    """The team's audit trail: what is recorded, who may read it, and that
+    tenant business rows never leak into it."""
+
+    def setUp(self):
+        self.root = User.objects.create_superuser("root@vezano.test", "secure-password")
+        self.client.force_authenticate(self.root)
+        invited = self.client.post(
+            reverse("platform-team-list"),
+            {"email": "mkt@vezano.test", "full_name": "Marketing", "role": "Marketing Manager"},
+            format="json",
+        )
+        self.member = User.objects.get(pk=invited.data["id"])
+
+    def _rows(self, **params):
+        response = self.client.get(reverse("platform-activity-list"), params)
+        self.assertEqual(response.status_code, 200, response.data)
+        data = response.data
+        return data["results"] if isinstance(data, dict) else data
+
+    def test_platform_writes_are_recorded_with_actor_and_time(self):
+        plan = self.client.post(
+            reverse("platform-plan-list"), {"code": "basic", "name": "Basic"}, format="json"
+        )
+        self.assertEqual(plan.status_code, 201, plan.data)
+        self.client.patch(
+            reverse("platform-plan-detail", args=[plan.data["id"]]), {"name": "Basic+"},
+            format="json",
+        )
+        from website.models import PlatformLead
+
+        lead = PlatformLead.objects.create(name="Shop", email="shop@example.com")
+        self.client.patch(
+            reverse("platform-lead-detail", args=[lead.pk]), {"status": "contacted"},
+            format="json",
+        )
+        rows = self._rows()
+        kinds = [(r["action"], r["entity_type"]) for r in rows]
+        self.assertIn(("create", "PlatformMember"), kinds)
+        self.assertIn(("create", "Plan"), kinds)
+        self.assertIn(("update", "Plan"), kinds)
+        self.assertIn(("update", "PlatformLead"), kinds)
+        plan_update = next(
+            r for r in rows if r["entity_type"] == "Plan" and r["action"] == "update"
+        )
+        self.assertEqual(plan_update["metadata"]["fields"], ["name"])
+        self.assertEqual(plan_update["user"]["email"], "root@vezano.test")
+        self.assertEqual(plan_update["user"]["role_name"], "Django superuser")
+        self.assertTrue(plan_update["created_at"])
+        lead_update = next(r for r in rows if r["entity_type"] == "PlatformLead")
+        self.assertEqual(lead_update["metadata"]["status_to"], "contacted")
+        # Newest first.
+        self.assertGreaterEqual(rows[0]["created_at"], rows[-1]["created_at"])
+
+    def test_platform_sign_ins_appear_but_tenant_sign_ins_do_not(self):
+        self.member.set_password("a-sufficiently-secure-password")
+        self.member.save()
+        anon = self.client_class()
+        signed = anon.post(
+            reverse("auth-login"),
+            {"email": "mkt@vezano.test", "password": "a-sufficiently-secure-password"},
+        )
+        self.assertEqual(signed.status_code, 200, signed.data)
+        from org.models import Branch, Company
+
+        company = Company.objects.create(name="Tenant")
+        owner_role = Role.objects.create(name="Business Owner", scope_level=Role.SCOPE_BUSINESS)
+        User.objects.create_user(
+            "owner@tenant.test", "a-sufficiently-secure-password", company=company,
+            role=owner_role, branch=Branch.objects.create(company=company, name="Main"),
+        )
+        tenant = anon.post(
+            reverse("auth-login"),
+            {"email": "owner@tenant.test", "password": "a-sufficiently-secure-password"},
+        )
+        self.assertEqual(tenant.status_code, 200, tenant.data)
+        logins = [r for r in self._rows(action="login")]
+        self.assertEqual([r["user"]["email"] for r in logins], ["mkt@vezano.test"])
+
+    def test_tenant_activity_never_appears_and_filters_work(self):
+        from core.activity import log_activity
+        from org.models import Company
+
+        company = Company.objects.create(name="Tenant")
+        tenant_user = User.objects.create_user("clerk@tenant.test", "x", company=company)
+        log_activity(action="create", user=tenant_user, company=company,
+                     entity_type="Invoice", entity_id=7)
+        rows = self._rows()
+        self.assertFalse(any(r["entity_type"] == "Invoice" for r in rows))
+        only_member = self._rows(user=self.member.pk)
+        self.assertTrue(all(r["user"]["id"] == self.member.pk for r in only_member))
+        facets = self.client.get(reverse("platform-activity-facets")).data
+        self.assertIn("PlatformMember", facets["entity_types"])
+        self.assertNotIn("Invoice", facets["entity_types"])
+        self.assertIn("create", facets["actions"])
+
+    def test_only_members_who_see_the_team_read_the_trail(self):
+        self.client.force_authenticate(self.member)  # Marketing Manager: no team view
+        self.assertEqual(self.client.get(reverse("platform-activity-list")).status_code, 403)
+        self.client.force_authenticate(None)
+        self.assertEqual(self.client.get(reverse("platform-activity-list")).status_code, 401)

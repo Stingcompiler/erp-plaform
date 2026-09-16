@@ -382,6 +382,8 @@ export const platformTeam = {
   activate: (id) => api.post(`/platform/team/${id}/activate/`),
   roles: () => api.get("/platform/team/roles/"),
   setRole: (id, role) => api.post(`/platform/team/${id}/set-role/`, { role }),
+  activity: (params) => api.get("/platform/activity/", { params }),
+  activityFacets: () => api.get("/platform/activity/facets/"),
 };
 
 export const platformLeads = {
