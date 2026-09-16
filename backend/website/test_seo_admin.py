@@ -96,6 +96,33 @@ class SeoSettingsApiTests(SeoAdminBase):
                     ActivityLog.objects.filter(entity_type="SeoSettings").count(), 2
                 )
 
+    def test_support_contact_is_public_and_validated(self):
+        url = reverse("platform-seo-settings")
+        anon = self.client_class()
+        empty = anon.get(reverse("public-site-contact"))
+        self.assertEqual(empty.status_code, 200)
+        self.assertEqual(empty.json(), {"whatsapp": "", "phone": "", "email": ""})
+        self.assertIn("max-age=300", empty["Cache-Control"])
+        bad = self.client.patch(url, {"support_whatsapp": "call me"}, format="json")
+        self.assertEqual(bad.status_code, 400)
+        bad = self.client.patch(url, {"support_email": "not-an-email"}, format="json")
+        self.assertEqual(bad.status_code, 400)
+        good = self.client.patch(
+            url,
+            {"support_whatsapp": " +249  91 234 5678 ", "support_phone": "+249 18 300 0000",
+             "support_email": "hello@vezano.app"},
+            format="json",
+        )
+        self.assertEqual(good.status_code, 200, good.data)
+        self.assertEqual(good.data["support_whatsapp"], "+249 91 234 5678")
+        # Live for visitors at once (the save clears the cache).
+        self.assertEqual(
+            anon.get(reverse("public-site-contact")).json(),
+            {"whatsapp": "+249 91 234 5678", "phone": "+249 18 300 0000",
+             "email": "hello@vezano.app"},
+        )
+        self.assertEqual(ActivityLog.objects.filter(entity_type="SeoSettings").count(), 1)
+
     def test_tenant_user_is_refused(self):
         from org.models import Company
 
@@ -181,6 +208,12 @@ class ServedExportTests(SeoAdminBase):
         return response, body
 
     def test_untouched_settings_serve_the_file_byte_for_byte(self):
+        # Contact details alone do not touch the export: they are read by
+        # the page over the API, not injected.
+        self.client.patch(
+            reverse("platform-seo-settings"), {"support_whatsapp": "+249912345678"},
+            format="json",
+        )
         original = (FRONTEND_DIST / "index.html").read_text(encoding="utf-8")
         response, body = self._get("")
         self.assertEqual(response.status_code, 200)

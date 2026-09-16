@@ -7,7 +7,7 @@ model's name, so the platform activity page shows who changed what.
 """
 from rest_framework import serializers, viewsets
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -18,6 +18,7 @@ from core.public_media import public_media_url
 from core.seo_inject import ANALYTICS_ID
 from website.images import clear_image, prepare_image, replace_image
 from website.models import SeoPageOverride, SeoSettings, normalize_seo_path
+from website.seo import site_seo
 
 # A share image is 1200×630 by convention; the longest side is bounded here
 # and the file re-encoded like every other public image.
@@ -31,7 +32,8 @@ class SeoSettingsSerializer(serializers.ModelSerializer):
         model = SeoSettings
         fields = [
             "google_site_verification", "bing_site_verification", "analytics_id",
-            "default_og_image_url", "robots_extra", "updated_at",
+            "default_og_image_url", "robots_extra",
+            "support_whatsapp", "support_phone", "support_email", "updated_at",
         ]
         read_only_fields = ["default_og_image_url", "updated_at"]
 
@@ -54,6 +56,19 @@ class SeoSettingsSerializer(serializers.ModelSerializer):
 
     def validate_google_site_verification(self, value):
         return self._token(value)
+
+    def _phone(self, value):
+        value = " ".join((value or "").split())
+        digits = sum(ch.isdigit() for ch in value)
+        if value and (digits < 7 or digits > 15):
+            raise serializers.ValidationError("Enter a number in international form.")
+        return value
+
+    def validate_support_whatsapp(self, value):
+        return self._phone(value)
+
+    def validate_support_phone(self, value):
+        return self._phone(value)
 
     def validate_bing_site_verification(self, value):
         return self._token(value)
@@ -110,6 +125,24 @@ class SeoSettingsView(APIView):
             entity_id=settings_row.pk, metadata={"fields": sorted(serializer.validated_data)},
         )
         return Response(serializer.data)
+
+
+class PublicSiteContactView(APIView):
+    """What the marketing site shows as the platform's own contact: read by
+    every visitor, cached briefly, empty fields when nothing is set."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        site = site_seo()
+        response = Response({
+            "whatsapp": site.support_whatsapp,
+            "phone": site.support_phone,
+            "email": site.support_email,
+        })
+        response["Cache-Control"] = "public, max-age=300"
+        return response
 
 
 class SeoOgImageView(APIView):

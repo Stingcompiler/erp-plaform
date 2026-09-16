@@ -330,6 +330,12 @@ class SeoSettings(models.Model):
     default_og_image = models.ImageField(upload_to=seo_upload_path, blank=True, null=True)
     # Appended verbatim to the exported robots.txt.
     robots_extra = models.TextField(blank=True)
+    # How a visitor of the marketing site reaches the platform itself: the
+    # WhatsApp number behind the floating button, a phone to call and an
+    # email. All optional; a blank one shows nothing.
+    support_whatsapp = models.CharField(max_length=32, blank=True)
+    support_phone = models.CharField(max_length=32, blank=True)
+    support_email = models.EmailField(blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -353,7 +359,8 @@ class SeoSettings(models.Model):
     def delete(self, *args, **kwargs):
         # The singleton is cleared, never removed.
         for field in ("google_site_verification", "bing_site_verification",
-                      "analytics_id", "robots_extra"):
+                      "analytics_id", "robots_extra", "support_whatsapp", "support_phone",
+                      "support_email"):
             setattr(self, field, "")
         if self.default_og_image:
             self.default_og_image.delete(save=False)

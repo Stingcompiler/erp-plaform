@@ -5,7 +5,7 @@
 // of per-path overrides (title, description, noindex, canonical). Django
 // applies both while serving the public pages, so a save is live at once.
 import { useCallback, useEffect, useState } from "react";
-import { ExternalLink, Eye, EyeOff, Globe, Lock, Pencil, Plus, SearchCheck, Trash2 } from "lucide-react";
+import { ExternalLink, Eye, EyeOff, Globe, Lock, MessageCircle, Pencil, Plus, SearchCheck, Trash2 } from "lucide-react";
 
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
@@ -14,7 +14,7 @@ import { SITE_URL } from "@/lib/site";
 import ImagePicker from "@/components/website/ImagePicker";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 
-const SETTINGS_FIELDS = ["google_site_verification", "bing_site_verification", "analytics_id", "robots_extra"];
+const SETTINGS_FIELDS = ["google_site_verification", "bing_site_verification", "analytics_id", "robots_extra", "support_whatsapp", "support_phone", "support_email"];
 const EMPTY_OVERRIDE = { path: "/", language: "both", title: "", description: "", noindex: false, canonical: "" };
 const TITLE_LIMIT = 60;
 const DESCRIPTION_LIMIT = 160;
@@ -271,6 +271,34 @@ export default function PlatformSeoPage() {
                     disabled={!canManage}
                     aspect="aspect-[1200/630]"
                   />
+                </form>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="mb-5 p-5">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#25d366]/15 text-[#128c7e]"><MessageCircle size={20} /></span>
+              <div className="min-w-0 flex-1">
+                <h2 className="font-display font-semibold">{t("platformSeo.contactCard")}</h2>
+                <p className="mt-1 text-sm text-muted">{t("platformSeo.contactHint")}</p>
+                <form onSubmit={saveSettings} className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <Field label={t("platformSeo.supportWhatsapp")} hint={t("platformSeo.supportWhatsappHint")}>
+                    <Input dir="ltr" type="tel" maxLength={32} value={form.support_whatsapp} onChange={set("support_whatsapp")} disabled={!canManage} placeholder="+249 91 234 5678" />
+                  </Field>
+                  <Field label={t("platformSeo.supportPhone")}>
+                    <Input dir="ltr" type="tel" maxLength={32} value={form.support_phone} onChange={set("support_phone")} disabled={!canManage} />
+                  </Field>
+                  <Field label={t("platformSeo.supportEmail")}>
+                    <Input dir="ltr" type="email" maxLength={254} value={form.support_email} onChange={set("support_email")} disabled={!canManage} />
+                  </Field>
+                  {canManage && (
+                    <div className="sm:col-span-3">
+                      <Button type="submit" disabled={saving === "settings"}>
+                        {saving === "settings" ? t("platformSeo.saving") : t("platformSeo.save")}
+                      </Button>
+                    </div>
+                  )}
                 </form>
               </div>
             </div>
