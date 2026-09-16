@@ -27,6 +27,8 @@ export function describeActivity(row, t, roleLabel) {
   switch (row.entity_type) {
     case "PlatformMember":
       if (row.action === "create") return T("memberInvited", { email: m.email || label, role: roleLabel(m.role) });
+      if (row.action === "delete") return T("memberDeleted", { email: m.email || label });
+      if (m.profile) return T("memberProfile", { fields: Object.keys(m.profile).map((k) => t(`platformTeam.member.fields.${k}`)).join(", ") });
       if (m.role_to) return T("memberRole", { from: roleLabel(m.role_from), to: roleLabel(m.role_to) });
       if (m.is_active === false) return T("memberDeactivated");
       if (m.is_active === true) return T("memberReactivated");

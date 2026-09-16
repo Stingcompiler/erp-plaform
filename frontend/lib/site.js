@@ -37,6 +37,7 @@ export const PRIVATE_PATH_PREFIXES = [
   "/logs/",
   "/org/",
   "/users/",
+  "/users/detail/",
   "/settings/",
   "/subscription/",
   "/website/",

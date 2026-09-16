@@ -17,6 +17,7 @@ from accounts.serializers import (
     PermissionSerializer,
     RoleSerializer,
     UserSerializer,
+    UserDetailSerializer,
 )
 from core.activity import log_activity
 from core.deletion import ArchiveOnDeleteMixin
@@ -148,6 +149,11 @@ class UserViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     activity_entity_type = "User"
     branch_field = "branch"
     include_unassigned_branch_rows = False
+
+    def get_serializer_class(self):
+        if self.action == "retrieve":
+            return UserDetailSerializer
+        return UserSerializer
 
     @transaction.atomic
     def perform_create(self, serializer):

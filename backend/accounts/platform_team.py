@@ -176,3 +176,58 @@ def accept_platform_invitation(token, password, request=None):
         metadata={"event": "accepted"},
     )
     return user
+
+
+@transaction.atomic
+def set_platform_member_profile(user_id, full_name, email, actor, request=None):
+    """Edit a member's name or email. The address must stay unique."""
+    user = platform_members().select_for_update(of=("self",)).get(pk=user_id)
+    changes = {}
+    if full_name is not None and full_name.strip() != user.full_name:
+        changes["full_name"] = [user.full_name, full_name.strip()]
+        user.full_name = full_name.strip()
+    if email is not None:
+        email = User.objects.normalize_email(email).strip()
+        if email.lower() != user.email.lower():
+            if User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists():
+                raise ValidationError({"email": "This email already belongs to an account."})
+            changes["email"] = [user.email, email]
+            user.email = email
+    if changes:
+        user.save(update_fields=list(changes))
+        log_activity(
+            action="update", user=actor, request=request,
+            entity_type="PlatformMember", entity_id=user.pk,
+            metadata={"profile": changes},
+        )
+    return user
+
+
+@transaction.atomic
+def delete_platform_member(user_id, actor, request=None):
+    """Remove a member who never activated — a mistaken invitation. Anyone
+    who has signed in keeps an account (deactivated) so the audit trail keeps
+    its author; superusers and the caller are never deleted here."""
+    user = platform_members().select_for_update(of=("self",)).get(pk=user_id)
+    if user.pk == actor.pk:
+        raise ValidationError("You cannot delete your own account.")
+    if user.is_superuser:
+        raise ValidationError("Django superusers are managed outside the platform team.")
+    if user.has_usable_password() or user.last_login:
+        raise ValidationError(
+            "This member has signed in before. Deactivate the account instead; "
+            "it keeps their name on everything they did."
+        )
+    remaining = (
+        platform_members().filter(is_active=True)
+        .filter(Q(is_superuser=True) | Q(role__name="Super Administrator"))
+        .exclude(pk=user.pk).count()
+    )
+    if remaining == 0:
+        raise ValidationError("The platform must keep at least one active Super Administrator.")
+    log_activity(
+        action="delete", user=actor, request=request,
+        entity_type="PlatformMember", entity_id=user.pk,
+        metadata={"email": user.email, "full_name": user.full_name},
+    )
+    user.delete()

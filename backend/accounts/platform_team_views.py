@@ -10,10 +10,12 @@ from accounts.models import PlatformInvitation, User
 from core.models import ActivityLog
 from accounts.platform_team import (
     accept_platform_invitation,
+    delete_platform_member,
     invite_platform_member,
     platform_members,
     reissue_platform_invitation,
     set_platform_member_active,
+    set_platform_member_profile,
     set_platform_member_role,
 )
 from core import platform_roles
@@ -141,6 +143,11 @@ class PlatformMemberRoleSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=[(name, name) for name in platform_roles.PLATFORM_ROLES])
 
 
+class PlatformMemberProfileSerializer(serializers.Serializer):
+    full_name = serializers.CharField(max_length=255, required=False)
+    email = serializers.EmailField(required=False)
+
+
 class PlatformTeamViewSet(
     mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet
 ):
@@ -181,6 +188,19 @@ class PlatformTeamViewSet(
             serializer.validated_data["role"], request.user, request,
         )
         return Response(self._payload(user, token), status=status.HTTP_201_CREATED)
+
+    def partial_update(self, request, pk=None):
+        serializer = PlatformMemberProfileSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = set_platform_member_profile(
+            pk, serializer.validated_data.get("full_name"),
+            serializer.validated_data.get("email"), request.user, request,
+        )
+        return Response(self._payload(user))
+
+    def destroy(self, request, pk=None):
+        delete_platform_member(pk, request.user, request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=["get"])
     def roles(self, request):
