@@ -30,6 +30,20 @@ export function toggleModule(selected, code) {
   return PLAN_MODULES.filter((item) => set.has(item));
 }
 
+// A module's display name in the UI language; "*" means every module.
+export function moduleLabel(code, t) {
+  if (code === ALL_MODULES) return t("platformPlans.allModules");
+  const label = t(`platformPlans.moduleNames.${code}`);
+  return label.startsWith("platformPlans.") ? code : label;
+}
+
+// The modules a version really includes, "*" expanded, in navigation order.
+export function expandModules(modules) {
+  const list = modules || [];
+  if (list.includes(ALL_MODULES)) return [...PLAN_MODULES];
+  return PLAN_MODULES.filter((code) => list.includes(code));
+}
+
 // What the API should receive: ["*"] when everything is ticked.
 export function normalizeModules(selected) {
   if (selected.includes(ALL_MODULES)) return [ALL_MODULES];

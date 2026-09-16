@@ -10,7 +10,7 @@ import { Check, Server, Sparkles } from "lucide-react";
 
 import { useI18n } from "../../app/providers/I18nProvider";
 import { registration } from "@/lib/api";
-import { MODULE_LABEL_KEYS } from "@/lib/marketingI18n";
+import { expandModules, moduleLabel } from "@/lib/planModules";
 
 export function formatPrice(amount, currency, language) {
   const value = Number(amount);
@@ -58,14 +58,11 @@ function LimitLine({ plan }) {
   return <p className="mt-3 text-sm text-muted">{parts.join(" · ")}</p>;
 }
 
+// Every module the version includes, "*" expanded to the full list, so the
+// visitor sees what they get rather than a code.
 function ModuleChips({ modules }) {
   const { t } = useI18n();
-  const labels = useMemo(() => {
-    const seen = new Set();
-    return (modules || [])
-      .map((slug) => (MODULE_LABEL_KEYS[slug] ? t(MODULE_LABEL_KEYS[slug]) : slug))
-      .filter((label) => (seen.has(label) ? false : seen.add(label)));
-  }, [modules, t]);
+  const labels = useMemo(() => expandModules(modules).map((code) => moduleLabel(code, t)), [modules, t]);
   if (!labels.length) return null;
   return (
     <div className="mt-4 flex flex-wrap gap-1.5">
