@@ -1,7 +1,7 @@
 """The hosted SaaS answers on the canonical apex domain, its www alias and the
 original enterprise.* subdomain, and the crawler files ship with the export."""
 from django.conf import settings
-from django.test import RequestFactory, SimpleTestCase, override_settings
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 
 from core.frontend import FRONTEND_DIST, serve_frontend
 
@@ -25,9 +25,10 @@ class PublicHostTests(SimpleTestCase):
 
 
 @override_settings(DEBUG=False)
-class CrawlerFileTests(SimpleTestCase):
+class CrawlerFileTests(TestCase):
     """robots.txt and sitemap.xml are written by the Next export (app/robots.js,
-    app/sitemap.js) and served from the export root like any other file."""
+    app/sitemap.js) and served from the export root like any other file. (A
+    TestCase, not a SimpleTestCase: serving consults the SEO settings.)"""
 
     def setUp(self):
         if not (FRONTEND_DIST / "index.html").is_file():

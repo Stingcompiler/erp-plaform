@@ -30,8 +30,10 @@ from django.views.decorators.cache import cache_control
 from django.views.decorators.http import require_GET
 
 from org.models import Company
-from website.models import Website
+from website.models import Website, normalize_seo_path
 from core.public_media import public_media_url
+from core.seo_inject import analytics_snippet
+from website.seo import page_seo, site_seo
 from website.serializers import PublicSiteSerializer
 
 HEX_COLOUR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
@@ -72,6 +74,26 @@ CATEGORY_LABELS = {
 
 def public_site_path(slug):
     return f"/s/{slug}/"
+
+
+def seo_context(path, language, *, title, description, url, noindex=False, request=None):
+    """What the <head> of a Django-rendered public page shows once the
+    platform team's SEO settings are applied (website.seo): the page's own
+    title, description and canonical unless an override for `path` in this
+    `language` says otherwise, plus the site-wide verification tags,
+    analytics tag and default share image."""
+    override = page_seo(normalize_seo_path(path), language)
+    site = site_seo()
+    return {
+        "title": override.title or title,
+        "description": override.description or description,
+        "canonical": override.canonical or url,
+        "noindex": noindex or override.noindex,
+        "google_site_verification": site.google_site_verification,
+        "bing_site_verification": site.bing_site_verification,
+        "analytics": analytics_snippet(site.analytics_id),
+        "default_og_image": absolute(site.default_og_image_url, request),
+    }
 
 
 def published_sites():
@@ -261,11 +283,17 @@ def render_site(request, site, *, preview=False):
     logo = data["logo_image_url"] or (
         data["logo_url"] if data["logo_url"].startswith(("http://", "https://")) else ""
     )
+    name = _display_name(site)
     context = {
         "site": site,
         "data": data,
-        "name": _display_name(site),
+        "name": name,
         "description": _description(site, data),
+        "seo": seo_context(
+            public_site_path(slug), language,
+            title=f"{name} — {data['tagline']}" if data["tagline"] else name,
+            description=_description(site, data), url=url, noindex=preview, request=request,
+        ),
         "language": language,
         "dir": "rtl" if language == "ar" else "ltr",
         "url": url,
@@ -352,6 +380,15 @@ def public_site_directory(request):
             "category": category,
             "url": site_url("/s/"),
             "platform_url": site_url("/"),
+            "seo": seo_context(
+                "/s/", "ar",
+                title="الشركات والمتاجر التي تعمل بفيزانو — الدليل",
+                description=(
+                    "الشركات التجارية والموزعون وسلاسل المتاجر التي تدير أعمالها على فيزانو "
+                    "وتنشر صفحتها العامة هنا: من هم، وماذا يقدمون، وأين، وكيف تتواصل معهم."
+                ),
+                url=site_url("/s/"), request=request,
+            ),
         },
     )
 

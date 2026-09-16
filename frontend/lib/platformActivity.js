@@ -64,6 +64,14 @@ export function describeActivity(row, t, roleLabel) {
       const fields = Array.isArray(m.fields) && m.fields.length ? ` (${m.fields.join(", ")})` : "";
       return T(`catalogue_${row.action}`, { kind, label: m.label || label }) + (row.action === "update" ? fields : "");
     }
+    case "SeoSettings":
+      if (m.image) return T(m.removed ? "seoImageRemoved" : "seoImageSet");
+      return T("seoSettingsUpdated", { fields: Array.isArray(m.fields) ? m.fields.join(", ") : "" });
+    case "SeoPageOverride": {
+      const target = m.language && m.language !== "both" ? `${m.path || label} (${m.language})` : m.path || label;
+      const fields = Array.isArray(m.fields) && m.fields.length ? ` (${m.fields.join(", ")})` : "";
+      return T(`seoOverride_${row.action}`, { path: target }) + (row.action === "update" ? fields : "");
+    }
     default:
       break;
   }
@@ -87,6 +95,8 @@ export function activityKind(row, t) {
     SubscriptionPayment: "billing",
     Plan: "plans",
     PlanVersion: "plans",
+    SeoSettings: "seo",
+    SeoPageOverride: "seo",
   }[row.entity_type];
   return key ? t(`platformActivity.kinds.${key}`) : row.entity_type || t("platformActivity.kinds.other");
 }

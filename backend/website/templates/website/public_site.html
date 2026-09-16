@@ -3,20 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{ name }}{% if data.tagline %} — {{ data.tagline }}{% endif %}</title>
-<meta name="description" content="{{ description }}">
-<link rel="canonical" href="{{ url }}">
-<meta name="robots" content="{% if preview %}noindex, nofollow{% else %}index, follow{% endif %}">
+<title>{{ seo.title }}</title>
+<meta name="description" content="{{ seo.description }}">
+<link rel="canonical" href="{{ seo.canonical }}">
+<meta name="robots" content="{% if seo.noindex %}noindex, nofollow{% else %}index, follow{% endif %}">
 <meta property="og:type" content="business.business">
 <meta property="og:site_name" content="{{ name }}">
-<meta property="og:title" content="{{ name }}{% if data.tagline %} — {{ data.tagline }}{% endif %}">
-<meta property="og:description" content="{{ description }}">
-<meta property="og:url" content="{{ url }}">
+<meta property="og:title" content="{{ seo.title }}">
+<meta property="og:description" content="{{ seo.description }}">
+<meta property="og:url" content="{{ seo.canonical }}">
 <meta property="og:locale" content="{% if language == 'ar' %}ar_AR{% else %}en_US{% endif %}">
-{% if cover %}<meta property="og:image" content="{{ cover }}">{% elif logo %}<meta property="og:image" content="{{ logo }}">{% endif %}
+{% if cover %}<meta property="og:image" content="{{ cover }}">{% elif logo %}<meta property="og:image" content="{{ logo }}">{% elif seo.default_og_image %}<meta property="og:image" content="{{ seo.default_og_image }}">{% endif %}
 <meta name="twitter:card" content="{% if cover %}summary_large_image{% else %}summary{% endif %}">
-<meta name="twitter:title" content="{{ name }}">
-<meta name="twitter:description" content="{{ description }}">
+<meta name="twitter:title" content="{{ seo.title }}">
+<meta name="twitter:description" content="{{ seo.description }}">
+{% include "website/_seo_site.html" %}
 {% if logo %}<link rel="icon" href="{{ logo }}">{% endif %}
 <meta name="theme-color" content="{{ colour }}">
 {% if language == 'ar' %}<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
