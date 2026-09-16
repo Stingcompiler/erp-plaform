@@ -11,6 +11,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.cookies import clear_auth_cookies, set_auth_cookies
 from accounts.models import Permission, Role, User
+from accounts.presence import record_login
 from accounts.serializers import (
     LoginSerializer,
     MeSerializer,
@@ -76,6 +77,7 @@ class LoginView(APIView):
 
         # Rule #8: login is a state-changing event and must be audited.
         log_activity(action="login", user=user, request=request)
+        record_login(user)
         return response
 
 

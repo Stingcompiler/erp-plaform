@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, Building2, CreditCard, FileCheck2, Lock, ShieldCheck, Timer } from "lucide-react";
+import { ArrowRight, Building2, CreditCard, FileCheck2, Lock, ShieldCheck, Timer, UsersRound } from "lucide-react";
 
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
@@ -16,8 +16,15 @@ function MetricCard({ href, icon: Icon, value, title, hint }) {
 
 export default function PlatformPage() {
   const { user } = useAuth();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const roleLabel = usePlatformRoleLabel();
+  const fmt = (value) => new Date(value).toLocaleString(language === "ar" ? "ar" : "en", { dateStyle: "medium", timeStyle: "short" });
+  // Unknown role names (e.g. "Django superuser") fall back to the raw label.
+  const memberRole = (name) => {
+    if (!name) return "";
+    const label = t(`platformTeam.roles.${name}`);
+    return label.startsWith("platformTeam.") ? name : label;
+  };
   const [overview, setOverview] = useState(null);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -28,6 +35,8 @@ export default function PlatformPage() {
   const counts = overview?.counts;
   const attention = overview?.registration_attention || [];
   const expiring = overview?.expiring_subscriptions || [];
+  // Only present for members who may see the team (platform.team.view).
+  const team = overview?.team;
   return <div>
     <PageHeader title={t("platform.title")} subtitle={t("platform.subtitle")} actions={<Badge tone="accent"><ShieldCheck size={14} /> {roleLabel}</Badge>} />
     {error && <p role="alert" className="mb-5 rounded-control bg-danger/10 p-3 text-sm text-danger">{error}</p>}
@@ -51,6 +60,7 @@ export default function PlatformPage() {
     </div>
     <div className="mt-7 grid gap-5 lg:grid-cols-2">
       <Card className="p-5"><div className="flex items-center justify-between gap-3"><h2 className="font-display text-lg font-semibold">{t("platform.registrationQueue")}</h2><Link href="/platform-registrations" className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">{t("platform.openQueue")}<ArrowRight size={15} /></Link></div>{attention.length ? <div className="mt-4 divide-y divide-line">{attention.map((row) => <div key={row.id} className="py-3"><div className="font-medium">{row.company_name}</div><div className="mt-1 text-sm text-muted">{row.contact_name} · {row.email}</div><Badge tone={row.status === "approved" ? "ok" : "warn"}>{t(`platformRegistration.status${row.status.charAt(0).toUpperCase()}${row.status.slice(1)}`)}</Badge></div>)}</div> : <p className="mt-4 text-sm text-muted">{t("platform.noRegistrationAttention")}</p>}</Card>
+      {team && <Card className="p-5"><div className="flex items-center justify-between gap-3"><h2 className="font-display text-lg font-semibold"><UsersRound size={18} className="me-2 inline text-accent" />{t("platform.teamPresence")}</h2><Link href="/platform-team" className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">{t("platform.openTeam")}<ArrowRight size={15} /></Link></div><p className="mt-1 text-sm text-muted">{t("platform.teamPresenceHint")}</p><div className="mt-4 divide-y divide-line">{team.map((row) => <div key={row.id} className="flex items-center justify-between gap-4 py-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><Link href={`/platform-team/member/?id=${row.id}`} className="font-medium hover:text-accent hover:underline">{row.full_name || row.email}</Link>{row.online && <Badge tone="ok"><span className="me-1 inline-block h-2 w-2 rounded-full bg-ok" />{t("platformTeam.online")}</Badge>}</div><div className="mt-1 truncate text-sm text-muted">{row.email}{row.role_name && <> · {memberRole(row.role_name)}</>}</div></div><div className="shrink-0 text-end text-xs text-muted">{row.online ? "" : row.last_seen_at ? t("platformTeam.lastSeen", { date: fmt(row.last_seen_at) }) : t("platformTeam.neverSignedIn")}</div></div>)}</div></Card>}
       <Card className="p-5"><h2 className="font-display text-lg font-semibold">{t("platform.expiringQueue")}</h2>{expiring.length ? <div className="mt-4 divide-y divide-line">{expiring.map((row) => <div key={row.id} className="flex items-center justify-between gap-4 py-3"><div><div className="font-medium">{row.company_name}</div><div className="mt-1 text-sm text-muted">{row.status}</div></div><time className="text-sm text-muted">{new Date(row.ends_at).toLocaleDateString()}</time></div>)}</div> : <p className="mt-4 text-sm text-muted">{t("platform.noExpiringSubscriptions")}</p>}</Card>
     </div>
   </div>;

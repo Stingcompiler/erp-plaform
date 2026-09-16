@@ -141,8 +141,45 @@ class PlatformOverviewView(APIView):
                     }
                     for item in list(trial_expiring) + list(period_expiring)
                 ][:6],
+                # Who on the team is here right now; only for members who may
+                # see the team list. Others get no key at all.
+                **(
+                    {"team": self._team(now)}
+                    if platform_roles.user_has_platform_capability(
+                        request.user, platform_roles.TEAM_VIEW
+                    )
+                    else {}
+                ),
             }
         )
+
+    @staticmethod
+    def _team(now):
+        from accounts.platform_team import platform_members
+        from accounts.presence import is_online
+
+        members = platform_members().filter(is_active=True)
+        rows = [
+            {
+                "id": member.pk,
+                "full_name": member.full_name,
+                "email": member.email,
+                "role_name": member.role.name if member.role_id else (
+                    "Django superuser" if member.is_superuser else ""
+                ),
+                "online": is_online(member, now),
+                "last_seen_at": member.last_seen_at,
+                "last_login": member.last_login,
+            }
+            for member in members
+        ]
+        # Online first, then most recently seen.
+        rows.sort(
+            key=lambda r: (
+                not r["online"], -(r["last_seen_at"].timestamp() if r["last_seen_at"] else 0)
+            )
+        )
+        return rows
 
 
 class PublicPlanListView(APIView):
