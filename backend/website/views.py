@@ -82,6 +82,7 @@ class PlatformLeadViewSet(
             queryset = queryset.filter(
                 models.Q(name__icontains=search)
                 | models.Q(email__icontains=search)
+                | models.Q(phone__icontains=search)
                 | models.Q(message__icontains=search)
             )
         return queryset
@@ -628,6 +629,8 @@ class DemoRequestView(APIView):
                 defaults={
                     "name": data["name"],
                     "email": data["email"],
+                    "phone": data.get("phone", ""),
+                    "preferred_channel": data["preferred_channel"],
                     "message": data.get("message", ""),
                 },
             )

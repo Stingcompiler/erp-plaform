@@ -199,7 +199,12 @@ class PublicSiteSerializer(serializers.ModelSerializer):
 class DemoRequestSerializer(serializers.Serializer):
     request_uuid = serializers.UUIDField()
     name = serializers.CharField(max_length=255)
-    email = serializers.EmailField(max_length=254)
+    email = serializers.EmailField(max_length=254, required=False, allow_blank=True)
+    phone = serializers.CharField(max_length=64, required=False, allow_blank=True)
+    preferred_channel = serializers.ChoiceField(
+        choices=PlatformLead.CHANNEL_CHOICES, required=False,
+        default=PlatformLead.CHANNEL_WHATSAPP,
+    )
     message = serializers.CharField(max_length=4000, required=False, allow_blank=True)
     website = serializers.CharField(required=False, allow_blank=True, max_length=255)
 
@@ -208,17 +213,39 @@ class DemoRequestSerializer(serializers.Serializer):
             raise serializers.ValidationError("Leave this field empty.")
         return value
 
+    def validate_phone(self, value):
+        value = " ".join((value or "").split())
+        digits = sum(ch.isdigit() for ch in value)
+        if value and (digits < 7 or digits > 15 or len(value) > 32):
+            raise serializers.ValidationError("Enter a phone number we can call.")
+        return value
+
+    def validate(self, attrs):
+        attrs["email"] = (attrs.get("email") or "").strip()
+        if not attrs.get("phone") and not attrs["email"]:
+            raise serializers.ValidationError(
+                {"phone": "Leave a phone number or an email so we can reach you."}
+            )
+        # A channel we cannot use falls back to one we can.
+        channel = attrs.get("preferred_channel") or PlatformLead.CHANNEL_WHATSAPP
+        if channel == PlatformLead.CHANNEL_EMAIL and not attrs["email"]:
+            channel = PlatformLead.CHANNEL_WHATSAPP
+        if channel != PlatformLead.CHANNEL_EMAIL and not attrs.get("phone"):
+            channel = PlatformLead.CHANNEL_EMAIL
+        attrs["preferred_channel"] = channel
+        return attrs
+
 
 class PlatformLeadSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlatformLead
         fields = [
-            "id", "request_uuid", "name", "email", "message", "status",
-            "source", "created_at",
+            "id", "request_uuid", "name", "email", "phone", "preferred_channel", "message",
+            "status", "source", "created_at",
         ]
         read_only_fields = [
-            "id", "request_uuid", "name", "email", "message", "source",
-            "created_at",
+            "id", "request_uuid", "name", "email", "phone", "preferred_channel", "message",
+            "source", "created_at",
         ]
 
 
