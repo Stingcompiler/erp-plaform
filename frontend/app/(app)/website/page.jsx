@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, ExternalLink, Globe, Lock } from "lucide-react";
+import { CheckCircle2, ExternalLink, Eye, Globe, Lock, RefreshCw } from "lucide-react";
 
 import { website } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
@@ -21,6 +21,10 @@ export default function WebsitePage() {
   const [page, setPage] = useState(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [preview, setPreview] = useState(false);
+  // Bumped after every save so the iframe reloads the draft.
+  const [previewKey, setPreviewKey] = useState(0);
+  const refreshPreview = () => setPreviewKey((k) => k + 1);
 
   useEffect(() => {
     if (canRead("website")) {
@@ -40,8 +44,8 @@ export default function WebsitePage() {
 
   const set = (key) => (e) => setPage((p) => ({ ...p, [key]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
   const image = (kind) => ({
-    onUpload: async (file) => { const r = await website.uploadImage(kind, file); setPage(r.data); },
-    onRemove: async () => { const r = await website.removeImage(kind); setPage(r.data); },
+    onUpload: async (file) => { const r = await website.uploadImage(kind, file); setPage(r.data); refreshPreview(); },
+    onRemove: async () => { const r = await website.removeImage(kind); setPage(r.data); refreshPreview(); },
   });
 
   async function save() {
@@ -65,6 +69,7 @@ export default function WebsitePage() {
       });
       setPage(r.data);
       setMsg(t("website.saved"));
+      refreshPreview();
     } catch {
       setMsg(t("website.saveChangesError"));
     } finally {
@@ -74,6 +79,7 @@ export default function WebsitePage() {
 
   async function togglePublish() {
     setMsg("");
+    if (!page.is_published && page.missing?.length && !window.confirm(t("website.publishIncompleteConfirm"))) return;
     try {
       const r = await website.publish(!page.is_published);
       setPage((p) => ({ ...p, is_published: r.data.is_published ?? !p.is_published }));
@@ -88,14 +94,38 @@ export default function WebsitePage() {
         title={t("website.title")}
         subtitle={t("website.subtitlePublic")}
         actions={
-          page &&
-          (page.is_published ? (
-            <Badge tone="ok">{t("website.published")}</Badge>
-          ) : (
-            <Badge tone="muted">{t("website.draft")}</Badge>
-          ))
+          page && (
+            <>
+              {page.is_published ? (
+                <Badge tone="ok">{t("website.published")}</Badge>
+              ) : (
+                <Badge tone="muted">{t("website.draft")}</Badge>
+              )}
+              <Button variant="outline" onClick={() => { setPreview((v) => !v); refreshPreview(); }}>
+                <Eye size={15} />{preview ? t("website.hidePreview") : t("website.showPreview")}
+              </Button>
+            </>
+          )
         }
       />
+
+      {page && preview && (
+        <Card className="mb-6 overflow-hidden">
+          <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2 text-xs text-muted">
+            <span>{t("website.previewHint")}</span>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" onClick={refreshPreview} aria-label={t("website.refreshPreview")}><RefreshCw size={14} /></Button>
+              <a href={website.previewUrl()} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-control px-2 py-1 hover:text-ink"><ExternalLink size={13} />{t("website.openPreview")}</a>
+            </div>
+          </div>
+          <iframe
+            key={previewKey}
+            title={t("website.showPreview")}
+            src={`${website.previewUrl()}?v=${previewKey}`}
+            className="h-[70vh] w-full bg-paper"
+          />
+        </Card>
+      )}
 
       {!page ? (
         <div className="text-muted">{t("common.loading")}</div>
@@ -209,9 +239,9 @@ export default function WebsitePage() {
         </Card>
       )}
 
-      {page && <SectionsEditor websiteId={page.id} writable={writable} />}
-      {page && <FeaturedProducts websiteId={page.id} writable={writable} onChanged={() => website.page().then((r) => setPage(r.data)).catch(() => {})} />}
-      {page && <Gallery writable={writable} />}
+      {page && <SectionsEditor websiteId={page.id} writable={writable} onChanged={refreshPreview} />}
+      {page && <FeaturedProducts websiteId={page.id} writable={writable} onChanged={() => { website.page().then((r) => setPage(r.data)).catch(() => {}); refreshPreview(); }} />}
+      {page && <Gallery writable={writable} onChanged={refreshPreview} />}
     </div>
   );
 }

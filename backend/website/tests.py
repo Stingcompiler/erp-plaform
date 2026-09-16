@@ -407,3 +407,77 @@ class LandingPageImageTests(PublicSiteTests):
         client.post(reverse("website-image", args=["cover"]), {"image": _png()}, format="multipart")
         data = client.get(reverse("website-page")).data
         self.assertNotIn("cover_image", data["missing"])
+
+
+class PreviewAndShowcaseTests(LandingPageImageTests):
+    """The owner's draft preview, the showcase feed and the card directory."""
+
+    def _complete(self, client):
+        for kind, image in (("cover", _png()), ("logo", _png(500, 500))):
+            client.post(reverse("website-image", args=[kind]), {"image": image}, format="multipart")
+        owner_role = Role.objects.create(name="Business Owner", scope_level=Role.SCOPE_BUSINESS)
+        User.objects.create_user(
+            email="owner@alpha.test", password="passw0rd123",
+            company=self.company_a, role=owner_role, branch=self.branch_a,
+        )
+        self.login("owner@alpha.test").post(
+            reverse("product-image", args=[self.product.id]), {"image": _png(600, 400)},
+            format="multipart",
+        )
+        client.patch(
+            reverse("website-page"),
+            {"tagline": "أفضل الأسعار", "about_text": "نبذة", "contact_phone": "0912345678",
+             "category": "grocery", "city": "الخرطوم"},
+            format="json",
+        )
+
+    def test_owner_previews_an_unpublished_draft(self):
+        client = self.login("lpm@alpha.test")
+        client.get(reverse("website-page"))  # created, not published
+        anon = self.client_class()
+        self.assertEqual(anon.get(reverse("website-preview")).status_code, 401)
+        preview = client.get(reverse("website-preview"))
+        self.assertEqual(preview.status_code, 200)
+        self.assertEqual(preview["Cache-Control"], "no-store")
+        self.assertEqual(preview["X-Robots-Tag"], "noindex")
+        self.assertEqual(preview["X-Frame-Options"], "SAMEORIGIN")
+        self.assertEqual(preview["Content-Security-Policy"], "frame-ancestors 'self'")
+        html = preview.content.decode()
+        self.assertIn('content="noindex, nofollow"', html)
+        self.assertIn("Preview", html)  # English fixture; Arabic sites get "معاينة"
+        # Still not public.
+        hidden = anon.get(reverse("public-site-page", args=[self.company_a.slug]))
+        self.assertEqual(hidden.status_code, 404)
+
+    def test_showcase_lists_only_complete_listed_sites(self):
+        client = self._build_and_publish()
+        anon = self.client_class()
+        self.assertEqual(anon.get(reverse("public-showcase")).json()["sites"], [])
+        self._complete(client)
+        sites = anon.get(reverse("public-showcase")).json()["sites"]
+        self.assertEqual(len(sites), 1)
+        card = sites[0]
+        self.assertEqual(card["name"], "Alpha Store")
+        self.assertEqual(card["url"], f"https://vezano.app/s/{self.company_a.slug}/")
+        self.assertTrue(card["cover"].startswith("https://vezano.app/media/public/"))
+        self.assertTrue(card["logo"].startswith("https://vezano.app/media/public/"))
+        self.assertEqual(card["category_label"], "مواد غذائية")
+        self.assertTrue(card["complete"])
+        Website.objects.filter(company=self.company_a).update(list_in_directory=False)
+        self.assertEqual(anon.get(reverse("public-showcase")).json()["sites"], [])
+
+    def test_directory_shows_complete_sites_as_cards_and_filters_by_category(self):
+        client = self._build_and_publish()
+        anon = self.client_class()
+        html = anon.get(reverse("public-site-directory")).content.decode()
+        self.assertNotIn('class="card"', html)
+        self.assertIn(f'href="/s/{self.company_a.slug}/"', html)  # plain link, still crawlable
+        self._complete(client)
+        html = anon.get(reverse("public-site-directory")).content.decode()
+        self.assertIn('class="card"', html)
+        self.assertIn("مواد غذائية", html)
+        directory = reverse("public-site-directory")
+        filtered = anon.get(directory + "?category=pharmacy").content.decode()
+        self.assertNotIn('class="card"', filtered)
+        self.assertNotIn(f'href="/s/{self.company_a.slug}/"', filtered)
+        self.assertEqual(anon.get(directory + "?category=<x>").status_code, 200)

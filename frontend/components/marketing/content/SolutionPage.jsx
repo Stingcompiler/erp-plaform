@@ -18,7 +18,8 @@ export default function SolutionPage({ slug }) {
   const item = solution(slug);
   if (!item) return null;
   const copy = item[language];
-  const shot = { light: `/marketing/${item.shot}.png`, dark: `/marketing/${item.shot}${item.shot === "pos" || item.shot === "dashboard" ? "-dark" : ""}.png` };
+  const hasDark = ["pos", "dashboard", "store-page"].includes(item.shot);
+  const shot = { light: `/marketing/${item.shot}.png`, dark: `/marketing/${item.shot}${hasDark ? "-dark" : ""}.png` };
 
   return (
     <MarketingPage>

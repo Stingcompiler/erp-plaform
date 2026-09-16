@@ -21,7 +21,7 @@ import json
 import re
 
 from django.conf import settings
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.utils.html import strip_tags
 from django.utils.text import Truncator
@@ -31,6 +31,7 @@ from django.views.decorators.http import require_GET
 
 from org.models import Company
 from website.models import Website
+from core.public_media import public_media_url
 from website.serializers import PublicSiteSerializer
 
 HEX_COLOUR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
@@ -242,10 +243,10 @@ def _site_or_404(slug):
     return site
 
 
-@require_GET
-@cache_control(public=True, max_age=CACHE_SECONDS)
-def public_site_page(request, slug):
-    site = _site_or_404(slug)
+def render_site(request, site, *, preview=False):
+    """The landing page for `site`. `preview` renders an unpublished draft for
+    its owner: same template, but noindex and never cached."""
+    slug = site.company.slug
     data = PublicSiteSerializer(site).data
     data["cover_image_url"] = absolute(data["cover_image_url"], request)
     data["logo_image_url"] = absolute(data["logo_image_url"], request)
@@ -284,26 +285,83 @@ def public_site_page(request, slug):
         "products": data["featured_products"],
         "platform_url": site_url("/"),
         "directory_url": site_url("/s/"),
+        "preview": preview,
     }
-    return render(request, "website/public_site.html", context)
+    response = render(request, "website/public_site.html", context)
+    if preview:
+        response["Cache-Control"] = "no-store"
+        response["X-Robots-Tag"] = "noindex"
+    return response
+
+
+@require_GET
+@cache_control(public=True, max_age=CACHE_SECONDS)
+def public_site_page(request, slug):
+    return render_site(request, _site_or_404(slug))
+
+
+def site_card(site, request=None):
+    """What the directory and the platform's showcase show for one site."""
+    logo = public_media_url(site.logo_image.name) if site.logo_image else (
+        site.logo_url if site.logo_url.startswith(("http://", "https://")) else ""
+    )
+    cover = public_media_url(site.cover_image.name) if site.cover_image else ""
+    return {
+        "name": _display_name(site),
+        "tagline": site.tagline,
+        "category": site.category,
+        "category_label": CATEGORY_LABELS["ar"].get(site.category, ""),
+        "city": site.city,
+        "path": public_site_path(site.company.slug),
+        "url": site_url(public_site_path(site.company.slug)),
+        "logo": absolute(logo, request),
+        "cover": absolute(cover, request),
+        "complete": is_complete(site),
+    }
+
+
+def showcase_sites(limit=None):
+    """Complete, listed, published sites — the ones the platform shows off."""
+    sites = [site for site in published_sites() if is_complete(site)]
+    return sites[:limit] if limit else sites
 
 
 @require_GET
 @cache_control(public=True, max_age=CACHE_SECONDS)
 def public_site_directory(request):
-    sites = [
-        {
-            "name": _display_name(site),
-            "tagline": site.tagline,
-            "path": public_site_path(site.company.slug),
-        }
-        for site in published_sites()
+    category = request.GET.get("category", "")
+    if category not in dict(Website.CATEGORY_CHOICES):
+        category = ""
+    cards = [site_card(site, request) for site in published_sites()]
+    if category:
+        cards = [card for card in cards if card["category"] == category]
+    present = {card["category"] for card in cards if card["category"]}
+    categories = [
+        (key, CATEGORY_LABELS["ar"][key])
+        for key, _ in Website.CATEGORY_CHOICES
+        if key in present or key == category
     ]
     return render(
         request,
         "website/public_directory.html",
-        {"sites": sites, "url": site_url("/s/"), "platform_url": site_url("/")},
+        {
+            "featured": [card for card in cards if card["complete"]],
+            "others": [card for card in cards if not card["complete"]],
+            "categories": categories,
+            "category": category,
+            "url": site_url("/s/"),
+            "platform_url": site_url("/"),
+        },
     )
+
+
+@require_GET
+@cache_control(public=True, max_age=CACHE_SECONDS)
+def public_showcase(request):
+    """JSON for the marketing site's "stores on Vezano" strip: complete,
+    listed sites only, newest published first, at most twelve."""
+    sites = sorted(showcase_sites(), key=lambda s: s.published_at or s.updated_at, reverse=True)
+    return JsonResponse({"sites": [site_card(site, request) for site in sites[:12]]})
 
 
 @require_GET

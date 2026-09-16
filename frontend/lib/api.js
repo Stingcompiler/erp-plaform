@@ -308,6 +308,8 @@ export const website = {
   },
   updateGalleryImage: (id, body) => api.patch(`/website/gallery/${id}/`, body),
   deleteGalleryImage: (id) => api.delete(`/website/gallery/${id}/`),
+  // The owner's draft rendered as the public page (HTML, for an iframe).
+  previewUrl: () => `${api.defaults.baseURL}/website/page/preview/`,
 };
 
 export const settings = {
@@ -344,6 +346,11 @@ export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhos
 export default api;
 
 export const demoRequests = { create: (body) => api.post("/public/demo-requests/", body) };
+
+// Unauthenticated reads of the public company pages.
+export const publicSite = {
+  showcase: () => api.get("/public/showcase/"),
+};
 
 export const registration = {
   overview: () => api.get("/platform/overview/"),

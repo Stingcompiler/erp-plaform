@@ -7,6 +7,7 @@ from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
@@ -401,6 +402,26 @@ class WebsiteView(APIView):
             entity_id=site.id,
         )
         return Response(serializer.data)
+
+
+class WebsitePreviewView(APIView):
+    """GET the caller's own landing page as HTML, published or not, for the
+    editor's preview pane. Never indexed, never cached. The editor shows it
+    in an iframe on the same origin, so the clickjacking header allows that
+    one origin instead of the site-wide DENY."""
+
+    permission_classes = [IsAuthenticated, RoleModuleAccess]
+    rbac_module = "website"
+    renderer_classes = [StaticHTMLRenderer]
+
+    def get(self, request):
+        from website.public_pages import render_site
+
+        site = WebsiteView()._get_site(request)
+        response = render_site(request, site, preview=True)
+        response["X-Frame-Options"] = "SAMEORIGIN"
+        response["Content-Security-Policy"] = "frame-ancestors 'self'"
+        return response
 
 
 class WebsiteImageUploadView(APIView):
