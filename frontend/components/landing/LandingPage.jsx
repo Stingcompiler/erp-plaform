@@ -24,6 +24,7 @@ import {
 
 import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
+import Showcase from "@/components/landing/Showcase";
 
 import { demoRequests } from "@/lib/api";
 import { MarketingFooter, MarketingHeader } from "@/components/marketing/Chrome";
@@ -353,6 +354,7 @@ export default function LandingPage() {
         <Hero />
         <TrustStrip />
         <Stories />
+        <Showcase />
         <Modules />
         <HowItWorks />
         <PricingPreview />

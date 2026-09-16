@@ -8,7 +8,7 @@ import { useI18n } from "@/app/providers/I18nProvider";
 import { website } from "@/lib/api";
 import { Button, Card } from "@/components/ui/kit";
 
-export default function Gallery({ writable }) {
+export default function Gallery({ writable, onChanged }) {
   const { t } = useI18n();
   const input = useRef(null);
   const [rows, setRows] = useState([]);
@@ -29,6 +29,7 @@ export default function Gallery({ writable }) {
         await website.addGalleryImage(file, rows.length);
       }
       load();
+      onChanged?.();
     } catch (err) {
       setError(err?.response?.data?.image?.[0] || t("website.imageError"));
     } finally {
@@ -46,6 +47,7 @@ export default function Gallery({ writable }) {
     if (!window.confirm(t("website.removeImageConfirm"))) return;
     await website.deleteGalleryImage(item.id).catch(() => {});
     load();
+    onChanged?.();
   }
 
   return (

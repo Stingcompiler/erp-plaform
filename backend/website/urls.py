@@ -1,6 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from website.public_pages import public_showcase
 from website.views import (
     FeaturedProductViewSet,
     DemoRequestView,
@@ -13,7 +14,7 @@ from website.views import (
     PublicSiteView,
     SectionViewSet,
     WebsitePublishView,
-    WebsiteView, WebsiteImageUploadView, WebsiteImageViewSet,
+    WebsiteView, WebsiteImageUploadView, WebsiteImageViewSet, WebsitePreviewView,
 )
 
 router = DefaultRouter()
@@ -42,6 +43,8 @@ urlpatterns = [
     ),
     path("website/page/", WebsiteView.as_view(), name="website-page"),
     path("website/page/publish/", WebsitePublishView.as_view(), name="website-publish"),
+    path("website/page/preview/", WebsitePreviewView.as_view(), name="website-preview"),
+    path("public/showcase/", public_showcase, name="public-showcase"),
     path(
         "website/page/image/<str:kind>/", WebsiteImageUploadView.as_view(),
         name="website-image",

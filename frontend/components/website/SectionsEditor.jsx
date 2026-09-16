@@ -131,7 +131,7 @@ function SectionForm({ open, onClose, onSaved, websiteId, section }) {
   );
 }
 
-export default function SectionsEditor({ websiteId, writable }) {
+export default function SectionsEditor({ websiteId, writable, onChanged }) {
   const { t } = useI18n();
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -151,15 +151,20 @@ export default function SectionsEditor({ websiteId, writable }) {
     load();
   }, [load]);
 
+  const changed = () => {
+    load();
+    onChanged?.();
+  };
+
   async function toggleVisible(s) {
     await website.updateSection(s.id, { is_visible: !s.is_visible }).catch(() => {});
-    load();
+    changed();
   }
 
   async function remove(s) {
     if (!window.confirm(t("website.deleteSectionConfirm", { name: s.title || typeLabel(t, s.type) }))) return;
     await website.deleteSection(s.id).catch(() => {});
-    load();
+    changed();
   }
 
   return (
@@ -233,7 +238,7 @@ export default function SectionsEditor({ websiteId, writable }) {
       <SectionForm
         open={formOpen}
         onClose={() => setFormOpen(false)}
-        onSaved={load}
+        onSaved={changed}
         websiteId={websiteId}
         section={editing}
       />

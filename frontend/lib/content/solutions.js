@@ -432,6 +432,104 @@ export const SOLUTIONS = [
       cta: "Add your second branch with a setting, not a new system",
     },
   },
+  {
+    slug: "store-page",
+    shot: "store-page",
+    ar: {
+      title: "صفحة مجانية لمتجرك على الإنترنت",
+      metaTitle: "صفحة مجانية لمتجرك — موقع للمحل بغلاف ومنتجات وواتساب وخريطة، يُفهرس في Google",
+      description:
+        "كل اشتراك في فيزانو يشمل صفحة عامة لنشاطك: غلاف وشعار، منتجات بالصور والأسعار، زر واتساب، ساعات العمل والموقع على الخريطة، تُفهرس في Google تلقائيًا دون مصمم ولا استضافة.",
+      lead:
+        "الزبون اليوم يبحث عن المحل في Google قبل أن يزوره، ويريد رقم واتساب لا صفحة فيسبوك. صفحة متجرك على فيزانو تُنشأ من بياناتك الموجودة أصلًا في النظام، وتصبح على الإنترنت بضغطة، وعنوانها vezano.app/s/اسم-متجرك.",
+      sections: [
+        {
+          heading: "ما الذي تحصل عليه",
+          body:
+            "صفحة هبوط كاملة لا مجرد بطاقة تعريف: غلاف بصورة المحل، شعار، شارة نوع النشاط والمدينة، أزرار واتساب واتصال، شبكة منتجات بالصور والأسعار من مخزونك، نبذة، معرض صور، ساعات العمل، والعنوان مع رابط الخريطة.",
+          bullets: [
+            "تعمل على الهاتف بزر واتساب ثابت أسفل الشاشة",
+            "بالعربية من اليمين لليسار أو بالإنجليزية حسب محتواك، ووضع داكن تلقائي",
+            "بلون نشاطك، دون قوالب معقدة تحتاج مصممًا",
+          ],
+        },
+        {
+          heading: "تظهر في Google والخرائط",
+          body:
+            "الصفحة تُبنى من الخادم كـ HTML حقيقي، بعنوان ووصف وبيانات منظمة من نوع LocalBusiness: الاسم والهاتف والعنوان وساعات العمل والصور والمنتجات بأسعارها. هذه هي البيانات التي تجعل محلك يظهر حين يبحث أحدهم عن نشاطك في مدينتك.",
+          bullets: [
+            "خريطة موقع خاصة بالمتاجر تُقدَّم لـ Google تلقائيًا عند النشر",
+            "دليل المتاجر على فيزانو يربط صفحتك من صفحة مفهرسة",
+            "بطاقة معاينة عند مشاركة الرابط في واتساب وفيسبوك",
+          ],
+        },
+        {
+          heading: "من داخل النظام، بلا عمل مزدوج",
+          body:
+            "المنتجات المميزة تُختار من مخزونك بأسعارها الحالية، فلا تكتب السعر مرتين. الصور تُرفع من الهاتف وتُصغَّر تلقائيًا. المعاينة تُريك الصفحة كما سيراها الزائر قبل النشر، وقائمة الاكتمال تخبرك بما ينقص.",
+        },
+        {
+          heading: "أنت تتحكم في الظهور",
+          body:
+            "الصفحة عامة حين تنشرها وتختفي حين توقفها. يمكنك إبقاءها متاحة برابطها فقط دون أن تظهر في دليل فيزانو أو خريطة الموقع، وحذف أي صورة أو منتج منها في أي وقت.",
+        },
+      ],
+      faq: [
+        ["هل تحتاج الصفحة إلى اشتراك إضافي أو استضافة؟", "لا. الصفحة جزء من كل باقة وتُستضاف على vezano.app مع شهادة HTTPS. لا رسوم إضافية."],
+        ["هل يمكن ربط نطاقي الخاص بها؟", "ليس بعد. العنوان الحالي vezano.app/s/اسم-متجرك. ربط النطاق الخاص على قائمة التطوير."],
+        ["هل يرى الزائر أسعاري ومخزوني كله؟", "لا. لا يظهر إلا ما تختاره صراحةً كمنتج مميز، وبالسعر الذي تحدده في النظام. المخزون والتكاليف لا تُنشر أبدًا."],
+        ["كيف يتواصل الزبون معي من الصفحة؟", "زر واتساب مباشر برقمك، وزر اتصال، والبريد، ورابط الاتجاهات على الخريطة. لا نماذج تحتاج متابعة."],
+      ],
+      cta: "أنشئ صفحة متجرك في ظهيرة واحدة",
+    },
+    en: {
+      title: "A free web page for your store",
+      metaTitle: "A free page for your store — a shop site with cover, products, WhatsApp and a map, indexed by Google",
+      description:
+        "Every Vezano subscription includes a public page for the business: cover and logo, products with photos and prices, a WhatsApp button, opening hours and a map link, indexed by Google automatically, with no designer and no hosting.",
+      lead:
+        "Customers look a shop up on Google before they visit, and they want a WhatsApp number, not a Facebook page. Your store page on Vezano is built from the data already in the system, goes live with one click, and lives at vezano.app/s/your-store.",
+      sections: [
+        {
+          heading: "What you get",
+          body:
+            "A full landing page, not a business card: a cover photo, a logo, a badge with your trade and city, WhatsApp and call buttons, a grid of products with photos and prices from your inventory, an about section, a photo gallery, opening hours, and your address with a map link.",
+          bullets: [
+            "Works on phones with a sticky WhatsApp button",
+            "Arabic right-to-left or English, following your content, with automatic dark mode",
+            "In your brand colour, without templates that need a designer",
+          ],
+        },
+        {
+          heading: "Found on Google and on maps",
+          body:
+            "The page is served as real HTML with a title, a description and LocalBusiness structured data: name, phone, address, opening hours, photos and products with prices. That is the data that makes a shop appear when someone searches for your trade in your city.",
+          bullets: [
+            "A stores sitemap is submitted to Google automatically on publish",
+            "The Vezano store directory links to your page from an indexed page",
+            "A preview card when the link is shared on WhatsApp or Facebook",
+          ],
+        },
+        {
+          heading: "From inside the system, no double work",
+          body:
+            "Featured products are picked from your inventory at their current prices, so you never type a price twice. Photos are uploaded from a phone and resized automatically. The preview shows the page exactly as a visitor will see it before you publish, and the completeness checklist tells you what is missing.",
+        },
+        {
+          heading: "You control the exposure",
+          body:
+            "The page is public when you publish it and gone when you unpublish. You can keep it reachable by link only, without listing it in the Vezano directory or the sitemap, and remove any photo or product at any time.",
+        },
+      ],
+      faq: [
+        ["Does the page need an extra subscription or hosting?", "No. It is part of every plan and hosted on vezano.app with HTTPS. No extra fees."],
+        ["Can I connect my own domain?", "Not yet. The address is vezano.app/s/your-store. Custom domains are on the roadmap."],
+        ["Do visitors see all my prices and stock?", "No. Only what you explicitly feature is shown, at the price you set in the system. Stock levels and costs are never published."],
+        ["How do customers reach me from the page?", "A direct WhatsApp button with your number, a call button, email, and a directions link on the map. No forms to follow up."],
+      ],
+      cta: "Build your store page in one afternoon",
+    },
+  },
 ];
 
 export function solution(slug) {
