@@ -1,14 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ExternalLink, Globe, Lock } from "lucide-react";
+import { CheckCircle2, ExternalLink, Globe, Lock } from "lucide-react";
 
 import { website } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
-import { Badge, Button, Card, Field, Input, PageHeader } from "@/components/ui/kit";
+import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import SectionsEditor from "@/components/website/SectionsEditor";
 import FeaturedProducts from "@/components/website/FeaturedProducts";
+import Gallery from "@/components/website/Gallery";
+import ImagePicker from "@/components/website/ImagePicker";
+
+const CATEGORIES = ["grocery", "pharmacy", "wholesale", "electronics", "fashion", "cosmetics", "hardware", "restaurant", "services", "other"];
 
 export default function WebsitePage() {
   const { canRead, canWrite } = useAuth();
@@ -34,7 +38,11 @@ export default function WebsitePage() {
     );
   }
 
-  const set = (key) => (e) => setPage((p) => ({ ...p, [key]: e.target.value }));
+  const set = (key) => (e) => setPage((p) => ({ ...p, [key]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
+  const image = (kind) => ({
+    onUpload: async (file) => { const r = await website.uploadImage(kind, file); setPage(r.data); },
+    onRemove: async () => { const r = await website.removeImage(kind); setPage(r.data); },
+  });
 
   async function save() {
     setMsg("");
@@ -49,6 +57,11 @@ export default function WebsitePage() {
         contact_email: page.contact_email,
         contact_phone: page.contact_phone,
         address: page.address,
+        category: page.category || "",
+        city: page.city || "",
+        opening_hours: page.opening_hours || "",
+        map_url: page.map_url || "",
+        list_in_directory: page.list_in_directory !== false,
       });
       setPage(r.data);
       setMsg(t("website.saved"));
@@ -89,6 +102,10 @@ export default function WebsitePage() {
       ) : (
         <Card className="p-6">
           <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-[1fr_140px]">
+              <ImagePicker label={t("website.cover")} hint={t("website.coverHint")} url={page.cover_image_url} disabled={!writable} {...image("cover")} />
+              <ImagePicker label={t("website.logo")} hint={t("website.logoHint")} url={page.logo_image_url} disabled={!writable} aspect="aspect-square" {...image("logo")} />
+            </div>
             <Field label={t("website.businessName")}>
               <Input value={page.business_name || ""} onChange={set("business_name")} disabled={!writable} />
             </Field>
@@ -116,6 +133,36 @@ export default function WebsitePage() {
               <Input value={page.address || ""} onChange={set("address")} disabled={!writable} />
             </Field>
             <div className="grid grid-cols-2 gap-3">
+              <Field label={t("website.city")}>
+                <Input value={page.city || ""} onChange={set("city")} disabled={!writable} />
+              </Field>
+              <Field label={t("website.category")}>
+                <Select value={page.category || ""} onChange={set("category")} disabled={!writable}>
+                  <option value="">—</option>
+                  {CATEGORIES.map((key) => <option key={key} value={key}>{t(`website.categories.${key}`)}</option>)}
+                </Select>
+              </Field>
+            </div>
+            <Field label={t("website.openingHours")} hint={t("website.openingHoursHint")}>
+              <textarea
+                value={page.opening_hours || ""}
+                onChange={set("opening_hours")}
+                disabled={!writable}
+                rows={3}
+                className="w-full rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+              />
+            </Field>
+            <Field label={t("website.mapUrl")} hint={t("website.mapUrlHint")}>
+              <Input value={page.map_url || ""} onChange={set("map_url")} disabled={!writable} placeholder="https://maps.google.com/..." />
+            </Field>
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" checked={page.list_in_directory !== false} onChange={set("list_in_directory")} disabled={!writable} className="mt-1" />
+              <span>
+                <span className="font-medium">{t("website.listInDirectory")}</span>
+                <span className="block text-xs text-muted">{t("website.listInDirectoryHint")}</span>
+              </span>
+            </label>
+            <div className="grid grid-cols-2 gap-3">
               <Field label={t("website.logoUrl")}>
                 <Input value={page.logo_url || ""} onChange={set("logo_url")} disabled={!writable} />
               </Field>
@@ -123,6 +170,21 @@ export default function WebsitePage() {
                 <Input value={page.primary_color || ""} onChange={set("primary_color")} disabled={!writable} />
               </Field>
             </div>
+
+            {Array.isArray(page.missing) && (
+              <div className="rounded-control border border-line bg-paper p-3 text-sm">
+                {page.missing.length === 0 ? (
+                  <p className="flex items-center gap-2 text-ok"><CheckCircle2 size={16} />{t("website.complete")}</p>
+                ) : (
+                  <>
+                    <p className="font-medium">{t("website.missingTitle")}</p>
+                    <ul className="mt-1 list-disc ps-5 text-muted">
+                      {page.missing.map((key) => <li key={key}>{t(`website.missingItems.${key}`)}</li>)}
+                    </ul>
+                  </>
+                )}
+              </div>
+            )}
 
             {msg && <p className="text-sm text-muted">{msg}</p>}
 
@@ -148,7 +210,8 @@ export default function WebsitePage() {
       )}
 
       {page && <SectionsEditor websiteId={page.id} writable={writable} />}
-      {page && <FeaturedProducts websiteId={page.id} writable={writable} />}
+      {page && <FeaturedProducts websiteId={page.id} writable={writable} onChanged={() => website.page().then((r) => setPage(r.data)).catch(() => {})} />}
+      {page && <Gallery writable={writable} />}
     </div>
   );
 }

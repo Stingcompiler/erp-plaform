@@ -45,7 +45,11 @@ from website.public_pages import (  # noqa: E402
     public_sites_sitemap,
 )
 
+from core.public_media import serve_public_media  # noqa: E402
+
 urlpatterns += [
+    # Only MEDIA_ROOT/public/ (site and product images) is served anonymously.
+    path("media/public/<path:path>", serve_public_media, name="public-media"),
     path("s/", public_site_directory, name="public-site-directory"),
     path("s/<slug:slug>/", public_site_page, name="public-site-page"),
     path("sitemap-sites.xml", public_sites_sitemap, name="public-sites-sitemap"),

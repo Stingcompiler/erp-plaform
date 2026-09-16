@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 
 import { inventory, website } from "@/lib/api";
+import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
+import ImagePicker from "@/components/website/ImagePicker";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Card, Field, Input } from "@/components/ui/kit";
 
@@ -139,13 +141,31 @@ function FeaturedForm({ open, onClose, onSaved, websiteId, item }) {
   );
 }
 
-export default function FeaturedProducts({ websiteId, writable }) {
+export default function FeaturedProducts({ websiteId, writable, onChanged }) {
   const { t } = useI18n();
   const [rows, setRows] = useState([]);
   const [productsById, setProductsById] = useState({});
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+
+  const { canWrite } = useAuth();
+  // A product photo is inventory data; the website role alone cannot set it.
+  const canPhoto = writable && canWrite("inventory");
+
+  const loadProducts = useCallback(() => {
+    // Best-effort product lookup for display (first page): name and photo.
+    inventory
+      .products({ page: 1 })
+      .then((r) => {
+        const map = {};
+        (r.data.results || []).forEach((p) => {
+          map[p.id] = { name: p.name, image_url: p.image_url || "" };
+        });
+        setProductsById(map);
+      })
+      .catch(() => {});
+  }, []);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -158,26 +178,30 @@ export default function FeaturedProducts({ websiteId, writable }) {
 
   useEffect(() => {
     load();
-    // Best-effort product-name lookup for display (first page).
-    inventory
-      .products({ page: 1 })
-      .then((r) => {
-        const map = {};
-        (r.data.results || []).forEach((p) => {
-          map[p.id] = p.name;
-        });
-        setProductsById(map);
-      })
-      .catch(() => {});
-  }, [load]);
+    loadProducts();
+  }, [load, loadProducts]);
+
+  async function setPhoto(item, file) {
+    await inventory.uploadProductImage(item.product, file);
+    loadProducts();
+    onChanged?.();
+  }
+
+  async function removePhoto(item) {
+    await inventory.removeProductImage(item.product);
+    loadProducts();
+    onChanged?.();
+  }
 
   async function remove(item) {
     if (!window.confirm(t("website.removeFeaturedConfirm"))) return;
     await website.deleteFeatured(item.id).catch(() => {});
     load();
+    onChanged?.();
   }
 
-  const name = (item) => productsById[item.product] || `#${item.product}`;
+  const name = (item) => productsById[item.product]?.name || `#${item.product}`;
+  const photo = (item) => productsById[item.product]?.image_url || "";
 
   return (
     <Card className="mt-6 p-6">
@@ -206,6 +230,16 @@ export default function FeaturedProducts({ websiteId, writable }) {
           {rows.map((item) => (
             <div key={item.id} className="flex items-center gap-3 py-3">
               <span className="tabular w-8 text-center text-xs text-muted">{item.order}</span>
+              <div className="w-16 shrink-0">
+                <ImagePicker
+                  url={photo(item)}
+                  disabled={!canPhoto}
+                  aspect="aspect-square"
+                  rounded="rounded-control"
+                  onUpload={(file) => setPhoto(item, file)}
+                  onRemove={() => removePhoto(item)}
+                />
+              </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm text-ink">{name(item)}</div>
                 {item.caption && (
@@ -241,7 +275,7 @@ export default function FeaturedProducts({ websiteId, writable }) {
       <FeaturedForm
         open={formOpen}
         onClose={() => setFormOpen(false)}
-        onSaved={load}
+        onSaved={() => { load(); onChanged?.(); }}
         websiteId={websiteId}
         item={editing}
       />

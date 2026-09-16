@@ -127,6 +127,13 @@ class OwnerInvitation(models.Model):
         return not self.accepted_at and not self.revoked_at and self.expires_at > timezone.now()
 
 
+def site_upload_path(instance, filename):
+    """MEDIA_ROOT/public/sites/<company>/<file>; the public/ prefix is what
+    the anonymous media view is allowed to serve."""
+    company_id = getattr(instance, "company_id", None)
+    return f"public/sites/{company_id}/{filename}"
+
+
 class Website(models.Model):
     """
     A company's public landing page. One per company. `is_published` gates
@@ -150,8 +157,55 @@ class Website(models.Model):
     published_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Landing-page fields. Uploaded images live under MEDIA_ROOT/public/ —
+    # the only media subtree served to anonymous visitors (core.public_media).
+    # `logo_url` above is kept for sites that pasted a link; an uploaded logo
+    # wins when both exist.
+    CATEGORY_CHOICES = [
+        ("grocery", "Grocery & food"),
+        ("pharmacy", "Pharmacy"),
+        ("wholesale", "Wholesale & distribution"),
+        ("electronics", "Electronics"),
+        ("fashion", "Fashion & clothing"),
+        ("cosmetics", "Cosmetics & perfume"),
+        ("hardware", "Hardware & building"),
+        ("restaurant", "Restaurant & café"),
+        ("services", "Services"),
+        ("other", "Other"),
+    ]
+    cover_image = models.ImageField(upload_to=site_upload_path, blank=True, null=True)
+    logo_image = models.ImageField(upload_to=site_upload_path, blank=True, null=True)
+    category = models.CharField(max_length=32, choices=CATEGORY_CHOICES, blank=True)
+    city = models.CharField(max_length=120, blank=True)
+    opening_hours = models.TextField(blank=True)
+    map_url = models.URLField(blank=True)
+    # Consent to appear in the public directory and the platform's marketing
+    # sections. The page itself is public whenever the site is published.
+    list_in_directory = models.BooleanField(default=True)
+
     def __str__(self):
         return f"Website<{self.company.slug}>"
+
+
+class WebsiteImage(models.Model):
+    """A gallery photo on the public site."""
+
+    company = models.ForeignKey(
+        "org.Company", on_delete=models.CASCADE, related_name="website_images"
+    )
+    website = models.ForeignKey(
+        Website, on_delete=models.CASCADE, related_name="images"
+    )
+    image = models.ImageField(upload_to=site_upload_path)
+    caption = models.CharField(max_length=255, blank=True)
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        return f"WebsiteImage<{self.website_id}:{self.pk}>"
 
 
 class Section(models.Model):

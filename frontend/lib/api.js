@@ -78,6 +78,12 @@ export const attention = {
 };
 
 export const inventory = {
+  uploadProductImage: (id, file) => {
+    const form = new FormData();
+    form.append("image", file);
+    return api.post(`/products/${id}/image/`, form, { headers: { "Content-Type": "multipart/form-data" } });
+  },
+  removeProductImage: (id) => api.delete(`/products/${id}/image/`),
   products: (params) => api.get("/products/", { params }),
   lowStock: (params) => api.get("/products/low_stock/", { params }),
   negativeStock: (params) => api.get("/products/negative_stock/", { params }),
@@ -285,6 +291,23 @@ export const website = {
   createFeatured: (body) => api.post("/website/featured-products/", body),
   updateFeatured: (id, body) => api.patch(`/website/featured-products/${id}/`, body),
   deleteFeatured: (id) => api.delete(`/website/featured-products/${id}/`),
+  // Images: the server validates, resizes and stores WebP; send the raw file.
+  uploadImage: (kind, file) => {
+    const form = new FormData();
+    form.append("image", file);
+    return api.post(`/website/page/image/${kind}/`, form, { headers: { "Content-Type": "multipart/form-data" } });
+  },
+  removeImage: (kind) => api.delete(`/website/page/image/${kind}/`),
+  gallery: () => api.get("/website/gallery/"),
+  addGalleryImage: (file, order = 0, caption = "") => {
+    const form = new FormData();
+    form.append("image", file);
+    form.append("order", String(order));
+    form.append("caption", caption);
+    return api.post("/website/gallery/", form, { headers: { "Content-Type": "multipart/form-data" } });
+  },
+  updateGalleryImage: (id, body) => api.patch(`/website/gallery/${id}/`, body),
+  deleteGalleryImage: (id) => api.delete(`/website/gallery/${id}/`),
 };
 
 export const settings = {

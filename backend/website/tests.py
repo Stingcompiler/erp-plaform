@@ -222,3 +222,188 @@ class PublicCompanyPageTests(PublicSiteTests):
             f'href="/s/{self.company_a.slug}/"',
             anon.get(reverse("public-site-directory")).content.decode(),
         )
+
+
+def _png(width=1200, height=800, colour=(14, 124, 134)):
+    """A real PNG in memory, so the upload path exercises Pillow."""
+    import io
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (width, height), colour).save(buffer, format="PNG")
+    return SimpleUploadedFile("photo.png", buffer.getvalue(), content_type="image/png")
+
+
+class LandingPageImageTests(PublicSiteTests):
+    """Uploads for cover, logo, gallery and product photos; the public
+    media route; the landing page and JSON-LD that use them."""
+
+    def setUp(self):
+        import tempfile
+
+        from django.test import override_settings
+
+        super().setUp()
+        self._media = tempfile.TemporaryDirectory()
+        self._override = override_settings(MEDIA_ROOT=self._media.name)
+        self._override.enable()
+        self.addCleanup(self._override.disable)
+        self.addCleanup(self._media.cleanup)
+
+    def test_cover_and_logo_upload_are_resized_webp_and_served_publicly(self):
+        client = self._build_and_publish()
+        cover = client.post(
+            reverse("website-image", args=["cover"]), {"image": _png(3000, 2000)},
+            format="multipart",
+        )
+        self.assertEqual(cover.status_code, 200, cover.data)
+        self.assertTrue(cover.data["cover_image_url"].startswith("/media/public/"))
+        self.assertTrue(cover.data["cover_image_url"].endswith(".webp"))
+        logo = client.post(
+            reverse("website-image", args=["logo"]), {"image": _png(900, 300)},
+            format="multipart",
+        )
+        self.assertEqual(logo.status_code, 200, logo.data)
+        site = Website.objects.get(company=self.company_a)
+        from PIL import Image
+
+        with Image.open(site.cover_image.path) as image:
+            self.assertEqual(image.format, "WEBP")
+            self.assertLessEqual(max(image.size), 1800)
+        with Image.open(site.logo_image.path) as image:
+            self.assertEqual(image.size, (512, 512))
+        # Served to anyone, cacheable for a year; nothing outside public/ is.
+        anon = self.client_class()
+        path = site.cover_image.name.split("public/", 1)[1]
+        served = anon.get(reverse("public-media", args=[path]))
+        self.assertEqual(served.status_code, 200)
+        self.assertEqual(served["Content-Type"], "image/webp")
+        self.assertIn("immutable", served["Cache-Control"])
+        # Traversal is refused (Django answers 400 for a suspicious path).
+        self.assertIn(anon.get("/media/public/../secret.webp").status_code, (400, 404))
+        self.assertEqual(anon.get(reverse("public-media", args=["nope.webp"])).status_code, 404)
+        # Replacing deletes the old file; removing clears the field.
+        old_path = site.cover_image.path
+        client.post(
+            reverse("website-image", args=["cover"]), {"image": _png()}, format="multipart"
+        )
+        import os
+
+        self.assertFalse(os.path.exists(old_path))
+        removed = client.delete(reverse("website-image", args=["cover"]))
+        self.assertEqual(removed.status_code, 200)
+        self.assertEqual(removed.data["cover_image_url"], "")
+
+    def test_rejects_non_images_and_oversized_files(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        client = self._build_and_publish()
+        fake = SimpleUploadedFile("x.png", b"<html>not an image</html>", content_type="image/png")
+        bad = client.post(
+            reverse("website-image", args=["cover"]), {"image": fake}, format="multipart"
+        )
+        self.assertEqual(bad.status_code, 400)
+        huge = SimpleUploadedFile("big.png", b"0" * (8 * 1024 * 1024 + 1), content_type="image/png")
+        big = client.post(
+            reverse("website-image", args=["cover"]), {"image": huge}, format="multipart"
+        )
+        self.assertEqual(big.status_code, 400)
+        missing = client.post(reverse("website-image", args=["cover"]), {}, format="multipart")
+        self.assertEqual(missing.status_code, 400)
+
+    def test_gallery_and_product_photos_reach_the_landing_page(self):
+        client = self._build_and_publish()
+        photo = client.post(
+            reverse("website-image-list"), {"image": _png(800, 800), "caption": "الواجهة"},
+            format="multipart",
+        )
+        self.assertEqual(photo.status_code, 201, photo.data)
+        self.assertEqual(photo.data["company"], self.company_a.id)
+        # A product photo is inventory data: the website role alone may not
+        # set it (403); an owner may.
+        refused = client.post(
+            reverse("product-image", args=[self.product.id]), {"image": _png(600, 400)},
+            format="multipart",
+        )
+        self.assertEqual(refused.status_code, 403)
+        owner_role = Role.objects.create(name="Business Owner", scope_level=Role.SCOPE_BUSINESS)
+        User.objects.create_user(
+            email="owner@alpha.test", password="passw0rd123",
+            company=self.company_a, role=owner_role, branch=self.branch_a,
+        )
+        owner = self.login("owner@alpha.test")
+        product_image = owner.post(
+            reverse("product-image", args=[self.product.id]), {"image": _png(600, 400)},
+            format="multipart",
+        )
+        self.assertEqual(product_image.status_code, 200, product_image.data)
+        self.assertTrue(product_image.data["image_url"].endswith(".webp"))
+        client.patch(
+            reverse("website-page"),
+            {"opening_hours": "السبت - الخميس 8ص - 10م\nالجمعة مغلق", "city": "الخرطوم",
+             "category": "grocery", "map_url": "https://maps.google.com/?q=x"},
+            format="json",
+        )
+        page = self.client_class().get(reverse("public-site-page", args=[self.company_a.slug]))
+        html = page.content.decode()
+        self.assertIn('id="gallery"', html)
+        # The page carries absolute URLs for crawlers; the API relative ones.
+        self.assertIn("https://vezano.app" + photo.data["url"], html)
+        self.assertIn("https://vezano.app" + product_image.data["image_url"], html)
+        self.assertIn("السبت - الخميس 8ص - 10م", html)
+        self.assertIn('"openingHours": ["السبت - الخميس 8ص - 10م", "الجمعة مغلق"]', html)
+        self.assertIn('"addressLocality": "الخرطوم"', html)
+        self.assertIn('"hasMap": "https://maps.google.com/?q=x"', html)
+        self.assertIn('"image": "https://vezano.app' + product_image.data["image_url"], html)
+        # The JSON endpoint gained the new fields without losing the old ones.
+        data = self.client_class().get(reverse("public-site", args=[self.company_a.slug])).data
+        for key in ("business_name", "sections", "featured_products", "gallery", "opening_hours"):
+            self.assertIn(key, data)
+        self.assertEqual(data["gallery"][0]["caption"], "الواجهة")
+        # Removing a gallery photo deletes its file.
+        import os
+
+        stored = Website.objects.get(company=self.company_a).images.first()
+        path = stored.image.path
+        deleted = client.delete(reverse("website-image-detail", args=[stored.id]))
+        self.assertEqual(deleted.status_code, 204)
+        self.assertFalse(os.path.exists(path))
+
+    def test_other_company_cannot_touch_my_gallery(self):
+        client = self._build_and_publish()
+        photo = client.post(
+            reverse("website-image-list"), {"image": _png(400, 400)}, format="multipart"
+        )
+        User.objects.create_user(
+            email="lpm@beta.test", password="passw0rd123",
+            company=self.company_b, role=self.lpm_role,
+            branch=Branch.objects.create(company=self.company_b, name="Beta branch"),
+        )
+        other = self.login("lpm@beta.test")
+        gone = other.delete(reverse("website-image-detail", args=[photo.data["id"]]))
+        self.assertEqual(gone.status_code, 404)
+        listed = other.get(reverse("website-image-list")).data
+        rows = listed["results"] if isinstance(listed, dict) else listed
+        self.assertEqual(len(rows), 0)
+
+    def test_opted_out_site_is_reachable_but_unlisted(self):
+        self._build_and_publish()
+        Website.objects.filter(company=self.company_a).update(list_in_directory=False)
+        anon = self.client_class()
+        page = anon.get(reverse("public-site-page", args=[self.company_a.slug]))
+        self.assertEqual(page.status_code, 200)
+        sitemap = anon.get(reverse("public-sites-sitemap")).content.decode()
+        self.assertNotIn(self.company_a.slug, sitemap)
+        directory = anon.get(reverse("public-site-directory")).content.decode()
+        self.assertNotIn(f"/s/{self.company_a.slug}/", directory)
+
+    def test_missing_items_guide_the_merchant(self):
+        client = self._build_and_publish()
+        data = client.get(reverse("website-page")).data
+        for item in ("cover_image", "logo", "tagline", "category", "product_with_image"):
+            self.assertIn(item, data["missing"])
+        client.post(reverse("website-image", args=["cover"]), {"image": _png()}, format="multipart")
+        data = client.get(reverse("website-page")).data
+        self.assertNotIn("cover_image", data["missing"])

@@ -1,15 +1,43 @@
 from rest_framework import serializers
 
 from subscriptions.models import PlanVersion
+from core.public_media import public_media_url
 from website.models import (
-    FeaturedProduct, PlatformLead, RegistrationRequest, Section, Website,
+    FeaturedProduct, PlatformLead, RegistrationRequest, Section, Website, WebsiteImage,
 )
 from website.services import plan_version_is_available
+
+
+# What a landing page needs before it is worth publishing. The editor shows
+# the missing items; the platform's marketing sections only pick complete
+# sites (see website.public_pages.is_complete).
+def completeness(site):
+    missing = []
+    if not site.cover_image:
+        missing.append("cover_image")
+    if not (site.logo_image or site.logo_url):
+        missing.append("logo")
+    if not site.about_text.strip():
+        missing.append("about_text")
+    if not site.tagline.strip():
+        missing.append("tagline")
+    if not (site.contact_phone.strip() or site.contact_email.strip()):
+        missing.append("contact")
+    if not site.category:
+        missing.append("category")
+    if not site.featured_products.filter(product__image__isnull=False).exclude(
+        product__image=""
+    ).exists():
+        missing.append("product_with_image")
+    return missing
 
 
 class WebsiteSerializer(serializers.ModelSerializer):
     # Where the page is (or will be) served as HTML; see website.public_pages.
     public_url = serializers.SerializerMethodField()
+    cover_image_url = serializers.SerializerMethodField()
+    logo_image_url = serializers.SerializerMethodField()
+    missing = serializers.SerializerMethodField()
 
     class Meta:
         model = Website
@@ -18,6 +46,8 @@ class WebsiteSerializer(serializers.ModelSerializer):
             "logo_url", "primary_color", "contact_email", "contact_phone",
             "address", "social_links", "is_published", "published_at",
             "updated_at", "public_url",
+            "category", "city", "opening_hours", "map_url", "list_in_directory",
+            "cover_image_url", "logo_image_url", "missing",
         ]
         read_only_fields = ["company", "is_published", "published_at", "updated_at"]
 
@@ -25,6 +55,27 @@ class WebsiteSerializer(serializers.ModelSerializer):
         from website.public_pages import public_site_path, site_url
 
         return site_url(public_site_path(obj.company.slug))
+
+    def get_cover_image_url(self, obj):
+        return public_media_url(obj.cover_image.name if obj.cover_image else "")
+
+    def get_logo_image_url(self, obj):
+        return public_media_url(obj.logo_image.name if obj.logo_image else "")
+
+    def get_missing(self, obj):
+        return completeness(obj)
+
+
+class WebsiteImageSerializer(serializers.ModelSerializer):
+    url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = WebsiteImage
+        fields = ["id", "company", "website", "url", "caption", "order", "created_at"]
+        read_only_fields = ["company", "website", "url", "created_at"]
+
+    def get_url(self, obj):
+        return public_media_url(obj.image.name if obj.image else "")
 
 
 class SectionSerializer(serializers.ModelSerializer):
@@ -81,13 +132,22 @@ class PublicFeaturedProductSerializer(serializers.Serializer):
     )
     caption = serializers.CharField()
     order = serializers.IntegerField()
+    image_url = serializers.SerializerMethodField()
+
+    def get_image_url(self, obj):
+        image = obj.product.image
+        return public_media_url(image.name) if image else ""
 
 
 class PublicSiteSerializer(serializers.ModelSerializer):
-    """Only public-safe fields; only visible sections; no internal IDs."""
+    """Only public-safe fields; only visible sections; no internal IDs.
+    The original fields are unchanged; the landing-page fields are appended."""
 
     sections = serializers.SerializerMethodField()
     featured_products = serializers.SerializerMethodField()
+    cover_image_url = serializers.SerializerMethodField()
+    logo_image_url = serializers.SerializerMethodField()
+    gallery = serializers.SerializerMethodField()
 
     class Meta:
         model = Website
@@ -95,6 +155,21 @@ class PublicSiteSerializer(serializers.ModelSerializer):
             "business_name", "tagline", "about_text", "logo_url",
             "primary_color", "contact_email", "contact_phone", "address",
             "social_links", "published_at", "sections", "featured_products",
+            "category", "city", "opening_hours", "map_url",
+            "cover_image_url", "logo_image_url", "gallery",
+        ]
+
+    def get_cover_image_url(self, obj):
+        return public_media_url(obj.cover_image.name if obj.cover_image else "")
+
+    def get_logo_image_url(self, obj):
+        return public_media_url(obj.logo_image.name if obj.logo_image else "")
+
+    def get_gallery(self, obj):
+        return [
+            {"url": public_media_url(image.image.name), "caption": image.caption}
+            for image in obj.images.order_by("order", "id")
+            if image.image
         ]
 
     def get_sections(self, obj):

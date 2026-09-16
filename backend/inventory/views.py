@@ -7,6 +7,7 @@ from django.db.models.functions import Coalesce
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from core.activity import log_activity
@@ -98,6 +99,25 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     queryset = Product.objects.select_related("category", "brand", "unit").all()
     filter_backends = [SearchFilter]
     search_fields = ["sku", "name", "barcode"]
+
+    @action(detail=True, methods=["post", "delete"], url_path="image",
+            parser_classes=[MultiPartParser, FormParser, JSONParser])
+    def image(self, request, pk=None):
+        """The photo shown when the product is featured on the public page.
+        POST a multipart `image`; DELETE removes it. Stored as WebP under the
+        public media subtree (website.images)."""
+        from website.images import PHOTO_SIDE, clear_image, prepare_image, replace_image
+
+        product = self.get_object()
+        if request.method == "DELETE":
+            clear_image(product, "image")
+        else:
+            replace_image(product, "image", prepare_image(request.FILES.get("image"), PHOTO_SIDE))
+        log_activity(
+            action="update", request=request, entity_type="Product", entity_id=product.pk,
+            metadata={"image": "removed" if request.method == "DELETE" else "set"},
+        )
+        return Response(self.get_serializer(product).data)
 
     def get_queryset(self):
         # on-hand is ALWAYS derived from the movement ledger — annotated here so
