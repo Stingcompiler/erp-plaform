@@ -1,10 +1,10 @@
-# Handoff — where the work stands (2026-09-16, after PR #50)
+# Handoff — where the work stands (2026-09-16, after PR #52)
 
 Read this first in a new session. It is the human-readable copy of the
 session memory (`~/.claude/projects/.../memory/`), which the assistant loads
 automatically; this file is the copy that lives with the code.
 
-## State on 2026-09-16 (PRs #30–#50)
+## State on 2026-09-16 (PRs #30–#52)
 
 | Area | What landed | Where |
 |---|---|---|
@@ -21,6 +21,8 @@ automatically; this file is the copy that lives with the code.
 | Platform contact on the site (#48) | `SeoSettings.support_whatsapp/phone/email` edited on `/platform-seo`; `GET /api/public/site-contact/` (5-min cache); floating WhatsApp button, footer lines and a direct link under the walkthrough form; nothing injected into the export | `website/seo_views.py` `PublicSiteContactView`, `components/marketing/SiteContact.jsx` |
 | Follow-ups (#49) | `FollowUpMixin` on leads + registrations (last contact, next follow-up, note); `POST …/contact/` logs `contact` activity from the call/WhatsApp/email links; `?due=1`; badges count due follow-ups; `FollowUpPanel` on both cards | `website/followups.py`, `components/platform/FollowUpPanel.jsx` |
 | Media health (#50) | `stored_public_url()` hides images whose file is gone (placeholder + "missing" in completeness); `/api/health/` → `media: {storage: configured|ephemeral, writable, public_files}` | `core/public_media.py` |
+| Show-password toggle (#51) | `components/ui/PasswordInput.jsx` on `/login` and `/activate-owner` | |
+| Demo seeder (#52) | `manage.py seed_demo --owner <email> [--sales N] [--days N] [--platform] --yes` fills a company (catalogue, stock, customers/debts, suppliers, CRM, complete published page with generated tiles, POS sales through the real checkout view) and optionally the platform inbox. Never takes a password; run from the Render shell | `core/management/commands/seed_demo.py` |
 | SEO control page, phase A (#43) | `/platform-seo`: site-wide verification tags, GA4 id, default share image, extra robots lines; per-path overrides (title, description, noindex, canonical, per language). Django injects them into the served export's `<head>` and into `/s/` pages at request time (60 s cache). Capabilities `platform.seo.view/manage` | `core/seo_inject.py` (pure rewriter + tests), `website/seo.py` (cache), `website/seo_views.py`, `core/frontend.py`, `app/(app)/platform-seo/page.jsx` |
 
 Production: Render, domains done, Search Console verified (domain property),
@@ -29,12 +31,13 @@ home indexed. Both sitemaps live. First real company page: `/s/nwafih/`
 
 ## Open threads (next session starts here)
 
-1. PRs #43 (SEO phase A), #44 (sign-in/presence), #45 (directory cards + services), #46 (call + WhatsApp links) #47 (demo requests with phone + preferred channel), #48 (platform contact on the site), #49 (follow-ups) and #50 (media health) merged and verified on production 2026-09-16. Owner asked for both on 2026-09-16 after seeing "never signed in" on the team page and a text-only entry for نوافح in the directory. Nwafih's owner can now fill "ماذا تقدّم" in the site editor; until then the card shows the featured product names.
+1. PRs #43 (SEO phase A), #44 (sign-in/presence), #45 (directory cards + services), #46 (call + WhatsApp links) #47 (demo requests with phone + preferred channel), #48 (platform contact on the site), #49 (follow-ups), #50 (media health), #51 (show password) and #52 (seed_demo) merged and verified on production 2026-09-16. Owner asked for both on 2026-09-16 after seeing "never signed in" on the team page and a text-only entry for نوافح in the directory. Nwafih's owner can now fill "ماذا تقدّم" in the site editor; until then the card shows the featured product names.
 2. **SEO admin, next phases** — not built: (B) a health dashboard on `/platform-seo` (public paths without overrides, store pages incomplete or opted out, sitemap counts, last deploy time); (C) a redirect manager (old path → new, 301) applied before the catch-all in `config/urls.py`. Editing solution/guide content from the UI stays out of scope (it lives in `lib/content/*`). To add an injected tag: extend `core/seo_inject.py` and its tests, then the `_seo_site.html` include for `/s/` pages.
 3. Owner actions still pending: R2 for media backups (now more important: store images live on the Render disk), Sentry, outbound email, VPS for standalone phase C, flip `SUBSCRIPTION_POLICY` observe → enforce.
 4. **Contact model — only outbound sending remains**: email provider (Resend/SES) for confirmations, activation links and invoices; WhatsApp Cloud API later. Needs the owner's pick and an account. Items 1–3 shipped (#47–#49).
-5. **Media on production**: after #50, `/api/health/` reports `media.storage = "configured"`, `writable = true`, `public_files = 0` — MEDIA_ROOT (`/var/data/media/`) is right now, but the نوافح cover/logo uploaded earlier are gone (404), so the card shows the placeholder. Owner re-uploads from the site editor; watch `public_files` grow and survive the next deploy. R2 backups still pending.
-6. Store-page plan phases 1–4 are done; a custom domain per company page is on the roadmap (needs Render domain slots or a proxy).
+5. **Demo data on production**: owner asked to fill the demo tenant (aramkoo555@gmail.com) and the subscriptions inbox; the assistant does not sign in with owner passwords, so the owner runs `python manage.py seed_demo --owner aramkoo555@gmail.com --platform --yes` in the Render shell of the web service (MEDIA_ROOT must be the disk first — see 6). Credentials were pasted in chat on 2026-09-16; rotate them.
+6. **Media on production**: after #50, `/api/health/` reports `media.storage = "configured"`, `writable = true`, `public_files = 0` — MEDIA_ROOT (`/var/data/media/`) is right now, but the نوافح cover/logo uploaded earlier are gone (404), so the card shows the placeholder. Owner re-uploads from the site editor; watch `public_files` grow and survive the next deploy. R2 backups still pending.
+7. Store-page plan phases 1–4 are done; a custom domain per company page is on the roadmap (needs Render domain slots or a proxy).
 
 ## How to continue in a fresh session
 
