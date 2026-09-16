@@ -7,6 +7,7 @@ import { inventory, purchasing, bankAccounts as bankApi } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { Badge, Button, Card, PageHeader } from "@/components/ui/kit";
+import PhoneLink from "@/components/ui/PhoneLink";
 import SupplierForm from "@/components/purchasing/SupplierForm";
 import ReceivingTerminal from "@/components/purchasing/ReceivingTerminal";
 import BillList from "@/components/purchasing/BillList";
@@ -56,7 +57,7 @@ function SupplierList({ suppliers, loading, writable, onNew }) {
                 suppliers.map((s) => (
                   <tr key={s.id} className="border-b border-line last:border-0">
                     <td className="px-4 py-3 text-ink">{s.name}</td>
-                    <td className="px-4 py-3 text-muted">{s.phone || "—"}</td>
+                    <td className="px-4 py-3 text-muted"><PhoneLink phone={s.phone} /></td>
                     <td className="tabular px-4 py-3 text-end text-ink">{money(s.ap_balance)}</td>
                     <td className="px-4 py-3 text-end">
                       {s.is_active ? (

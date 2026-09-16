@@ -7,6 +7,7 @@ import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { registration } from "@/lib/api";
 import { Badge, Button, Card, PageHeader, Select } from "@/components/ui/kit";
+import PhoneLink from "@/components/ui/PhoneLink";
 
 const ACTIVE = ["submitted", "under_review", "needs_information", "approved"];
 const REVIEW = ["under_review", "needs_information", "rejected"];
@@ -109,7 +110,10 @@ export default function PlatformRegistrationsPage() {
                       <h2 className="font-display text-lg font-semibold">{row.company_name}</h2>
                       <Badge tone={TONES[row.status]}>{label(row.status)}</Badge>
                     </div>
-                    <a href={`mailto:${row.email}`} className="mt-2 inline-flex items-center gap-1.5 text-sm text-accent hover:underline"><Mail size={14} />{row.contact_name} · {row.email}</a>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                      <a href={`mailto:${row.email}`} className="inline-flex items-center gap-1.5 text-accent hover:underline"><Mail size={14} />{row.contact_name} · {row.email}</a>
+                      {row.phone && <PhoneLink phone={row.phone} country={row.country} className="text-muted" />}
+                    </div>
                     <div className="mt-3 grid gap-1 text-sm text-muted sm:grid-cols-2">
                       <span>{t("platformRegistration.plan")}: {row.plan_name || "—"}</span>
                       <span>{t("platformRegistration.delivery")}: {row.delivery_mode}</span>

@@ -7,6 +7,7 @@ import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { platformSubscriptions as api } from "@/lib/api";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
+import PhoneLink from "@/components/ui/PhoneLink";
 
 const STATES = ["trialing", "active", "grace", "read_only", "suspended", "cancelled"];
 
@@ -283,6 +284,7 @@ export default function PlatformSubscriptionsPage() {
               <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
                 <div className="min-w-48">
                   <div className="font-display text-lg font-semibold">{row.company_name}</div>
+                  {row.company_phone && <PhoneLink phone={row.company_phone} className="text-sm text-muted" />}
                   <div className="mt-1 text-sm text-muted">
                     {row.plan?.plan_name} · {row.plan?.billing_cycle}
                   </div>
