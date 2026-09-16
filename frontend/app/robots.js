@@ -8,7 +8,9 @@ export const dynamic = "force-static";
 export default function robots() {
   return {
     rules: [{ userAgent: "*", allow: "/", disallow: PRIVATE_PATH_PREFIXES }],
-    sitemap: `${SITE_URL}/sitemap.xml`,
+    // The marketing sitemap is exported with the site; the second one is
+    // rendered by Django and lists every published customer page (/s/…).
+    sitemap: [`${SITE_URL}/sitemap.xml`, `${SITE_URL}/sitemap-sites.xml`],
     host: SITE_URL,
   };
 }

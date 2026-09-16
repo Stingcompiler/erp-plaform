@@ -124,3 +124,101 @@ class PublicSiteTests(WebsiteBase):
         # Company B has no published site.
         resp = anon.get(reverse("public-site", args=[self.company_b.slug]))
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class PublicCompanyPageTests(PublicSiteTests):
+    """The HTML page, directory and sitemap rendered for a published site."""
+
+    def _publish_with_content(self):
+        client = self._build_and_publish()
+        site = Website.objects.get(company=self.company_a)
+        site.tagline = "أفضل الأسعار في الخرطوم"
+        site.about_text = 'نبيع كل شيء <script>alert("x")</script> بجودة'
+        site.contact_phone = "+249 91 234 5678"
+        site.primary_color = "#0e7c86"
+        site.social_links = {"facebook": "https://facebook.com/alpha", "bad": "javascript:alert(1)"}
+        site.save()
+        Section.objects.create(
+            company=self.company_a, website=site, type=Section.CONTACT, title="", order=9,
+            content={"text": "زورونا في السوق"},
+        )
+        return client, site
+
+    def test_published_site_renders_indexable_html(self):
+        _, site = self._publish_with_content()
+        response = self.client_class().get(reverse("public-site-page", args=[self.company_a.slug]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/html; charset=utf-8")
+        self.assertIn("max-age=300", response["Cache-Control"])
+        html = response.content.decode()
+        self.assertIn('<html lang="ar" dir="rtl">', html)
+        self.assertIn("<title>Alpha Store — أفضل الأسعار في الخرطوم</title>", html)
+        self.assertIn(
+            f'<link rel="canonical" href="https://vezano.app/s/{self.company_a.slug}/">', html
+        )
+        self.assertIn('<meta name="robots" content="index, follow">', html)
+        self.assertIn('"@type": "LocalBusiness"', html)
+        self.assertIn('"telephone": "+249 91 234 5678"', html)
+        self.assertIn('"@type": "Product"', html)
+        self.assertIn('"name": "Nice Widget"', html)
+        self.assertIn("--accent:#0e7c86", html)
+        self.assertIn('href="https://wa.me/249912345678"', html)
+        self.assertIn('href="https://facebook.com/alpha"', html)
+        self.assertNotIn("javascript:alert", html)
+        # Merchant text is escaped, never executed.
+        self.assertNotIn('<script>alert("x")</script>', html)
+        self.assertIn("&lt;script&gt;", html)
+        # Nothing internal.
+        self.assertNotIn("cost_price", html)
+        self.assertNotIn("reorder_level", html)
+
+    def test_english_content_renders_ltr(self):
+        self._build_and_publish()
+        site = Website.objects.get(company=self.company_a)
+        site.tagline = "Best prices in town"
+        site.save()
+        html = self.client_class().get(
+            reverse("public-site-page", args=[self.company_a.slug])
+        ).content.decode()
+        self.assertIn('<html lang="en" dir="ltr">', html)
+
+    def test_unpublished_or_unknown_site_is_404(self):
+        client = self.login("lpm@alpha.test")
+        client.get(reverse("website-page"))
+        anon = self.client_class()
+        own = anon.get(reverse("public-site-page", args=[self.company_a.slug]))
+        self.assertEqual(own.status_code, 404)
+        self.assertEqual(anon.get(reverse("public-site-page", args=["nope"])).status_code, 404)
+
+    def test_invalid_colour_falls_back(self):
+        _, site = self._publish_with_content()
+        # The field is 16 characters wide (Postgres enforces it), which is
+        # still enough to try to break out of the stylesheet.
+        site.primary_color = "x;}</style><b>"
+        site.save()
+        html = self.client_class().get(
+            reverse("public-site-page", args=[self.company_a.slug])
+        ).content.decode()
+        self.assertIn("--accent:#111827", html)
+        self.assertNotIn("</style><b>", html)
+
+    def test_directory_and_sitemap_list_published_sites_only(self):
+        self._publish_with_content()
+        anon = self.client_class()
+        directory = anon.get(reverse("public-site-directory"))
+        self.assertEqual(directory.status_code, 200)
+        self.assertIn(f'href="/s/{self.company_a.slug}/"', directory.content.decode())
+        sitemap = anon.get(reverse("public-sites-sitemap"))
+        self.assertEqual(sitemap.status_code, 200)
+        self.assertEqual(sitemap["Content-Type"], "application/xml; charset=utf-8")
+        body = sitemap.content.decode()
+        self.assertIn(f"<loc>https://vezano.app/s/{self.company_a.slug}/</loc>", body)
+        self.assertIn("<loc>https://vezano.app/s/</loc>", body)
+        Website.objects.filter(company=self.company_a).update(is_published=False)
+        self.assertNotIn(
+            self.company_a.slug, anon.get(reverse("public-sites-sitemap")).content.decode()
+        )
+        self.assertNotIn(
+            f'href="/s/{self.company_a.slug}/"',
+            anon.get(reverse("public-site-directory")).content.decode(),
+        )

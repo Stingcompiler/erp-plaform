@@ -32,3 +32,4 @@ Disallow: /platform-team/
 
 Host: https://vezano.app
 Sitemap: https://vezano.app/sitemap.xml
+Sitemap: https://vezano.app/sitemap-sites.xml

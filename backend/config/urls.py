@@ -32,13 +32,28 @@ urlpatterns = [
 # changes), so `runserver` on :8000 shows the real pages — `next dev` on :3000
 # still works via CORS for hot-reload.
 #
-# The catch-all is listed last and excludes the /api/, /admin/, /static/ and
-# /media/ prefixes, so it can never shadow the API, the admin, or Django's
-# static/media handlers (unknown /api/ paths keep Django/DRF behaviour and JSON
-# 404s). Frontend routes (dashboard, login, ...) don't collide with those
-# prefixes, so nothing the export serves is lost.
+# The catch-all is listed last and excludes the /api/, /admin/, /static/,
+# /media/ and /s/ prefixes, so it can never shadow the API, the admin, Django's
+# static/media handlers or the public company pages (unknown /api/ paths keep
+# Django/DRF behaviour and JSON 404s). Frontend routes (dashboard, login, ...)
+# don't collide with those prefixes, so nothing the export serves is lost.
+# Public company pages (/s/<slug>/), their directory and sitemap are rendered
+# by Django (website.public_pages), so they sit outside the export too.
+from website.public_pages import (  # noqa: E402
+    public_site_directory,
+    public_site_page,
+    public_sites_sitemap,
+)
+
+urlpatterns += [
+    path("s/", public_site_directory, name="public-site-directory"),
+    path("s/<slug:slug>/", public_site_page, name="public-site-page"),
+    path("sitemap-sites.xml", public_sites_sitemap, name="public-sites-sitemap"),
+]
+
 _FRONTEND_CATCH_ALL = re_path(
-    r"^(?!api/|admin/|static/|media/)(?P<path>.*)$", serve_frontend
+    r"^(?!api/|admin/|static/|media/|s/|sitemap-sites\.xml$)(?P<path>.*)$",
+    serve_frontend,
 )
 
 if not settings.DEBUG or FRONTEND_DIST.is_dir():
