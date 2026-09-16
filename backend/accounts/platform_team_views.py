@@ -1,4 +1,4 @@
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -214,6 +214,87 @@ class PlatformTeamViewSet(
     def activate(self, request, pk=None):
         user = set_platform_member_active(pk, True, request.user, request)
         return Response(self._payload(user))
+
+
+# Everything the platform team does is recorded under one of these entity
+# types (or by a platform member on anything at all).
+PLATFORM_ENTITY_TYPES = (
+    "PlatformMember", "PlatformInvitation", "PlatformLead",
+    "RegistrationRequest", "RegistrationProvision", "OwnerInvitation",
+    "Subscription", "SubscriptionInvoice", "SubscriptionPayment",
+    "Plan", "PlanVersion",
+)
+
+
+class PlatformActivitySerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ActivityLog
+        fields = ["id", "action", "entity_type", "entity_id", "metadata", "ip_address",
+                  "created_at", "user"]
+        read_only_fields = fields
+
+    def get_user(self, obj):
+        if obj.user is None:
+            return None
+        role = obj.user.role.name if obj.user.role_id else (
+            "Django superuser" if obj.user.is_superuser else ""
+        )
+        return {"id": obj.user.pk, "full_name": obj.user.full_name,
+                "email": obj.user.email, "role_name": role}
+
+
+class PlatformActivityViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    """The platform team's audit trail: every row written by a platform
+    member, plus every row about a platform object (an owner accepting an
+    invitation, for instance, is written by the owner). Tenant business
+    activity never appears here. Read by whoever may see the team."""
+
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    platform_view_capability = platform_roles.TEAM_VIEW
+    entitlement_exempt = True
+    serializer_class = PlatformActivitySerializer
+
+    def get_queryset(self):
+        members = platform_members().values("pk")
+        qs = (
+            ActivityLog.objects.filter(
+                Q(user__in=members) | Q(entity_type__in=PLATFORM_ENTITY_TYPES)
+            )
+            .select_related("user", "user__role")
+            .order_by("-created_at", "-pk")
+        )
+        params = self.request.query_params
+        if params.get("user"):
+            qs = qs.filter(user_id=params["user"])
+        if params.get("action"):
+            qs = qs.filter(action=params["action"])
+        if params.get("entity_type"):
+            qs = qs.filter(entity_type__iexact=params["entity_type"])
+        if params.get("start"):
+            qs = qs.filter(created_at__date__gte=params["start"])
+        if params.get("end"):
+            qs = qs.filter(created_at__date__lte=params["end"])
+        search = params.get("search", "").strip()
+        if search:
+            qs = qs.filter(
+                Q(user__email__icontains=search)
+                | Q(user__full_name__icontains=search)
+                | Q(entity_type__icontains=search)
+                | Q(entity_id__icontains=search)
+                | Q(metadata__icontains=search)
+            )
+        return qs
+
+    @action(detail=False, methods=["get"])
+    def facets(self, request):
+        """Distinct actions and entity types present, for the filter controls."""
+        qs = self.get_queryset()
+        return Response({
+            "actions": sorted(set(qs.values_list("action", flat=True))),
+            "entity_types": sorted(set(qs.values_list("entity_type", flat=True))),
+        })
 
 
 class PlatformInvitationAcceptSerializer(serializers.Serializer):

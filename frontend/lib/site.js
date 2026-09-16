@@ -48,6 +48,7 @@ export const PRIVATE_PATH_PREFIXES = [
   "/platform-registrations/",
   "/platform-subscriptions/",
   "/platform-team/",
+  "/platform-activity/",
 ];
 
 export const OG_IMAGE = {

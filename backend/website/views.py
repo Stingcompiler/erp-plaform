@@ -58,6 +58,20 @@ class PlatformLeadViewSet(
     serializer_class = PlatformLeadSerializer
     queryset = PlatformLead.objects.all()
 
+    def perform_update(self, serializer):
+        before = serializer.instance.status
+        serializer.save()
+        lead = serializer.instance
+        log_activity(
+            action="update", request=self.request, entity_type="PlatformLead",
+            entity_id=lead.pk,
+            metadata={
+                "label": lead.name,
+                "status_from": before, "status_to": lead.status,
+                "fields": sorted(serializer.validated_data),
+            },
+        )
+
     def get_queryset(self):
         queryset = super().get_queryset()
         status_value = self.request.query_params.get("status")

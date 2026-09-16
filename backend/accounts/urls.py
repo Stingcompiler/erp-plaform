@@ -1,7 +1,11 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from accounts.platform_team_views import PlatformInvitationAcceptView, PlatformTeamViewSet
+from accounts.platform_team_views import (
+    PlatformActivityViewSet,
+    PlatformInvitationAcceptView,
+    PlatformTeamViewSet,
+)
 from accounts.views import (
     LoginView,
     LogoutView,
@@ -17,6 +21,7 @@ router.register("users", UserViewSet, basename="user")
 router.register("roles", RoleViewSet, basename="role")
 router.register("permissions", PermissionViewSet, basename="permission")
 router.register("platform/team", PlatformTeamViewSet, basename="platform-team")
+router.register("platform/activity", PlatformActivityViewSet, basename="platform-activity")
 
 urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="auth-login"),
