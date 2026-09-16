@@ -1,10 +1,10 @@
-# Handoff — where the work stands (2026-09-16, after PR #52)
+# Handoff — where the work stands (2026-09-16, after PR #55)
 
 Read this first in a new session. It is the human-readable copy of the
 session memory (`~/.claude/projects/.../memory/`), which the assistant loads
 automatically; this file is the copy that lives with the code.
 
-## State on 2026-09-16 (PRs #30–#52)
+## State on 2026-09-16 (PRs #30–#55)
 
 | Area | What landed | Where |
 |---|---|---|
@@ -23,6 +23,7 @@ automatically; this file is the copy that lives with the code.
 | Media health (#50) | `stored_public_url()` hides images whose file is gone (placeholder + "missing" in completeness); `/api/health/` → `media: {storage: configured|ephemeral, writable, public_files}` | `core/public_media.py` |
 | Show-password toggle (#51) | `components/ui/PasswordInput.jsx` on `/login` and `/activate-owner` | |
 | Demo seeder (#52) | `manage.py seed_demo --owner <email> [--sales N] [--days N] [--platform] --yes` fills a company (catalogue, stock, customers/debts, suppliers, CRM, complete published page with generated tiles, POS sales through the real checkout view) and optionally the platform inbox. Never takes a password; run from the Render shell | `core/management/commands/seed_demo.py` |
+| Plans console (#54, #55) | Module picker (`lib/planModules.js` mirrors `core/rbac.py` codes + `PlanVersion.clean()` dependencies); `PlanEditor` edits every plan + version field, and pricing/modules/limits changes publish a new version because published versions are immutable; the public pricing card expands `["*"]` to all module names. `seed_demo` regenerates lost cover/logo/product tiles (#53) | `app/(app)/platform-plans/page.jsx`, `components/platform/ModulePicker.jsx`, `components/marketing/PlanCards.jsx` |
 | SEO control page, phase A (#43) | `/platform-seo`: site-wide verification tags, GA4 id, default share image, extra robots lines; per-path overrides (title, description, noindex, canonical, per language). Django injects them into the served export's `<head>` and into `/s/` pages at request time (60 s cache). Capabilities `platform.seo.view/manage` | `core/seo_inject.py` (pure rewriter + tests), `website/seo.py` (cache), `website/seo_views.py`, `core/frontend.py`, `app/(app)/platform-seo/page.jsx` |
 
 Production: Render, domains done, Search Console verified (domain property),
@@ -31,7 +32,7 @@ home indexed. Both sitemaps live. First real company page: `/s/nwafih/`
 
 ## Open threads (next session starts here)
 
-1. PRs #43 (SEO phase A), #44 (sign-in/presence), #45 (directory cards + services), #46 (call + WhatsApp links) #47 (demo requests with phone + preferred channel), #48 (platform contact on the site), #49 (follow-ups), #50 (media health), #51 (show password) and #52 (seed_demo) merged and verified on production 2026-09-16. Owner asked for both on 2026-09-16 after seeing "never signed in" on the team page and a text-only entry for نوافح in the directory. Nwafih's owner can now fill "ماذا تقدّم" in the site editor; until then the card shows the featured product names.
+1. PRs #43 (SEO phase A), #44 (sign-in/presence), #45 (directory cards + services), #46 (call + WhatsApp links) #47 (demo requests with phone + preferred channel), #48 (platform contact on the site), #49 (follow-ups), #50 (media health), #51 (show password), #52 (seed_demo), #53 (seed_demo lost files), #54 (module picker) and #55 (full plan editor) merged 2026-09-16; #55's Render deploy was still pending when the session ended — check `/platform-plans/` references chunk `page-1de4affcbc3501ee.js`. Owner asked for both on 2026-09-16 after seeing "never signed in" on the team page and a text-only entry for نوافح in the directory. Nwafih's owner can now fill "ماذا تقدّم" in the site editor; until then the card shows the featured product names.
 2. **SEO admin, next phases** — not built: (B) a health dashboard on `/platform-seo` (public paths without overrides, store pages incomplete or opted out, sitemap counts, last deploy time); (C) a redirect manager (old path → new, 301) applied before the catch-all in `config/urls.py`. Editing solution/guide content from the UI stays out of scope (it lives in `lib/content/*`). To add an injected tag: extend `core/seo_inject.py` and its tests, then the `_seo_site.html` include for `/s/` pages.
 3. Owner actions still pending: R2 for media backups (now more important: store images live on the Render disk), Sentry, outbound email, VPS for standalone phase C, flip `SUBSCRIPTION_POLICY` observe → enforce.
 4. **Contact model — only outbound sending remains**: email provider (Resend/SES) for confirmations, activation links and invoices; WhatsApp Cloud API later. Needs the owner's pick and an account. Items 1–3 shipped (#47–#49).
