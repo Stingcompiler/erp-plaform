@@ -237,15 +237,18 @@ class DemoRequestSerializer(serializers.Serializer):
 
 
 class PlatformLeadSerializer(serializers.ModelSerializer):
+    follow_up_due = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = PlatformLead
         fields = [
             "id", "request_uuid", "name", "email", "phone", "preferred_channel", "message",
-            "status", "source", "created_at",
+            "status", "internal_note", "last_contacted_at", "last_contact_channel",
+            "next_follow_up_at", "follow_up_due", "source", "created_at",
         ]
         read_only_fields = [
             "id", "request_uuid", "name", "email", "phone", "preferred_channel", "message",
-            "source", "created_at",
+            "last_contacted_at", "last_contact_channel", "follow_up_due", "source", "created_at",
         ]
 
 
@@ -326,6 +329,7 @@ class RegistrationRequestSerializer(serializers.ModelSerializer):
 class PlatformRegistrationRequestSerializer(serializers.ModelSerializer):
     company_id = serializers.IntegerField(source="company.id", read_only=True)
     plan_name = serializers.CharField(source="plan_version.plan.name", read_only=True)
+    follow_up_due = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = RegistrationRequest
@@ -333,13 +337,15 @@ class PlatformRegistrationRequestSerializer(serializers.ModelSerializer):
             "id", "request_uuid", "company_name", "contact_name", "email", "phone", "country",
             "timezone_name", "estimated_users", "estimated_branches", "delivery_mode",
             "plan_version", "plan_name", "message", "privacy_version", "status", "internal_note",
+            "last_contacted_at", "last_contact_channel", "next_follow_up_at", "follow_up_due",
             "reviewed_by", "reviewed_at", "company_id", "created_at", "updated_at",
         ]
         read_only_fields = [
             "request_uuid", "company_name", "contact_name", "email", "phone", "country",
             "timezone_name", "estimated_users", "estimated_branches",
             "delivery_mode", "message", "privacy_version",
-            "status", "reviewed_by", "reviewed_at", "company_id",
+            "status", "last_contacted_at", "last_contact_channel", "follow_up_due",
+            "reviewed_by", "reviewed_at", "company_id",
             "created_at", "updated_at",
         ]
 

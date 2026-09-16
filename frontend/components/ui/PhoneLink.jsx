@@ -9,7 +9,7 @@ import { MessageCircle, Phone } from "lucide-react";
 import { useI18n } from "@/app/providers/I18nProvider";
 import { telUrl, whatsappUrl } from "@/lib/phone";
 
-export default function PhoneLink({ phone, country, empty = "—", className = "", iconOnly = false }) {
+export default function PhoneLink({ phone, country, empty = "—", className = "", iconOnly = false, onContact }) {
   const { t } = useI18n();
   if (!phone) return empty ? <span className="text-muted">{empty}</span> : null;
   const tel = telUrl(phone);
@@ -17,7 +17,7 @@ export default function PhoneLink({ phone, country, empty = "—", className = "
   return (
     <span className={`inline-flex items-center gap-2 ${className}`} dir="ltr">
       {tel ? (
-        <a href={tel} className="inline-flex items-center gap-1 hover:text-accent hover:underline" title={t("common.call")}>
+        <a href={tel} onClick={() => onContact?.("call")} className="inline-flex items-center gap-1 hover:text-accent hover:underline" title={t("common.call")}>
           {!iconOnly && <Phone size={13} className="shrink-0 opacity-70" />}{phone}
         </a>
       ) : (
@@ -28,6 +28,7 @@ export default function PhoneLink({ phone, country, empty = "—", className = "
           href={wa}
           target="_blank"
           rel="noreferrer noopener"
+          onClick={() => onContact?.("whatsapp")}
           title={t("common.whatsapp")}
           aria-label={t("common.whatsapp")}
           className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#25d366]/15 text-[#128c7e] hover:bg-[#25d366]/30"

@@ -5,7 +5,30 @@ from django.db import models
 from django.utils import timezone
 
 
-class PlatformLead(models.Model):
+class FollowUpMixin(models.Model):
+    """What the platform team needs to keep a conversation going: when they
+    last reached the person and how, and when to try again. `record_contact`
+    is called when a member opens the call or WhatsApp link from the console;
+    `follow_up_due` is what the inbox flags."""
+
+    last_contacted_at = models.DateTimeField(null=True, blank=True)
+    last_contact_channel = models.CharField(max_length=16, blank=True)
+    next_follow_up_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        abstract = True
+
+    def record_contact(self, channel):
+        self.last_contacted_at = timezone.now()
+        self.last_contact_channel = channel
+        self.save(update_fields=["last_contacted_at", "last_contact_channel", "updated_at"])
+
+    @property
+    def follow_up_due(self):
+        return bool(self.next_follow_up_at) and self.next_follow_up_at <= timezone.now()
+
+
+class PlatformLead(FollowUpMixin, models.Model):
     """A prospective Vezano customer captured from the public platform site.
 
     This is deliberately separate from CRM leads, which belong to a tenant and
@@ -43,6 +66,8 @@ class PlatformLead(models.Model):
     )
     message = models.TextField(blank=True)
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_NEW)
+    # The team's own notes; never shown to the prospect.
+    internal_note = models.TextField(blank=True)
     source = models.CharField(max_length=64, default="platform-website")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -54,7 +79,7 @@ class PlatformLead(models.Model):
         return f"{self.name} <{self.email or self.phone}>"
 
 
-class RegistrationRequest(models.Model):
+class RegistrationRequest(FollowUpMixin, models.Model):
     """A prospective SaaS tenant, separate from a tenant's own CRM data."""
 
     SAAS = "saas"

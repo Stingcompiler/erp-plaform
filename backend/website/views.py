@@ -22,6 +22,7 @@ from subscriptions.models import PlanVersion, Subscription, SubscriptionPayment
 from website.images import (
     COVER_SIDE, LOGO_SIDE, PHOTO_SIDE, clear_image, prepare_image, replace_image,
 )
+from website.followups import CONTACT_CHANNELS
 from website.models import (
     FeaturedProduct, PlatformLead, RegistrationRequest, Section, Website, WebsiteImage,
 )
@@ -42,6 +43,20 @@ from website.services import (
     provision_registration_request,
     reissue_owner_invitation,
 )
+
+
+def _record_contact(view, request, entity_type):
+    channel = request.data.get("channel")
+    if channel not in CONTACT_CHANNELS:
+        return Response({"channel": "Unknown channel."}, status=status.HTTP_400_BAD_REQUEST)
+    obj = view.get_object()
+    obj.record_contact(channel)
+    log_activity(
+        action="contact", request=request, entity_type=entity_type, entity_id=obj.pk,
+        metadata={"channel": channel, "label": getattr(obj, "name", None)
+                  or getattr(obj, "company_name", "")},
+    )
+    return Response(view.get_serializer(obj).data)
 
 
 class PlatformLeadViewSet(
@@ -78,14 +93,24 @@ class PlatformLeadViewSet(
         search = self.request.query_params.get("search", "").strip()
         if status_value:
             queryset = queryset.filter(status=status_value)
+        if self.request.query_params.get("due"):
+            queryset = queryset.filter(next_follow_up_at__lte=timezone.now()).exclude(
+                status=PlatformLead.STATUS_CLOSED
+            )
         if search:
             queryset = queryset.filter(
                 models.Q(name__icontains=search)
                 | models.Q(email__icontains=search)
                 | models.Q(phone__icontains=search)
                 | models.Q(message__icontains=search)
+                | models.Q(internal_note__icontains=search)
             )
         return queryset
+
+    @action(detail=True, methods=["post"])
+    def contact(self, request, pk=None):
+        """A member reached out (opened the call/WhatsApp/email link)."""
+        return _record_contact(self, request, "PlatformLead")
 
 
 class PlatformOverviewView(APIView):
@@ -243,6 +268,8 @@ class PlatformRegistrationRequestViewSet(
     platform_action_capabilities = {
         "provision": platform_roles.REGISTRATIONS_PROVISION,
         "reissue_invitation": platform_roles.INVITATIONS_REISSUE,
+        # Noting that one reached out is open to whoever may see the request.
+        "contact": platform_roles.REGISTRATIONS_VIEW,
     }
     entitlement_exempt = True
     serializer_class = PlatformRegistrationRequestSerializer
@@ -255,7 +282,18 @@ class PlatformRegistrationRequestViewSet(
         status_value = self.request.query_params.get("status")
         if status_value:
             queryset = queryset.filter(status=status_value)
+        if self.request.query_params.get("due"):
+            queryset = queryset.filter(next_follow_up_at__lte=timezone.now()).exclude(
+                status__in=[
+                    RegistrationRequest.PROVISIONED, RegistrationRequest.REJECTED,
+                    RegistrationRequest.WITHDRAWN,
+                ]
+            )
         return queryset
+
+    @action(detail=True, methods=["post"])
+    def contact(self, request, pk=None):
+        return _record_contact(self, request, "RegistrationRequest")
 
     def perform_update(self, serializer):
         registration = serializer.save()
