@@ -58,6 +58,10 @@ img{max-width:100%;display:block}
 .trust .wrap{display:flex;flex-wrap:wrap;gap:10px 28px;padding-block:14px;font-size:.95rem;color:var(--muted)}
 .trust span{display:inline-flex;align-items:center;gap:8px}
 .trust b{color:var(--ink);font-weight:600}
+.services{background:var(--surface);border-bottom:1px solid var(--line)}
+.services .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding-block:14px}
+.services .lbl{color:var(--muted);font-size:.92rem;margin-inline-end:6px}
+.services span.item{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:4px 14px;font-size:.95rem;font-weight:600}
 section.block{padding-block:48px}
 section.block+section.block{border-top:1px solid var(--line)}
 section.block h2{font-size:clamp(1.4rem,3vw,1.9rem);margin:0 0 8px;font-weight:800}
@@ -124,6 +128,15 @@ footer.site a{color:var(--muted)}
     </div>
   </div>
 </header>
+
+{% if services %}
+<div class="services" id="services">
+  <div class="wrap">
+    <span class="lbl">{% if language == 'ar' %}ماذا نقدّم{% else %}What we offer{% endif %}</span>
+    {% for item in services %}<span class="item">{{ item }}</span>{% endfor %}
+  </div>
+</div>
+{% endif %}
 
 {% if hours or map_url or data.city or data.address %}
 <div class="trust">
