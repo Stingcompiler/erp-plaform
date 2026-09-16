@@ -4,6 +4,7 @@ from subscriptions.models import PlanVersion
 from core.public_media import public_media_url
 from website.models import (
     FeaturedProduct, PlatformLead, RegistrationRequest, Section, Website, WebsiteImage,
+    service_lines,
 )
 from website.services import plan_version_is_available
 
@@ -25,6 +26,8 @@ def completeness(site):
         missing.append("contact")
     if not site.category:
         missing.append("category")
+    if not service_lines(site.services):
+        missing.append("services")
     if not site.featured_products.filter(product__image__isnull=False).exclude(
         product__image=""
     ).exists():
@@ -46,7 +49,7 @@ class WebsiteSerializer(serializers.ModelSerializer):
             "logo_url", "primary_color", "contact_email", "contact_phone",
             "address", "social_links", "is_published", "published_at",
             "updated_at", "public_url",
-            "category", "city", "opening_hours", "map_url", "list_in_directory",
+            "category", "city", "opening_hours", "map_url", "services", "list_in_directory",
             "cover_image_url", "logo_image_url", "missing",
         ]
         read_only_fields = ["company", "is_published", "published_at", "updated_at"]
@@ -64,6 +67,12 @@ class WebsiteSerializer(serializers.ModelSerializer):
 
     def get_missing(self, obj):
         return completeness(obj)
+
+    def validate_services(self, value):
+        lines = service_lines(value)
+        if any(len(line) > 60 for line in lines):
+            raise serializers.ValidationError("Keep each service under 60 characters.")
+        return "\n".join(lines)
 
 
 class WebsiteImageSerializer(serializers.ModelSerializer):
@@ -148,6 +157,7 @@ class PublicSiteSerializer(serializers.ModelSerializer):
     cover_image_url = serializers.SerializerMethodField()
     logo_image_url = serializers.SerializerMethodField()
     gallery = serializers.SerializerMethodField()
+    services = serializers.SerializerMethodField()
 
     class Meta:
         model = Website
@@ -155,9 +165,12 @@ class PublicSiteSerializer(serializers.ModelSerializer):
             "business_name", "tagline", "about_text", "logo_url",
             "primary_color", "contact_email", "contact_phone", "address",
             "social_links", "published_at", "sections", "featured_products",
-            "category", "city", "opening_hours", "map_url",
+            "category", "city", "opening_hours", "map_url", "services",
             "cover_image_url", "logo_image_url", "gallery",
         ]
+
+    def get_services(self, obj):
+        return service_lines(obj.services)
 
     def get_cover_image_url(self, obj):
         return public_media_url(obj.cover_image.name if obj.cover_image else "")

@@ -65,6 +65,7 @@ export default function WebsitePage() {
         city: page.city || "",
         opening_hours: page.opening_hours || "",
         map_url: page.map_url || "",
+        services: page.services || "",
         list_in_directory: page.list_in_directory !== false,
       });
       setPage(r.data);
@@ -179,6 +180,17 @@ export default function WebsitePage() {
                 onChange={set("opening_hours")}
                 disabled={!writable}
                 rows={3}
+                className="w-full rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+              />
+            </Field>
+            <Field label={t("website.services")} hint={t("website.servicesHint")}>
+              <textarea
+                value={page.services || ""}
+                onChange={set("services")}
+                disabled={!writable}
+                rows={4}
+                maxLength={420}
+                placeholder={t("website.servicesPlaceholder")}
                 className="w-full rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
               />
             </Field>

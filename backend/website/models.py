@@ -134,6 +134,15 @@ def site_upload_path(instance, filename):
     return f"public/sites/{company_id}/{filename}"
 
 
+MAX_SERVICES = 6
+
+
+def service_lines(text):
+    """The merchant's services as a clean list: one per line, blank lines
+    dropped, capped at MAX_SERVICES."""
+    return [line.strip() for line in (text or "").splitlines() if line.strip()][:MAX_SERVICES]
+
+
 class Website(models.Model):
     """
     A company's public landing page. One per company. `is_published` gates
@@ -179,6 +188,9 @@ class Website(models.Model):
     city = models.CharField(max_length=120, blank=True)
     opening_hours = models.TextField(blank=True)
     map_url = models.URLField(blank=True)
+    # What the business offers, one short item per line (up to MAX_SERVICES);
+    # shown on the directory card and under the hero of the public page.
+    services = models.TextField(blank=True)
     # Consent to appear in the public directory and the platform's marketing
     # sections. The page itself is public whenever the site is published.
     list_in_directory = models.BooleanField(default=True)

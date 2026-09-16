@@ -36,16 +36,22 @@ h1{font-size:clamp(1.7rem,4vw,2.4rem);margin:0 0 8px;font-weight:800}
 .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));margin-top:20px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);text-decoration:none;color:var(--ink);display:flex;flex-direction:column;transition:transform .15s}
 .card:hover{transform:translateY(-2px)}
-.card .cover{aspect-ratio:16/9;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 35%,#000),var(--accent));position:relative}
+.card a.cover{display:block;text-decoration:none}
+.card .cover{aspect-ratio:16/9;background:linear-gradient(135deg,color-mix(in srgb,var(--brand,var(--accent)) 80%,#000),var(--brand,var(--accent)));position:relative}
 .card .cover img{width:100%;height:100%;object-fit:cover}
+.card .cover .ph{position:absolute;inset:0;display:grid;place-items:center;color:rgba(255,255,255,.75);font-weight:800;font-size:1.05rem;letter-spacing:.02em;padding:16px;text-align:center}
 .card .logo{position:absolute;bottom:-20px;inset-inline-start:14px;width:48px;height:48px;border-radius:12px;border:3px solid var(--surface);background:var(--surface);object-fit:cover}
+.card .logo.mark{display:grid;place-items:center;background:var(--brand,var(--accent));color:#fff;font-weight:800;font-size:1.2rem}
+.card .offers{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.card .offers span{border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:.82rem;color:var(--ink)}
+.card .offers span.more{border-style:dashed;color:var(--muted)}
 .card .body{padding:28px 16px 16px}
 .card h2{margin:0;font-size:1.1rem}
 .card p{margin:4px 0 0;color:var(--muted);font-size:.95rem}
 .card .meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:.82rem;color:var(--muted)}
 .card .meta span{background:var(--paper);border-radius:999px;padding:2px 10px}
 .card .addr{color:var(--muted);font-size:.9rem;margin-top:8px}
-.card .go{display:inline-block;margin-top:12px;background:var(--accent);color:#fff;padding:8px 14px;border-radius:10px;font-weight:700;font-size:.92rem}
+.card .go{display:inline-block;text-decoration:none;margin-top:12px;background:var(--accent);color:#fff;padding:8px 14px;border-radius:10px;font-weight:700;font-size:.92rem}
 h3.others{margin:40px 0 10px;font-size:1.05rem;color:var(--muted)}
 ul.plain{list-style:none;padding:0;margin:0;display:grid;gap:8px}
 ul.plain li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
@@ -75,33 +81,27 @@ footer a{color:var(--muted)}
     {% endif %}
   </header>
 
-  {% if featured %}
+  {% if cards %}
   <div class="grid">
-    {% for site in featured %}
-    <a class="card" href="{{ site.path }}">
-      <div class="cover">
-        {% if site.cover %}<img src="{{ site.cover }}" alt="" loading="lazy">{% endif %}
-        {% if site.logo %}<img class="logo" src="{{ site.logo }}" alt="{{ site.name }}">{% endif %}
-      </div>
+    {% for site in cards %}
+    <article class="card" style="--brand:{{ site.colour }}">
+      <a class="cover" href="{{ site.path }}" aria-label="{{ site.name }}">
+        {% if site.cover %}<img src="{{ site.cover }}" alt="" loading="lazy">{% else %}<span class="ph">{{ site.name }}</span>{% endif %}
+        {% if site.logo %}<img class="logo" src="{{ site.logo }}" alt="{{ site.name }}">{% else %}<span class="logo mark" aria-hidden="true">{{ site.initial }}</span>{% endif %}
+      </a>
       <div class="body">
-        <h2>{{ site.name }}</h2>
+        <h2><a href="{{ site.path }}" style="color:inherit;text-decoration:none">{{ site.name }}</a></h2>
         {% if site.tagline %}<p>{{ site.tagline }}</p>{% endif %}
+        {% if site.offers %}<div class="offers">{% for item in site.offers %}<span>{{ item }}</span>{% endfor %}{% if site.more_offers %}<span class="more">+{{ site.more_offers }}</span>{% endif %}</div>{% endif %}
         {% if site.address %}<p class="addr">📍 {{ site.address }}</p>{% endif %}
         <div class="meta">{% if site.category_label %}<span>{{ site.category_label }}</span>{% endif %}</div>
-        <span class="go">زيارة الصفحة ←</span>
+        <a class="go" href="{{ site.path }}">زيارة الصفحة ←</a>
       </div>
-    </a>
+    </article>
     {% endfor %}
   </div>
-  {% elif not others %}
+  {% else %}
   <p class="empty">لا صفحات منشورة بعد{% if category %} في هذا التصنيف{% endif %}.</p>
-  {% endif %}
-
-  {% if others %}
-  <h3 class="others">{% if featured %}صفحات أخرى{% else %}الصفحات المنشورة{% endif %}</h3>
-  <ul class="plain">
-    {% for site in others %}<li><a href="{{ site.path }}">{{ site.name }}</a>{% if site.tagline %} <span style="color:var(--muted)">· {{ site.tagline }}</span>{% endif %}</li>{% endfor %}
-  </ul>
   {% endif %}
 
   <section class="cta">

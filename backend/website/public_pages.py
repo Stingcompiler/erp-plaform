@@ -30,7 +30,7 @@ from django.views.decorators.cache import cache_control
 from django.views.decorators.http import require_GET
 
 from org.models import Company
-from website.models import Website, normalize_seo_path
+from website.models import Website, normalize_seo_path, service_lines
 from core.public_media import public_media_url
 from core.seo_inject import analytics_snippet
 from website.seo import page_seo, site_seo
@@ -311,6 +311,7 @@ def render_site(request, site, *, preview=False):
         "json_ld": _json_ld(site, data, url, language),
         **_layout(data),
         "products": data["featured_products"],
+        "services": data["services"],
         "platform_url": site_url("/"),
         "directory_url": site_url("/s/"),
         "preview": preview,
@@ -334,8 +335,18 @@ def site_card(site, request=None):
         site.logo_url if site.logo_url.startswith(("http://", "https://")) else ""
     )
     cover = public_media_url(site.cover_image.name) if site.cover_image else ""
+    # "What they offer": the merchant's own services list, else the names of
+    # their featured products, so a card never says nothing about the business.
+    offers = service_lines(site.services) or [
+        fp.product.name for fp in site.featured_products.select_related("product")[:3]
+    ]
+    colour = site.primary_color if HEX_COLOUR.match(site.primary_color or "") else "#111827"
     return {
         "name": _display_name(site),
+        "initial": (_display_name(site) or "?")[:1],
+        "colour": colour,
+        "offers": offers[:3],
+        "more_offers": max(len(offers) - 3, 0),
         "tagline": site.tagline,
         "address": ", ".join(part for part in (site.address, site.city) if part),
         "category": site.category,
@@ -370,10 +381,13 @@ def public_site_directory(request):
         for key, _ in Website.CATEGORY_CHOICES
         if key in present or key == category
     ]
+    # Every listed site gets a card; the complete ones lead.
+    cards.sort(key=lambda card: not card["complete"])
     return render(
         request,
         "website/public_directory.html",
         {
+            "cards": cards,
             "featured": [card for card in cards if card["complete"]],
             "others": [card for card in cards if not card["complete"]],
             "categories": categories,

@@ -399,6 +399,38 @@ class LandingPageImageTests(PublicSiteTests):
         directory = anon.get(reverse("public-site-directory")).content.decode()
         self.assertNotIn(f"/s/{self.company_a.slug}/", directory)
 
+    def test_services_are_validated_listed_and_shown_on_the_page(self):
+        client = self._build_and_publish()
+        page = client.get(reverse("website-page")).data
+        self.assertIn("services", page["missing"])
+        too_long = client.patch(
+            reverse("website-page"), {"services": "x" * 61}, format="json"
+        )
+        self.assertEqual(too_long.status_code, 400)
+        saved = client.patch(
+            reverse("website-page"),
+            {"services": " توصيل \n\nصيانة\nتركيب\nضمان\nتقسيط\nاستبدال\nسابع مهمل"},
+            format="json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.data)
+        self.assertEqual(saved.data["services"], "توصيل\nصيانة\nتركيب\nضمان\nتقسيط\nاستبدال")
+        self.assertNotIn("services", saved.data["missing"])
+        public = self.client_class().get(reverse("public-site", args=[self.company_a.slug])).data
+        self.assertEqual(
+            public["services"], ["توصيل", "صيانة", "تركيب", "ضمان", "تقسيط", "استبدال"]
+        )
+        html = self.client_class().get(
+            reverse("public-site-page", args=[self.company_a.slug])
+        ).content.decode()
+        self.assertIn('<div class="services" id="services">', html)
+        self.assertIn('<span class="item">توصيل</span>', html)
+        self.assertNotIn("سابع مهمل", html)
+        directory = self.client_class().get(reverse("public-site-directory")).content.decode()
+        self.assertIn(
+            '<span>توصيل</span><span>صيانة</span><span>تركيب</span><span class="more">+3</span>',
+            directory,
+        )
+
     def test_missing_items_guide_the_merchant(self):
         client = self._build_and_publish()
         data = client.get(reverse("website-page")).data
@@ -427,7 +459,8 @@ class PreviewAndShowcaseTests(LandingPageImageTests):
         client.patch(
             reverse("website-page"),
             {"tagline": "أفضل الأسعار", "about_text": "نبذة", "contact_phone": "0912345678",
-             "category": "grocery", "city": "الخرطوم"},
+             "category": "grocery", "city": "الخرطوم",
+             "services": "توصيل للمنازل\nبيع بالجملة\n\nتقسيط"},
             format="json",
         )
 
@@ -466,16 +499,29 @@ class PreviewAndShowcaseTests(LandingPageImageTests):
         Website.objects.filter(company=self.company_a).update(list_in_directory=False)
         self.assertEqual(anon.get(reverse("public-showcase")).json()["sites"], [])
 
-    def test_directory_shows_complete_sites_as_cards_and_filters_by_category(self):
+    def test_directory_shows_every_listed_site_as_a_card_and_filters_by_category(self):
         client = self._build_and_publish()
         anon = self.client_class()
         html = anon.get(reverse("public-site-directory")).content.decode()
-        self.assertNotIn('class="card"', html)
-        self.assertIn(f'href="/s/{self.company_a.slug}/"', html)  # plain link, still crawlable
+        # An incomplete site still gets a card: placeholder cover, initial as
+        # the logo, featured product names as what it offers, a visit button.
+        self.assertIn('class="card"', html)
+        self.assertIn('<span class="ph">Alpha Store</span>', html)
+        self.assertIn('<span class="logo mark" aria-hidden="true">A</span>', html)
+        self.assertIn('<div class="offers"><span>Nice Widget</span></div>', html)
+        self.assertIn(f'<a class="go" href="/s/{self.company_a.slug}/">', html)
+        self.assertNotIn('<ul class="plain">', html)
         self._complete(client)
         html = anon.get(reverse("public-site-directory")).content.decode()
         self.assertIn('class="card"', html)
         self.assertIn("مواد غذائية", html)
+        # Real cover and logo replace the placeholders; the services list
+        # replaces the product names (three shown, the rest counted).
+        self.assertNotIn('class="ph"', html)
+        self.assertNotIn('logo mark', html)
+        self.assertIn('<img class="logo" src=', html)
+        self.assertIn("<span>توصيل للمنازل</span><span>بيع بالجملة</span><span>تقسيط</span>", html)
+        self.assertNotIn("Nice Widget", html)
         directory = reverse("public-site-directory")
         filtered = anon.get(directory + "?category=pharmacy").content.decode()
         self.assertNotIn('class="card"', filtered)
