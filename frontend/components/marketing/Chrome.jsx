@@ -56,10 +56,10 @@ const NAV_LINKS = [
   ["/#contact", "landing.navContact"],
 ];
 
-// The stores directory joins the header only once there is enough in it to
-// impress: a link to a near-empty directory reads as "no customers". The
-// footer links it always (crawlers and the curious still find it).
-const STORES_NAV_MIN = 3;
+// The stores directory joins the header as soon as one complete, listed
+// store exists (owner's call: one real example is worth showing). The footer
+// links it always (crawlers and the curious still find it).
+const STORES_NAV_MIN = 1;
 const STORES_PATH = "/s/";
 
 function useStoresNav() {
