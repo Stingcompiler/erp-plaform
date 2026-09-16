@@ -12,6 +12,7 @@ import { Languages, Menu, MoonStar, Sun, SunMoon, X } from "lucide-react";
 import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { DEMO_URL, HAS_LIVE_DEMO } from "@/lib/demo";
+import { publicSite } from "@/lib/api";
 import { GUIDES } from "@/lib/content/guides";
 import { SOLUTIONS } from "@/lib/content/solutions";
 import { cachedDeploymentMode, fetchDeploymentMode } from "@/lib/deploymentMode";
@@ -55,8 +56,32 @@ const NAV_LINKS = [
   ["/#contact", "landing.navContact"],
 ];
 
+// The stores directory joins the header only once there is enough in it to
+// impress: a link to a near-empty directory reads as "no customers". The
+// footer links it always (crawlers and the curious still find it).
+const STORES_NAV_MIN = 3;
+const STORES_PATH = "/s/";
+
+function useStoresNav() {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    publicSite
+      .showcase()
+      .then((response) => { if (!cancelled) setCount((response.data.sites || []).length); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  return count >= STORES_NAV_MIN;
+}
+
 export function MarketingHeader() {
   const { t, href } = useI18n();
+  const showStores = useStoresNav();
+  // The directory is a Django page on the same origin, not a Next route, so
+  // it is never language-prefixed.
+  const navLinks = showStores ? [...NAV_LINKS, [STORES_PATH, "landing.navStores"]] : NAV_LINKS;
+  const navHref = (path) => (path === STORES_PATH ? path : href(path));
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
 
@@ -104,8 +129,8 @@ export function MarketingHeader() {
           {t("common.appName")}
         </Link>
         <nav className="hidden items-center gap-6 text-sm text-muted md:flex">
-          {NAV_LINKS.map(([path, key]) => (
-            <a key={path} href={href(path)} className="hover:text-ink">{t(key)}</a>
+          {navLinks.map(([path, key]) => (
+            <a key={path} href={navHref(path)} className="hover:text-ink">{t(key)}</a>
           ))}
         </nav>
         {/* Desktop / tablet: everything inline. */}
@@ -133,10 +158,10 @@ export function MarketingHeader() {
       {open && (
         <div id="landing-menu" className="border-t border-line/70 bg-paper md:hidden">
           <nav className="mx-auto flex max-w-6xl flex-col px-4 py-2 text-base">
-            {NAV_LINKS.map(([path, key]) => (
+            {navLinks.map(([path, key]) => (
               <a
                 key={path}
-                href={href(path)}
+                href={navHref(path)}
                 onClick={() => setOpen(false)}
                 className="rounded-control px-2 py-3 text-ink hover:bg-surface"
               >
@@ -191,6 +216,7 @@ export function MarketingFooter() {
                   <li key={item.slug}><Link href={href(`/guides/${item.slug}`)} className="hover:text-paper">{item[contentLanguage].title}</Link></li>
                 ))}
                 <li><Link href={href("/compare/excel-and-paper")} className="hover:text-paper">{t("content.compareEyebrow")}</Link></li>
+                <li><a href={STORES_PATH} className="hover:text-paper">{t("landing.navStores")}</a></li>
               </ul>
             </div>
             <div>
