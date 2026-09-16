@@ -21,7 +21,7 @@ home indexed. Both sitemaps live. First real company page: `/s/nwafih/`
 
 ## Open threads (next session starts here)
 
-1. **PR #42** (companies-and-stores wording, directory cards) — merge on green, verify live.
+1. PR #42 merged and verified live on 2026-09-16.
 2. **SEO admin page for the platform team** — discussed, not built. Agreed direction: an `SeoSettings` model + `/platform-seo` page (view/write capability `platform.seo.*`, Marketing Manager gets write); Django injects overrides into the served export's `<head>` (per-path title/description/robots, site-wide verification tags, analytics id, default OG image); then a health dashboard (sitemap coverage, incomplete store pages); then redirects. Owner wanted ideas discussed first — see the assistant's last message of 2026-09-16.
 3. Owner actions still pending: R2 for media backups (now more important: store images live on the Render disk), Sentry, outbound email, VPS for standalone phase C, flip `SUBSCRIPTION_POLICY` observe → enforce.
 4. Store-page plan phases 1–4 are done; a custom domain per company page is on the roadmap (needs Render domain slots or a proxy).
