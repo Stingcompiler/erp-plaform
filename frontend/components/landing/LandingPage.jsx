@@ -292,7 +292,9 @@ function ContactCTA() {
     setBusy(true); setError("");
     try {
       const res = await demoRequests.create({ request_uuid: requestId.current,
-        name: form.get("name"), email: form.get("email"), message: form.get("message"), website: form.get("website") });
+        name: form.get("name"), phone: form.get("phone"), email: form.get("email"),
+        preferred_channel: form.get("preferred_channel") || "whatsapp",
+        message: form.get("message"), website: form.get("website") });
       setSent(res.data.reference);
     } catch (err) { setError(t(err?.response?.status === 503 ? "improvements.contactUnavailable" : "improvements.contactError")); }
     finally { setBusy(false); }
@@ -322,12 +324,26 @@ function ContactCTA() {
                 className="w-full rounded-control border border-line bg-paper px-3 py-3 outline-none focus:border-accent"
               />
               <input
-                type="email" name="email" maxLength={254} aria-label={t("landing.contactEmail")}
-                required
-                placeholder={t("landing.contactEmail")}
-                className="w-full rounded-control border border-line bg-paper px-3 py-3 outline-none focus:border-accent"
+                type="tel" name="phone" maxLength={32} required inputMode="tel" dir="ltr"
+                aria-label={t("landing.contactPhone")}
+                placeholder={t("landing.contactPhone")}
+                className="w-full rounded-control border border-line bg-paper px-3 py-3 text-start outline-none focus:border-accent"
               />
             </div>
+            <input
+              type="email" name="email" maxLength={254} aria-label={t("landing.contactEmailOptional")}
+              placeholder={t("landing.contactEmailOptional")}
+              className="w-full rounded-control border border-line bg-paper px-3 py-3 outline-none focus:border-accent"
+            />
+            <fieldset className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+              <legend className="mb-2 text-muted">{t("landing.contactChannel")}</legend>
+              {["whatsapp", "call", "email"].map((channel) => (
+                <label key={channel} className="inline-flex cursor-pointer items-center gap-2">
+                  <input type="radio" name="preferred_channel" value={channel} defaultChecked={channel === "whatsapp"} className="accent-accent" />
+                  {t(`landing.channels.${channel}`)}
+                </label>
+              ))}
+            </fieldset>
             <textarea
               rows={4} name="message" maxLength={4000} aria-label={t("landing.contactMessage")}
               placeholder={t("landing.contactMessage")}

@@ -7,6 +7,7 @@ import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { platformLeads as platformLeadsApi } from "@/lib/api";
 import { Badge, Card, Input, PageHeader, Select } from "@/components/ui/kit";
+import PhoneLink from "@/components/ui/PhoneLink";
 
 const STATUSES = ["new", "contacted", "qualified", "closed"];
 const TONES = { new: "accent", contacted: "warn", qualified: "ok", closed: "muted" };
@@ -109,7 +110,11 @@ export default function PlatformLeadsPage() {
                     <h2 className="font-display text-lg font-semibold">{lead.name}</h2>
                     <Badge tone={TONES[lead.status]}>{statusLabel(lead.status)}</Badge>
                   </div>
-                  <a href={`mailto:${lead.email}`} className="mt-1 inline-flex items-center gap-1.5 text-sm text-accent hover:underline"><Mail size={14} />{lead.email}</a>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                    {lead.phone && <PhoneLink phone={lead.phone} className="text-muted" />}
+                    {lead.email && <a href={`mailto:${lead.email}`} className="inline-flex items-center gap-1.5 text-accent hover:underline"><Mail size={14} />{lead.email}</a>}
+                    {lead.preferred_channel && <Badge tone={lead.preferred_channel === "whatsapp" ? "ok" : "muted"}>{t("platformLeads.prefers", { channel: t(`landing.channels.${lead.preferred_channel}`) })}</Badge>}
+                  </div>
                   {lead.message && <div className="mt-4"><div className="text-xs font-medium text-muted">{t("platformLeads.message")}</div><p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{lead.message}</p></div>}
                   <div className="mt-4 text-xs text-muted">{t("platformLeads.received")}: {dateLabel(lead.created_at)}</div>
                 </div>

@@ -23,9 +23,24 @@ class PlatformLead(models.Model):
         (STATUS_CLOSED, "Closed"),
     ]
 
+    CHANNEL_WHATSAPP = "whatsapp"
+    CHANNEL_CALL = "call"
+    CHANNEL_EMAIL = "email"
+    CHANNEL_CHOICES = [
+        (CHANNEL_WHATSAPP, "WhatsApp"),
+        (CHANNEL_CALL, "Phone call"),
+        (CHANNEL_EMAIL, "Email"),
+    ]
+
     request_uuid = models.UUIDField(default=uuid.uuid4, unique=True)
     name = models.CharField(max_length=255)
-    email = models.EmailField(max_length=254)
+    # A prospect reaches us by phone (WhatsApp is the market's channel) or
+    # by email; the public form asks for at least one.
+    email = models.EmailField(max_length=254, blank=True)
+    phone = models.CharField(max_length=64, blank=True)
+    preferred_channel = models.CharField(
+        max_length=16, choices=CHANNEL_CHOICES, default=CHANNEL_WHATSAPP
+    )
     message = models.TextField(blank=True)
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_NEW)
     source = models.CharField(max_length=64, default="platform-website")
@@ -36,7 +51,7 @@ class PlatformLead(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.name} <{self.email}>"
+        return f"{self.name} <{self.email or self.phone}>"
 
 
 class RegistrationRequest(models.Model):
