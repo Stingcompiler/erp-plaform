@@ -189,6 +189,7 @@ export default function PlatformTeamPage() {
                       </Link>
                       {isMe && <Badge tone="accent">{t("platformTeam.you")}</Badge>}
                       <Badge tone={status.tone}>{status.label}</Badge>
+                      {row.online && <Badge tone="ok"><span className="me-1 inline-block h-2 w-2 rounded-full bg-ok" />{t("platformTeam.online")}</Badge>}
                     </div>
                     <div className="mt-1 text-sm text-muted">
                       {row.email}
@@ -196,6 +197,7 @@ export default function PlatformTeamPage() {
                     </div>
                     <div className="mt-1 text-xs text-muted">
                       {row.last_login ? t("platformTeam.lastLogin", { date: fmt(row.last_login) }) : t("platformTeam.neverSignedIn")}
+                      {row.last_seen_at && !row.online && <> · {t("platformTeam.lastSeen", { date: fmt(row.last_seen_at) })}</>}
                       {row.invitation_expires_at && !row.activated && <> · {t("platformTeam.expires", { date: fmt(row.invitation_expires_at) })}</>}
                     </div>
                   </div>

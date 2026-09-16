@@ -2,6 +2,7 @@ from django.conf import settings
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
 
+from accounts.presence import touch_last_seen
 from org.store_mode import is_store_mode_allowed
 
 
@@ -29,4 +30,6 @@ class CookieJWTAuthentication(JWTAuthentication):
         from core.timezone import activate_for_user
 
         activate_for_user(user)
+        # Presence: at most one write every few minutes per user.
+        touch_last_seen(user)
         return user, validated_token

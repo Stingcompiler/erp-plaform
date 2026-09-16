@@ -7,6 +7,7 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from accounts.models import PlatformInvitation, User
+from accounts.presence import is_online
 from core.models import ActivityLog
 from accounts.platform_team import (
     accept_platform_invitation,
@@ -26,17 +27,22 @@ class PlatformMemberSerializer(serializers.ModelSerializer):
     role_name = serializers.SerializerMethodField()
     activated = serializers.SerializerMethodField()
     invitation_expires_at = serializers.SerializerMethodField()
+    online = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             "id", "email", "full_name", "role_name", "is_active", "is_superuser",
-            "activated", "invitation_expires_at", "last_login", "created_at",
+            "activated", "invitation_expires_at", "last_login", "last_seen_at", "online",
+            "created_at",
         ]
         read_only_fields = fields
 
     def get_role_name(self, obj):
         return obj.role.name if obj.role_id else ("Django superuser" if obj.is_superuser else "")
+
+    def get_online(self, obj):
+        return is_online(obj)
 
     def get_activated(self, obj):
         return obj.has_usable_password()

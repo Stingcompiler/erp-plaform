@@ -108,6 +108,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
 
     is_active = models.BooleanField(default=True)
+    # Last authenticated request, throttled (accounts.presence); `last_login`
+    # is the last sign-in. Both null for an account that never signed in.
+    last_seen_at = models.DateTimeField(null=True, blank=True)
     # is_staff controls Django admin access only, not app permissions.
     is_staff = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
