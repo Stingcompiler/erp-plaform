@@ -1,10 +1,10 @@
-# Handoff — where the work stands (2026-09-16, after PR #43)
+# Handoff — where the work stands (2026-09-16, after PR #45)
 
 Read this first in a new session. It is the human-readable copy of the
 session memory (`~/.claude/projects/.../memory/`), which the assistant loads
 automatically; this file is the copy that lives with the code.
 
-## State on 2026-09-16 (PRs #30–#43)
+## State on 2026-09-16 (PRs #30–#45)
 
 | Area | What landed | Where |
 |---|---|---|
@@ -14,6 +14,8 @@ automatically; this file is the copy that lives with the code.
 | Platform team (#33, #35, #40, #41) | Marketing Manager role; per-area view capabilities; activity log page + API; member page with edit/role/delete | `backend/core/platform_roles.py`, `accounts/platform_team*.py`, `app/(app)/platform-*` |
 | Public company pages (#36–#39, #42) | `/s/<slug>/` landing page (cover, logo, products with photos, gallery, hours, map, WhatsApp), owner preview, directory `/s/` with cards, showcase strip on home, `/sitemap-sites.xml`, consent + completeness | `backend/website/public_pages.py`, `templates/website/`, `website/images.py`, `core/public_media.py`, `components/website/*` |
 | Tenant people (#41) | `/users/detail/?id=` with history and activity; deactivate, never delete | `accounts/serializers.py` `UserDetailSerializer` |
+| Sign-in + presence (#44) | `LoginView` never called `auth.login()`, so `last_login` was always empty; now `accounts/presence.py` fills it at sign-in, `CookieJWTAuthentication` touches `User.last_seen_at` at most every 2 min, `is_online()` = seen within 5 min. Migration `accounts.0004` backfilled both from the audit trail. Team page shows "online now / last seen"; overview has a team card (members with `platform.team.view` only) | `accounts/presence.py`, `accounts/test_presence.py`, `website/views.py` `_team()` |
+| Directory cards + services (#45) | `/s/` shows a card for every listed site (placeholder cover in the company colour + initial mark when images are missing; complete sites first); `Website.services` (≤6 lines, ≤60 chars) edited under "ماذا تقدّم", shown as chips on the card and as a strip under the hero; falls back to featured product names; part of completeness | `website/public_pages.py` `site_card()`, `templates/website/public_directory.html`, `website/models.py` `service_lines()` |
 | SEO control page, phase A (#43) | `/platform-seo`: site-wide verification tags, GA4 id, default share image, extra robots lines; per-path overrides (title, description, noindex, canonical, per language). Django injects them into the served export's `<head>` and into `/s/` pages at request time (60 s cache). Capabilities `platform.seo.view/manage` | `core/seo_inject.py` (pure rewriter + tests), `website/seo.py` (cache), `website/seo_views.py`, `core/frontend.py`, `app/(app)/platform-seo/page.jsx` |
 
 Production: Render, domains done, Search Console verified (domain property),
@@ -22,7 +24,7 @@ home indexed. Both sitemaps live. First real company page: `/s/nwafih/`
 
 ## Open threads (next session starts here)
 
-1. PR #43 (SEO control page, phase A) merged 2026-09-16 and verified on production (health 200, `/platform-seo` chunk served).
+1. PRs #43 (SEO phase A), #44 (sign-in/presence) and #45 (directory cards + services) merged and verified on production 2026-09-16. Owner asked for both on 2026-09-16 after seeing "never signed in" on the team page and a text-only entry for نوافح in the directory. Nwafih's owner can now fill "ماذا تقدّم" in the site editor; until then the card shows the featured product names.
 2. **SEO admin, next phases** — not built: (B) a health dashboard on `/platform-seo` (public paths without overrides, store pages incomplete or opted out, sitemap counts, last deploy time); (C) a redirect manager (old path → new, 301) applied before the catch-all in `config/urls.py`. Editing solution/guide content from the UI stays out of scope (it lives in `lib/content/*`). To add an injected tag: extend `core/seo_inject.py` and its tests, then the `_seo_site.html` include for `/s/` pages.
 3. Owner actions still pending: R2 for media backups (now more important: store images live on the Render disk), Sentry, outbound email, VPS for standalone phase C, flip `SUBSCRIPTION_POLICY` observe → enforce.
 4. Store-page plan phases 1–4 are done; a custom domain per company page is on the roadmap (needs Render domain slots or a proxy).
