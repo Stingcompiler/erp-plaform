@@ -31,7 +31,7 @@ from django.views.decorators.http import require_GET
 
 from org.models import Company
 from website.models import Website, normalize_seo_path, service_lines
-from core.public_media import public_media_url
+from core.public_media import stored_public_url
 from core.seo_inject import analytics_snippet
 from website.seo import page_seo, site_seo
 from website.serializers import PublicSiteSerializer
@@ -331,10 +331,10 @@ def public_site_page(request, slug):
 
 def site_card(site, request=None):
     """What the directory and the platform's showcase show for one site."""
-    logo = public_media_url(site.logo_image.name) if site.logo_image else (
+    logo = stored_public_url(site.logo_image) or (
         site.logo_url if site.logo_url.startswith(("http://", "https://")) else ""
     )
-    cover = public_media_url(site.cover_image.name) if site.cover_image else ""
+    cover = stored_public_url(site.cover_image)
     # "What they offer": the merchant's own services list, else the names of
     # their featured products, so a card never says nothing about the business.
     offers = service_lines(site.services) or [

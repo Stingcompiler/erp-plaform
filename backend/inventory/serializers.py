@@ -117,9 +117,9 @@ class ProductSerializer(serializers.ModelSerializer):
         extra_kwargs = {"sku": {"required": False, "allow_blank": True}}
 
     def get_image_url(self, obj):
-        from core.public_media import public_media_url
+        from core.public_media import stored_public_url
 
-        return public_media_url(obj.image.name if obj.image else "")
+        return stored_public_url(obj.image)
 
     def create(self, validated_data):
         """Fill in a SKU when the caller left it blank.

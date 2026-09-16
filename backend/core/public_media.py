@@ -36,6 +36,45 @@ def public_media_url(name):
     return f"/media/{name}"
 
 
+def stored_public_url(field):
+    """`public_media_url` for an ImageField value, but "" when the file the
+    row points at is not on disk — a page must show its placeholder, not a
+    broken image, when media was lost (for instance uploads made while
+    MEDIA_ROOT sat on ephemeral storage)."""
+    if not field or not field.name:
+        return ""
+    try:
+        if not field.storage.exists(field.name):
+            return ""
+    except OSError:
+        return ""
+    return public_media_url(field.name)
+
+
+def media_health():
+    """What support asks first when a picture is missing: is MEDIA_ROOT the
+    configured persistent path (not the ephemeral default inside the code
+    checkout), can we write to it, and how many public files are there."""
+    root = Path(settings.MEDIA_ROOT)
+    default_root = Path(settings.BASE_DIR) / "media"
+    storage = "ephemeral" if root.resolve() == default_root.resolve() else "configured"
+    writable = False
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        probe = root / ".health-probe"
+        probe.write_text("ok")
+        probe.unlink()
+        writable = True
+    except OSError:
+        writable = False
+    public = root / PUBLIC_PREFIX
+    try:
+        public_files = sum(1 for p in public.rglob("*") if p.is_file()) if public.is_dir() else 0
+    except OSError:
+        public_files = 0
+    return {"storage": storage, "writable": writable, "public_files": public_files}
+
+
 @require_GET
 @cache_control(public=True, max_age=60 * 60 * 24 * 365, immutable=True)
 def serve_public_media(request, path):

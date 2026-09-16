@@ -12,7 +12,7 @@ import logging
 from django.core.cache import cache
 from django.db import DatabaseError
 
-from core.public_media import public_media_url
+from core.public_media import stored_public_url
 from core.seo_inject import PageSeo, SiteSeo, public_path_and_language
 
 log = logging.getLogger(__name__)
@@ -35,9 +35,7 @@ def _load():
             google_site_verification=settings_row.google_site_verification.strip(),
             bing_site_verification=settings_row.bing_site_verification.strip(),
             analytics_id=settings_row.analytics_id.strip(),
-            default_og_image_url=public_media_url(
-                settings_row.default_og_image.name if settings_row.default_og_image else ""
-            ),
+            default_og_image_url=stored_public_url(settings_row.default_og_image),
             robots_extra=settings_row.robots_extra,
             support_whatsapp=settings_row.support_whatsapp.strip(),
             support_phone=settings_row.support_phone.strip(),

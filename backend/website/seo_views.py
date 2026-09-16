@@ -14,7 +14,7 @@ from rest_framework.views import APIView
 from core import platform_roles
 from core.activity import log_activity
 from core.permissions import IsPlatformAdmin
-from core.public_media import public_media_url
+from core.public_media import stored_public_url
 from core.seo_inject import ANALYTICS_ID
 from website.images import clear_image, prepare_image, replace_image
 from website.models import SeoPageOverride, SeoSettings, normalize_seo_path
@@ -38,7 +38,7 @@ class SeoSettingsSerializer(serializers.ModelSerializer):
         read_only_fields = ["default_og_image_url", "updated_at"]
 
     def get_default_og_image_url(self, obj):
-        return public_media_url(obj.default_og_image.name if obj.default_og_image else "")
+        return stored_public_url(obj.default_og_image)
 
     def validate_analytics_id(self, value):
         value = (value or "").strip()
