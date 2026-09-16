@@ -44,6 +44,14 @@ class SeedDemoTests(TestCase):
                 self.assertEqual(Product.objects.filter(company=self.company).count(), 24)
                 self.assertEqual(Customer.objects.filter(company=self.company).count(), 8)
                 self.assertEqual(Invoice.objects.filter(company=self.company).count(), 15)
+                # A cover whose file was lost (row still names it) is regenerated.
+                site.refresh_from_db()
+                site.cover_image.storage.delete(site.cover_image.name)
+                self.assertIn("cover_image", completeness(site))
+                call_command("seed_demo", owner="owner@demo.test", sales=0, yes=True,
+                             verbosity=0)
+                site.refresh_from_db()
+                self.assertEqual(completeness(site), [])
                 call_command("seed_demo", platform=True, yes=True, verbosity=0)
                 call_command("seed_demo", platform=True, yes=True, verbosity=0)
                 self.assertEqual(PlatformLead.objects.count(), 3)
