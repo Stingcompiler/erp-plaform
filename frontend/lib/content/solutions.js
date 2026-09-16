@@ -436,12 +436,12 @@ export const SOLUTIONS = [
     slug: "store-page",
     shot: "store-page",
     ar: {
-      title: "صفحة مجانية لمتجرك على الإنترنت",
-      metaTitle: "صفحة مجانية لمتجرك — موقع للمحل بغلاف ومنتجات وواتساب وخريطة، يُفهرس في Google",
+      title: "صفحة عامة لشركتك أو متجرك على الإنترنت",
+      metaTitle: "صفحة عامة لشركتك — واجهة إلكترونية بغلاف ومنتجات وقنوات تواصل وخريطة، تُفهرس في Google",
       description:
         "كل اشتراك في فيزانو يشمل صفحة عامة لنشاطك: غلاف وشعار، منتجات بالصور والأسعار، زر واتساب، ساعات العمل والموقع على الخريطة، تُفهرس في Google تلقائيًا دون مصمم ولا استضافة.",
       lead:
-        "الزبون اليوم يبحث عن المحل في Google قبل أن يزوره، ويريد رقم واتساب لا صفحة فيسبوك. صفحة متجرك على فيزانو تُنشأ من بياناتك الموجودة أصلًا في النظام، وتصبح على الإنترنت بضغطة، وعنوانها vezano.app/s/اسم-متجرك.",
+        "العميل اليوم يبحث عن الشركة في Google قبل أن يتصل بها، ويريد قناة تواصل مباشرة لا صفحة على شبكة اجتماعية. صفحة شركتك على فيزانو تُنشأ من بياناتك الموجودة أصلًا في النظام، وتصبح على الإنترنت بضغطة، وعنوانها vezano.app/s/اسم-الشركة.",
       sections: [
         {
           heading: "ما الذي تحصل عليه",
@@ -480,11 +480,11 @@ export const SOLUTIONS = [
         ["هل يرى الزائر أسعاري ومخزوني كله؟", "لا. لا يظهر إلا ما تختاره صراحةً كمنتج مميز، وبالسعر الذي تحدده في النظام. المخزون والتكاليف لا تُنشر أبدًا."],
         ["كيف يتواصل الزبون معي من الصفحة؟", "زر واتساب مباشر برقمك، وزر اتصال، والبريد، ورابط الاتجاهات على الخريطة. لا نماذج تحتاج متابعة."],
       ],
-      cta: "أنشئ صفحة متجرك في ظهيرة واحدة",
+      cta: "أنشئ صفحة شركتك في ظهيرة واحدة",
     },
     en: {
-      title: "A free web page for your store",
-      metaTitle: "A free page for your store — a shop site with cover, products, WhatsApp and a map, indexed by Google",
+      title: "A public web page for your company or store",
+      metaTitle: "A public page for your company — an online presence with cover, products, contact channels and a map, indexed by Google",
       description:
         "Every Vezano subscription includes a public page for the business: cover and logo, products with photos and prices, a WhatsApp button, opening hours and a map link, indexed by Google automatically, with no designer and no hosting.",
       lead:
@@ -527,7 +527,7 @@ export const SOLUTIONS = [
         ["Do visitors see all my prices and stock?", "No. Only what you explicitly feature is shown, at the price you set in the system. Stock levels and costs are never published."],
         ["How do customers reach me from the page?", "A direct WhatsApp button with your number, a call button, email, and a directions link on the map. No forms to follow up."],
       ],
-      cta: "Build your store page in one afternoon",
+      cta: "Build your company page in one afternoon",
     },
   },
 ];

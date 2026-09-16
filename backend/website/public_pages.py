@@ -309,6 +309,7 @@ def site_card(site, request=None):
     return {
         "name": _display_name(site),
         "tagline": site.tagline,
+        "address": ", ".join(part for part in (site.address, site.city) if part),
         "category": site.category,
         "category_label": CATEGORY_LABELS["ar"].get(site.category, ""),
         "city": site.city,
