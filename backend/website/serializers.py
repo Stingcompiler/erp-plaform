@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from subscriptions.models import PlanVersion
-from core.public_media import public_media_url
+from core.public_media import stored_public_url
 from website.models import (
     FeaturedProduct, PlatformLead, RegistrationRequest, Section, Website, WebsiteImage,
     service_lines,
@@ -14,9 +14,9 @@ from website.services import plan_version_is_available
 # sites (see website.public_pages.is_complete).
 def completeness(site):
     missing = []
-    if not site.cover_image:
+    if not stored_public_url(site.cover_image):
         missing.append("cover_image")
-    if not (site.logo_image or site.logo_url):
+    if not (stored_public_url(site.logo_image) or site.logo_url):
         missing.append("logo")
     if not site.about_text.strip():
         missing.append("about_text")
@@ -60,10 +60,10 @@ class WebsiteSerializer(serializers.ModelSerializer):
         return site_url(public_site_path(obj.company.slug))
 
     def get_cover_image_url(self, obj):
-        return public_media_url(obj.cover_image.name if obj.cover_image else "")
+        return stored_public_url(obj.cover_image)
 
     def get_logo_image_url(self, obj):
-        return public_media_url(obj.logo_image.name if obj.logo_image else "")
+        return stored_public_url(obj.logo_image)
 
     def get_missing(self, obj):
         return completeness(obj)
@@ -84,7 +84,7 @@ class WebsiteImageSerializer(serializers.ModelSerializer):
         read_only_fields = ["company", "website", "url", "created_at"]
 
     def get_url(self, obj):
-        return public_media_url(obj.image.name if obj.image else "")
+        return stored_public_url(obj.image)
 
 
 class SectionSerializer(serializers.ModelSerializer):
@@ -145,7 +145,7 @@ class PublicFeaturedProductSerializer(serializers.Serializer):
 
     def get_image_url(self, obj):
         image = obj.product.image
-        return public_media_url(image.name) if image else ""
+        return stored_public_url(image)
 
 
 class PublicSiteSerializer(serializers.ModelSerializer):
@@ -173,16 +173,16 @@ class PublicSiteSerializer(serializers.ModelSerializer):
         return service_lines(obj.services)
 
     def get_cover_image_url(self, obj):
-        return public_media_url(obj.cover_image.name if obj.cover_image else "")
+        return stored_public_url(obj.cover_image)
 
     def get_logo_image_url(self, obj):
-        return public_media_url(obj.logo_image.name if obj.logo_image else "")
+        return stored_public_url(obj.logo_image)
 
     def get_gallery(self, obj):
         return [
-            {"url": public_media_url(image.image.name), "caption": image.caption}
+            {"url": url, "caption": image.caption}
             for image in obj.images.order_by("order", "id")
-            if image.image
+            if (url := stored_public_url(image.image))
         ]
 
     def get_sections(self, obj):

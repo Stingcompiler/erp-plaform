@@ -103,3 +103,45 @@ class CrawlerFileTests(TestCase):
             html = (FRONTEND_DIST / page).read_text()
             self.assertIn('<meta name="robots" content="noindex', html, page)
             self.assertNotIn('rel="canonical"', html, page)
+
+
+class MediaHealthTests(TestCase):
+    """A lost upload must degrade to a placeholder, and /api/health/ must say
+    whether uploads sit on configured or ephemeral storage."""
+
+    def test_health_reports_media_storage(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as media:
+            with override_settings(MEDIA_ROOT=media):
+                payload = self.client.get("/api/health/").json()["media"]
+        self.assertEqual(payload["storage"], "configured")
+        self.assertTrue(payload["writable"])
+        self.assertEqual(payload["public_files"], 0)
+        with override_settings(MEDIA_ROOT=str(settings.BASE_DIR / "media")):
+            payload = self.client.get("/api/health/").json()["media"]
+        self.assertEqual(payload["storage"], "ephemeral")
+
+    def test_missing_file_yields_no_url(self):
+        import tempfile
+
+        from django.core.files.base import ContentFile
+
+        from core.public_media import stored_public_url
+        from org.models import Company
+        from website.models import Website
+
+        with tempfile.TemporaryDirectory() as media:
+            with override_settings(MEDIA_ROOT=media):
+                company = Company.objects.create(name="Alpha")
+                site = Website.objects.create(company=company)
+                self.assertEqual(stored_public_url(site.cover_image), "")
+                site.cover_image.save("c.webp", ContentFile(b"x"), save=True)
+                self.assertTrue(stored_public_url(site.cover_image).startswith("/media/public/"))
+                site.cover_image.storage.delete(site.cover_image.name)
+                # The row still names the file; the page must not.
+                self.assertEqual(stored_public_url(site.cover_image), "")
+                from website.serializers import PublicSiteSerializer, completeness
+
+                self.assertEqual(PublicSiteSerializer(site).data["cover_image_url"], "")
+                self.assertIn("cover_image", completeness(site))

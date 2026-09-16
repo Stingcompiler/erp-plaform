@@ -87,6 +87,8 @@ def health_check(request):
     from config.deployment import get_deployment_config
     from ops.release import application_version
 
+    from core.public_media import media_health
+
     config = get_deployment_config()
     payload = {
         "status": "ok",
@@ -94,6 +96,9 @@ def health_check(request):
         "database": "ok" if db_ok else "unreachable",
         "deployment_mode": config.mode,
         "version": application_version(),
+        # Uploads: on ephemeral storage every deploy wipes them; a picture a
+        # merchant uploaded then 404s. The first thing to check.
+        "media": media_health(),
     }
     # On a customer's server this is what support asks for first: which
     # installation, which release, and whether the licence is the problem.
