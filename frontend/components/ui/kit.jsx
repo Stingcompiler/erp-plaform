@@ -42,7 +42,7 @@ export function Field({ label, hint, error, children }) {
   );
 }
 
-const controlClass =
+export const controlClass =
   "w-full rounded-control border border-line bg-surface min-h-10 px-3 py-2 text-sm text-ink shadow-sm outline-none transition-colors hover:border-muted/40 focus:border-accent focus:ring-2 focus:ring-accent/15";
 
 // forwardRef so callers can focus the field programmatically — the barcode
