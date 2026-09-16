@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>متاجر تعمل بفيزانو — دليل المتاجر</title>
-<meta name="description" content="محلات وشركات في السودان والخليج تدير أعمالها على فيزانو وتنشر صفحتها العامة هنا: من هم، وماذا يبيعون، وكيف تتواصل معهم.">
+<title>الشركات والمتاجر التي تعمل بفيزانو — الدليل</title>
+<meta name="description" content="الشركات التجارية والموزعون وسلاسل المتاجر التي تدير أعمالها على فيزانو وتنشر صفحتها العامة هنا: من هم، وماذا يقدمون، وأين، وكيف تتواصل معهم.">
 <link rel="canonical" href="{{ url }}">
 <meta name="robots" content="index, follow">
-<meta property="og:title" content="متاجر تعمل بفيزانو">
-<meta property="og:description" content="دليل المتاجر والشركات التي تنشر صفحتها العامة على منصة فيزانو.">
+<meta property="og:title" content="الشركات والمتاجر التي تعمل بفيزانو">
+<meta property="og:description" content="دليل الشركات والمتاجر التي تنشر صفحتها العامة على منصة فيزانو.">
 <meta property="og:url" content="{{ url }}">
 <meta property="og:image" content="{{ platform_url }}marketing/og.png">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -43,6 +43,8 @@ h1{font-size:clamp(1.7rem,4vw,2.4rem);margin:0 0 8px;font-weight:800}
 .card p{margin:4px 0 0;color:var(--muted);font-size:.95rem}
 .card .meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:.82rem;color:var(--muted)}
 .card .meta span{background:var(--paper);border-radius:999px;padding:2px 10px}
+.card .addr{color:var(--muted);font-size:.9rem;margin-top:8px}
+.card .go{display:inline-block;margin-top:12px;background:var(--accent);color:#fff;padding:8px 14px;border-radius:10px;font-weight:700;font-size:.92rem}
 h3.others{margin:40px 0 10px;font-size:1.05rem;color:var(--muted)}
 ul.plain{list-style:none;padding:0;margin:0;display:grid;gap:8px}
 ul.plain li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
@@ -58,12 +60,12 @@ footer a{color:var(--muted)}
 <body>
 <div class="bar"><div class="wrap">
   <a class="brand" href="{{ platform_url }}"><span class="mark">V</span>فيزانو</a>
-  <a class="btn" href="{{ platform_url }}register/">صفحة مجانية لمتجرك</a>
+  <a class="btn" href="{{ platform_url }}register/">صفحة عامة لشركتك</a>
 </div></div>
 <main class="wrap">
   <header class="top">
-    <h1>متاجر تعمل بفيزانو</h1>
-    <p class="lead">محلات وشركات تدير مبيعاتها ومخزونها على فيزانو، ولكل منها صفحة عامة يصل إليها زبائنها من البحث ومن الخريطة ومن واتساب.</p>
+    <h1>الشركات والمتاجر التي تعمل بفيزانو</h1>
+    <p class="lead">شركات تجارية وموزعون وسلاسل متاجر تدير مبيعاتها ومخزونها وفروعها على فيزانو، ولكل منها صفحة عامة يصل إليها عملاؤها من البحث ومن الخريطة ومن قنوات التواصل.</p>
     {% if categories %}
     <nav class="chips" aria-label="التصنيف">
       <a href="{{ url }}" class="{% if not category %}on{% endif %}">الكل</a>
@@ -83,7 +85,9 @@ footer a{color:var(--muted)}
       <div class="body">
         <h2>{{ site.name }}</h2>
         {% if site.tagline %}<p>{{ site.tagline }}</p>{% endif %}
-        <div class="meta">{% if site.category_label %}<span>{{ site.category_label }}</span>{% endif %}{% if site.city %}<span>{{ site.city }}</span>{% endif %}</div>
+        {% if site.address %}<p class="addr">📍 {{ site.address }}</p>{% endif %}
+        <div class="meta">{% if site.category_label %}<span>{{ site.category_label }}</span>{% endif %}</div>
+        <span class="go">زيارة الصفحة ←</span>
       </div>
     </a>
     {% endfor %}
@@ -93,15 +97,15 @@ footer a{color:var(--muted)}
   {% endif %}
 
   {% if others %}
-  <h3 class="others">{% if featured %}متاجر أخرى{% else %}المتاجر المنشورة{% endif %}</h3>
+  <h3 class="others">{% if featured %}صفحات أخرى{% else %}الصفحات المنشورة{% endif %}</h3>
   <ul class="plain">
     {% for site in others %}<li><a href="{{ site.path }}">{{ site.name }}</a>{% if site.tagline %} <span style="color:var(--muted)">· {{ site.tagline }}</span>{% endif %}</li>{% endfor %}
   </ul>
   {% endif %}
 
   <section class="cta">
-    <h2>متجرك يستحق صفحة مثل هذه</h2>
-    <p>كل اشتراك في فيزانو يشمل صفحة عامة لمتجرك: غلاف وشعار ومنتجات بالصور وواتساب وخريطة، تُفهرس في Google تلقائيًا.</p>
+    <h2>شركتك تستحق صفحة مثل هذه</h2>
+    <p>كل اشتراك في فيزانو يشمل صفحة عامة للشركة: غلاف وشعار ومنتجات بالصور وقنوات التواصل وخريطة، تُفهرس في Google تلقائيًا.</p>
     <a class="btn" href="{{ platform_url }}register/">ابدأ التجربة المجانية</a>
   </section>
 </main>
