@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Copy, FileCheck2, KeyRound, Lock, Mail } from "lucide-react";
+import { CheckCircle2, Copy, FileCheck2, KeyRound, Lock } from "lucide-react";
 
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { registration } from "@/lib/api";
 import { Badge, Button, Card, PageHeader, Select } from "@/components/ui/kit";
-import PhoneLink from "@/components/ui/PhoneLink";
+import FollowUpPanel, { ContactLinks, FollowUpBadge } from "@/components/platform/FollowUpPanel";
 
 const ACTIVE = ["submitted", "under_review", "needs_information", "approved"];
 const REVIEW = ["under_review", "needs_information", "rejected"];
@@ -51,6 +51,23 @@ export default function PlatformRegistrationsPage() {
   // A SaaS request whose plan has since been unpublished can't be approved;
   // the published-plan list is the source of truth for what is still live.
   const planIsLive = (row) => row.delivery_mode !== "saas" || plans.some((plan) => plan.id === row.plan_version);
+
+  const patchRow = (id, data) => setRows((current) => current.map((item) => (item.id === id ? { ...item, ...data } : item)));
+  const saveFollowUp = async (row, patch) => {
+    setSaving(`followup-${row.id}`);
+    setError("");
+    try {
+      const response = await registration.update(row.id, patch);
+      patchRow(row.id, response.data);
+    } catch {
+      setError(t("platformRegistration.saveError"));
+    } finally {
+      setSaving(null);
+    }
+  };
+  const recordContact = (row) => (channel) => {
+    registration.contact(row.id, channel).then((response) => patchRow(row.id, response.data)).catch(() => {});
+  };
 
   const run = async (row, action, body = {}) => {
     setSaving(`${action}-${row.id}`);
@@ -109,10 +126,11 @@ export default function PlatformRegistrationsPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="font-display text-lg font-semibold">{row.company_name}</h2>
                       <Badge tone={TONES[row.status]}>{label(row.status)}</Badge>
+                      <FollowUpBadge row={row} />
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                      <a href={`mailto:${row.email}`} className="inline-flex items-center gap-1.5 text-accent hover:underline"><Mail size={14} />{row.contact_name} · {row.email}</a>
-                      {row.phone && <PhoneLink phone={row.phone} country={row.country} className="text-muted" />}
+                      <span className="text-muted">{row.contact_name}</span>
+                      <ContactLinks phone={row.phone} email={row.email} country={row.country} onContact={recordContact(row)} />
                     </div>
                     <div className="mt-3 grid gap-1 text-sm text-muted sm:grid-cols-2">
                       <span>{t("platformRegistration.plan")}: {row.plan_name || "—"}</span>
@@ -122,6 +140,7 @@ export default function PlatformRegistrationsPage() {
                     </div>
                     {open && !live && <p className="mt-2 text-sm font-medium text-danger">{t("platformRegistration.planUnavailable")}</p>}
                     {row.message && <p className="mt-3 whitespace-pre-wrap text-sm text-muted">{row.message}</p>}
+                    <FollowUpPanel row={row} canEdit={canReview} saving={saving === `followup-${row.id}`} onSave={(patch) => saveFollowUp(row, patch)} />
                   </div>
                   <div className="flex shrink-0 flex-wrap items-start gap-2">
                     {canReview && open && row.delivery_mode === "saas" && plans.length > 0 && (

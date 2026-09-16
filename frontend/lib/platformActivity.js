@@ -12,6 +12,7 @@ const ACTION_KEYS = {
   login: "login",
   logout: "logout",
   login_blocked: "loginBlocked",
+  contact: "contact",
 };
 
 export function describeActivity(row, t, roleLabel) {
@@ -36,12 +37,14 @@ export function describeActivity(row, t, roleLabel) {
     case "PlatformInvitation":
       return T(m.event === "accepted" ? "invitationAccepted" : "invitationReissued");
     case "PlatformLead":
+      if (row.action === "contact") return T("leadContacted", { name: label, channel: t(`landing.channels.${m.channel}`) });
       if (m.status_to && m.status_from !== m.status_to) {
         const st = (v) => t(`platformLeads.status${v.charAt(0).toUpperCase()}${v.slice(1)}`);
         return T("leadStatus", { name: label, from: st(m.status_from), to: st(m.status_to) });
       }
       return T("leadUpdated", { name: label });
     case "RegistrationRequest":
+      if (row.action === "contact") return T("registrationContacted", { id: row.entity_id, channel: t(`landing.channels.${m.channel}`) });
       if (row.action === "approve") return T("registrationApproved", { id: row.entity_id });
       if (m.status) return T("registrationStatus", { id: row.entity_id, status: m.status });
       return T("registrationUpdated", { id: row.entity_id });

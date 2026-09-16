@@ -369,6 +369,9 @@ export const registration = {
     api.post(`/platform/registration-requests/${id}/reissue-invitation/`),
   setPlan: (id, planVersionId) =>
     api.patch(`/platform/registration-requests/${id}/`, { plan_version: planVersionId }),
+  update: (id, body) => api.patch(`/platform/registration-requests/${id}/`, body),
+  contact: (id, channel) =>
+    api.post(`/platform/registration-requests/${id}/contact/`, { channel }),
   activateOwner: (token, password, kind = "owner") =>
     api.post(
       kind === "platform"
@@ -412,6 +415,7 @@ export const platformSeo = {
 export const platformLeads = {
   list: (params) => listAll("/platform/leads/", params),
   update: (id, body) => api.patch(`/platform/leads/${id}/`, body),
+  contact: (id, channel) => api.post(`/platform/leads/${id}/contact/`, { channel }),
 };
 
 export const subscription = {

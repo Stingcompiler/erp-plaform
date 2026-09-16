@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Inbox, Lock, Mail, Search } from "lucide-react";
+import { Inbox, Lock, Search } from "lucide-react";
 
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { platformLeads as platformLeadsApi } from "@/lib/api";
 import { Badge, Card, Input, PageHeader, Select } from "@/components/ui/kit";
-import PhoneLink from "@/components/ui/PhoneLink";
+import FollowUpPanel, { ContactLinks, FollowUpBadge } from "@/components/platform/FollowUpPanel";
 
 const STATUSES = ["new", "contacted", "qualified", "closed"];
 const TONES = { new: "accent", contacted: "warn", qualified: "ok", closed: "muted" };
@@ -21,6 +21,8 @@ export default function PlatformLeadsPage() {
   const [count, setCount] = useState(0);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
+  const [dueOnly, setDueOnly] = useState(false);
+  const [savingId, setSavingId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -32,7 +34,7 @@ export default function PlatformLeadsPage() {
     setLoading(true);
     setError("");
     platformLeadsApi
-      .list({ search, status })
+      .list({ search, status, ...(dueOnly ? { due: 1 } : {}) })
       .then((response) => {
         setRows(response.data.results || response.data);
         setCount(response.data.count ?? response.data.length);
@@ -43,7 +45,7 @@ export default function PlatformLeadsPage() {
         setError(t("platformLeads.loadError"));
       })
       .finally(() => setLoading(false));
-  }, [search, status, t, canView]);
+  }, [search, status, dueOnly, t, canView]);
 
   useEffect(() => {
     const timer = setTimeout(load, 250);
@@ -59,6 +61,24 @@ export default function PlatformLeadsPage() {
       setRows((current) => current.map((row) => row.id === lead.id ? { ...row, status: lead.status } : row));
       setError(t("platformLeads.saveError"));
     }
+  };
+
+  const patchRow = (id, data) => setRows((current) => current.map((row) => (row.id === id ? { ...row, ...data } : row)));
+  const saveFollowUp = async (lead, patch) => {
+    setSavingId(lead.id);
+    setError("");
+    try {
+      const response = await platformLeadsApi.update(lead.id, patch);
+      patchRow(lead.id, response.data);
+    } catch {
+      setError(t("platformLeads.saveError"));
+    } finally {
+      setSavingId(null);
+    }
+  };
+  // Fired by the call/WhatsApp/email links; the link itself still opens.
+  const recordContact = (lead) => (channel) => {
+    platformLeadsApi.contact(lead.id, channel).then((response) => patchRow(lead.id, response.data)).catch(() => {});
   };
 
   const statusLabel = (value) => t(`platformLeads.status${value.charAt(0).toUpperCase()}${value.slice(1)}`);
@@ -93,6 +113,10 @@ export default function PlatformLeadsPage() {
             {STATUSES.map((value) => <option key={value} value={value}>{statusLabel(value)}</option>)}
           </Select>
         </div>
+        <label className="mt-3 inline-flex cursor-pointer items-center gap-2 text-sm">
+          <input type="checkbox" checked={dueOnly} onChange={(event) => setDueOnly(event.target.checked)} className="h-4 w-4 accent-accent" />
+          {t("followUp.dueOnly")}
+        </label>
       </Card>
 
       {error && <p role="alert" className="mb-4 rounded-control bg-danger/10 p-3 text-sm text-danger">{error}</p>}
@@ -109,14 +133,15 @@ export default function PlatformLeadsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="font-display text-lg font-semibold">{lead.name}</h2>
                     <Badge tone={TONES[lead.status]}>{statusLabel(lead.status)}</Badge>
+                    <FollowUpBadge row={lead} />
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                    {lead.phone && <PhoneLink phone={lead.phone} className="text-muted" />}
-                    {lead.email && <a href={`mailto:${lead.email}`} className="inline-flex items-center gap-1.5 text-accent hover:underline"><Mail size={14} />{lead.email}</a>}
+                    <ContactLinks phone={lead.phone} email={lead.email} onContact={recordContact(lead)} />
                     {lead.preferred_channel && <Badge tone={lead.preferred_channel === "whatsapp" ? "ok" : "muted"}>{t("platformLeads.prefers", { channel: t(`landing.channels.${lead.preferred_channel}`) })}</Badge>}
                   </div>
                   {lead.message && <div className="mt-4"><div className="text-xs font-medium text-muted">{t("platformLeads.message")}</div><p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{lead.message}</p></div>}
                   <div className="mt-4 text-xs text-muted">{t("platformLeads.received")}: {dateLabel(lead.created_at)}</div>
+                  <FollowUpPanel row={lead} canEdit={canManageLeads} saving={savingId === lead.id} onSave={(patch) => saveFollowUp(lead, patch)} />
                 </div>
                 <Select value={lead.status} disabled={!canManageLeads} onChange={(event) => updateStatus(lead, event.target.value)} className="w-full sm:w-44">
                   {STATUSES.map((value) => <option key={value} value={value}>{statusLabel(value)}</option>)}
