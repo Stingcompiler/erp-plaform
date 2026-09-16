@@ -8,15 +8,23 @@ from website.services import plan_version_is_available
 
 
 class WebsiteSerializer(serializers.ModelSerializer):
+    # Where the page is (or will be) served as HTML; see website.public_pages.
+    public_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Website
         fields = [
             "id", "company", "business_name", "tagline", "about_text",
             "logo_url", "primary_color", "contact_email", "contact_phone",
             "address", "social_links", "is_published", "published_at",
-            "updated_at",
+            "updated_at", "public_url",
         ]
         read_only_fields = ["company", "is_published", "published_at", "updated_at"]
+
+    def get_public_url(self, obj):
+        from website.public_pages import public_site_path, site_url
+
+        return site_url(public_site_path(obj.company.slug))
 
 
 class SectionSerializer(serializers.ModelSerializer):

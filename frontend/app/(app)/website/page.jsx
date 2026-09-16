@@ -138,10 +138,10 @@ export default function WebsitePage() {
               </div>
             )}
 
-            <p className="flex items-center gap-1.5 text-xs text-muted">
+            <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
               <ExternalLink size={13} />
-              {t("website.servedAt")}
-              <code className="tabular">/api/public/site/&lt;company-slug&gt;/</code>
+              {t(page.is_published ? "website.liveAt" : "website.servedAt")}
+              <a href={page.public_url} target="_blank" rel="noreferrer" className="font-medium text-accent hover:underline">{page.public_url}</a>
             </p>
           </div>
         </Card>

@@ -7,6 +7,7 @@ import { ArrowRight, Building2, CreditCard, FileCheck2, Lock, ShieldCheck, Timer
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { registration } from "@/lib/api";
+import { usePlatformRoleLabel } from "@/components/PlatformShell";
 import { Badge, Card, PageHeader } from "@/components/ui/kit";
 
 function MetricCard({ href, icon: Icon, value, title, hint }) {
@@ -16,6 +17,7 @@ function MetricCard({ href, icon: Icon, value, title, hint }) {
 export default function PlatformPage() {
   const { user } = useAuth();
   const { t } = useI18n();
+  const roleLabel = usePlatformRoleLabel();
   const [overview, setOverview] = useState(null);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -27,7 +29,7 @@ export default function PlatformPage() {
   const attention = overview?.registration_attention || [];
   const expiring = overview?.expiring_subscriptions || [];
   return <div>
-    <PageHeader title={t("platform.title")} subtitle={t("platform.subtitle")} actions={<Badge tone="accent"><ShieldCheck size={14} /> {t("shell.platformOperator")}</Badge>} />
+    <PageHeader title={t("platform.title")} subtitle={t("platform.subtitle")} actions={<Badge tone="accent"><ShieldCheck size={14} /> {roleLabel}</Badge>} />
     {error && <p role="alert" className="mb-5 rounded-control bg-danger/10 p-3 text-sm text-danger">{error}</p>}
     <Card className="mb-5 border-accent/25 p-5">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">

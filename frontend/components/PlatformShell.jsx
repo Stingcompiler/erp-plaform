@@ -26,6 +26,17 @@ export function isPlatformPath(pathname) {
   return PLATFORM_NAV.some(({ href }) => pathname === href || pathname.startsWith(`${href}/`));
 }
 
+// The member's own role ("Marketing Manager"), so nobody reads the generic
+// "platform operator" label as "administrator". A Django superuser has no
+// platform role and keeps the generic label.
+export function usePlatformRoleLabel() {
+  const { user } = useAuth();
+  const { t } = useI18n();
+  const roleKey = user?.role_name ? `platformTeam.roles.${user.role_name}` : null;
+  const translated = roleKey ? t(roleKey) : "";
+  return translated && !translated.startsWith("platformTeam.") ? translated : t("shell.platformOperator");
+}
+
 // The nav entries this member may open.
 export function visiblePlatformNav(can) {
   return PLATFORM_NAV.filter(({ capability }) => !capability || can(capability));
@@ -36,6 +47,7 @@ export default function PlatformShell({ children }) {
   const { user, logout, can } = useAuth();
   const { t, language, toggleLanguage, theme, cycleTheme } = useI18n();
   const { counts, tones, markSeen } = useAttention();
+  const roleLabel = usePlatformRoleLabel();
   const ThemeIcon = theme === "dark" ? MoonStar : theme === "light" ? Sun : SunMoon;
 
   return (
@@ -54,7 +66,7 @@ export default function PlatformShell({ children }) {
             </Link>
             <div className="flex items-center gap-1">
               <span className="me-2 hidden text-end sm:block">
-                <span className="block text-sm font-medium">{t("shell.platformOperator")}</span>
+                <span className="block text-sm font-medium">{roleLabel}</span>
                 <span className="block text-xs text-sidebarText/55">{user?.email}</span>
               </span>
               <button onClick={toggleLanguage} title={t("shell.switchLanguage")} className="flex h-10 items-center gap-1.5 rounded-control px-2.5 text-sm text-sidebarText/75 hover:bg-white/10 hover:text-sidebarText">
