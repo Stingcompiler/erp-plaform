@@ -716,6 +716,8 @@ const en = {
   },
   install: {
     button: "Install on this device",
+    cardTitle: "Install Vezano as an app",
+    cardBody: "Opens from your home screen and keeps working when the connection drops.",
     installed: "Installed as an app on this device",
     notInstalled: "Running in a browser tab",
     manualHint: "To install: Safari — Share → Add to Home Screen; Firefox — the browser menu → Install.",
@@ -2623,6 +2625,8 @@ const ar = {
   },
   install: {
     button: "تثبيت على هذا الجهاز",
+    cardTitle: "ثبّت فيزانو كتطبيق",
+    cardBody: "يُفتح من الشاشة الرئيسية ويواصل العمل عند انقطاع الاتصال.",
     installed: "مثبَّت كتطبيق على هذا الجهاز",
     notInstalled: "يعمل داخل تبويب المتصفح",
     manualHint: "للتثبيت: في Safari — مشاركة ← إضافة إلى الشاشة الرئيسية؛ في Firefox — قائمة المتصفح ← تثبيت.",
