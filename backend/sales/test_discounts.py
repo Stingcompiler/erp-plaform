@@ -6,7 +6,7 @@ from rest_framework.test import APITestCase
 from accounts.models import Role, User
 from inventory.models import Product, Warehouse
 from org.models import Branch, Company
-from sales.models import Invoice
+from sales.models import Customer, Invoice
 
 
 class DiscountTests(APITestCase):
@@ -27,12 +27,15 @@ class DiscountTests(APITestCase):
         profile = self.company.tax_profile
         profile.flat_tax_rate = Decimal("10")
         profile.save(update_fields=["flat_tax_rate"])
+        # Sales on account need a named debtor (see POSCheckoutSerializer);
+        # tests that leave a balance sell to this account customer.
+        self.customer = Customer.objects.create(company=self.company, name="Account customer")
         self.client.force_authenticate(self.user)
 
     def _checkout(self, lines, **extra):
         return self.client.post(
             reverse("pos-checkout"),
-            {"warehouse": self.wh.id, "lines": lines, **extra},
+            {"warehouse": self.wh.id, "customer": self.customer.id, "lines": lines, **extra},
             format="json",
         )
 

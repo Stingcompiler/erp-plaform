@@ -6,7 +6,7 @@ from rest_framework.test import APITestCase
 from accounts.models import Role, User
 from inventory.models import Warehouse
 from org.models import Branch, Company
-from sales.models import Payment
+from sales.models import Customer, Payment
 
 
 class PaymentAndShiftGuardTests(APITestCase):
@@ -28,6 +28,9 @@ class PaymentAndShiftGuardTests(APITestCase):
         self.warehouse = Warehouse.objects.create(
             company=self.company, branch=self.branch, name="WH"
         )
+        # Sales on account need a named debtor (see POSCheckoutSerializer);
+        # tests that leave a balance sell to this account customer.
+        self.customer = Customer.objects.create(company=self.company, name="Account customer")
         self.client.force_authenticate(self.user)
         # 10% flat tax so the POS totals actually diverge from the subtotal.
         profile = self.company.tax_profile
@@ -50,6 +53,7 @@ class PaymentAndShiftGuardTests(APITestCase):
             reverse("pos-checkout"),
             {
                 "warehouse": self.warehouse.id,
+                "customer": self.customer.id,
                 "lines": [{"product": self._product().id, "quantity": "1"}],
                 "payment": {"method": "cash", "amount": payment_amount},
             },
@@ -115,6 +119,9 @@ class CostSnapshotAndCurrencyTests(APITestCase):
         self.warehouse = Warehouse.objects.create(
             company=self.company, branch=self.branch, name="WH"
         )
+        # Sales on account need a named debtor (see POSCheckoutSerializer);
+        # tests that leave a balance sell to this account customer.
+        self.customer = Customer.objects.create(company=self.company, name="Account customer")
         self.client.force_authenticate(self.user)
         from inventory.models import Product
 
@@ -128,6 +135,7 @@ class CostSnapshotAndCurrencyTests(APITestCase):
             reverse("pos-checkout"),
             {
                 "warehouse": self.warehouse.id,
+                "customer": self.customer.id,
                 "lines": [{"product": self.product.id, "quantity": "2"}],
                 **extra,
             },

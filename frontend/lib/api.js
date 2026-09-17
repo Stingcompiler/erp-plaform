@@ -128,6 +128,12 @@ export const sales = {
   invoices: (params) => api.get("/invoices/", { params }),
   invoiceDocument: (id) => api.get(`/invoices/${id}/document/`),
   invoicesCsv: (params) => `${API_BASE}/invoices/export/?${new URLSearchParams(params || {})}`,
+  // Rule #9: an invoice is cancelled by offsetting entries (credit note,
+  // stock reversal, refund of anything paid), never edited.
+  voidInvoice: (id, body) => api.post(`/invoices/${id}/void/`, body),
+  refunds: (params) => api.get("/refunds/", { params }),
+  createRefund: (body) => api.post("/refunds/", body),
+  refundDocument: (id) => api.get(`/refunds/${id}/document/`),
   payments: (params) => api.get("/payments/", { params }),
   paymentDocument: (id) => api.get(`/payments/${id}/document/`),
   customers: (params) => api.get("/customers/", { params }),
@@ -181,6 +187,7 @@ export const purchasing = {
   goodsReceipts: (params) => api.get("/goods-receipts/", { params }),
   bills: (params) => api.get("/bills/", { params }),
   createBill: (body) => api.post("/bills/", body),
+  voidBill: (id, body) => api.post(`/bills/${id}/void/`, body),
   createSupplierPayment: (body) => api.post("/supplier-payments/", body),
   supplierPayments: (params) => api.get("/supplier-payments/", { params }),
   supplierPaymentDocument: (id) => api.get(`/supplier-payments/${id}/document/`),
@@ -200,6 +207,8 @@ export const returns = {
   creditNoteDocument: (id) => api.get(`/credit-notes/${id}/document/`),
   debitNotes: (params) => api.get("/debit-notes/", { params }),
   debitNoteDocument: (id) => api.get(`/debit-notes/${id}/document/`),
+  voidCreditNote: (id, body) => api.post(`/credit-notes/${id}/void/`, body),
+  voidDebitNote: (id, body) => api.post(`/debit-notes/${id}/void/`, body),
 };
 
 export const crm = {

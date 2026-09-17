@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from accounts.models import Permission, Role, User
-from core.rbac import report_areas_for
+from core.rbac import can_approve_high_value, report_areas_for
 from core.platform_roles import platform_capabilities_for
 from org.store_mode import is_system_mode_owner
 
@@ -314,6 +314,9 @@ class MeSerializer(serializers.ModelSerializer):
             "org.manage_own_branch": branch_manager,
             "org.change_system_mode": self.get_can_manage_system_mode(obj),
             "subscriptions.manage": owner,
+            # Voiding documents, overriding credit limits, signing off tills:
+            # the same approver roles core.rbac.can_approve_high_value names.
+            "finance.approve": can_approve_high_value(obj),
             "scope.branch_id": obj.branch_id,
             **{name: True for name in platform_capabilities_for(obj)},
         }

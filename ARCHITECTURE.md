@@ -50,7 +50,13 @@ Every rule is enforced in code, not just documented:
 8. **ActivityLog audit** — `core/activity.py` + `ActivityLoggingMixin`; login,
    logout, and CRUD are logged.
 9. **Financial records append-only** — `AppendOnlyScopedViewSet`; the stock
-   ledger and invoices have no destructive update/delete path.
+   ledger and invoices have no destructive update/delete path. Corrections
+   are offsetting documents: `POST /invoices/{id}/void/` writes a full credit
+   note, reverses the sale's stock movements at their original cost and, when
+   anything was paid, a `Refund`; credit/debit notes and supplier bills have
+   a manager-only `void` action that flags the row and leaves it in place;
+   `Refund` (`/api/refunds/`) is the only way money goes back to a customer,
+   capped at the credit note and written to the drawer as a linked movement.
 
 ## 3. Backend architecture
 

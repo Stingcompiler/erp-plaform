@@ -5,7 +5,7 @@ method must be displayed: standard uses current cost, FIFO/average the ledger.
 """
 from decimal import Decimal
 
-from django.db.models import CharField, DecimalField, ExpressionWrapper, F, Sum
+from django.db.models import CharField, DecimalField, ExpressionWrapper, F, Q, Sum
 from django.db.models.functions import Cast, Coalesce
 from django.utils.dateparse import parse_date
 from rest_framework.exceptions import ValidationError
@@ -42,7 +42,7 @@ def operating_summary(company_id, start=None, end=None, method="standard"):
     from finance.models import Expense
     from inventory.costing import METHODS, company_totals
     from sales.models import InvoiceLine
-    from returns.models import SalesReturnLine
+    from returns.models import CreditNote, SalesReturnLine
 
     if method not in METHODS:
         raise ValidationError({"method": "Choose standard, average or fifo."})
@@ -54,10 +54,29 @@ def operating_summary(company_id, start=None, end=None, method="standard"):
         SalesReturnLine.objects.filter(sales_return__company_id=company_id),
         "sales_return__created_at__date", start, end,
     )
+    # Reverse what was actually charged for the returned units — the line's
+    # net subtotal per unit — not the gross list price, which overstates the
+    # reversal for any discounted or pack-priced line.
     returned_sales = returned_lines.aggregate(t=Coalesce(Sum(ExpressionWrapper(
-        F("quantity") * F("invoice_line__unit_price"), output_field=MONEY,
+        F("quantity") * F("invoice_line__line_subtotal") / F("invoice_line__quantity"),
+        output_field=MONEY,
     )), ZERO, output_field=MONEY))["t"]
-    revenue = gross_sales - returned_sales
+    # Credit notes that are not the paperwork of a return (price corrections,
+    # goodwill) lower what the customer owes and therefore revenue too. Notes
+    # that belong to a voided invoice are excluded: the void already removed
+    # the invoice's lines from gross sales.
+    tax_share = Coalesce(
+        F("invoice__total") / F("invoice__subtotal"), Decimal("1"), output_field=MONEY
+    )
+    adjustments = in_range(
+        CreditNote.objects.filter(
+            company_id=company_id, is_void=False, sales_return__isnull=True,
+        ).filter(Q(invoice__isnull=True) | Q(invoice__is_void=False)),
+        "created_at__date", start, end,
+    ).annotate(tax_share=tax_share).aggregate(t=Coalesce(Sum(ExpressionWrapper(
+        F("amount") / F("tax_share"), output_field=MONEY,
+    )), ZERO, output_field=MONEY))["t"]
+    revenue = gross_sales - returned_sales - adjustments
     if method == "standard":
         # Cost as it was when the goods left: the sale_out movement carries a
         # unit_cost snapshot. Rows written before the snapshot existed fall

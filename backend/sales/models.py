@@ -17,6 +17,15 @@ class Customer(models.Model):
     email = models.EmailField(blank=True)
     address = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
+    # Credit control. `credit_limit` is the most this customer may owe in
+    # total (null = no limit); `credit_hold` blocks any new sale on account,
+    # whatever the limit, until a manager lifts it. Both are checked at POS
+    # when a sale is not fully paid; a manager-level role may override the
+    # limit (logged), nobody overrides a hold.
+    credit_limit = models.DecimalField(
+        max_digits=16, decimal_places=2, null=True, blank=True
+    )
+    credit_hold = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -308,9 +317,28 @@ class Invoice(models.Model):
         )["t"]
 
     def amount_due(self):
+        """What the customer still owes on this invoice.
+
+        total − payments − credit notes + refunds. A credit note lowers the
+        debt; if the customer had already paid, the note leaves them in credit
+        (negative due) until a Refund hands the money back, which brings the
+        balance to zero. Every figure is derived from append-only rows.
+        """
         if self.is_void:
             return Decimal("0")
-        return self.total - self.amount_paid() - self._applied_credits()
+        return (
+            self.total - self.amount_paid() - self._applied_credits()
+            + self.refunded_total()
+        )
+
+    def credited_total(self):
+        return self._applied_credits()
+
+    def refunded_total(self):
+        """Money handed back against this invoice's credit notes."""
+        return Refund.objects.filter(credit_note__invoice=self).aggregate(
+            t=Coalesce(Sum("amount"), Decimal("0"))
+        )["t"]
 
     def _applied_credits(self):
         # M5 extension: credit notes reduce AR. Lazy import avoids a
@@ -517,6 +545,14 @@ class CashDrawerMovement(models.Model):
     shift = models.ForeignKey(
         CashShift, on_delete=models.PROTECT, related_name="drawer_movements"
     )
+    # A refund row is written by the Refund that took the cash out, so the
+    # drawer and the customer's account always agree on the same document. A
+    # free-standing refund movement (no document) is no longer how money
+    # leaves the till.
+    refund = models.ForeignKey(
+        "sales.Refund", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="drawer_movements",
+    )
     kind = models.CharField(max_length=16, choices=KIND_CHOICES)
     amount = models.DecimalField(max_digits=16, decimal_places=2)
     reason = models.CharField(max_length=255, blank=True)
@@ -591,3 +627,60 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"{self.method} {self.amount} (INV-{self.invoice.number:06d})"
+
+
+class Refund(models.Model):
+    """
+    Money handed back to a customer against a Credit Note. Append-only
+    (Rule #9) and manual only (Rule #3): cash from the drawer or a bank
+    transfer out of one of the company's own accounts, recorded by a person.
+
+    Without this document a credit note on a paid invoice left the customer
+    "in credit" forever, while the cash actually left the drawer as a loose
+    `CashDrawerMovement` nobody could tie to the note — so the same credit
+    could be paid out twice, or never. `sum(refunds) <= credit_note.amount`
+    is enforced under a row lock on the note.
+    """
+
+    CASH = "cash"
+    BANK_TRANSFER = "bank_transfer"
+    METHOD_CHOICES = [(CASH, "Cash"), (BANK_TRANSFER, "Bank Transfer")]
+
+    company = models.ForeignKey(
+        "org.Company", on_delete=models.CASCADE, related_name="refunds"
+    )
+    credit_note = models.ForeignKey(
+        "returns.CreditNote", on_delete=models.PROTECT, related_name="refunds"
+    )
+    method = models.CharField(max_length=16, choices=METHOD_CHOICES)
+    # Bank transfers: which of our accounts the money left, and the reference.
+    company_bank_account = models.ForeignKey(
+        CompanyBankAccount, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="refunds",
+    )
+    reference_last4 = models.CharField(max_length=4, blank=True)
+    amount = models.DecimalField(max_digits=16, decimal_places=2)
+    # Cash refunds come out of an open drawer, which then shows the movement.
+    shift = models.ForeignKey(
+        CashShift, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="refunds",
+    )
+    note = models.CharField(max_length=255, blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="refunds_recorded",
+    )
+    recorded_at = models.DateTimeField(default=timezone.now, db_index=True)
+    received_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    client_uuid = models.UUIDField(null=True, blank=True, unique=True)
+
+    class Meta:
+        ordering = ["-recorded_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(amount__gt=0), name="refund_amount_positive"
+            )
+        ]
+
+    def __str__(self):
+        return f"Refund {self.amount} vs {self.credit_note_id}"

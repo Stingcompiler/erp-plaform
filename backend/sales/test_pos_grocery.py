@@ -15,7 +15,7 @@ from rest_framework.test import APITestCase
 from accounts.models import Role, User
 from inventory.models import Product, StockMovement, Unit, Warehouse
 from org.models import Branch, Company
-from sales.models import Invoice, InvoiceLine
+from sales.models import Customer, Invoice, InvoiceLine
 
 
 class GroceryTillTestCase(APITestCase):
@@ -41,10 +41,13 @@ class GroceryTillTestCase(APITestCase):
             email="till@shop.test", password="passw0rd12345",
             company=self.company, branch=self.branch, role=self.role,
         )
+        # Sales on account need a named debtor (see POSCheckoutSerializer);
+        # tests that leave a balance sell to this account customer.
+        self.customer = Customer.objects.create(company=self.company, name="Account customer")
         self.client.force_authenticate(self.user)
 
     def _checkout(self, lines, payment=None):
-        body = {"warehouse": self.warehouse.id, "lines": lines}
+        body = {"warehouse": self.warehouse.id, "customer": self.customer.id, "lines": lines}
         if payment:
             body["payment"] = payment
         return self.client.post(reverse("pos-checkout"), body, format="json")

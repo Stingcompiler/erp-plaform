@@ -8,7 +8,7 @@ from rest_framework.test import APITestCase
 from accounts.models import Role, User
 from inventory.models import Product, StockMovement, Warehouse
 from org.models import Branch, Company
-from sales.models import Invoice, Payment
+from sales.models import Customer, Invoice, Payment
 
 
 class BusinessTimeTests(APITestCase):
@@ -28,11 +28,15 @@ class BusinessTimeTests(APITestCase):
             company=self.company, sku="T1", name="Widget",
             sale_price=Decimal("50.00"), cost_price=Decimal("20.00"),
         )
+        # Sales on account need a named debtor (see POSCheckoutSerializer);
+        # tests that leave a balance sell to this account customer.
+        self.customer = Customer.objects.create(company=self.company, name="Account customer")
         self.client.force_authenticate(self.user)
 
     def _checkout(self, occurred_at=None, **extra):
         body = {
             "warehouse": self.warehouse.id,
+            "customer": self.customer.id,
             "lines": [{"product": self.product.id, "quantity": "1"}],
             "payment": {"method": "cash", "amount": "50.00"},
             **extra,

@@ -12,7 +12,7 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from returns.models import CreditNote
-from sales.models import Customer, Invoice, Payment
+from sales.models import Customer, Invoice, Payment, Refund
 
 ZERO = Decimal("0")
 
@@ -41,7 +41,11 @@ def _invoice_queryset(user):
         Prefetch("payments", queryset=Payment.objects.order_by("recorded_at", "pk")),
         Prefetch(
             "credit_notes",
-            queryset=CreditNote.objects.filter(is_void=False).order_by("created_at", "pk"),
+            queryset=CreditNote.objects.filter(is_void=False)
+            .order_by("created_at", "pk")
+            .prefetch_related(
+                Prefetch("refunds", queryset=Refund.objects.order_by("recorded_at", "pk"))
+            ),
         ),
     )
 
@@ -65,8 +69,21 @@ def _money(value):
 
 def _invoice_balance(invoice):
     payments = sum((payment.amount for payment in invoice.payments.all()), ZERO)
-    credits = sum((note.amount for note in invoice.credit_notes.all()), ZERO)
-    return invoice.total - payments - credits
+    credits = ZERO
+    refunds = ZERO
+    for note in invoice.credit_notes.all():
+        credits += note.amount
+        refunds += sum((refund.amount for refund in note.refunds.all()), ZERO)
+    return invoice.total - payments - credits + refunds
+
+
+def _by_customer(invoices):
+    """Group once, so a page of customers costs O(invoices), not
+    O(customers × invoices)."""
+    grouped = {}
+    for invoice in invoices:
+        grouped.setdefault(invoice.customer_id, []).append(invoice)
+    return grouped
 
 
 def _customer_events(customer, invoices, standalone_credits):
@@ -100,17 +117,26 @@ def _customer_events(customer, invoices, standalone_credits):
             events.append({
                 "date": note.created_at,
                 "type": "credit_note",
-                "reference": f"CN-{note.pk}",
+                "reference": note.number_display,
                 "debit": ZERO,
                 "credit": note.amount,
                 "reason": note.reason,
             })
+            for refund in note.refunds.all():
+                events.append({
+                    "date": refund.recorded_at,
+                    "type": "refund",
+                    "reference": note.number_display,
+                    "debit": refund.amount,
+                    "credit": ZERO,
+                    "method": refund.method,
+                })
     for note in standalone_credits:
         if note.customer_id == customer.id:
             events.append({
                 "date": note.created_at,
                 "type": "credit_note",
-                "reference": f"CN-{note.pk}",
+                "reference": note.number_display,
                 "debit": ZERO,
                 "credit": note.amount,
                 "reason": note.reason,
@@ -204,11 +230,13 @@ def customer_debts(user, params):
     customers = Customer.objects.filter(company_id=user.company_id, is_active=True)
     if query:
         customers = customers.filter(Q(name__icontains=query) | Q(phone__icontains=query))
-    invoices = list(_invoice_queryset(user))
+    grouped = _by_customer(_invoice_queryset(user))
     credits = list(_standalone_credits(user))
     rows = []
     for customer in customers.order_by("name", "pk"):
-        outstanding, overdue, credit = _customer_totals(customer, invoices, credits)
+        outstanding, overdue, credit = _customer_totals(
+            customer, grouped.get(customer.id, []), credits
+        )
         row_status = (
             "overdue" if overdue else "owing" if outstanding
             else "credit" if credit else "settled"
@@ -237,13 +265,13 @@ def customer_debts(user, params):
 
 
 def debt_summary(user):
-    invoices = list(_invoice_queryset(user))
+    grouped = _by_customer(_invoice_queryset(user))
     credits = list(_standalone_credits(user))
     customers = Customer.objects.filter(company_id=user.company_id, is_active=True)
     outstanding = overdue = credit_balance = ZERO
     debtor_count = 0
     for customer in customers:
-        due, late, credit = _customer_totals(customer, invoices, credits)
+        due, late, credit = _customer_totals(customer, grouped.get(customer.id, []), credits)
         outstanding += due
         overdue += late
         credit_balance += credit
