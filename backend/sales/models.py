@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -280,6 +280,12 @@ class Invoice(models.Model):
 
     class Meta:
         ordering = ["-number"]
+        indexes = [
+            models.Index(fields=["company", "-issued_at"], name="invoice_co_issued_idx"),
+            models.Index(fields=["company", "due_date"], name="invoice_co_due_idx"),
+            models.Index(fields=["company", "customer"], name="invoice_co_customer_idx"),
+            models.Index(fields=["company", "received_at"], name="invoice_co_received_idx"),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=["company", "number"], name="uniq_invoice_number_per_company"
@@ -308,7 +314,7 @@ class Invoice(models.Model):
         """Days past due; 0 when settled, void or not yet due."""
         if self.is_void or not self.due_date or self.amount_due() <= 0:
             return 0
-        return max(0, (date.today() - self.due_date).days)
+        return max(0, (timezone.localdate() - self.due_date).days)
 
     @property
     def is_overdue(self):
@@ -393,6 +399,12 @@ class InvoiceLine(models.Model):
     line_subtotal = models.DecimalField(max_digits=16, decimal_places=2)
     line_tax = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     line_total = models.DecimalField(max_digits=16, decimal_places=2)
+
+    class Meta:
+        indexes = [
+            # Sales-by-product and COGS group lines by product across invoices.
+            models.Index(fields=["product", "invoice"], name="invoiceline_product_inv_idx"),
+        ]
 
     def returned_quantity(self):
         """
@@ -635,6 +647,9 @@ class Payment(models.Model):
 
     class Meta:
         ordering = ["-recorded_at"]
+        indexes = [
+            models.Index(fields=["company", "-recorded_at"], name="payment_co_recorded_idx"),
+        ]
 
     def __str__(self):
         return f"{self.method} {self.amount} (INV-{self.invoice.number:06d})"

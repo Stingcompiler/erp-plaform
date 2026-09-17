@@ -5,7 +5,7 @@ documents at query time — there are no stored report totals to drift.
 """
 
 import csv
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from django.db.models import (
@@ -20,9 +20,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from django.utils import timezone
+
 from core.permissions import PayrollReportAccess, ReportAreaAccess
 from core.rbac import RoleModuleAccess
 from finance.metrics import date_range, operating_summary
+from purchasing.querysets import open_bills, payable_total
+from sales.querysets import open_invoices, receivable_total
 
 ZERO = Decimal("0")
 MONEY = DecimalField(max_digits=20, decimal_places=2)
@@ -384,14 +388,21 @@ class ARAgingReport(ReportView):
         from sales.models import Invoice
 
         cid = self.company_id(request)
-        today = date.today()
+        # The company's calendar, not UTC's: a bucket boundary must flip at
+        # local midnight, the same moment the dashboard and debt ledger use.
+        today = timezone.localdate()
         per_customer = {}
-        invoices = Invoice.objects.filter(company_id=cid, is_void=False).select_related("customer")
+        # Balances are annotated in SQL (one query) rather than computed per
+        # invoice in Python (three queries each) — the difference between a
+        # report and a timeout at 50k invoices.
+        invoices = open_invoices(
+            Invoice.objects.filter(company_id=cid)
+        ).select_related("customer").only(
+            "id", "customer_id", "customer__name", "due_date", "issued_at", "branch_id",
+        )
         invoices = self.apply_branch(request, invoices, "branch")
-        for inv in invoices:
-            due = inv.amount_due()
-            if due <= 0:
-                continue
+        for inv in invoices.iterator(chunk_size=2000):
+            due = inv.outstanding
             key = inv.customer_id
             name = inv.customer.name if inv.customer else "(walk-in)"
             # Age by *due date* so buckets mean days overdue, not days since
@@ -427,13 +438,11 @@ class APAgingReport(ReportView):
         from purchasing.models import Bill
 
         cid = self.company_id(request)
-        today = date.today()
+        today = timezone.localdate()
         per_supplier = {}
-        bills = Bill.objects.filter(company_id=cid, is_void=False).select_related("supplier")
-        for bill in bills:
-            due = bill.amount_due()
-            if due <= 0:
-                continue
+        bills = open_bills(Bill.objects.filter(company_id=cid)).select_related("supplier")
+        for bill in bills.iterator(chunk_size=2000):
+            due = bill.outstanding
             key = bill.supplier_id
             # Age by due date (see ARAgingReport) — falls back for legacy rows.
             reference = bill.due_date or bill.created_at.date()
@@ -550,7 +559,8 @@ class ReceivablesDueReport(ReportView):
     """
 
     def get(self, request):
-        from sales.tasks import DUE_SOON_DAYS, due_invoices
+        from sales.models import Invoice
+        from sales.tasks import DUE_SOON_DAYS
 
         cid = self.company_id(request)
         try:
@@ -558,17 +568,21 @@ class ReceivablesDueReport(ReportView):
         except ValueError:
             horizon = DUE_SOON_DAYS
 
+        today = timezone.localdate()
+        invoices = open_invoices(
+            Invoice.objects.filter(company_id=cid, due_date__lte=today + timedelta(days=horizon))
+        ).select_related("customer")
+        invoices = self.apply_branch(request, invoices, "branch")
         rows = [
             {
                 "invoice": inv.id,
                 "number": inv.number_display,
                 "customer": inv.customer.name if inv.customer else "(walk-in)",
                 "due_date": inv.due_date.isoformat() if inv.due_date else None,
-                "days_overdue": inv.days_overdue,
-                "amount_due": str(inv.amount_due()),
+                "days_overdue": max(0, (today - inv.due_date).days) if inv.due_date else 0,
+                "amount_due": str(inv.outstanding),
             }
-            for inv in due_invoices(company_id=cid, horizon_days=horizon)
-            if not self.branch_id(request) or inv.branch_id == self.branch_id(request)
+            for inv in invoices.iterator(chunk_size=2000)
         ]
         rows.sort(key=lambda r: r["days_overdue"], reverse=True)
 
@@ -620,7 +634,7 @@ class CashFlowForecastReport(ReportView):
         except ValueError:
             weeks = 8
 
-        today = date.today()
+        today = timezone.localdate()
         horizon = today + timedelta(weeks=weeks)
 
         # bucket index: -1 = already overdue, 0..weeks-1 = upcoming weeks
@@ -631,15 +645,18 @@ class CashFlowForecastReport(ReportView):
 
         buckets = {i: {"inflow": ZERO, "outflow": ZERO} for i in range(-1, weeks)}
 
-        for inv in Invoice.objects.filter(company_id=cid, is_void=False, due_date__lte=horizon):
-            due = inv.amount_due()
-            if due > 0 and inv.due_date:
-                buckets[bucket_of(inv.due_date)]["inflow"] += due
+        invoices = open_invoices(
+            Invoice.objects.filter(company_id=cid, due_date__lte=horizon, due_date__isnull=False)
+        ).values_list("due_date", "outstanding")
+        invoices = self.apply_branch(request, invoices, "branch")
+        for due_date, due in invoices.iterator(chunk_size=5000):
+            buckets[bucket_of(due_date)]["inflow"] += due
 
-        for bill in Bill.objects.filter(company_id=cid, is_void=False, due_date__lte=horizon):
-            due = bill.amount_due()
-            if due > 0 and bill.due_date:
-                buckets[bucket_of(bill.due_date)]["outflow"] += due
+        bills = open_bills(
+            Bill.objects.filter(company_id=cid, due_date__lte=horizon, due_date__isnull=False)
+        ).values_list("due_date", "outstanding")
+        for due_date, due in bills.iterator(chunk_size=5000):
+            buckets[bucket_of(due_date)]["outflow"] += due
 
         # Money is always rendered to 2dp so the client never sees a bare "0"
         # next to a "500.00" in the same column.
@@ -713,21 +730,16 @@ class CfoKpiReport(ReportView):
         )
 
         # --- Liquidity / working capital ------------------------------------
-        receivable = sum(
-            (i.amount_due() for i in Invoice.objects.filter(company_id=cid, is_void=False)),
-            ZERO,
+        # Three aggregates instead of three passes over every invoice and
+        # bill in Python. Branch-scoped users see their branch's receivables;
+        # payables carry no branch and stay company-wide (see the plan).
+        invoices = self.apply_branch(
+            request, Invoice.objects.filter(company_id=cid), "branch"
         )
-        payable = sum(
-            (b.amount_due() for b in Bill.objects.filter(company_id=cid, is_void=False)),
-            ZERO,
-        )
-        overdue_receivable = sum(
-            (
-                i.amount_due()
-                for i in Invoice.objects.filter(company_id=cid, is_void=False)
-                if i.is_overdue
-            ),
-            ZERO,
+        receivable = receivable_total(invoices)
+        payable = payable_total(Bill.objects.filter(company_id=cid))
+        overdue_receivable = receivable_total(
+            invoices.filter(due_date__lt=timezone.localdate())
         )
 
         cash_in = self.apply_range(
@@ -792,10 +804,11 @@ class PayablesDueReport(ReportView):
             horizon = int(request.query_params.get("days", 7))
         except ValueError:
             horizon = 7
-        cutoff = date.today() + timedelta(days=horizon)
+        today = timezone.localdate()
+        cutoff = today + timedelta(days=horizon)
 
-        bills = Bill.objects.filter(
-            company_id=cid, is_void=False, due_date__lte=cutoff
+        bills = open_bills(
+            Bill.objects.filter(company_id=cid, due_date__lte=cutoff)
         ).select_related("supplier")
         rows = [
             {
@@ -803,11 +816,10 @@ class PayablesDueReport(ReportView):
                 "reference": b.supplier_invoice_number or str(b.id),
                 "supplier": b.supplier.name if b.supplier else "",
                 "due_date": b.due_date.isoformat() if b.due_date else None,
-                "days_overdue": b.days_overdue,
-                "amount_due": str(b.amount_due()),
+                "days_overdue": max(0, (today - b.due_date).days) if b.due_date else 0,
+                "amount_due": str(b.outstanding),
             }
-            for b in bills
-            if b.amount_due() > 0  # amount_due nets payments, so filter in Python
+            for b in bills.iterator(chunk_size=2000)
         ]
         rows.sort(key=lambda r: r["days_overdue"], reverse=True)
 
@@ -908,5 +920,5 @@ class CashFlowReport(ReportView):
 
 # Convenience default range helper (unused by endpoints but handy for clients).
 def default_range():
-    end = date.today()
+    end = timezone.localdate()
     return end - timedelta(days=30), end

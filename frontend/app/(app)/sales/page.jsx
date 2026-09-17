@@ -40,8 +40,8 @@ export default function SalesPage() {
     inventory.warehouses()
       .then((r) => setWarehouses(r.data.results))
       .catch(() => offlineStore.getAll("warehouses").then(setWarehouses).catch(() => {}));
-    sales.customers()
-      .then((r) => setCustomers(r.data.results))
+    sales.allCustomers()
+      .then((r) => setCustomers(r.data))
       .catch(() => offlineStore.getAll("customers").then(setCustomers).catch(() => {}));
     loadAccounts();
   }, []);

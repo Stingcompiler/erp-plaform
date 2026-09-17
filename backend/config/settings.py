@@ -273,7 +273,7 @@ REST_FRAMEWORK = {
         "core.rbac.RoleModuleAccess",
         "core.permissions.EntitlementAccess",
     ),
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "DEFAULT_PAGINATION_CLASS": "core.pagination.CappedPageNumberPagination",
     "PAGE_SIZE": 50,
     # Turns a PROTECT-blocked delete into a 409 that names what is holding the
     # row, instead of DRF's default 500. See core/exceptions.py.

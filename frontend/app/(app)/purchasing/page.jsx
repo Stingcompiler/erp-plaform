@@ -95,8 +95,8 @@ export default function PurchasingPage() {
   const loadSuppliers = useCallback(() => {
     setLoadingSuppliers(true);
     purchasing
-      .suppliers({ page: 1 })
-      .then((r) => setSuppliers(r.data.results))
+      .allSuppliers()
+      .then((r) => setSuppliers(r.data))
       .catch(() => setSuppliers([]))
       .finally(() => setLoadingSuppliers(false));
   }, []);

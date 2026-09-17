@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -219,7 +219,7 @@ class Bill(models.Model):
         """Days past due; 0 when settled, void or not yet due."""
         if self.is_void or not self.due_date or self.amount_due() <= 0:
             return 0
-        return max(0, (date.today() - self.due_date).days)
+        return max(0, (timezone.localdate() - self.due_date).days)
 
     @property
     def is_overdue(self):
