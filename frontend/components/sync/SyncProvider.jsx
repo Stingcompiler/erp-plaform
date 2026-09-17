@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import api, { sync } from "@/lib/api";
 import { queue, storageHeadroom } from "@/lib/syncQueue";
 import { identityScope } from "@/lib/localIdentity";
+import { deviceId } from "@/lib/localReference";
 import { offlineStore, pullCatalogue, requestPersistentStorage } from "@/lib/offlineStore";
 import { isStoragePersisted } from "@/lib/installPrompt";
 import { useAuth } from "../../app/providers/AuthProvider";
@@ -92,7 +93,7 @@ export function SyncProvider({ children }) {
       } catch { setError("storage"); return; }
       try {
         const res = await sync.push({
-          batch_uuid: crypto.randomUUID(), device_id: "web",
+          batch_uuid: crypto.randomUUID(), device_id: deviceId(),
           expected_company: user.company, expected_user: user.id,
           expected_branch: user.branch ?? null,
           operations: ops.map(({ op_type, client_uuid, payload }) => ({ op_type, client_uuid, payload })),
@@ -199,6 +200,28 @@ export function SyncProvider({ children }) {
     catch (err) { setError("storage"); throw err; }
   }, [scope, refresh]);
 
+  // A permanently rejected operation (the server said no, and will keep
+  // saying no) needs a way out other than retrying for ever. Discarding it
+  // tells the server what was dropped — the sale still physically happened —
+  // so a manager can act on it; only then is the row removed locally.
+  const discard = useCallback(async (clientUuid, reason) => {
+    if (!scope) return;
+    const ops = await queue.list(scope);
+    const op = ops.find((row) => row.client_uuid === clientUuid);
+    if (!op) return;
+    await sync.discard({
+      client_uuid: op.client_uuid, op_type: op.op_type, payload: op.payload,
+      error: op.error || "", reason: reason || "", device_id: deviceId(),
+    });
+    await queue.acknowledge([op], [{ client_uuid: op.client_uuid, status: "discarded" }], scope);
+    refresh();
+  }, [scope, refresh]);
+
+  // A fresh sign-in clears the auth error and lets the next flush run at once.
+  useEffect(() => {
+    if (user?.id) { retryAt.current = 0; failures.current = 0; setError((e) => (e === "auth" ? "" : e)); }
+  }, [user?.id]);
+
   // A receipt for a sale queued before this page loaded (e.g. the till was
   // rebooted between the sale and the upload) is looked up on demand.
   const lookupReceipt = useCallback(async (id) => {
@@ -208,6 +231,6 @@ export function SyncProvider({ children }) {
   }, [scope]);
 
   return <SyncContext.Provider value={{ online, pending: operations.length, operations,
-    flushing, error, legacy, enqueue, flush, refresh, pull, lastPulledAt, lastSyncedAt, persisted,
+    flushing, error, legacy, enqueue, discard, flush, refresh, pull, lastPulledAt, lastSyncedAt, persisted,
     storageLow, confirmation: (id) => receipts[id] || null, lookupReceipt }}>{children}</SyncContext.Provider>;
 }

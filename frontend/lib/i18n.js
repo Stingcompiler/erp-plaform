@@ -625,6 +625,7 @@ const en = {
     },
   },
   doc: {
+    provisional: "Provisional — awaiting server confirmation",
     document: "Document",
     print: "Print",
     titleInvoice: "Invoice",
@@ -702,6 +703,9 @@ const en = {
       supplier_payment: "Supplier payment",
       sales_return: "Sales return",
       purchase_return: "Purchase return",
+      refund: "Customer refund",
+      credit_note: "Credit note",
+      debit_note: "Debit note",
     },
   },
   update: {
@@ -2523,6 +2527,7 @@ const ar = {
     },
   },
   doc: {
+    provisional: "مؤقت — بانتظار تأكيد الخادم",
     document: "المستند",
     print: "طباعة",
     titleInvoice: "فاتورة",

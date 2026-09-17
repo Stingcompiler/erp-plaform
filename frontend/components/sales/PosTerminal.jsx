@@ -31,6 +31,7 @@ export default function PosTerminal({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [cart, setCart] = useState([]);
+  const [provisionalDoc, setProvisionalDoc] = useState(null);
   const [method, setMethod] = useState("cash");
   const [amount, setAmount] = useState("");
   const [bankAccount, setBankAccount] = useState("");
@@ -283,12 +284,12 @@ export default function PosTerminal({
         product: l.id,
         ...(l.packId ? { pack: Number(l.packId) } : {}),
         quantity: String(qtyOf(l)),
-        // Only sent when the cashier actually overrode it, so an untouched
-        // line keeps following the catalogue price rather than freezing
-        // today's value into the invoice.
-        ...(String(l.price) !== String(l.listPrice)
-          ? { unit_price: String(Number(l.price || 0)) }
-          : {}),
+        // Always the price the customer saw and paid. A queued sale can
+        // replay hours later; if the catalogue price moved in between, the
+        // server would otherwise re-price the sale, and an embedded cash
+        // payment above the new total makes the whole operation fail for
+        // ever (or, if the price rose, records the customer as owing).
+        unit_price: String(Number(l.price || 0)),
         ...(Number(l.discountPercent || 0) > 0 ? { discount_percent: String(Number(l.discountPercent)) } : {}),
       })),
       ...(ticket > 0 ? { discount_amount: String(round2(ticket)) } : {}),
@@ -304,7 +305,24 @@ export default function PosTerminal({
     const saveOffline = async () => {
       try {
         const op = await enqueue("pos_checkout", checkoutPayload);
-        setReceipt({ queued: true, reference: op.client_uuid, local_reference: localRef.current, total: grandTotal, subtotal: round2(subtotal), tax_amount: round2(taxTotal) });
+        setReceipt({
+          queued: true, reference: op.client_uuid, local_reference: localRef.current,
+          total: grandTotal, subtotal: round2(subtotal), tax_amount: round2(taxTotal),
+          provisional: {
+            doc_type: "invoice", provisional: true,
+            number: localRef.current, date: new Date().toISOString().slice(0, 10),
+            currency: user?.currency || "",
+            issuer: { name: user?.company_name || "" },
+            party: customer ? { name: customers.find((c) => String(c.id) === String(customer))?.name } : null,
+            lines: cart.map((l, i) => ({
+              description: l.name, quantity: String(qtyOf(l)),
+              unit_price: l.price, line_total: round2(netLines[i]),
+            })),
+            subtotal: round2(subtotal), discount: discountTotal, tax: round2(taxTotal),
+            total: grandTotal, amount_paid: payment?.amount ?? 0,
+            amount_due: round2(grandTotal - Number(payment?.amount || 0)),
+          },
+        });
         resetSale(); onSold?.(); toast.info(t("sales.savedOffline"));
       } catch { setError(t("improvements.storageSale")); toast.error(t("improvements.storageSale")); }
     };
@@ -364,9 +382,9 @@ export default function PosTerminal({
         {!receipt.queued && <div className="mt-1 text-sm text-muted">
           {t("sales.tax")} {money(receipt.tax_amount)} · {t("sales.subtotal")} {money(receipt.subtotal)}
         </div>}
-        {/* An offline sale has no server id yet, so there is nothing to fetch a
-            document for — the till still closes the sale, it just can't print
-            until the queued invoice syncs. */}
+        {/* An offline sale has no server number yet, so a PROVISIONAL receipt
+            carrying the local reference is printed from what the till knows;
+            once the queue syncs, the confirmed invoice can be printed too. */}
         {receipt.id && (
           <Button
             variant="ghost"
@@ -374,6 +392,15 @@ export default function PosTerminal({
             onClick={() => setDocId(receipt.id)}
           >
             <Printer size={16} /> {t("doc.print")}
+          </Button>
+        )}
+        {receipt.queued && receipt.provisional && !confirmedId && (
+          <Button
+            variant="ghost"
+            className="mt-4 w-full"
+            onClick={() => setProvisionalDoc(receipt.provisional)}
+          >
+            <Printer size={16} /> {t("improvements.printProvisional")}
           </Button>
         )}
         <Button className="mt-2 w-full" onClick={() => setReceipt(null)}>
@@ -386,6 +413,13 @@ export default function PosTerminal({
           onClose={() => setDocId(null)}
           fetcher={sales.invoiceDocument}
           title={t("sales.invoice")}
+        />
+        <DocumentDrawer
+          id={provisionalDoc ? "provisional" : null}
+          open={Boolean(provisionalDoc)}
+          onClose={() => setProvisionalDoc(null)}
+          fetcher={() => Promise.resolve({ data: provisionalDoc })}
+          title={t("improvements.provisionalReceipt")}
         />
       </Card>
     );

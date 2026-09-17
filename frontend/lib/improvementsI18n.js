@@ -1,4 +1,10 @@
 export const improvementsEn = {
+  printProvisional: "Print provisional receipt",
+  provisionalReceipt: "Provisional receipt",
+  discard: "Discard and report",
+  discardReason: "Why is this being dropped? (sent to your manager)",
+  discardConfirm: "Discard",
+  signInAgain: "Sign in again",
   syncTitle: "Saved operations", syncReview: "Review synchronization", retry: "Retry",
   syncStorage: "Local data could not be read or saved. Keep this screen open and check browser storage.",
   syncNetwork: "Could not reach the server. Saved operations remain on this device; we will retry.",
@@ -32,6 +38,12 @@ export const improvementsEn = {
   taxScaffold: "Electronic invoice formats are previews only; signing and submission are not configured.",
 };
 export const improvementsAr = {
+  printProvisional: "طباعة إيصال مؤقت",
+  provisionalReceipt: "إيصال مؤقت",
+  discard: "إسقاط وإبلاغ",
+  discardReason: "لماذا تُسقط هذه العملية؟ (يُرسل للمدير)",
+  discardConfirm: "إسقاط",
+  signInAgain: "تسجيل الدخول مجددًا",
   syncTitle: "العمليات المحفوظة", syncReview: "مراجعة المزامنة", retry: "إعادة المحاولة",
   syncStorage: "تعذّرت قراءة البيانات المحلية أو حفظها. أبقِ الشاشة مفتوحة وتحقق من مساحة التخزين في المتصفح.",
   syncNetwork: "تعذّر الاتصال بالخادم. العمليات محفوظة على هذا الجهاز وسنعيد المحاولة.",

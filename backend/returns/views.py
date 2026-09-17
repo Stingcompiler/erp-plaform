@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -57,7 +57,18 @@ class SalesReturnViewSet(
             data=request.data, context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
-        sales_return = serializer.save()
+        try:
+            sales_return = serializer.save()
+        except IntegrityError:
+            existing = None
+            if client_uuid:
+                existing = self.get_queryset().filter(client_uuid=client_uuid).first()
+            if existing is None:
+                raise
+            return Response(
+                SalesReturnReadSerializer(existing, context={"request": request}).data,
+                status=status.HTTP_200_OK,
+            )
         log_activity(
             action="create", request=request, entity_type="SalesReturn",
             entity_id=sales_return.id,
@@ -258,7 +269,18 @@ class PurchaseReturnViewSet(
             data=request.data, context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
-        pr = serializer.save()
+        try:
+            pr = serializer.save()
+        except IntegrityError:
+            existing = None
+            if client_uuid:
+                existing = self.get_queryset().filter(client_uuid=client_uuid).first()
+            if existing is None:
+                raise
+            return Response(
+                PurchaseReturnReadSerializer(existing, context={"request": request}).data,
+                status=status.HTTP_200_OK,
+            )
         log_activity(
             action="create", request=request, entity_type="PurchaseReturn",
             entity_id=pr.id,

@@ -21,14 +21,19 @@ export function useOfflineMutation() {
   return useCallback(
     async (opType, request, payload) => {
       if (!payload?.client_uuid) throw new Error(`${opType}: payload needs a client_uuid`);
-      if (!online) return { queued: true, op: enqueue(opType, payload) };
+      // `enqueue` resolves only once IndexedDB has COMMITTED the row. It is
+      // awaited here on purpose: returning the pending promise made callers
+      // report "saved for upload" before the write was durable, and a failed
+      // write became an unhandled rejection — the receipt or return silently
+      // disappeared.
+      if (!online) return { queued: true, op: await enqueue(opType, payload) };
       try {
         const response = await request(payload);
         refresh();
         return { queued: false, data: response.data };
       } catch (error) {
         if (error?.code === "ERR_NETWORK" || !error?.response) {
-          return { queued: true, op: enqueue(opType, payload) };
+          return { queued: true, op: await enqueue(opType, payload) };
         }
         throw error;
       }

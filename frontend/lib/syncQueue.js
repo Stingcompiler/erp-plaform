@@ -186,7 +186,7 @@ export const queue = {
         const receipts = transaction.objectStore("receipts");
         for (const op of sent) {
           const result = accepted.get(op.client_uuid);
-          if (result?.status === "applied" || result?.status === "duplicate") {
+          if (result?.status === "applied" || result?.status === "duplicate" || result?.status === "discarded") {
             if (op.op_type === "pos_checkout" && result.id) {
               receipts.put({ client_uuid: op.client_uuid, id: result.id, confirmed_at: Date.now() });
             }

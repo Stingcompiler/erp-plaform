@@ -42,7 +42,8 @@ export const queue = {
     for (const op of sent) {
       const result = accepted.get(op.client_uuid);
       const key = prefix(scope) + op.client_uuid;
-      if (result?.status === "applied" || result?.status === "duplicate") {
+      const settled = ["applied", "duplicate", "discarded"].includes(result?.status);
+      if (settled) {
         if (op.op_type === "pos_checkout" && result.id) {
           localStorage.setItem(`${storageKey("syncReceipt", scope)}:${op.client_uuid}`,
             JSON.stringify({ id: result.id, confirmed_at: Date.now() }));

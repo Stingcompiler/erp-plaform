@@ -2,6 +2,7 @@ from uuid import UUID
 
 from django.core import signing
 from django.core.signing import BadSignature, SignatureExpired
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -13,7 +14,7 @@ from rest_framework.views import APIView
 from core.activity import log_activity
 from core.permissions import EntitlementAccess
 from core.rbac import role_can
-from sync.models import SyncBatch, SyncOperation
+from sync.models import DiscardedOperation, SyncBatch, SyncOperation
 from sync.services import APPLIED, DUPLICATE, ERROR, process_operation
 
 
@@ -57,6 +58,8 @@ class SyncPushView(APIView):
             return Response({"detail": "A company is required."}, status=400)
         # A second tab can replace the shared auth cookie while this tab still
         # holds another user's cart. Never replay it under the new identity.
+        # A client that identifies the account it queued under must send both
+        # fields; a partial pair is the one shape that cannot be trusted.
         expected = {
             "expected_company": company_id,
             "expected_user": request.user.pk,
@@ -67,6 +70,12 @@ class SyncPushView(APIView):
                 return Response(
                     {"detail": "The signed-in account or branch changed."}, status=409
                 )
+        sent = [f for f in ("expected_company", "expected_user") if f in request.data]
+        if len(sent) == 1:
+            return Response(
+                {"detail": "expected_company and expected_user must be sent together."},
+                status=400,
+            )
         batch_uuid = request.data.get("batch_uuid")
         operations = request.data.get("operations")
 
@@ -126,13 +135,21 @@ class SyncPushView(APIView):
                 return Response(
                     {"detail": "Batch identifier is unavailable."}, status=409
                 )
-            batch = SyncBatch.objects.create(
-                company_id=company_id,
-                user=request.user,
-                device_id=request.data.get("device_id", ""),
-                batch_uuid=batch_uuid,
-                operation_count=len(operations),
-            )
+            try:
+                with transaction.atomic():
+                    batch = SyncBatch.objects.create(
+                        company_id=company_id,
+                        user=request.user,
+                        device_id=request.data.get("device_id", ""),
+                        batch_uuid=batch_uuid,
+                        operation_count=len(operations),
+                    )
+            except IntegrityError:
+                # Two tabs pushed the same batch at the same instant. The
+                # loser answers 409; the client retries and gets the replay.
+                return Response(
+                    {"detail": "This batch is already being processed."}, status=409
+                )
 
         applied = batch.applied_count
         duplicate = batch.duplicate_count
@@ -142,16 +159,22 @@ class SyncPushView(APIView):
             if i in completed_indexes:
                 continue
             st, model, rid, err, cu = process_operation(request, op)
-            SyncOperation.objects.create(
-                batch=batch,
-                index=i,
-                op_type=op.get("op_type", ""),
-                client_uuid=cu or None,
-                status=st,
-                result_model=model,
-                result_id=rid,
-                error_detail=err or "",
-            )
+            try:
+                with transaction.atomic():
+                    SyncOperation.objects.create(
+                        batch=batch,
+                        index=i,
+                        op_type=op.get("op_type", ""),
+                        client_uuid=cu or None,
+                        status=st,
+                        result_model=model,
+                        result_id=rid,
+                        error_detail=err or "",
+                    )
+            except IntegrityError:
+                # A concurrent resume already recorded this slot; the op
+                # itself was idempotent, so nothing double-applied.
+                continue
             applied += int(st == APPLIED)
             duplicate += int(st == DUPLICATE)
             errored += int(st == ERROR)
@@ -209,6 +232,10 @@ def _pull_specs():
     from sales.models import Customer, Invoice
     from sales.serializers import CustomerSerializer, InvoiceSerializer
 
+    # Documents written by offline devices carry BUSINESS time in created_at
+    # / issued_at, which may be hours or days before the row reached the
+    # server. A delta cursor on business time would skip them for every other
+    # device, so those entities page on the server-stamped received_at.
     return [
         ("products", Product, ProductSerializer, "updated_at", "inventory"),
         ("warehouses", Warehouse, WarehouseSerializer, "updated_at", "inventory"),
@@ -216,11 +243,11 @@ def _pull_specs():
             "stock_movements",
             StockMovement,
             StockMovementSerializer,
-            "created_at",
+            "received_at",
             "inventory",
         ),
         ("customers", Customer, CustomerSerializer, "updated_at", "sales"),
-        ("invoices", Invoice, InvoiceSerializer, "updated_at", "sales"),
+        ("invoices", Invoice, InvoiceSerializer, "received_at", "sales"),
         ("suppliers", Supplier, SupplierSerializer, "updated_at", "purchasing"),
     ]
 
@@ -333,3 +360,114 @@ class SyncPullView(APIView):
                 "changes": changes,
             }
         )
+
+
+class SyncDiscardView(APIView):
+    """
+    POST /api/sync/discard/
+    Body: {client_uuid, op_type, payload, error?, reason, device_id?}
+
+    The device is giving up on a queued operation the server keeps rejecting.
+    Nothing is applied here: the payload, the error and the reason are kept
+    as evidence and surfaced to managers (attention badge), because the
+    transaction already happened at the counter and the books must catch up
+    by hand. Idempotent per (company, client_uuid).
+    """
+
+    permission_classes = [IsAuthenticated, EntitlementAccess]
+    entitlement_exempt = True
+
+    def post(self, request):
+        company_id = getattr(request.user, "company_id", None)
+        if company_id is None:
+            return Response({"detail": "A company is required."}, status=400)
+        try:
+            client_uuid = UUID(str(request.data.get("client_uuid")))
+        except (TypeError, ValueError, AttributeError):
+            return Response({"client_uuid": "A valid client_uuid is required."}, status=400)
+        reason = str(request.data.get("reason") or "").strip()
+        if not reason:
+            return Response({"reason": "A reason is required to discard an operation."}, status=400)
+        payload = request.data.get("payload")
+        if not isinstance(payload, dict):
+            return Response({"payload": "The operation payload is required."}, status=400)
+        record, created = DiscardedOperation.objects.get_or_create(
+            company_id=company_id,
+            client_uuid=client_uuid,
+            defaults={
+                "user": request.user,
+                "branch_id": getattr(request.user, "branch_id", None),
+                "device_id": str(request.data.get("device_id") or "")[:128],
+                "op_type": str(request.data.get("op_type") or "")[:64],
+                "payload": payload,
+                "error": str(request.data.get("error") or "")[:2000],
+                "reason": reason[:255],
+            },
+        )
+        if created:
+            log_activity(
+                action="discard", request=request, entity_type="SyncOperation",
+                entity_id=str(client_uuid),
+                metadata={"op_type": record.op_type, "reason": reason, "error": record.error[:255]},
+            )
+        return Response(
+            {"id": record.id, "client_uuid": str(client_uuid), "status": "discarded"},
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class DiscardedOperationListView(APIView):
+    """GET /api/sync/discarded/ — what devices gave up on, for managers.
+    POST /api/sync/discarded/<id>/resolve/ marks one handled."""
+
+    permission_classes = [IsAuthenticated, EntitlementAccess]
+
+    def get(self, request):
+        from core.rbac import can_approve_high_value
+
+        if not can_approve_high_value(request.user):
+            return Response({"detail": "Managers only."}, status=403)
+        rows = DiscardedOperation.objects.filter(
+            company_id=request.user.company_id
+        ).select_related("user", "branch")
+        if request.query_params.get("open") == "1":
+            rows = rows.filter(resolved_at__isnull=True)
+        return Response([
+            {
+                "id": r.id, "client_uuid": str(r.client_uuid), "op_type": r.op_type,
+                "payload": r.payload, "error": r.error, "reason": r.reason,
+                "device_id": r.device_id, "created_at": r.created_at,
+                "user": r.user.email if r.user_id else None,
+                "branch": r.branch.name if r.branch_id else None,
+                "resolved_at": r.resolved_at, "resolution": r.resolution,
+            }
+            for r in rows[:200]
+        ])
+
+
+class DiscardedOperationResolveView(APIView):
+    permission_classes = [IsAuthenticated, EntitlementAccess]
+
+    def post(self, request, pk):
+        from core.rbac import can_approve_high_value
+
+        if not can_approve_high_value(request.user):
+            return Response({"detail": "Managers only."}, status=403)
+        try:
+            record = DiscardedOperation.objects.get(pk=pk, company_id=request.user.company_id)
+        except DiscardedOperation.DoesNotExist:
+            return Response({"detail": "Not found."}, status=404)
+        if record.resolved_at is not None:
+            return Response({"detail": "Already resolved."}, status=400)
+        resolution = str(request.data.get("resolution") or "").strip()
+        if not resolution:
+            return Response({"resolution": "Say how it was handled."}, status=400)
+        record.resolved_at = timezone.now()
+        record.resolved_by = request.user
+        record.resolution = resolution[:255]
+        record.save(update_fields=["resolved_at", "resolved_by", "resolution"])
+        log_activity(
+            action="resolve", request=request, entity_type="DiscardedOperation",
+            entity_id=record.pk, metadata={"resolution": record.resolution},
+        )
+        return Response({"id": record.id, "resolved_at": record.resolved_at})
