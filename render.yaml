@@ -20,8 +20,12 @@ services:
     rootDir: backend
     autoDeploy: true
     healthCheckPath: /api/health/
+    # `rm -rf node_modules` first: Render keeps the checkout between builds,
+    # and a stale entry there (a dangling symlink once slipped into the
+    # repo) makes `npm install` fail while the previous release stays live.
+    # `npm ci` installs from the lockfile only, the same as CI.
     buildCommand: >-
-      (cd ../frontend && npm install && npm run build) &&
+      (cd ../frontend && rm -rf node_modules && npm ci --no-audit --no-fund && npm run build) &&
       pip install -r requirements.txt &&
       python manage.py collectstatic --noinput
     # Migrations must NOT run in buildCommand: the build container has no
