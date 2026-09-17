@@ -11,6 +11,7 @@ venv/
 *.sqlite3.*
 
 # --- Node / Next.js (frontend) ---
+frontend/node_modules
 frontend/node_modules/
 # .next/ is the intermediate build cache (~170 MB) and is never served.
 frontend/.next/

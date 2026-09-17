@@ -13,6 +13,8 @@
 
 import { useEffect, useState } from "react";
 
+export { installRoute } from "./installRoute.js";
+
 let deferredPrompt = null;
 const listeners = new Set();
 
