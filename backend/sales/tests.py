@@ -105,7 +105,8 @@ class InvoiceNumberingTests(SalesBase):
         )
         resp = client_b.post(
             reverse("pos-checkout"),
-            {"warehouse": wh_b.id, "lines": [{"product": prod_b.id, "quantity": "1"}]},
+            {"warehouse": wh_b.id, "lines": [{"product": prod_b.id, "quantity": "1"}],
+             "payment": {"method": "cash", "amount": "50.00"}},
             format="json",
         )
         self.assertEqual(resp.data["number"], 1)

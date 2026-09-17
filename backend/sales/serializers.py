@@ -852,7 +852,7 @@ class POSCheckoutSerializer(serializers.Serializer):
         pay = validated_data.get("payment")
         paid_now = pay["amount"] if pay else Decimal("0")
         self._assert_credit_allowed(
-            validated_data.get("customer"), invoice.total - paid_now, user
+            validated_data.get("customer"), invoice, invoice.total - paid_now, user
         )
         if pay:
             payment = self._record_payment(
@@ -877,13 +877,14 @@ class POSCheckoutSerializer(serializers.Serializer):
 
         return invoice
 
-    def _assert_credit_allowed(self, customer, unpaid, user):
+    def _assert_credit_allowed(self, customer, invoice, unpaid, user):
         """A sale that leaves a balance is a loan, and a loan needs a debtor.
 
         Anonymous credit produced receivables nobody owed that the debt ledger
         could not even list. A named customer on hold gets nothing on account;
         one with a limit may not pass it, unless a manager overrides — and the
-        override is written to the audit trail."""
+        override is written to the audit trail. Runs inside the checkout
+        transaction, so a refusal rolls the invoice back."""
         if unpaid <= 0:
             return
         if customer is None:
@@ -895,7 +896,10 @@ class POSCheckoutSerializer(serializers.Serializer):
                 {"customer": "This customer's account is on hold; take full payment."}
             )
         if customer.credit_limit is not None:
-            exposure = customer.ar_balance() + unpaid
+            # The invoice row already exists at this point (payment not yet),
+            # so the customer's balance includes this sale's full total; take
+            # that out and add back only what stays unpaid.
+            exposure = customer.ar_balance() - invoice.total + unpaid
             if exposure > customer.credit_limit:
                 if not can_approve_high_value(user):
                     raise serializers.ValidationError(
