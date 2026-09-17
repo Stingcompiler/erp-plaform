@@ -24,7 +24,24 @@ deleting the merged base branch, or GitHub closes it.
 | #61 | Standalone readiness: systemd timers for daily scans and nightly backup (checked by `preflight`), licence signature re-verified at every resolve, deployment mode bound to `Installation`, HTTPS hard-required, `requirements.lock`, SaaS hosts/HSTS preload SaaS-only, gunicorn 3 workers, `run_server.bat` removed, PROJECT_RULES/ARCHITECTURE aligned | `deploy/standalone/*.timer`, `licensing/services.py`, `ops/preflight.py`, `config/deployment.py` |
 | #62 | Receivables in SQL: `sales/querysets.py` + `purchasing/querysets.py` used by AR/AP aging, cash-flow, CFO KPIs, debt ledger and the receivables scan (query count no longer grows with invoices); `page_size` param (≤500) and full customer/supplier pickers; composite indexes on StockMovement, Invoice, InvoiceLine, Payment, ActivityLog | `sales/querysets.py`, `sales/debt_queries.py`, `reports/views.py`, `core/pagination.py`, `sales/test_receivables_sql.py` |
 
-Deploy notes for the owner: production must have `DJANGO_SECRET_KEY` set
+**Deploy blocked on 2026-09-17 — owner action needed in the Render dashboard.**
+The first deploy after #57 failed in pre-deploy with
+`ImproperlyConfigured: DJANGO_SECRET_KEY must be set when DEBUG is False.`
+That is the new guard doing its job: the hand-created `erp-api` service (and
+probably both cron jobs) has NO `DJANGO_SECRET_KEY`, so production has been
+signing JWTs, sessions and sync cursors with the public default key. The old
+version keeps serving until this is fixed. To unblock:
+
+1. Render → `erp-api` → Environment: add `DJANGO_SECRET_KEY` = a random
+   value of 50+ characters (`python -c "import secrets;print(secrets.token_urlsafe(64))"`).
+   Add the SAME value to `erp-backup-cron` and `erp-daily-scans` (they share
+   signed data with the web service).
+2. Same screen: add `PYTHON_VERSION` = `3.12.3` — the failing log shows the
+   service on Python 3.14, which CI never tests — and `WEB_CONCURRENCY` = `3`.
+3. Redeploy. Every user is signed out once (tokens signed with the old key
+   stop verifying), which is the intended effect.
+
+Deploy notes: production must have `DJANGO_SECRET_KEY` set
 (#57 refuses to boot otherwise); migrations `core.0005`, `sales.0010–0012`,
 `inventory.0010–0011`, `org.0009`, `purchasing.0004`, `returns.0004`,
 `sync.0002`, `core.0006` run in the pre-deploy step; `WEB_CONCURRENCY=3` is

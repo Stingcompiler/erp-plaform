@@ -188,7 +188,9 @@ Every change here must be copied into the service's **Settings** /
 | `erp-api`, `erp-worker`, `erp-backup-cron` | `SUBSCRIPTION_POLICY` | `observe` (then `enforce`) |
 | `erp-worker` (only if deployed) | Start Command | `celery -A config worker -B --loglevel=info --pool=solo` |
 | `erp-worker` (only if deployed) | `CELERY_BROKER_URL` | the **Internal Redis URL** of `erp-cache` |
-| all Python services | `PYTHON_VERSION` | `3.12.3` (what CI tests) |
+| all Python services | `PYTHON_VERSION` | `3.12.3` (what CI tests) — REQUIRED on the hand-created services; unset, Render picks the newest Python |
+| all Python services | `DJANGO_SECRET_KEY` | one shared random value, 50+ chars — REQUIRED; since #57 the app refuses to start without it when `DEBUG=False` |
+| `erp-api` | `WEB_CONCURRENCY` | `3` |
 
 A worker log showing `transport: redis://localhost:6379/0` means
 `CELERY_BROKER_URL` is missing; `concurrency: 8 (prefork)` followed by
