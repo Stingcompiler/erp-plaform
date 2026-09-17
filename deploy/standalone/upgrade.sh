@@ -72,7 +72,7 @@ if [ ! -x "$NEW_PYTHON" ]; then
     "$PYTHON3" -m venv "${RELEASE}/venv" || fail "could not create the venv"
     "${RELEASE}/venv/bin/pip" install --quiet --upgrade pip \
         || fail "could not upgrade pip in the new venv"
-    "${RELEASE}/venv/bin/pip" install --quiet -r "${RELEASE}/backend/requirements.txt" \
+    "${RELEASE}/venv/bin/pip" install --quiet -r "${RELEASE}/backend/requirements.lock" \
         || fail "dependency installation failed; the old release is untouched"
 fi
 

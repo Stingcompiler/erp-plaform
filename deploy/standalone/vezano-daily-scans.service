@@ -1,0 +1,13 @@
+[Unit]
+Description=Vezano ERP daily scans (receivables, stock alerts, subscription expiry)
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=vezano
+Group=vezano
+WorkingDirectory=/opt/vezano/current/backend
+Environment=VEZANO_ENV_FILE=/etc/vezano/vezano.env
+ExecStart=/opt/vezano/current/venv/bin/python manage.py run_daily_scans
+PrivateTmp=true
+NoNewPrivileges=true

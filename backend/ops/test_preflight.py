@@ -86,6 +86,9 @@ class RunPreflightTests(TestCase):
             "frontend_build",
             "licence_keys",
             "licence",
+            "scheduled_jobs",
+            "backup_freshness",
+            "dependency_lock",
         ):
             self.assertIn(expected, codes)
 
@@ -119,3 +122,49 @@ class LicenceKeyTests(TestCase):
             },
         ):
             self.assertEqual(preflight.check_licence_keys().level, preflight.OK)
+
+
+class StandaloneReadinessTests(TestCase):
+    def test_https_is_a_hard_requirement_for_standalone(self):
+        with override_settings(
+            VEZANO_DEPLOYMENT_MODE="standalone", FORCE_HTTPS=False, DEBUG=False,
+            ALLOWED_HOSTS=["erp.local"],
+        ):
+            self.assertEqual(preflight.check_https_consistency().level, preflight.FAIL)
+        with override_settings(
+            VEZANO_DEPLOYMENT_MODE="standalone", FORCE_HTTPS=True, DEBUG=False,
+            ALLOWED_HOSTS=["erp.local"],
+        ):
+            self.assertEqual(preflight.check_https_consistency().level, preflight.OK)
+
+    def test_scheduled_jobs_not_applicable_on_saas(self):
+        with override_settings(VEZANO_DEPLOYMENT_MODE="saas"):
+            self.assertEqual(preflight.check_scheduled_jobs().level, preflight.OK)
+
+    def test_missing_timers_block_a_standalone_install(self):
+        from unittest import mock
+
+        with override_settings(VEZANO_DEPLOYMENT_MODE="standalone"):
+            with mock.patch("shutil.which", return_value="/bin/systemctl"):
+                fake = mock.Mock(stdout="inactive\n")
+                with mock.patch("subprocess.run", return_value=fake):
+                    finding = preflight.check_scheduled_jobs()
+        self.assertEqual(finding.level, preflight.FAIL)
+        self.assertIn("vezano-backup.timer", finding.detail)
+
+    def test_lock_file_is_present(self):
+        self.assertEqual(preflight.check_dependency_lock().level, preflight.OK)
+
+    def test_mode_flip_over_a_live_installation_is_refused(self):
+        from django.core.exceptions import ImproperlyConfigured
+
+        from config.deployment import assert_mode_matches_installation
+        from licensing.models import Installation
+
+        with override_settings(VEZANO_DEPLOYMENT_MODE="standalone"):
+            Installation.current()
+            self.assertEqual(assert_mode_matches_installation(), "standalone")
+        with override_settings(VEZANO_DEPLOYMENT_MODE="saas"):
+            with self.assertRaises(ImproperlyConfigured):
+                assert_mode_matches_installation()
+            self.assertEqual(preflight.check_deployment_profile().level, preflight.FAIL)

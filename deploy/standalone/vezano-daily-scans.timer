@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the Vezano daily scans once a day
+
+[Timer]
+# 03:30 local time, after the nightly backup. Persistent=true runs a missed
+# scan at the next boot, so a server that was off overnight still catches up.
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

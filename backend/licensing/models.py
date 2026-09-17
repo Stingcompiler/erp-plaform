@@ -24,7 +24,11 @@ class Installation(models.Model):
     @classmethod
     def current(cls):
         installation = cls.objects.order_by("pk").first()
-        return installation or cls.objects.create()
+        if installation is not None:
+            return installation
+        from config.deployment import get_deployment_config
+
+        return cls.objects.create(deployment_mode=get_deployment_config().mode)
 
 
 class LicenseActivation(models.Model):

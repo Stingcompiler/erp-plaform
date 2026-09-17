@@ -55,16 +55,21 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.
 # a 400 before it can serve either the app or the admin panel.
 VEZANO_CANONICAL_HOST = "vezano.app"
 VEZANO_PUBLIC_HOSTS = [VEZANO_CANONICAL_HOST, "www.vezano.app", "enterprise.vezano.app"]
-for _host in VEZANO_PUBLIC_HOSTS:
-    if _host not in ALLOWED_HOSTS:
-        ALLOWED_HOSTS.append(_host)
+# The hosted SaaS hostnames belong to the hosted SaaS only. A customer's own
+# server must not answer for vezano.app, nor trust it as a CSRF origin.
+_IS_SAAS = env("VEZANO_DEPLOYMENT_MODE", default="saas").strip().lower() != "standalone"
+if _IS_SAAS:
+    for _host in VEZANO_PUBLIC_HOSTS:
+        if _host not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(_host)
 
 # The admin panel and any session-authenticated POST check the Origin header
 # against this list; the JWT cookie API is same-origin on every host anyway.
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
-for _host in VEZANO_PUBLIC_HOSTS:
-    if f"https://{_host}" not in CSRF_TRUSTED_ORIGINS:
-        CSRF_TRUSTED_ORIGINS.append(f"https://{_host}")
+if _IS_SAAS:
+    for _host in VEZANO_PUBLIC_HOSTS:
+        if f"https://{_host}" not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(f"https://{_host}")
 
 # Render sets RENDER_EXTERNAL_HOSTNAME on every deployed service.
 RENDER_EXTERNAL_HOSTNAME = env("RENDER_EXTERNAL_HOSTNAME", default=None)
@@ -404,6 +409,9 @@ if FORCE_HTTPS:
     SECURE_SSL_REDIRECT = True
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
+    # Preload submits the domain to browser vendors' hard-coded HTTPS lists,
+    # a decision for the domain owner. That is us for vezano.app; on a
+    # customer's domain it would be theirs, so only the SaaS opts in.
+    SECURE_HSTS_PRELOAD = _IS_SAAS
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True

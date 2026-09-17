@@ -58,6 +58,12 @@ def check_deployment_profile():
             "SUBSCRIPTION_POLICY is disabled in a standalone install; the licence "
             "is not being enforced.",
         )
+    from config.deployment import assert_mode_matches_installation
+
+    try:
+        assert_mode_matches_installation()
+    except Exception as exc:  # noqa: BLE001 - ImproperlyConfigured, surfaced
+        return Finding("deployment_profile", FAIL, str(exc))
     return Finding(
         "deployment_profile",
         OK,
@@ -78,6 +84,20 @@ def check_secret_key():
 
 def check_https_consistency():
     hosts = [host for host in settings.ALLOWED_HOSTS if host]
+    from config.deployment import get_deployment_config
+
+    # Offline work depends on a secure context: crypto.randomUUID() and the
+    # service worker only exist on HTTPS (or localhost). A LAN install served
+    # over plain HTTP cannot queue a single sale, so this is a hard failure
+    # for standalone, not a preference.
+    if get_deployment_config().is_standalone and not settings.FORCE_HTTPS and not settings.DEBUG:
+        return Finding(
+            "https_consistency",
+            FAIL,
+            "FORCE_HTTPS is off. Offline sales need a secure origin: put the "
+            "reverse proxy on TLS (Caddy `tls internal` is enough on a LAN) and "
+            "set FORCE_HTTPS=True.",
+        )
     if settings.FORCE_HTTPS and not hosts:
         return Finding(
             "https_consistency",
@@ -267,6 +287,89 @@ def check_licence():
     )
 
 
+def check_scheduled_jobs():
+    """The daily scans and the nightly backup run from systemd timers on a
+    standalone host. Without them stock alerts, receivable reminders and
+    subscription expiries never fire and there is no backup at all."""
+    from config.deployment import get_deployment_config
+
+    if not get_deployment_config().is_standalone:
+        return Finding("scheduled_jobs", OK, "Not applicable outside standalone deployments.")
+    import shutil
+    import subprocess
+
+    systemctl = shutil.which("systemctl")
+    if not systemctl:
+        return Finding(
+            "scheduled_jobs",
+            WARN,
+            "systemctl is not available; verify the daily-scans and backup timers by hand.",
+        )
+    missing = []
+    for unit in ("vezano-daily-scans.timer", "vezano-backup.timer"):
+        try:
+            result = subprocess.run(
+                [systemctl, "is-active", unit], capture_output=True, text=True, timeout=5
+            )
+        except (OSError, subprocess.SubprocessError):
+            missing.append(unit)
+            continue
+        if result.stdout.strip() != "active":
+            missing.append(unit)
+    if missing:
+        return Finding(
+            "scheduled_jobs",
+            FAIL,
+            "Timers not active: " + ", ".join(missing)
+            + ". Install the units from deploy/standalone/ and enable them.",
+        )
+    return Finding("scheduled_jobs", OK, "daily-scans and backup timers are active.")
+
+
+def check_backup_freshness():
+    """A standalone host must have a recent full backup on disk."""
+    from config.deployment import get_deployment_config
+
+    if not get_deployment_config().is_standalone:
+        return Finding("backup_freshness", OK, "Not applicable outside standalone deployments.")
+    import os
+    import time
+    from pathlib import Path
+
+    root = Path(os.environ.get("VEZANO_BACKUP_DIR", "/var/backups/vezano"))
+    if not root.is_dir():
+        return Finding(
+            "backup_freshness", WARN,
+            f"No backup directory at {root}; the nightly backup has not run.",
+        )
+    newest = max((p.stat().st_mtime for p in root.iterdir() if p.is_dir()), default=None)
+    if newest is None:
+        return Finding("backup_freshness", WARN, f"{root} holds no backups yet.")
+    age_hours = (time.time() - newest) / 3600
+    if age_hours > 36:
+        return Finding(
+            "backup_freshness",
+            WARN,
+            f"The newest backup is {age_hours:.0f} hours old; the nightly timer may be failing.",
+        )
+    return Finding("backup_freshness", OK, f"Newest backup is {age_hours:.0f} hours old.")
+
+
+def check_dependency_lock():
+    """Releases install from a hash-pinned lock, so two installs of one
+    version resolve identical wheels."""
+    from pathlib import Path
+
+    lock = Path(settings.BASE_DIR) / "requirements.lock"
+    if not lock.is_file():
+        return Finding(
+            "dependency_lock",
+            WARN,
+            "backend/requirements.lock is missing; installs resolve ranges, not pins.",
+        )
+    return Finding("dependency_lock", OK, "requirements.lock is present.")
+
+
 def run_preflight():
     """Every check, in a stable order. Import-time safe: never touches the network."""
     return [
@@ -280,4 +383,7 @@ def run_preflight():
         check_frontend_build(),
         check_licence_keys(),
         check_licence(),
+        check_scheduled_jobs(),
+        check_backup_freshness(),
+        check_dependency_lock(),
     ]

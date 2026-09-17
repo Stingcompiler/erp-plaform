@@ -22,7 +22,9 @@ from django.conf import settings
 MANIFEST_NAME = "release-manifest.json"
 CHECKSUM_NAME = "SHA256SUMS"
 HASH_CHUNK_BYTES = 1 << 20
-REQUIREMENTS_RELATIVE = Path("backend") / "requirements.txt"
+# The manifest hashes the LOCK: that is what a customer host installs, and
+# the file whose drift would make two installs of one version differ.
+REQUIREMENTS_RELATIVE = Path("backend") / "requirements.lock"
 FRONTEND_OUT_RELATIVE = Path("frontend") / "out"
 
 
@@ -107,15 +109,21 @@ def migration_inventory():
 def dependency_inventory(requirements_path=None):
     """Pinned dependency lines and the hash of the requirements file itself."""
     path = Path(requirements_path or repository_root() / REQUIREMENTS_RELATIVE)
+    # Recorded relative to the repository root: a manifest that embeds the
+    # build machine's home directory is noise at best and a leak at worst.
+    try:
+        shown = path.resolve().relative_to(repository_root().resolve()).as_posix()
+    except ValueError:
+        shown = path.name
     if not path.is_file():
-        return {"path": str(path), "present": False, "sha256": "", "packages": []}
+        return {"path": shown, "present": False, "sha256": "", "packages": []}
     lines = [
         line.strip()
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.strip().startswith("#")
     ]
     return {
-        "path": str(path),
+        "path": shown,
         "present": True,
         "sha256": sha256_file(path),
         "packages": lines,

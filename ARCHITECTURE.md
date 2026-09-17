@@ -22,7 +22,7 @@ At a glance:
 |---|---|---|
 | Backend | Django 5, DRF, cookie-JWT, Postgres | `backend/` |
 | Frontend | Next.js App Router (static export), Tailwind, axios | `frontend/` |
-| Deploy | Render Blueprint (5 native components, frontend built into `erp-api`) | `render.yaml`, `DEPLOYMENT.md` |
+| Deploy | Render: `erp-api` web service (frontend built in) + two cron jobs + Postgres; `render.yaml` is the reference, services are hand-created | `render.yaml`, `DEPLOYMENT.md` |
 | CI | GitHub Actions (audit → lint → checks → tests → build) | `.github/workflows/ci.yml` |
 
 ## 2. The nine PROJECT_RULES and where they live

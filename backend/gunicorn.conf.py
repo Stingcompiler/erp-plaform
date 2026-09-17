@@ -13,7 +13,11 @@ import os
 bind = f"0.0.0.0:{os.environ.get('PORT', '8000')}"
 
 # 2*CPU+1 is the standard sync-worker heuristic; overridable via WEB_CONCURRENCY.
-workers = int(os.environ.get("WEB_CONCURRENCY", multiprocessing.cpu_count() * 2 + 1))
+# Default capped at 3: the container reports the HOST's CPU count (8 on
+# Render's starter instance), so the classic 2n+1 formula started 17 sync
+# Django processes and blew the 512 MiB limit. Set WEB_CONCURRENCY to size
+# it for the instance you actually pay for.
+workers = int(os.environ.get("WEB_CONCURRENCY", min(3, multiprocessing.cpu_count() * 2 + 1)))
 worker_class = "sync"
 timeout = int(os.environ.get("GUNICORN_TIMEOUT", "60"))
 graceful_timeout = 30

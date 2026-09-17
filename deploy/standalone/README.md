@@ -9,7 +9,7 @@ does not depend on Render.
 - Ubuntu LTS or an equivalent maintained Linux distribution.
 - PostgreSQL with a dedicated database and least-privilege login.
 - Python 3.12 virtual environment **inside each release** (`<release>/venv`), Node.js 20 or newer on the build machine, and TLS at the reverse proxy (Caddy: see `Caddyfile.example`).
-- One Gunicorn web service and optional Celery worker (the worker needs Redis; the web service does not). The frontend is built once and served by Django.
+- One Gunicorn web service plus two systemd timers: `vezano-daily-scans.timer` (receivables, stock alerts, subscription expiry) and `vezano-backup.timer` (nightly full backup). Nothing in the product needs Celery or Redis; `vezano-worker.service` is kept only for a future feature that enqueues work at request time and must NOT be enabled alongside the timers (the scans would run twice). The frontend is built once and served by Django.
 - `VEZANO_DEPLOYMENT_MODE=standalone`; this value is fixed for the life of the database.
 
 Copy `vezano.env.example` to `/etc/vezano/vezano.env`, fill it with unique
@@ -23,11 +23,11 @@ environment file, a database, media, a key, or a developer virtual environment.
 The step-by-step commands are in `OPERATIONS.md`. In outline:
 
 1. Verify the signed release checksum and signature; unpack into `/opt/vezano/releases/<version>`; link `/opt/vezano/current`.
-2. Create `<release>/venv` and install `backend/requirements.txt`.
+2. Create `<release>/venv` and install `backend/requirements.lock` (exact pins; `requirements.txt` holds the ranges developers work from).
 3. Write `/etc/vezano/vezano.env`; drop the vendor's public key into `/etc/vezano/license-keys/`.
 4. `migrate`, `collectstatic --noinput`, `bootstrap_standalone --organisation "Customer legal name" --app-version <version>`.
 5. `create_owner --email <owner>` — prompts for a unique password and creates the company, its main branch, the role set and the Business Owner. No default password exists anywhere.
-6. Start the services, sign in, import the signed licence from **Subscription & licence**, then `preflight` must pass.
+6. Install and enable the units: `vezano-web.service`, `vezano-daily-scans.timer`, `vezano-backup.timer` (`systemctl enable --now …`). Sign in, import the signed licence from **Subscription & licence**, then `preflight` must pass — it fails when either timer is missing or inactive.
 
 The frontend export ships inside the archive (`frontend/out`), so the customer
 host does not need Node.js; `npm ci && npm run build` is a build-machine step.

@@ -46,7 +46,7 @@ this order on 2026-09-14 (see *Acceptance record*).
    ```bash
    python3.12 -m venv /opt/vezano/current/venv
    /opt/vezano/current/venv/bin/pip install --upgrade pip
-   /opt/vezano/current/venv/bin/pip install -r /opt/vezano/current/backend/requirements.txt
+   /opt/vezano/current/venv/bin/pip install -r /opt/vezano/current/backend/requirements.lock
    ```
 
    The frontend export is inside the archive (`frontend/out`); Node.js is only
@@ -347,3 +347,22 @@ all imported passwords. Users must reset passwords locally. Use `--slug` if the
 source slug already exists. Keep the source read-only until balances, stock,
 payroll totals, user counts, and representative files are accepted by the
 customer.
+
+
+## Scheduled jobs (required)
+
+The daily scans and the nightly full backup run from systemd timers, not from
+Celery. Both must be enabled on every installation:
+
+```bash
+sudo cp deploy/standalone/vezano-daily-scans.{service,timer} /etc/systemd/system/
+sudo cp deploy/standalone/vezano-backup.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now vezano-daily-scans.timer vezano-backup.timer
+systemctl list-timers 'vezano-*'
+```
+
+`manage.py preflight` reports `scheduled_jobs` as FAIL when either timer is not
+active, and WARN when the last nightly backup directory is older than 36 hours.
+Backups older than the fourteen most recent are pruned after each successful
+run; copying them off the host is the operator's responsibility.
