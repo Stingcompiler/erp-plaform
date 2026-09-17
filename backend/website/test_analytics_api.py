@@ -60,7 +60,9 @@ class AnalyticsOverviewTests(TestCase):
         top = {row["path"]: row["visits"] for row in data["top_pages"]}
         self.assertEqual(top["/pricing"], 10)
         self.assertEqual(top["/"], 2)
-        self.assertEqual(data["top_referrers"][0], {"host": "google.com", "visits": 6})
+        referrers = {row["host"]: row["visits"] for row in data["top_referrers"]}
+        self.assertEqual(referrers["google.com"], 6)
+        self.assertEqual(referrers["direct"], 6)  # 4 rolled + 2 live today
         self.assertEqual(data["devices"]["phone"], 8)
         self.assertEqual(data["top_company_pages"][0]["visits"], 5)
 
