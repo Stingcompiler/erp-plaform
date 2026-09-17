@@ -195,3 +195,15 @@ Every change here must be copied into the service's **Settings** /
 A worker log showing `transport: redis://localhost:6379/0` means
 `CELERY_BROKER_URL` is missing; `concurrency: 8 (prefork)` followed by
 `Out of memory` means the start command lacks `--pool=solo`.
+
+## If a deploy silently never goes live
+
+Render keeps the source checkout between builds. If a build fails, the
+previous release stays live and nothing on the site changes — the only
+sign is `/sw.js` still reporting the old `BUILD` id. Check the deploy's
+build log in the dashboard first; the build command now starts with
+`rm -rf node_modules` and uses `npm ci`, so a stale or corrupt dependency
+tree cannot be the cause. "Clear build cache & deploy" (Manual Deploy
+menu) is the reset for anything else that survives between builds. The
+same build command must be copied by hand onto the hand-created
+`erp-api` service; `render.yaml` is only the reference.
