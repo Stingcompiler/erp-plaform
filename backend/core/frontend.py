@@ -5,9 +5,12 @@ Local dev keeps using `next dev` on :3000 against this API on :8000 via CORS
 urls.py when DEBUG is False, so the two workflows don't collide.
 """
 import mimetypes
+from pathlib import Path
 
 from django.conf import settings
+from django.core.exceptions import SuspiciousFileOperation
 from django.http import FileResponse, Http404, HttpResponse
+from django.utils._os import safe_join
 
 from core.seo_inject import append_robots_extra, inject_seo
 
@@ -24,10 +27,22 @@ IMMUTABLE_PREFIX = "_next/static/"
 
 
 def _candidates(clean_path):
+    """Files under the export that may answer `clean_path`, or an empty list
+    when the path escapes the export directory.
+
+    The catch-all URL hands us whatever the client sent, so ``../`` segments
+    (raw or percent-encoded, decoded by the URL resolver) would otherwise walk
+    out of ``frontend/out`` into the backend tree: the protected environment
+    file, the SQLite database, MEDIA_ROOT. ``safe_join`` resolves the path and
+    refuses anything not contained in the export; a refused path is a plain
+    404, the same answer an unknown page gets."""
     if clean_path == "":
         return [FRONTEND_DIST / "index.html"]
-    base = FRONTEND_DIST / clean_path
-    return [base, base / "index.html", FRONTEND_DIST / f"{clean_path}.html"]
+    try:
+        base = Path(safe_join(str(FRONTEND_DIST), clean_path))
+    except (SuspiciousFileOperation, ValueError):
+        return []
+    return [base, base / "index.html", base.with_name(f"{base.name}.html")]
 
 
 def _rewritten(candidate, clean):
