@@ -1,4 +1,5 @@
 from uuid import uuid4
+from django.core.cache import cache
 from django.urls import reverse
 from rest_framework.test import APITestCase
 from accounts.models import User
@@ -8,6 +9,9 @@ from website.models import PlatformLead
 
 class DemoRequestTests(APITestCase):
     def setUp(self):
+        # The per-IP throttle counter lives in the shared locmem cache, so
+        # earlier test classes in the same process can exhaust its budget.
+        cache.clear()
         self.body = {
             "request_uuid": str(
                 uuid4()),
