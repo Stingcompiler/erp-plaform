@@ -28,6 +28,33 @@ class RoleSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "scope_level", "description", "permissions"]
 
 
+# Authority ladder for company user administration. An actor may administer
+# only accounts whose CURRENT role ranks below their own (owners may also
+# administer other owners), and may assign only roles at or below their own
+# rank. Every other business role ranks 0; platform roles sit outside the
+# ladder and are refused to tenant actors separately.
+ROLE_RANK = {"Business Owner": 3, "General Manager": 2, "Branch Manager": 1}
+
+
+def role_rank(role):
+    if role is None:
+        return 0
+    return ROLE_RANK.get(role.name, 0)
+
+
+def invalidate_sessions(user):
+    """Blacklist every refresh token the user holds, so a password change
+    (their own, or an administrator's reset) ends any session the old
+    credential opened. Access tokens expire on their own within minutes."""
+    from rest_framework_simplejwt.token_blacklist.models import (
+        BlacklistedToken,
+        OutstandingToken,
+    )
+
+    for token in OutstandingToken.objects.filter(user=user):
+        BlacklistedToken.objects.get_or_create(token=token)
+
+
 class UserSerializer(serializers.ModelSerializer):
     """Read/write serializer for user administration within a company."""
 
@@ -66,6 +93,22 @@ class UserSerializer(serializers.ModelSerializer):
             )
 
         if actor_company_id is not None:
+            actor_rank = role_rank(getattr(actor, "role", None))
+            current_role = getattr(self.instance, "role", None) if self.instance else None
+            editing_other = (
+                self.instance is not None and self.instance.pk != getattr(actor, "pk", None)
+            )
+            if editing_other and (
+                role_rank(current_role) > actor_rank
+                or (actor_role_name == "Branch Manager" and role_rank(current_role) >= 1)
+            ):
+                raise serializers.ValidationError(
+                    {"role": "You cannot modify an account with equal or higher authority."}
+                )
+            if role is not None and role_rank(role) > actor_rank:
+                raise serializers.ValidationError(
+                    {"role": "You cannot assign a role above your own authority."}
+                )
             if actor_role_name == "General Manager":
                 if role and role.name == "Business Owner":
                     raise serializers.ValidationError(
@@ -171,6 +214,8 @@ class UserSerializer(serializers.ModelSerializer):
         if password:
             instance.set_password(password)
         instance.save()
+        if password:
+            invalidate_sessions(instance)
         return instance
 
 
