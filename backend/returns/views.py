@@ -6,6 +6,7 @@ from rest_framework.response import Response
 
 from core.activity import log_activity
 from core.documents import credit_note_document, debit_note_document
+from core.rbac import can_approve_high_value
 from core.scoping import AppendOnlyScopedViewSet, CompanyScopedQuerySetMixin
 from inventory.models import StockMovement, Warehouse
 from returns.models import (
@@ -256,6 +257,13 @@ class CreditNoteViewSet(AppendOnlyScopedViewSet):
         to see or hand over the document."""
         return Response(credit_note_document(self.get_object()))
 
+    @action(detail=True, methods=["post"])
+    def void(self, request, pk=None):
+        """Cancel a wrongly issued note. The row stays (Rule #9); `is_void`
+        removes it from every balance. Refused once money was refunded against
+        it — reverse the refund first — and reserved for a manager."""
+        return _void_note(self, request, "CreditNote")
+
 
 class DebitNoteViewSet(AppendOnlyScopedViewSet):
     # A debit note reduces what we owe a supplier — the purchasing side.
@@ -271,3 +279,48 @@ class DebitNoteViewSet(AppendOnlyScopedViewSet):
     @action(detail=True, methods=["get"])
     def document(self, request, pk=None):
         return Response(debit_note_document(self.get_object()))
+
+    @action(detail=True, methods=["post"])
+    def void(self, request, pk=None):
+        return _void_note(self, request, "DebitNote")
+
+
+def _void_note(viewset, request, entity_type):
+    if not can_approve_high_value(request.user):
+        return Response(
+            {"detail": "Only a manager or owner may void a note."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    reason = str(request.data.get("reason") or "").strip()
+    if not reason:
+        return Response(
+            {"reason": "A reason is required to void a note."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    with transaction.atomic():
+        # Resolve through the scoped queryset (404 for another tenant), then
+        # lock the bare row: FOR UPDATE cannot span the viewset's
+        # select_related outer joins on PostgreSQL.
+        target = viewset.get_object()
+        note = type(target).objects.select_for_update().get(pk=target.pk)
+        if note.is_void:
+            return Response({"detail": "This note is already void."}, status=400)
+        if entity_type == "CreditNote" and note.refunds.exists():
+            return Response(
+                {"detail": "Money was refunded against this note; it cannot be voided."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if entity_type == "CreditNote" and note.invoice_id and note.invoice.is_void:
+            return Response(
+                {"detail": "This note voided an invoice; it stands with that invoice."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        note.is_void = True
+        suffix = f"VOID: {reason}"
+        note.reason = (f"{note.reason} | {suffix}" if note.reason else suffix)[:255]
+        note.save(update_fields=["is_void", "reason"])
+        log_activity(
+            action="void", request=request, entity_type=entity_type, entity_id=note.pk,
+            metadata={"reason": reason, "amount": str(note.amount)},
+        )
+    return Response(viewset.get_serializer(note).data)

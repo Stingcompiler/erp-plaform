@@ -8,6 +8,7 @@ from rest_framework.test import APITestCase
 from accounts.models import Role, User
 from inventory.models import Product, StockBatch, StockMovement, Warehouse
 from org.models import Branch, Company
+from sales.models import Customer
 
 
 class FefoAtSaleTests(APITestCase):
@@ -30,6 +31,9 @@ class FefoAtSaleTests(APITestCase):
         self.late = self._lot("L-LATE", today + timedelta(days=300), 10)
         self.soon = self._lot("L-SOON", today + timedelta(days=30), 5)
         self.expired = self._lot("L-EXP", today - timedelta(days=1), 50)
+        # Sales on account need a named debtor (see POSCheckoutSerializer);
+        # tests that leave a balance sell to this account customer.
+        self.customer = Customer.objects.create(company=self.company, name="Account customer")
         self.client.force_authenticate(self.user)
 
     def _lot(self, lot, expiry, qty):
@@ -48,7 +52,7 @@ class FefoAtSaleTests(APITestCase):
             line["batch"] = batch.id
         return self.client.post(
             reverse("pos-checkout"),
-            {"warehouse": self.wh.id, "lines": [line]},
+            {"warehouse": self.wh.id, "customer": self.customer.id, "lines": [line]},
             format="json",
         )
 

@@ -15,7 +15,12 @@ def overdue_invoices(qs):
         invoice_id=OuterRef("pk"),
         is_void=False).order_by().values("invoice_id").annotate(
         total=Sum("amount")).values("total")
+    from sales.models import Refund
+    refunded = Refund.objects.filter(
+        credit_note__invoice_id=OuterRef("pk")).order_by().values(
+        "credit_note__invoice_id").annotate(total=Sum("amount")).values("total")
     return qs.filter(is_void=False, due_date__lt=timezone.localdate()).annotate(
         outstanding=F("total") - Coalesce(Subquery(paid), Decimal("0"), output_field=money)
-        - Coalesce(Subquery(credited), Decimal("0"), output_field=money),
+        - Coalesce(Subquery(credited), Decimal("0"), output_field=money)
+        + Coalesce(Subquery(refunded), Decimal("0"), output_field=money),
     ).filter(outstanding__gt=0)

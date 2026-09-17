@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Download, Printer } from "lucide-react";
+import { Ban, Download, Printer } from "lucide-react";
 
 import { sales } from "@/lib/api";
+import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import DocumentDrawer from "@/components/print/DocumentDrawer";
+import VoidDrawer from "@/components/finance/VoidDrawer";
 import { Badge, Button, Card, Input } from "@/components/ui/kit";
 
 const money = (v) =>
@@ -16,9 +18,12 @@ const statusTone = { paid: "ok", partial: "warn", unpaid: "danger", void: "muted
 
 export default function InvoiceList({ refreshKey }) {
   const { t } = useI18n();
+  const { can } = useAuth();
+  const canVoid = can("finance.approve");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState(null);
+  const [voiding, setVoiding] = useState(null);
   const generation = useRef(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -111,6 +116,19 @@ export default function InvoiceList({ refreshKey }) {
                     >
                       <Printer size={15} />
                     </button>
+                    {canVoid && inv.status !== "void" && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setVoiding(inv);
+                        }}
+                        title={t("corrections.voidInvoice")}
+                        aria-label={t("corrections.voidInvoice")}
+                        className="ms-1 rounded-control p-1.5 text-muted hover:bg-paper hover:text-danger"
+                      >
+                        <Ban size={15} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -128,6 +146,15 @@ export default function InvoiceList({ refreshKey }) {
         onClose={() => setOpenId(null)}
         fetcher={sales.invoiceDocument}
         title={t("sales.invoice")}
+      />
+      <VoidDrawer
+        open={Boolean(voiding)}
+        onClose={() => setVoiding(null)}
+        onDone={load}
+        title={t("corrections.voidInvoice")}
+        summary={voiding ? `${voiding.number_display || voiding.number} · ${money(voiding.total)}` : ""}
+        paidAmount={voiding?.amount_paid}
+        submit={(body) => sales.voidInvoice(voiding.id, body)}
       />
     </Card>
   );

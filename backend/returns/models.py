@@ -202,6 +202,17 @@ class CreditNote(models.Model):
             self.number = allocate_document_number(self.company_id, self.DOC_TYPE)
         super().save(*args, **kwargs)
 
+    def refunded_total(self):
+        from django.db.models import Sum
+        from django.db.models.functions import Coalesce
+        return self.refunds.aggregate(t=Coalesce(Sum("amount"), Decimal("0")))["t"]
+
+    def remaining_refundable(self):
+        """What may still be handed back against this note."""
+        if self.is_void:
+            return Decimal("0")
+        return self.amount - self.refunded_total()
+
     def __str__(self):
         return f"{self.number_display} {self.amount}"
 
@@ -280,8 +291,20 @@ def applied_credit_total(invoice):
 
 
 def applied_debit_total(supplier):
+    """Debit notes that reduce what we owe the supplier but are not tied to a
+    specific bill. Notes linked to a bill are netted inside Bill.amount_due()
+    (see applied_debit_total_for_bill), so counting them here as well would
+    reduce AP twice."""
     from django.db.models import Sum
     from django.db.models.functions import Coalesce
-    return supplier.debit_notes.filter(is_void=False).aggregate(
+    return supplier.debit_notes.filter(is_void=False, bill__isnull=True).aggregate(
+        t=Coalesce(Sum("amount"), Decimal("0"))
+    )["t"]
+
+
+def applied_debit_total_for_bill(bill):
+    from django.db.models import Sum
+    from django.db.models.functions import Coalesce
+    return bill.debit_notes.filter(is_void=False).aggregate(
         t=Coalesce(Sum("amount"), Decimal("0"))
     )["t"]

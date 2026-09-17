@@ -34,6 +34,9 @@ class SalesBase(APITestCase):
         self.bank_a = CompanyBankAccount.objects.create(
             company=self.company_a, bank_name="Bank of Alpha", account_name="Alpha Co",
         )
+        # Sales on account need a named debtor (see POSCheckoutSerializer);
+        # tests that leave a balance sell to this account customer.
+        self.customer = Customer.objects.create(company=self.company_a, name="Account customer")
         r = self.client.post(
             reverse("auth-login"), {"email": "a@alpha.test", "password": "passw0rd123"}
         )
@@ -42,6 +45,7 @@ class SalesBase(APITestCase):
     def checkout(self, client_uuid=None, payment=None, qty="2"):
         payload = {
             "warehouse": self.wh_a.id,
+            "customer": self.customer.id,
             "lines": [{"product": self.product.id, "quantity": qty}],
         }
         if client_uuid:
@@ -101,7 +105,8 @@ class InvoiceNumberingTests(SalesBase):
         )
         resp = client_b.post(
             reverse("pos-checkout"),
-            {"warehouse": wh_b.id, "lines": [{"product": prod_b.id, "quantity": "1"}]},
+            {"warehouse": wh_b.id, "lines": [{"product": prod_b.id, "quantity": "1"}],
+             "payment": {"method": "cash", "amount": "50.00"}},
             format="json",
         )
         self.assertEqual(resp.data["number"], 1)

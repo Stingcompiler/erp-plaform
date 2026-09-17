@@ -5,6 +5,8 @@ from django.db import transaction
 from django.db.models import Sum
 from rest_framework import serializers
 
+from core.activity import log_activity
+from core.rbac import can_approve_high_value
 from core.scoping import assert_user_branch
 
 from inventory.models import Product, StockMovement, Warehouse
@@ -206,16 +208,28 @@ class SalesReturnWriteSerializer(serializers.Serializer):
         # Rule #6: every return generates a note. Walk-in notes carry the
         # invoice as their party reference and intentionally have no customer.
         if credit_total > 0:
+            credit_total = credit_total.quantize(Decimal("0.01"))
+            locked = Invoice.objects.select_for_update().get(pk=invoice.pk)
+            ceiling = locked.total - locked.credited_total()
+            if credit_total > ceiling:
+                # Rounding of proportional partial returns can overshoot by a
+                # cent on the last one; never credit more than the sale.
+                credit_total = max(ceiling, Decimal("0"))
             note = CreditNote.objects.create(
                 company_id=company_id,
                 customer=invoice.customer,
                 invoice=invoice,
                 sales_return=sales_return,
-                amount=credit_total.quantize(Decimal("0.01")),
+                amount=credit_total,
                 reason=validated_data.get("reason", ""),
                 created_by=user if user.is_authenticated else None,
             )
             Invoice.objects.filter(pk=invoice.pk).update(updated_at=note.created_at)
+            log_activity(
+                action="create", request=request, entity_type="CreditNote",
+                entity_id=note.pk,
+                metadata={"sales_return": sales_return.pk, "amount": str(note.amount)},
+            )
         return sales_return
 
     def to_representation(self, instance):
@@ -398,16 +412,24 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
             )
 
         # Rule #6: the note the supplier receives, reducing what we owe them.
+        cost_basis = sum(
+            (line["goods_receipt_line"].unit_cost * line["quantity"]
+             for line in validated_data["lines"]),
+            Decimal("0"),
+        ).quantize(Decimal("0.01"))
         debit_amount = validated_data.get("debit_amount")
         if debit_amount is None:
-            debit_amount = sum(
-                line["goods_receipt_line"].unit_cost * line["quantity"]
-                for line in validated_data["lines"]
-            ).quantize(Decimal("0.01"))
+            debit_amount = cost_basis
+        elif debit_amount > cost_basis and not can_approve_high_value(user):
+            # Claiming more from the supplier than the goods cost us is a
+            # negotiated adjustment, not a clerk's data entry.
+            raise serializers.ValidationError(
+                {"debit_amount": f"The debit note cannot exceed the goods' cost ({cost_basis})."}
+            )
         bill = validated_data.get("bill")
         if bill is not None:
             _assert_company(self, bill, "bill")
-        DebitNote.objects.create(
+        note = DebitNote.objects.create(
             company_id=company_id,
             supplier=supplier,
             bill=bill,
@@ -416,6 +438,21 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
             reason=validated_data.get("reason", ""),
             created_by=user if user.is_authenticated else None,
         )
+        log_activity(
+            action="create", request=request, entity_type="DebitNote",
+            entity_id=note.pk,
+            metadata={
+                "purchase_return": pr.pk, "amount": str(note.amount),
+                **({"cost_basis": str(cost_basis)} if note.amount != cost_basis else {}),
+            },
+        )
+        movement_ids = [line.movement_id for line in pr.lines.all()]
+        if movement_ids:
+            log_activity(
+                action="create", request=request, entity_type="StockMovement",
+                entity_id=movement_ids[0],
+                metadata={"purchase_return": pr.pk, "movements": movement_ids},
+            )
         return pr
 
     def to_representation(self, instance):
@@ -426,6 +463,14 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
 
 class CreditNoteSerializer(serializers.ModelSerializer):
     number_display = serializers.CharField(read_only=True)
+    refunded_total = serializers.SerializerMethodField()
+    remaining_refundable = serializers.SerializerMethodField()
+
+    def get_refunded_total(self, obj):
+        return str(obj.refunded_total())
+
+    def get_remaining_refundable(self, obj):
+        return str(obj.remaining_refundable())
     # Names so a note list reads as documents rather than as foreign keys.
     customer_name = serializers.CharField(
         source="customer.name", read_only=True, default=None
@@ -440,7 +485,7 @@ class CreditNoteSerializer(serializers.ModelSerializer):
             "id", "company", "customer", "customer_name",
             "invoice", "invoice_number", "sales_return", "amount",
             "reason", "is_void", "created_by", "created_at", "client_uuid",
-            "number", "number_display",
+            "number", "number_display", "refunded_total", "remaining_refundable",
         ]
         read_only_fields = [
             "company", "is_void", "created_by", "created_at", "number", "number_display",
@@ -472,15 +517,33 @@ class CreditNoteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"customer": "A customer is required unless this note is linked to an invoice."}
             )
+        if invoice is not None:
+            if invoice.is_void:
+                raise serializers.ValidationError({"invoice": "That invoice is void."})
+            ceiling = invoice.total - invoice.credited_total()
+            if attrs["amount"] > ceiling:
+                raise serializers.ValidationError(
+                    {"amount": f"Only {ceiling} of this invoice remains creditable."}
+                )
         return attrs
 
     def create(self, validated_data):
         request = self.context.get("request")
         if request and request.user.is_authenticated:
             validated_data.setdefault("created_by", request.user)
-        note = super().create(validated_data)
-        if note.invoice_id:
-            Invoice.objects.filter(pk=note.invoice_id).update(updated_at=note.created_at)
+        with transaction.atomic():
+            invoice = validated_data.get("invoice")
+            if invoice is not None:
+                invoice = Invoice.objects.select_for_update().get(pk=invoice.pk)
+                ceiling = invoice.total - invoice.credited_total()
+                if validated_data["amount"] > ceiling:
+                    raise serializers.ValidationError(
+                        {"amount": f"Only {ceiling} of this invoice remains creditable."}
+                    )
+                validated_data["invoice"] = invoice
+            note = super().create(validated_data)
+            if note.invoice_id:
+                Invoice.objects.filter(pk=note.invoice_id).update(updated_at=note.created_at)
         return note
 
 

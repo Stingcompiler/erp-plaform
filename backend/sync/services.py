@@ -33,8 +33,8 @@ from returns.serializers import (
     PurchaseReturnWriteSerializer,
     SalesReturnWriteSerializer,
 )
-from sales.models import Invoice, Payment
-from sales.serializers import PaymentSerializer, POSCheckoutSerializer
+from sales.models import Invoice, Payment, Refund
+from sales.serializers import PaymentSerializer, POSCheckoutSerializer, RefundSerializer
 
 APPLIED = "applied"
 DUPLICATE = "duplicate"
@@ -71,6 +71,7 @@ OP_REGISTRY = {
         PurchaseReturnWriteSerializer, PurchaseReturn, "purchase_returns", PLAIN
     ),
     "credit_note": OpSpec(CreditNoteSerializer, CreditNote, "sales_returns", MODEL),
+    "refund": OpSpec(RefundSerializer, Refund, "sales_returns", MODEL),
     "debit_note": OpSpec(DebitNoteSerializer, DebitNote, "purchase_returns", MODEL),
 }
 

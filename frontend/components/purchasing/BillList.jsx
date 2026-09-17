@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { purchasing } from "@/lib/api";
+import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { useOfflineMutation } from "@/components/sync/useOfflineMutation";
+import VoidDrawer from "@/components/finance/VoidDrawer";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 
@@ -134,9 +136,12 @@ function PaymentDrawer({ bill, supplierName, bankAccounts, open, onClose, onPaid
 
 export default function BillList({ suppliersById, bankAccounts, writable, refreshKey }) {
   const { t } = useI18n();
+  const { can } = useAuth();
+  const canVoid = can("finance.approve");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [payFor, setPayFor] = useState(null);
+  const [voiding, setVoiding] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -202,6 +207,14 @@ export default function BillList({ suppliersById, bankAccounts, writable, refres
                           {t("purchasing.pay")}
                         </button>
                       )}
+                      {canVoid && !b.is_void && Number(b.amount_paid) === 0 && (
+                        <button
+                          onClick={() => setVoiding(b)}
+                          className="ms-3 text-sm text-danger hover:underline"
+                        >
+                          {t("corrections.voidBill")}
+                        </button>
+                      )}
                     </td>
                   )}
                 </tr>
@@ -216,6 +229,14 @@ export default function BillList({ suppliersById, bankAccounts, writable, refres
         open={Boolean(payFor)}
         onClose={() => setPayFor(null)}
         onPaid={load}
+      />
+      <VoidDrawer
+        open={Boolean(voiding)}
+        onClose={() => setVoiding(null)}
+        onDone={load}
+        title={t("corrections.voidBill")}
+        summary={voiding ? `${suppliersById[voiding.supplier] || ""} · ${money(voiding.total)}` : ""}
+        submit={(body) => purchasing.voidBill(voiding.id, body)}
       />
     </Card>
   );

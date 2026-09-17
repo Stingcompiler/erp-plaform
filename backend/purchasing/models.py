@@ -210,9 +210,14 @@ class Bill(models.Model):
         return self.payments.aggregate(t=Coalesce(Sum("amount"), Decimal("0")))["t"]
 
     def amount_due(self):
+        """total − payments − debit notes raised against this bill. Every AP
+        figure (supplier balance, aging, cash-flow forecast, CFO KPIs) reads
+        this one method, so a purchase return lowers payables everywhere at
+        once instead of only on the supplier card."""
         if self.is_void:
             return Decimal("0")
-        return self.total - self.amount_paid()
+        from returns.models import applied_debit_total_for_bill
+        return self.total - self.amount_paid() - applied_debit_total_for_bill(self)
 
     @property
     def status(self):

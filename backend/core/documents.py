@@ -200,3 +200,27 @@ def supplier_payment_document(payment):
         "verified_by": _person(payment.verified_by),
         "verified_at": _date(payment.verified_at),
     }
+
+
+def refund_voucher_document(refund):
+    """Proof that money went back to the customer, against a numbered note."""
+    note = refund.credit_note
+    return {
+        "doc_type": "refund",
+        "number": f"RF-{refund.pk:06d}",
+        "date": _date(refund.recorded_at),
+        "currency": refund.company.currency,
+        "issuer": issuer_block(refund.company),
+        "party": party_block(note.customer),
+        "party_role": "customer",
+        "against_note": note.number_display,
+        "against_invoice": note.invoice.number_display if note.invoice_id else None,
+        "method": refund.method,
+        "bank_account": (
+            refund.company_bank_account.bank_name if refund.company_bank_account_id else None
+        ),
+        "reference_last4": refund.reference_last4,
+        "amount": money(refund.amount),
+        "note": refund.note,
+        "recorded_by": _person(refund.recorded_by),
+    }

@@ -12,6 +12,7 @@ from sales.views import (
     PaymentViewSet,
     POSCheckoutView,
     QuotationViewSet,
+    RefundViewSet,
     SalesOrderViewSet,
 )
 
@@ -22,6 +23,7 @@ router.register("quotations", QuotationViewSet, basename="quotation")
 router.register("sales-orders", SalesOrderViewSet, basename="salesorder")
 router.register("invoices", InvoiceViewSet, basename="invoice")
 router.register("payments", PaymentViewSet, basename="payment")
+router.register("refunds", RefundViewSet, basename="refund")
 router.register("cash-shifts", CashShiftViewSet, basename="cashshift")
 router.register(
     "drawer-movements", CashDrawerMovementViewSet, basename="drawermovement"

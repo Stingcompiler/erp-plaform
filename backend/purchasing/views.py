@@ -251,6 +251,42 @@ class BillViewSet(AppendOnlyScopedViewSet):
     serializer_class = BillSerializer
     activity_entity_type = "Bill"
 
+    @action(detail=True, methods=["post"])
+    def void(self, request, pk=None):
+        """A bill keyed wrongly (1,000,000 for 100,000) inflated payables for
+        ever, because nothing could touch it. Voiding keeps the row and drops
+        it from AP (Rule #9); a bill with payments cannot be voided — record a
+        debit note or correct the payment instead. Manager-only."""
+        if not can_approve_high_value(request.user):
+            return Response(
+                {"detail": "Only a manager or owner may void a bill."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        reason = str(request.data.get("reason") or "").strip()
+        if not reason:
+            return Response(
+                {"reason": "A reason is required to void a bill."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        from django.db import transaction
+
+        with transaction.atomic():
+            bill = Bill.objects.select_for_update().get(pk=self.get_object().pk)
+            if bill.is_void:
+                return Response({"detail": "This bill is already void."}, status=400)
+            if bill.payments.exists():
+                return Response(
+                    {"detail": "Payments were recorded against this bill; it cannot be voided."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            bill.is_void = True
+            bill.save(update_fields=["is_void"])
+            log_activity(
+                action="void", request=request, entity_type="Bill", entity_id=bill.pk,
+                metadata={"reason": reason, "total": str(bill.total)},
+            )
+        return Response(self.get_serializer(bill).data)
+
 
 class SupplierPaymentViewSet(AppendOnlyScopedViewSet):
     queryset = SupplierPayment.objects.select_related(

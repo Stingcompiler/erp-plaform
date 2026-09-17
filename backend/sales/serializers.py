@@ -4,10 +4,13 @@ from decimal import Decimal
 from django.db import transaction
 from rest_framework import serializers
 
+from core.activity import log_activity
+from core.rbac import can_approve_high_value
 from core.scoping import assert_user_branch
 
 from inventory.models import Product, ProductPack, StockBatch, StockMovement, Warehouse
 from sales.models import (
+    Refund,
     CashDrawerMovement,
     CashShift,
     CompanyBankAccount,
@@ -89,12 +92,29 @@ class CustomerSerializer(serializers.ModelSerializer):
         model = Customer
         fields = [
             "id", "company", "name", "phone", "email", "address",
-            "is_active", "ar_balance", "updated_at",
+            "is_active", "credit_limit", "credit_hold", "ar_balance", "updated_at",
         ]
         read_only_fields = ["company", "updated_at"]
 
     def get_ar_balance(self, obj):
         return obj.ar_balance()
+
+    def validate(self, attrs):
+        # Credit terms are a manager's decision, not a data-entry field.
+        request = self.context.get("request")
+        touching_credit = "credit_limit" in attrs or "credit_hold" in attrs
+        if touching_credit and request is not None:
+            current_limit = getattr(self.instance, "credit_limit", None)
+            current_hold = getattr(self.instance, "credit_hold", False)
+            changed = (
+                attrs.get("credit_limit", current_limit) != current_limit
+                or attrs.get("credit_hold", current_hold) != current_hold
+            )
+            if changed and not can_approve_high_value(request.user):
+                raise serializers.ValidationError(
+                    {"credit_limit": "Only a manager may set credit terms."}
+                )
+        return attrs
 
 
 class CompanyBankAccountSerializer(serializers.ModelSerializer):
@@ -294,7 +314,7 @@ class PaymentSerializer(serializers.ModelSerializer):
         model = Payment
         fields = [
             "id", "company", "invoice", "method", "company_bank_account",
-            "sender_bank_name", "reference_last4", "amount", "recorded_by",
+            "sender_bank_name", "reference_last4", "amount", "shift", "recorded_by",
             "recorded_at", "received_at", "verified_at", "verified_by", "client_uuid",
         ]
         read_only_fields = [
@@ -364,13 +384,44 @@ class PaymentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"company_bank_account": "Not your company's bank account."}
             )
+        shift = attrs.get("shift")
+        if shift is not None:
+            # A counter collection lands in the drawer that took it, so the
+            # shift's expected cash includes it. Only the holder of an open
+            # drawer (or a manager) may book money into it.
+            if shift.company_id != company_id:
+                raise serializers.ValidationError({"shift": "Not your company's till session."})
+            if shift.status != CashShift.OPEN:
+                raise serializers.ValidationError(
+                    {"shift": "That till session is closed — open a new one."}
+                )
+            if shift.opened_by_id != user.pk and not can_approve_high_value(user):
+                raise serializers.ValidationError(
+                    {"shift": "You can only record cash into your own open drawer."}
+                )
 
     def create(self, validated_data):
         request = self.context.get("request")
         if request and request.user.is_authenticated:
             validated_data.setdefault("recorded_by", request.user)
-        payment = super().create(validated_data)
-        Invoice.objects.filter(pk=payment.invoice_id).update(updated_at=payment.recorded_at)
+        # The balance check in validate() ran without a lock; two tills (or a
+        # sync replay racing a live payment) could both see the full balance
+        # and both commit. Re-check under a row lock on the invoice so the
+        # sum of payments can never exceed what was owed.
+        with transaction.atomic():
+            invoice = Invoice.objects.select_for_update().get(
+                pk=validated_data["invoice"].pk
+            )
+            due = invoice.amount_due()
+            if validated_data["amount"] > due:
+                raise serializers.ValidationError(
+                    {"amount": f"Amount exceeds the balance due ({due})."}
+                )
+            validated_data["invoice"] = invoice
+            payment = super().create(validated_data)
+            Invoice.objects.filter(pk=payment.invoice_id).update(
+                updated_at=payment.recorded_at
+            )
         return payment
 
 
@@ -431,9 +482,9 @@ class CashDrawerMovementSerializer(serializers.ModelSerializer):
         model = CashDrawerMovement
         fields = [
             "id", "shift", "kind", "kind_display", "amount", "reason",
-            "recorded_by_name", "recorded_at", "client_uuid",
+            "recorded_by_name", "recorded_at", "client_uuid", "refund",
         ]
-        read_only_fields = ["recorded_at"]
+        read_only_fields = ["recorded_at", "refund"]
 
     def validate(self, attrs):
         kind = attrs.get("kind")
@@ -799,12 +850,71 @@ class POSCheckoutSerializer(serializers.Serializer):
         invoice.save(update_fields=["subtotal", "discount_total", "tax_amount", "total"])
 
         pay = validated_data.get("payment")
+        paid_now = pay["amount"] if pay else Decimal("0")
+        self._assert_credit_allowed(
+            validated_data.get("customer"), invoice, invoice.total - paid_now, user
+        )
         if pay:
-            self._record_payment(
+            payment = self._record_payment(
                 invoice, pay, company_id, user, validated_data.get("shift"), occurred_at
+            )
+            log_activity(
+                action="create", request=request, entity_type="Payment",
+                entity_id=payment.pk,
+                metadata={"invoice": invoice.pk, "amount": str(payment.amount)},
+            )
+        movement_ids = list(
+            StockMovement.objects.filter(
+                reference_type="Invoice", reference_id=str(invoice.pk)
+            ).values_list("pk", flat=True)
+        )
+        if movement_ids:
+            log_activity(
+                action="create", request=request, entity_type="StockMovement",
+                entity_id=movement_ids[0],
+                metadata={"invoice": invoice.pk, "movements": movement_ids},
             )
 
         return invoice
+
+    def _assert_credit_allowed(self, customer, invoice, unpaid, user):
+        """A sale that leaves a balance is a loan, and a loan needs a debtor.
+
+        Anonymous credit produced receivables nobody owed that the debt ledger
+        could not even list. A named customer on hold gets nothing on account;
+        one with a limit may not pass it, unless a manager overrides — and the
+        override is written to the audit trail. Runs inside the checkout
+        transaction, so a refusal rolls the invoice back."""
+        if unpaid <= 0:
+            return
+        if customer is None:
+            raise serializers.ValidationError(
+                {"customer": "A sale on account needs a named customer."}
+            )
+        if customer.credit_hold:
+            raise serializers.ValidationError(
+                {"customer": "This customer's account is on hold; take full payment."}
+            )
+        if customer.credit_limit is not None:
+            # The invoice row already exists at this point (payment not yet),
+            # so the customer's balance includes this sale's full total; take
+            # that out and add back only what stays unpaid.
+            exposure = customer.ar_balance() - invoice.total + unpaid
+            if exposure > customer.credit_limit:
+                if not can_approve_high_value(user):
+                    raise serializers.ValidationError(
+                        {
+                            "customer": (
+                                f"This sale would take the customer to {exposure}, above "
+                                f"their credit limit of {customer.credit_limit}."
+                            )
+                        }
+                    )
+                log_activity(
+                    action="credit_limit_override", request=self.context["request"],
+                    entity_type="Customer", entity_id=customer.pk,
+                    metadata={"exposure": str(exposure), "limit": str(customer.credit_limit)},
+                )
 
     def _record_payment(self, invoice, pay, company_id, user, shift=None, occurred_at=None):
         if shift is not None:
@@ -837,7 +947,7 @@ class POSCheckoutSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 "Cash payment must not carry bank/reference details."
             )
-        Payment.objects.create(
+        return Payment.objects.create(
             company_id=company_id, invoice=invoice, method=method,
             company_bank_account=ba, sender_bank_name=sender,
             reference_last4=ref, amount=pay["amount"],
@@ -848,3 +958,118 @@ class POSCheckoutSerializer(serializers.Serializer):
 
     def to_representation(self, instance):
         return InvoiceSerializer(instance, context=self.context).data
+
+
+# ---------- Refund (money back against a Credit Note) ----------
+
+class RefundSerializer(serializers.ModelSerializer):
+    credit_note_number = serializers.CharField(
+        source="credit_note.number_display", read_only=True
+    )
+    invoice = serializers.IntegerField(source="credit_note.invoice_id", read_only=True)
+    customer_name = serializers.CharField(
+        source="credit_note.customer.name", read_only=True, default=None
+    )
+
+    class Meta:
+        model = Refund
+        fields = [
+            "id", "company", "credit_note", "credit_note_number", "invoice",
+            "customer_name", "method", "company_bank_account", "reference_last4",
+            "amount", "shift", "note", "recorded_by", "recorded_at", "received_at",
+            "client_uuid",
+        ]
+        read_only_fields = ["company", "recorded_by", "received_at"]
+        extra_kwargs = {"recorded_at": {"required": False}}
+
+    def validate_recorded_at(self, value):
+        return validate_business_time(value)
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        company_id = getattr(user, "company_id", None)
+        amount = attrs.get("amount")
+        if amount is None or amount <= 0:
+            raise serializers.ValidationError({"amount": "Amount must be positive."})
+        note = attrs["credit_note"]
+        if note.company_id != company_id:
+            raise serializers.ValidationError({"credit_note": "Not your company's credit note."})
+        if note.is_void:
+            raise serializers.ValidationError({"credit_note": "That credit note is void."})
+        if note.invoice_id:
+            assert_user_branch(user, note.invoice, "credit_note")
+        method = attrs.get("method")
+        ba = attrs.get("company_bank_account")
+        ref = attrs.get("reference_last4", "")
+        if method == Refund.BANK_TRANSFER:
+            if ba is None:
+                raise serializers.ValidationError(
+                    {"company_bank_account": "A bank refund needs the paying account."}
+                )
+            if ba.company_id != company_id:
+                raise serializers.ValidationError(
+                    {"company_bank_account": "Not your company's bank account."}
+                )
+            if not ref or not ref.isdigit() or len(ref) > 4:
+                raise serializers.ValidationError(
+                    {"reference_last4": "Enter up to 4 reference digits."}
+                )
+        elif method == Refund.CASH and (ba or ref):
+            raise serializers.ValidationError(
+                "A cash refund must not carry bank or reference details."
+            )
+        shift = attrs.get("shift")
+        if shift is not None:
+            if shift.company_id != company_id:
+                raise serializers.ValidationError({"shift": "Not your company's till session."})
+            if shift.status != CashShift.OPEN:
+                raise serializers.ValidationError({"shift": "That till session is closed."})
+            if shift.opened_by_id != user.pk and not can_approve_high_value(user):
+                raise serializers.ValidationError(
+                    {"shift": "You can only refund cash from your own open drawer."}
+                )
+        elif method == Refund.CASH:
+            raise serializers.ValidationError(
+                {"shift": "A cash refund must come out of an open till session."}
+            )
+        threshold = getattr(note.company, "payment_approval_threshold", 0) or 0
+        if threshold and amount >= threshold and not can_approve_high_value(user):
+            raise serializers.ValidationError(
+                {"amount": f"Refunds of {threshold} or more need a manager or owner."}
+            )
+        return attrs
+
+    def create(self, validated_data):
+        from returns.models import CreditNote
+
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            validated_data.setdefault("recorded_by", request.user)
+        with transaction.atomic():
+            note = CreditNote.objects.select_for_update().get(
+                pk=validated_data["credit_note"].pk
+            )
+            remaining = note.remaining_refundable()
+            if validated_data["amount"] > remaining:
+                raise serializers.ValidationError(
+                    {"amount": f"Only {remaining} remains refundable on {note.number_display}."}
+                )
+            validated_data["credit_note"] = note
+            refund = super().create(validated_data)
+            if refund.method == Refund.CASH and refund.shift_id:
+                CashDrawerMovement.objects.create(
+                    company_id=refund.company_id, shift_id=refund.shift_id,
+                    kind=CashDrawerMovement.REFUND, amount=-refund.amount,
+                    reason=refund.note or f"Refund {note.number_display}",
+                    recorded_by=refund.recorded_by, refund=refund,
+                )
+            if note.invoice_id:
+                Invoice.objects.filter(pk=note.invoice_id).update(updated_at=refund.recorded_at)
+            if request is not None:
+                log_activity(
+                    action="create", request=request, entity_type="Refund",
+                    entity_id=refund.pk,
+                    metadata={"credit_note": note.pk, "amount": str(refund.amount)},
+                )
+        return refund

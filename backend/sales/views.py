@@ -25,6 +25,7 @@ from core.scoping import (
     CompanyScopedQuerySetMixin,
 )
 from sales.models import (
+    Refund,
     CashDrawerMovement,
     CashShift,
     CompanyBankAccount,
@@ -35,8 +36,10 @@ from sales.models import (
     SalesOrder,
     SalesOrderLine,
 )
+from inventory.models import StockMovement
 from sales.debt_queries import customer_debts, debt_summary, statement_for_period
 from sales.serializers import (
+    RefundSerializer,
     CashDrawerMovementSerializer,
     CashShiftSerializer,
     CompanyBankAccountSerializer,
@@ -317,6 +320,20 @@ class CashShiftViewSet(AppendOnlyScopedViewSet):
         decorative.
         """
         shift = self.get_object()
+        # A drawer is one person's responsibility. Only its holder — or a
+        # manager stepping in — may declare the count that closes it; a
+        # colleague closing someone else's drawer would leave the variance
+        # with no owner.
+        if shift.opened_by_id != request.user.pk and not can_approve_high_value(request.user):
+            return Response(
+                {"detail": "Only the cashier who opened this drawer, or a manager, may close it."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        with transaction.atomic():
+            shift = CashShift.objects.select_for_update().get(pk=shift.pk)
+            return self._close_locked(request, shift)
+
+    def _close_locked(self, request, shift):
         if shift.status == CashShift.CLOSED:
             return Response(
                 {"detail": "This session is already closed."},
@@ -550,6 +567,110 @@ class InvoiceViewSet(
             qs = qs.filter(condition)
         return qs.order_by("-issued_at", "-pk")
 
+    @action(detail=True, methods=["post"])
+    def void(self, request, pk=None):
+        """
+        Cancel an invoice by offsetting entries, never by editing it (Rule #9).
+
+        Body: {"reason": "...", "refund": {method, company_bank_account?,
+        reference_last4?, shift?}} — `refund` is required when anything was
+        paid, so the money the customer handed over is accounted for.
+
+        Writes, atomically: a full-value Credit Note, a Refund of whatever was
+        paid, one `sales_return_in` movement reversing each `sale_out` of the
+        sale (same warehouse, lot and cost), then `is_void`. Refused when the
+        invoice already has a return against it: those goods were credited by
+        their own note and voiding on top would credit them twice.
+        """
+        from returns.models import CreditNote
+
+        if not can_approve_high_value(request.user):
+            return Response(
+                {"detail": "Only a manager or owner may void an invoice."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        reason = str(request.data.get("reason") or "").strip()
+        if not reason:
+            return Response(
+                {"reason": "A reason is required to void an invoice."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        with transaction.atomic():
+            invoice = Invoice.objects.select_for_update().get(pk=self.get_object().pk)
+            if invoice.is_void:
+                return Response(
+                    {"detail": "This invoice is already void."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if invoice.sales_returns.exists():
+                return Response(
+                    {
+                        "detail": (
+                            "This invoice has a return against it. Return the "
+                            "remaining lines instead of voiding the whole sale."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            paid = invoice.amount_paid()
+            refund_body = request.data.get("refund")
+            if paid > 0 and not isinstance(refund_body, dict):
+                return Response(
+                    {
+                        "refund": (
+                            f"{paid} was paid on this invoice. Say how it is being "
+                            "refunded (method, account/reference or till session)."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            remaining_credit = invoice.total - invoice.credited_total()
+            note = CreditNote.objects.create(
+                company_id=invoice.company_id, customer=invoice.customer,
+                invoice=invoice, amount=remaining_credit, reason=reason,
+                created_by=request.user,
+            )
+            log_activity(
+                action="create", request=request, entity_type="CreditNote",
+                entity_id=note.pk, metadata={"invoice": invoice.pk, "void": True},
+            )
+            refund = None
+            if paid > 0:
+                serializer = RefundSerializer(
+                    data={**refund_body, "credit_note": note.pk, "amount": str(paid),
+                          "note": f"Void {invoice.number_display}: {reason}"[:255]},
+                    context={"request": request},
+                )
+                serializer.is_valid(raise_exception=True)
+                refund = serializer.save(company_id=invoice.company_id)
+            reversed_ids = []
+            sold = StockMovement.objects.filter(
+                company_id=invoice.company_id, reference_type="Invoice",
+                reference_id=str(invoice.pk), movement_type=StockMovement.SALE_OUT,
+            )
+            for movement in sold:
+                back = StockMovement.objects.create(
+                    company_id=invoice.company_id, product_id=movement.product_id,
+                    warehouse_id=movement.warehouse_id, batch_id=movement.batch_id,
+                    movement_type=StockMovement.SALES_RETURN_IN,
+                    quantity=-movement.quantity, unit_cost=movement.unit_cost,
+                    reference_type="InvoiceVoid", reference_id=str(invoice.pk),
+                    note=reason[:255], created_by=request.user,
+                )
+                reversed_ids.append(back.pk)
+            invoice.is_void = True
+            invoice.save(update_fields=["is_void", "updated_at"])
+            log_activity(
+                action="void", request=request, entity_type="Invoice",
+                entity_id=invoice.pk,
+                metadata={
+                    "reason": reason, "credit_note": note.pk,
+                    "refund": refund.pk if refund else None,
+                    "movements": reversed_ids, "total": str(invoice.total),
+                },
+            )
+        return Response(self.get_serializer(invoice).data)
+
     @action(detail=False, methods=["get"])
     def export(self, request):
         """
@@ -726,3 +847,30 @@ class POSCheckoutView(APIView):
             metadata={"number": invoice.number, "total": str(invoice.total)},
         )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class RefundViewSet(AppendOnlyScopedViewSet):
+    """Money handed back against a credit note. Append-only, like every other
+    money row; the drawer movement it creates is written in the same
+    transaction (see RefundSerializer.create)."""
+
+    rbac_module = "sales_returns"
+    branch_field = "credit_note__invoice__branch"
+    include_unassigned_branch_rows = False
+    queryset = Refund.objects.select_related(
+        "credit_note__invoice", "credit_note__customer", "company_bank_account",
+        "recorded_by", "shift",
+    ).all()
+    serializer_class = RefundSerializer
+    activity_entity_type = "Refund"
+
+    def perform_create(self, serializer):
+        # RefundSerializer.create already writes the audit row with the note
+        # and amount; the generic mixin entry would duplicate it.
+        CompanyScopedQuerySetMixin.perform_create(self, serializer)
+
+    @action(detail=True, methods=["get"])
+    def document(self, request, pk=None):
+        from core.documents import refund_voucher_document
+
+        return Response(refund_voucher_document(self.get_object()))
