@@ -186,6 +186,7 @@ Every change here must be copied into the service's **Settings** /
 |---|---|---|
 | `erp-api` | Pre-Deploy Command | `python manage.py migrate --noinput && python manage.py seed_roles` |
 | `erp-api`, `erp-worker`, `erp-backup-cron` | `SUBSCRIPTION_POLICY` | `observe` (then `enforce`) |
+| `erp-daily-scans` (optional) | `ACTIVITY_LOG_RETENTION_DAYS` | default `365`; audit rows older than this move nightly from the hot `ActivityLog` table to `ActivityLogArchive` (floor 30 days). The trail is never discarded |
 | `erp-worker` (only if deployed) | Start Command | `celery -A config worker -B --loglevel=info --pool=solo` |
 | `erp-worker` (only if deployed) | `CELERY_BROKER_URL` | the **Internal Redis URL** of `erp-cache` |
 | all Python services | `PYTHON_VERSION` | `3.12.3` (what CI tests) — REQUIRED on the hand-created services; unset, Render picks the newest Python |

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from core.models import ActivityLog
+from core.models import ActivityLog, ActivityLogArchive
 
 
 @admin.register(ActivityLog)
@@ -11,6 +11,25 @@ class ActivityLogAdmin(admin.ModelAdmin):
     # Append-only (PROJECT_RULES Rule #9): the audit trail is never edited or
     # deleted through the admin.
     readonly_fields = [f.name for f in ActivityLog._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(ActivityLogArchive)
+class ActivityLogArchiveAdmin(admin.ModelAdmin):
+    """Cold audit rows: same append-only posture as the hot table."""
+
+    list_display = ["created_at", "action", "user_id", "company_id", "entity_type", "entity_id"]
+    list_filter = ["action"]
+    search_fields = ["entity_type", "entity_id"]
+    readonly_fields = [f.name for f in ActivityLogArchive._meta.fields]
 
     def has_add_permission(self, request):
         return False

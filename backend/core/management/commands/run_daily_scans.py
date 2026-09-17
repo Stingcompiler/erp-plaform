@@ -18,11 +18,12 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             "--only",
-            choices=["receivables", "stock", "subscriptions"],
+            choices=["receivables", "stock", "subscriptions", "activity_archive"],
             help="Run a single scan instead of all three.",
         )
 
     def handle(self, *args, **options):
+        from core.tasks import archive_activity_logs
         from inventory.tasks import scan_stock_alerts
         from sales.tasks import scan_due_receivables
         from subscriptions.tasks import scan_subscription_expiries
@@ -31,6 +32,9 @@ class Command(BaseCommand):
             "receivables": scan_due_receivables,
             "stock": scan_stock_alerts,
             "subscriptions": scan_subscription_expiries,
+            # Not a scan, but it belongs on the same nightly cadence and
+            # this command is what the cron and the standalone timer run.
+            "activity_archive": archive_activity_logs,
         }
         chosen = [options["only"]] if options.get("only") else list(scans)
         results = {}
