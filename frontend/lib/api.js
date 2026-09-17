@@ -415,6 +415,7 @@ export const platformTeam = {
 // First-party visit analytics for the public pages (platform.seo.view).
 export const platformAnalytics = {
   overview: (days = 30) => api.get("/platform/analytics/overview/", { params: { days } }),
+  funnel: (days = 30) => api.get("/platform/analytics/funnel/", { params: { days } }),
 };
 
 // The SEO control page: site-wide settings (one row) and per-path overrides.

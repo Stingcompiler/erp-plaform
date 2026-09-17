@@ -156,6 +156,16 @@ const en = {
     companyPagesHint: "The public /s/ pages your customers publish.",
     empty: "No visits recorded in this window yet.",
     noPrevious: "—",
+    funnelTitle: "Acquisition funnel",
+    funnelHint: "How far this window's interest travelled: each rate is against the previous stage.",
+    stage: {
+      visits: "Marketing visits",
+      leads: "Demo requests",
+      registrations: "Registrations",
+      provisioned: "Provisioned",
+      activated: "Owners activated",
+      subscribed: "Active subscriptions",
+    },
   },
   platform: {
     inviteEmailed: "The activation link was emailed to the recipient. You can still copy it below.",
@@ -2097,6 +2107,16 @@ const ar = {
     companyPagesHint: "صفحات ‎/s/‎ العامة التي ينشرها عملاؤك.",
     empty: "لا زيارات مسجلة في هذه الفترة بعد.",
     noPrevious: "—",
+    funnelTitle: "قمع الاستقطاب",
+    funnelHint: "إلى أين وصل اهتمام هذه الفترة: كل نسبة محسوبة من المرحلة السابقة.",
+    stage: {
+      visits: "زيارات التسويق",
+      leads: "طلبات العرض",
+      registrations: "طلبات التسجيل",
+      provisioned: "شركات مجهزة",
+      activated: "ملاك مفعلون",
+      subscribed: "اشتراكات نشطة",
+    },
   },
   platform: {
     inviteEmailed: "أُرسل رابط التفعيل بالبريد الإلكتروني إلى صاحبه، ويمكنك نسخه أدناه أيضًا.",

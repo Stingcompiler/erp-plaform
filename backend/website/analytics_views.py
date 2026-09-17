@@ -149,3 +149,77 @@ class PlatformAnalyticsOverview(APIView):
                 for (company_id, path), count in company_pages.most_common(5)
             ],
         })
+
+
+class PlatformFunnelView(APIView):
+    """The acquisition funnel: visit -> lead -> registration -> provisioned
+    -> activated owner -> active subscription, over one window.
+
+    Each stage counts what was *created* inside the window, so the numbers
+    answer "of this period's interest, how far did it get?" — the question
+    the platform team actually asks. Stages draw on different tables, so a
+    later stage can exceed an earlier one in edge weeks (a registration
+    provisioned this week from last week's lead); the page presents rates,
+    not strict subsets.
+    """
+
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    platform_view_capability = platform_roles.SEO_VIEW
+    platform_capability = platform_roles.SEO_VIEW
+    entitlement_exempt = True
+
+    def get(self, request):
+        from subscriptions.models import Subscription
+        from website.models import (
+            DailyPageStat, OwnerInvitation, PageVisit, PlatformLead, RegistrationRequest,
+        )
+
+        try:
+            days = int(request.query_params.get("days", 30))
+        except (TypeError, ValueError):
+            days = 30
+        if days not in WINDOWS:
+            days = 30
+        today = timezone.localdate()
+        start = today - timedelta(days=days - 1)
+        window = {"created_at__date__gte": start}
+
+        visits = (
+            DailyPageStat.objects.filter(
+                date__gte=start, page_kind="marketing"
+            ).aggregate(v=Sum("visits"))["v"] or 0
+        ) + PageVisit.objects.filter(
+            created_at__date=today, is_bot=False, page_kind="marketing"
+        ).count()
+
+        registrations = RegistrationRequest.objects.filter(**window)
+        stages = [
+            {"key": "visits", "count": visits},
+            {"key": "leads", "count": PlatformLead.objects.filter(**window).count()},
+            {"key": "registrations", "count": registrations.count()},
+            {
+                "key": "provisioned",
+                "count": registrations.filter(
+                    status=RegistrationRequest.PROVISIONED
+                ).count(),
+            },
+            {
+                "key": "activated",
+                "count": OwnerInvitation.objects.filter(
+                    accepted_at__date__gte=start
+                ).count(),
+            },
+            {
+                "key": "subscribed",
+                "count": Subscription.objects.filter(
+                    created_at__date__gte=start, status=Subscription.ACTIVE
+                ).count(),
+            },
+        ]
+        for index, stage in enumerate(stages):
+            previous = stages[index - 1]["count"] if index else None
+            stage["rate"] = (
+                round(stage["count"] * 100 / previous, 1)
+                if previous else None
+            )
+        return Response({"days": days, "stages": stages})
