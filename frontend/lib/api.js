@@ -412,6 +412,11 @@ export const platformTeam = {
   activityFacets: () => api.get("/platform/activity/facets/"),
 };
 
+// First-party visit analytics for the public pages (platform.seo.view).
+export const platformAnalytics = {
+  overview: (days = 30) => api.get("/platform/analytics/overview/", { params: { days } }),
+};
+
 // The SEO control page: site-wide settings (one row) and per-path overrides.
 export const platformSeo = {
   settings: () => api.get("/platform/seo/settings/"),
