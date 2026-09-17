@@ -279,7 +279,18 @@ class LeaveRequestViewSet(CompanyScopedModelViewSet):
         instance = self.get_object()
         if not instance.medical_report:
             raise Http404
-        return FileResponse(instance.medical_report.open("rb"))
+        from hr.serializers import MEDICAL_REPORT_TYPES
+
+        name = instance.medical_report.name.rsplit("/", 1)[-1]
+        extension = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+        # Always a download with a fixed, known content type — never sniffed,
+        # never rendered inline on the application origin.
+        return FileResponse(
+            instance.medical_report.open("rb"),
+            as_attachment=True,
+            filename=name,
+            content_type=MEDICAL_REPORT_TYPES.get(extension, "application/octet-stream"),
+        )
 
 
 class LeaveAllowanceViewSet(NoDeleteMixin, CompanyScopedModelViewSet):

@@ -96,6 +96,19 @@ class CompanyScopedQuerySetMixin:
         serializer.save(**kwargs)
 
 
+# Field names whose values must never be written to the audit trail. A
+# password arrives in validated_data as plaintext and sits on the instance as
+# a hash; either one in ActivityLog.metadata would hand every audit viewer a
+# credential to crack. Matched case-insensitively as a suffix, so
+# `new_password`, `api_token` and `client_secret` are covered too.
+SENSITIVE_FIELD_SUFFIXES = ("password", "token", "secret", "signature")
+
+
+def is_sensitive_field(name):
+    lowered = str(name).lower()
+    return any(lowered.endswith(suffix) for suffix in SENSITIVE_FIELD_SUFFIXES)
+
+
 class ActivityLoggingMixin:
     """Logs create/update/delete to the ActivityLog (Rule #8) for a viewset."""
 
@@ -119,7 +132,16 @@ class ActivityLoggingMixin:
         """Best-effort before/after snapshot of the fields being updated, for
         the audit trail. Never raises — auditing must not break the write."""
         try:
-            tracked = list(getattr(serializer, "validated_data", {}) or {})
+            write_only = {
+                name
+                for name, field in getattr(serializer, "fields", {}).items()
+                if getattr(field, "write_only", False)
+            }
+            tracked = [
+                f
+                for f in (getattr(serializer, "validated_data", {}) or {})
+                if f not in write_only and not is_sensitive_field(f)
+            ]
             instance = serializer.instance
             before = {f: str(getattr(instance, f, "")) for f in tracked}
             return before, tracked
