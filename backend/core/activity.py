@@ -2,10 +2,15 @@ from core.models import ActivityLog
 
 
 def get_client_ip(request):
-    """Best-effort client IP, honoring a single proxy hop (Render sits in front)."""
+    """Client IP behind exactly one trusted proxy (Render, or the standalone
+    reverse proxy). The proxy APPENDS the peer address to X-Forwarded-For, so
+    the last entry is the one it saw; earlier entries are whatever the client
+    chose to send and must not be trusted for audit or throttling."""
     forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        hops = [hop.strip() for hop in forwarded.split(",") if hop.strip()]
+        if hops:
+            return hops[-1]
     return request.META.get("REMOTE_ADDR")
 
 
