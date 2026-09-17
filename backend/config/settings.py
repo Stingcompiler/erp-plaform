@@ -35,8 +35,18 @@ env = environ.Env(
 # instead of each shell quoting it differently.
 environ.Env.read_env(os.environ.get("VEZANO_ENV_FILE") or BASE_DIR / ".env")
 
-SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-insecure-secret-key-change-me")
+_INSECURE_DEFAULT_SECRET = "dev-insecure-secret-key-change-me"
+SECRET_KEY = env("DJANGO_SECRET_KEY", default=_INSECURE_DEFAULT_SECRET)
 DEBUG = env("DEBUG")
+# The secret signs every JWT, session and sync cursor. A production process
+# that silently fell back to the public default would accept forged tokens,
+# so refuse to start instead. Dev (DEBUG=True) keeps the convenience default.
+if not DEBUG and SECRET_KEY == _INSECURE_DEFAULT_SECRET:
+    from django.core.exceptions import ImproperlyConfigured
+
+    raise ImproperlyConfigured(
+        "DJANGO_SECRET_KEY must be set when DEBUG is False."
+    )
 
 # Whether this process is actually reachable over HTTPS. Defaults to `not
 # DEBUG` (real prod always wants this), but is independently overridable so
@@ -127,6 +137,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # /admin/ is superuser-only (and optionally IP-restricted); see below.
+    "core.admin_gate.AdminAccessGate",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # Note (M1): Rule #1 company-scoping is enforced in the shared DRF base
@@ -275,6 +287,12 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
+    # Exactly one trusted proxy (Render's edge, or the standalone reverse
+    # proxy) sits in front and appends the peer address to X-Forwarded-For.
+    # Without this DRF keys the login throttle on the FIRST forwarded entry,
+    # which the client itself controls, and rotating that header defeats the
+    # rate limit entirely.
+    "NUM_PROXIES": 1,
     # Turns a PROTECT-blocked delete into a 409 that names what is holding the
     # row, instead of DRF's default 500. See core/exceptions.py.
     "EXCEPTION_HANDLER": "core.exceptions.api_exception_handler",
@@ -314,11 +332,25 @@ SIMPLE_JWT = {
 
 # --- CORS ---
 # Only the Next.js frontend origin(s) may call the API with credentials
-# (needed for HttpOnly cookie auth landing in M1).
+# (needed for HttpOnly cookie auth landing in M1). Production serves the
+# frontend from the same origin, so it needs no CORS origin at all; the dev
+# default must not leak into a deployment that forgot to set the variable.
 CORS_ALLOWED_ORIGINS = env.list(
-    "CORS_ALLOWED_ORIGINS", default=["http://localhost:3000"]
+    "CORS_ALLOWED_ORIGINS", default=["http://localhost:3000"] if DEBUG else []
 )
 CORS_ALLOW_CREDENTIALS = True
+
+# --- Login lockout ---
+# Failed sign-ins per account before the account is refused for the window.
+# Complements the per-IP throttle, which alone cannot stop a distributed guess
+# against one mailbox.
+LOGIN_LOCKOUT_ATTEMPTS = env.int("LOGIN_LOCKOUT_ATTEMPTS", default=10)
+LOGIN_LOCKOUT_SECONDS = env.int("LOGIN_LOCKOUT_SECONDS", default=15 * 60)
+
+# --- Django admin ---
+# Comma-separated client addresses allowed to reach /admin/. Empty = no IP
+# restriction (the superuser requirement in core.admin_gate still applies).
+ADMIN_ALLOWED_IPS = env.list("ADMIN_ALLOWED_IPS", default=[])
 
 # --- Celery (erp-worker) ---
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")

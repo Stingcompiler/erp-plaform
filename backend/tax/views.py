@@ -127,12 +127,18 @@ class InvoiceDocumentView(APIView):
     def get(self, request, invoice_id):
         from sales.models import Invoice
         company_id = getattr(request.user, "company_id", None)
-        is_platform = getattr(request.user, "is_platform_admin", False)
+        if company_id is None:
+            return Response(
+                {"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND
+            )
         qs = Invoice.objects.select_related(
             "company__tax_profile", "customer", "branch", "created_by"
-        ).prefetch_related("lines__product", "payments")
-        if not is_platform:
-            qs = qs.filter(company_id=company_id)
+        ).prefetch_related("lines__product", "payments").filter(company_id=company_id)
+        # Same row visibility as /api/invoices/: a branch cashier prints only
+        # their branch's invoices, never another branch's by guessing an id.
+        role = getattr(request.user, "role", None)
+        if role is not None and role.scope_level == "branch":
+            qs = qs.filter(branch_id=getattr(request.user, "branch_id", None))
         try:
             invoice = qs.get(pk=invoice_id)
         except Invoice.DoesNotExist:
