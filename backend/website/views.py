@@ -254,6 +254,33 @@ class PublicRegistrationRequestView(APIView):
         )
 
 
+def _email_owner_invitation(registration, token):
+    """Best-effort delivery of the activation link to the future owner.
+
+    Returns whether an email actually went out, so the operator UI can say
+    "sent" or keep instructing the operator to deliver the link by hand.
+    """
+    from core import mailer
+
+    link = mailer.activation_link(token)
+    if not link:
+        return False
+    body = (
+        f"مرحباً {registration.contact_name}،\n\n"
+        f"تمت الموافقة على تسجيل «{registration.company_name}» في فيزانو.\n"
+        f"فعّل حساب المالك من هذا الرابط (صالح لمرة واحدة):\n{link}\n\n"
+        "إن لم تكن طلبت هذا التسجيل فتجاهل الرسالة.\n\n"
+        "— Vezano\n\n"
+        f"Your Vezano workspace for “{registration.company_name}” is ready. "
+        f"Activate the owner account with this one-time link: {link}"
+    )
+    return mailer.send_transactional(
+        "تفعيل حساب مالك فيزانو | Vezano owner activation",
+        body,
+        registration.email,
+    )
+
+
 class PlatformRegistrationRequestViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
@@ -384,10 +411,14 @@ class PlatformRegistrationRequestViewSet(
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         payload = self.get_serializer(registration).data
-        # Delivery is intentionally not implemented here. The platform operator
-        # receives the one-time token only in this privileged response.
+        # The operator always receives the one-time token in this privileged
+        # response and stays responsible for delivery; when SMTP is
+        # configured the same link is also emailed to the owner directly.
         if invite_token:
             payload["owner_invitation_token"] = invite_token
+            payload["invitation_email_sent"] = _email_owner_invitation(
+                registration, invite_token
+            )
         return Response(
             payload,
             status=status.HTTP_201_CREATED if invite_token else status.HTTP_200_OK,
@@ -401,6 +432,9 @@ class PlatformRegistrationRequestViewSet(
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         payload = self.get_serializer(registration).data
         payload["owner_invitation_token"] = invite_token
+        payload["invitation_email_sent"] = _email_owner_invitation(
+            registration, invite_token
+        )
         return Response(payload, status=status.HTTP_201_CREATED)
 
 

@@ -81,7 +81,7 @@ export default function PlatformRegistrationsPage() {
       else response = await registration.review(row.id, body);
       if (response.data.owner_invitation_token) {
         const token = response.data.owner_invitation_token;
-        setInvite({ company: response.data.company_name, link: `${window.location.origin}/activate-owner/?token=${encodeURIComponent(token)}` });
+        setInvite({ company: response.data.company_name, emailSent: !!response.data.invitation_email_sent, link: `${window.location.origin}/activate-owner/?token=${encodeURIComponent(token)}` });
       }
       await load();
     } catch (requestError) {
@@ -103,7 +103,7 @@ export default function PlatformRegistrationsPage() {
             <CheckCircle2 className="mt-0.5 text-ok" />
             <div className="min-w-0 flex-1">
               <h2 className="font-semibold">{t("platformRegistration.inviteReady", { company: invite.company })}</h2>
-              <p className="mt-1 text-sm text-muted">{t("platformRegistration.inviteHint")}</p>
+              <p className="mt-1 text-sm text-muted">{invite.emailSent ? t("platform.inviteEmailed") : t("platformRegistration.inviteHint")}</p>
               <code className="mt-3 block break-all rounded-control bg-paper p-3 text-xs">{invite.link}</code>
               <Button variant="outline" className="mt-3" onClick={() => navigator.clipboard.writeText(invite.link)}><Copy size={15} />{t("platformRegistration.copyInviteLink")}</Button>
             </div>

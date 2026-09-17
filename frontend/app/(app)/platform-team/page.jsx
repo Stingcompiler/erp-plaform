@@ -62,7 +62,7 @@ export default function PlatformTeamPage() {
     setError("");
     try {
       const response = await platformTeam.invite(form);
-      setInvite({ email: response.data.email, link: activationLink(response.data.invitation_token) });
+      setInvite({ email: response.data.email, emailSent: !!response.data.invitation_email_sent, link: activationLink(response.data.invitation_token) });
       setForm({ email: "", full_name: "", role: DEFAULT_ROLE });
       await load();
     } catch (requestError) {
@@ -78,7 +78,7 @@ export default function PlatformTeamPage() {
     try {
       const response = await platformTeam[action](row.id, arg);
       if (response.data.invitation_token) {
-        setInvite({ email: response.data.email, link: activationLink(response.data.invitation_token) });
+        setInvite({ email: response.data.email, emailSent: !!response.data.invitation_email_sent, link: activationLink(response.data.invitation_token) });
       }
       await load();
     } catch (requestError) {
@@ -125,7 +125,7 @@ export default function PlatformTeamPage() {
             <CheckCircle2 className="mt-0.5 text-ok" />
             <div className="min-w-0 flex-1">
               <h2 className="font-semibold">{t("platformTeam.inviteReady", { email: invite.email })}</h2>
-              <p className="mt-1 text-sm text-muted">{t("platformTeam.inviteHint2")}</p>
+              <p className="mt-1 text-sm text-muted">{invite.emailSent ? t("platform.inviteEmailed") : t("platformTeam.inviteHint2")}</p>
               <code className="mt-3 block break-all rounded-control bg-paper p-3 text-xs">{invite.link}</code>
               <Button variant="outline" className="mt-3" onClick={() => navigator.clipboard.writeText(invite.link)}>
                 <Copy size={15} />{t("platformTeam.copyLink")}
