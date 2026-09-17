@@ -9,7 +9,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.exceptions import SuspiciousFileOperation
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseRedirect
 from django.utils._os import safe_join
 
 from core.seo_inject import append_robots_extra, inject_seo
@@ -88,6 +88,17 @@ def _serve_file(candidate, clean, status=200):
 
 def serve_frontend(request, path=""):
     clean = path.strip("/")
+    # Next's client router fetches each page's RSC payload from
+    # <page>/index.txt. When a session from the PREVIOUS deploy navigates
+    # and the payload's buildId no longer matches, Next falls back to a
+    # full browser navigation — to the payload URL itself, so the visitor
+    # stares at raw RSC text. A document navigation has no business on a
+    # payload file: send it to the page the payload belongs to. Real RSC
+    # fetches are not documents and keep hitting the file below.
+    if clean == "index.txt" or clean.endswith("/index.txt"):
+        accept = request.headers.get("Accept", "")
+        if request.headers.get("Sec-Fetch-Dest") == "document" or "text/html" in accept:
+            return HttpResponseRedirect("/" + clean[: -len("index.txt")])
     for candidate in _candidates(clean):
         if candidate.is_file():
             # Count marketing page views (server-side, first-party; see

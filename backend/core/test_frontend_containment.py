@@ -75,3 +75,53 @@ class FrontendPathContainmentTests(SimpleTestCase):
                 response = self.client.get("/%2e%2e/%2e%2e/.env")
         self.assertEqual(response.status_code, 404)
         self.assertNotIn(b"leaked", self._body(response))
+
+
+class RscPayloadNavigationTests(SimpleTestCase):
+    """A browser landing ON an RSC payload file gets the page instead.
+
+    Next's buildId-mismatch fallback performs a full navigation to the
+    payload URL (<page>/index.txt); shown raw, it reads as a wall of
+    gibberish. Document requests are redirected to the page; the router's
+    own payload fetches (not documents) keep receiving the file.
+    """
+
+    def setUp(self):
+        self.tmp = TemporaryDirectory()
+        self.dist = Path(self.tmp.name)
+        (self.dist / "dashboard").mkdir()
+        (self.dist / "dashboard" / "index.txt").write_text("rsc-payload")
+        (self.dist / "index.txt").write_text("rsc-payload-root")
+        self.patcher = mock.patch.object(frontend, "FRONTEND_DIST", self.dist)
+        self.patcher.start()
+        self.factory = RequestFactory()
+
+    def tearDown(self):
+        self.patcher.stop()
+        self.tmp.cleanup()
+
+    def _get(self, path, **headers):
+        request = self.factory.get("/" + path, **headers)
+        with mock.patch.object(frontend, "_rewritten", return_value=None):
+            return frontend.serve_frontend(request, path)
+
+    def test_document_navigation_is_redirected_to_the_page(self):
+        response = self._get("dashboard/index.txt", HTTP_SEC_FETCH_DEST="document")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/dashboard/")
+
+    def test_browser_without_fetch_metadata_is_redirected_by_accept(self):
+        response = self._get(
+            "dashboard/index.txt",
+            HTTP_ACCEPT="text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+        )
+        self.assertEqual(response.status_code, 302)
+
+    def test_root_payload_redirects_to_root(self):
+        response = self._get("index.txt", HTTP_SEC_FETCH_DEST="document")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/")
+
+    def test_router_fetch_still_gets_the_payload(self):
+        response = self._get("dashboard/index.txt", HTTP_ACCEPT="*/*", HTTP_SEC_FETCH_DEST="empty")
+        self.assertEqual(response.status_code, 200)
