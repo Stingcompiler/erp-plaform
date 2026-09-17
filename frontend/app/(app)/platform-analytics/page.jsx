@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Bot, ChartColumn, Globe, MonitorSmartphone, MousePointerClick, TrendingDown, TrendingUp, UsersRound } from "lucide-react";
+import { Bot, ChartColumn, Filter, Globe, MonitorSmartphone, MousePointerClick, TrendingDown, TrendingUp, UsersRound } from "lucide-react";
 
 import { platformAnalytics } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
@@ -160,6 +160,7 @@ export default function PlatformAnalyticsPage() {
   const { t } = useI18n();
   const [days, setDays] = useState(30);
   const [data, setData] = useState(null);
+  const [funnel, setFunnel] = useState(null);
   const [error, setError] = useState("");
 
   const allowed = user?.is_platform_admin && can("platform.seo.view");
@@ -168,6 +169,9 @@ export default function PlatformAnalyticsPage() {
     platformAnalytics.overview(days)
       .then((response) => setData(response.data))
       .catch(() => setError(t("platformAnalytics.loadError")));
+    platformAnalytics.funnel(days)
+      .then((response) => setFunnel(response.data.stages))
+      .catch(() => {});
   }, [allowed, days, t]);
 
   const totals = data?.totals;
@@ -255,6 +259,32 @@ export default function PlatformAnalyticsPage() {
           ]}
         />
       </div>
+
+      {funnel && (
+        <Card className="mt-5 p-5">
+          <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
+            <Filter size={17} className="text-accent" />{t("platformAnalytics.funnelTitle")}
+          </h2>
+          <p className="mt-1 text-sm text-muted">{t("platformAnalytics.funnelHint")}</p>
+          <div className="mt-5 grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+            {funnel.map((stage, index) => {
+              const max = funnel[0]?.count || 1;
+              return (
+                <div key={stage.key} className="rounded-card border border-line bg-paper/60 p-3">
+                  <div className="text-xs text-muted">{index + 1}. {t(`platformAnalytics.stage.${stage.key}`)}</div>
+                  <div className="mt-1 text-xl font-bold tabular-nums">{stage.count}</div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line/60">
+                    <div className="h-full rounded-full bg-accent" style={{ width: `${Math.max((stage.count / max) * 100, stage.count ? 2 : 0)}%` }} />
+                  </div>
+                  <div className="mt-1.5 min-h-4 text-xs tabular-nums text-muted" dir="ltr">
+                    {stage.rate !== null && `${stage.rate}% ←`}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {data?.top_company_pages?.length > 0 && (
         <Card className="mt-5 p-5">

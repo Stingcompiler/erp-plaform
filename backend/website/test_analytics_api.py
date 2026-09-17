@@ -83,3 +83,63 @@ class AnalyticsOverviewTests(TestCase):
 
     def test_anonymous_cannot_read(self):
         self.assertEqual(APIClient().get(self.URL).status_code, 401)
+
+
+class FunnelTests(TestCase):
+    URL = "/api/platform/analytics/funnel/"
+
+    def setUp(self):
+        self.client = APIClient()
+        self.client.force_authenticate(
+            User.objects.create_superuser(email="root2@vezano.test", password="Root-passw0rd!")
+        )
+
+    def test_funnel_counts_each_stage_in_window(self):
+        from subscriptions.models import Plan, PlanVersion, Subscription
+        from org.models import Company
+        from website.models import OwnerInvitation, PlatformLead, RegistrationRequest
+
+        today = timezone.localdate()
+        DailyPageStat.objects.create(
+            date=today - timedelta(days=2), path="/", page_kind="marketing", visits=200, visitors=90
+        )
+        DailyPageStat.objects.create(  # public-site traffic is not funnel top
+            date=today - timedelta(days=2), path="/s/x", page_kind="public_site",
+            visits=50, visitors=20,
+        )
+        PageVisit.objects.create(path="/", page_kind="marketing", visitor_hash="live1")
+        PlatformLead.objects.create(name="Lead", email="lead@example.test")
+        registration = RegistrationRequest.objects.create(
+            company_name="Acme", contact_name="A", email="a@example.test",
+            status=RegistrationRequest.PROVISIONED,
+        )
+        RegistrationRequest.objects.create(
+            company_name="Beta", contact_name="B", email="b@example.test",
+        )
+        owner = User.objects.create_user(email="owner2@acme.test", password="Owner-passw0rd!")
+        OwnerInvitation.objects.create(
+            token_hash="x" * 64, owner=owner, registration_request=registration,
+            expires_at=timezone.now(), accepted_at=timezone.now(),
+        )
+        company = Company.objects.create(name="Acme Co")
+        plan = Plan.objects.create(name="Basic", code="basic")
+        version = PlanVersion.objects.create(plan=plan, version=1, published_at=timezone.now())
+        Subscription.objects.create(
+            company=company, plan_version=version, status=Subscription.ACTIVE,
+            starts_at=timezone.now(),
+        )
+
+        response = self.client.get(self.URL, {"days": 30})
+        self.assertEqual(response.status_code, 200)
+        stages = {row["key"]: row for row in response.json()["stages"]}
+        self.assertEqual(stages["visits"]["count"], 201)  # marketing only + live
+        self.assertEqual(stages["leads"]["count"], 1)
+        self.assertEqual(stages["registrations"]["count"], 2)
+        self.assertEqual(stages["provisioned"]["count"], 1)
+        self.assertEqual(stages["activated"]["count"], 1)
+        self.assertEqual(stages["subscribed"]["count"], 1)
+        self.assertIsNone(stages["visits"]["rate"])
+        self.assertEqual(stages["provisioned"]["rate"], 50.0)
+
+    def test_funnel_needs_platform_access(self):
+        self.assertEqual(APIClient().get(self.URL).status_code, 401)

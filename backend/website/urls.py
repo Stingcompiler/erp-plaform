@@ -2,7 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from website.public_pages import public_showcase
-from website.analytics_views import PlatformAnalyticsOverview
+from website.analytics_views import PlatformAnalyticsOverview, PlatformFunnelView
 from website.seo_views import (
     PublicSiteContactView, SeoOgImageView, SeoPageOverrideViewSet, SeoSettingsView,
 )
@@ -41,6 +41,10 @@ urlpatterns = [
     path(
         "platform/analytics/overview/", PlatformAnalyticsOverview.as_view(),
         name="platform-analytics-overview",
+    ),
+    path(
+        "platform/analytics/funnel/", PlatformFunnelView.as_view(),
+        name="platform-analytics-funnel",
     ),
     path("platform/seo/settings/", SeoSettingsView.as_view(), name="platform-seo-settings"),
     path(
