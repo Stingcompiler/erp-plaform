@@ -340,6 +340,9 @@ export const settings = {
 };
 
 export const sync = {
+  // Records a queued operation the device is giving up on, so the server
+  // holds the evidence (payload, error, reason) for a manager to review.
+  discard: (body) => api.post("/sync/discard/", body),
   push: (batch) => api.post("/sync/push/", batch),
   pull: (params) => api.get("/sync/pull/", { params }),
 };

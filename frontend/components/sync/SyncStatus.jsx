@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/kit";
 import AttentionBadge from "@/components/attention/AttentionBadge";
 
 export default function SyncStatus() {
-  const { online, pending, flushing, flush, operations, error, legacy, persisted, storageLow } = useSync();
+  const { online, pending, flushing, flush, discard, operations, error, legacy, persisted, storageLow } = useSync();
+  const [discarding, setDiscarding] = useState(null);
+  const [reason, setReason] = useState("");
   const { installed, canPrompt, prompt } = useInstallPrompt();
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -52,6 +54,11 @@ export default function SyncStatus() {
         {storageLow && <p role="alert" className="text-xs text-danger">{t("install.storageLow")}</p>}
       </div>
       {errorKey && <p role="alert" className="mb-3 text-sm text-danger">{t(`improvements.${errorKey}`)}</p>}
+      {error === "auth" && (
+        <a href="/login/" className="mb-3 inline-block rounded-control border border-line px-3 py-1 text-sm font-medium hover:border-accent">
+          {t("improvements.signInAgain")}
+        </a>
+      )}
       {legacy && <p role="alert" className="mb-3 rounded-control bg-warn/10 p-3 text-sm text-warn">{t("improvements.syncLegacy")}</p>}
       {!pending && !error && <p>{t("improvements.syncEmpty")}</p>}
       <ul className="space-y-3">{operations.map((op) => <li key={op.client_uuid} className="rounded-card border border-line p-3 text-sm">
@@ -59,6 +66,25 @@ export default function SyncStatus() {
         <div className="mt-1 break-all font-mono text-xs text-muted">{op.client_uuid}</div>
         <div className={op.error ? "mt-2 text-danger" : "mt-2 text-muted"}>{t(op.error ? "improvements.syncFailed" : "improvements.syncPending")}</div>
         {op.error && <p className="mt-1 break-words text-danger">{op.error}</p>}
+        {op.error && online && (
+          discarding === op.client_uuid ? (
+            <div className="mt-2 space-y-2">
+              <input className="w-full rounded-control border border-line bg-surface px-2 py-1 text-sm"
+                placeholder={t("improvements.discardReason")} value={reason}
+                onChange={(e) => setReason(e.target.value)} />
+              <div className="flex gap-2">
+                <Button variant="danger" disabled={!reason.trim()}
+                  onClick={async () => { await discard(op.client_uuid, reason.trim()); setDiscarding(null); setReason(""); }}>
+                  {t("improvements.discardConfirm")}
+                </Button>
+                <Button variant="ghost" onClick={() => setDiscarding(null)}>{t("common.cancel")}</Button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" onClick={() => setDiscarding(op.client_uuid)}
+              className="mt-2 text-sm text-danger hover:underline">{t("improvements.discard")}</button>
+          )
+        )}
       </li>)}</ul>
     </Drawer>
   </>;

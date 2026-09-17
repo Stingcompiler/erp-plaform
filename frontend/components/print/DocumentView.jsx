@@ -136,6 +136,11 @@ export default function DocumentView({ doc }) {
               {t("doc.void")}
             </div>
           )}
+          {doc.provisional && (
+            <div className="mt-2 inline-block border border-black px-2 py-0.5 text-[11px] font-bold uppercase">
+              {t("doc.provisional")}
+            </div>
+          )}
         </div>
       </div>
 

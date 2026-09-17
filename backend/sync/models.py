@@ -50,6 +50,11 @@ class SyncOperation(models.Model):
 
     class Meta:
         ordering = ["batch", "index"]
+        constraints = [
+            # Two resumes of a partial batch must not each insert a result row
+            # for the same slot and inflate the counts.
+            models.UniqueConstraint(fields=["batch", "index"], name="uniq_sync_op_per_slot")
+        ]
 
     def as_result(self):
         return {
@@ -60,3 +65,51 @@ class SyncOperation(models.Model):
             "id": int(self.result_id) if self.result_id.isdigit() else None,
             "error": self.error_detail or None,
         }
+
+
+class DiscardedOperation(models.Model):
+    """
+    A queued operation the device gave up on. The sale, receipt or return it
+    describes physically happened; the server rejected the replay and would
+    keep rejecting it. Rather than leave a red counter on the till for ever,
+    the cashier discards it WITH a reason, and this row keeps the evidence —
+    the exact payload, the server's error, who dropped it and why — for a
+    manager to act on (re-key it, adjust stock, refund). Append-only.
+    """
+
+    company = models.ForeignKey(
+        "org.Company", on_delete=models.CASCADE, related_name="discarded_operations"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="discarded_operations",
+    )
+    branch = models.ForeignKey(
+        "org.Branch", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="discarded_operations",
+    )
+    device_id = models.CharField(max_length=128, blank=True)
+    client_uuid = models.UUIDField()
+    op_type = models.CharField(max_length=64)
+    payload = models.JSONField(default=dict)
+    error = models.TextField(blank=True)
+    reason = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    # A manager marks it handled once the books reflect what happened.
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="discarded_operations_resolved",
+    )
+    resolution = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "client_uuid"], name="uniq_discarded_op_per_company"
+            )
+        ]
+
+    def __str__(self):
+        return f"Discarded {self.op_type} {self.client_uuid}"

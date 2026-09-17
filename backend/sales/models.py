@@ -283,7 +283,14 @@ class Invoice(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["company", "number"], name="uniq_invoice_number_per_company"
-            )
+            ),
+            # The reference printed on an offline receipt must point at one
+            # invoice, or the receipt in the customer's hand is ambiguous.
+            models.UniqueConstraint(
+                fields=["company", "local_reference"],
+                condition=~models.Q(local_reference=""),
+                name="uniq_invoice_local_reference_per_company",
+            ),
         ]
 
     def save(self, *args, **kwargs):

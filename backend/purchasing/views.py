@@ -1,3 +1,4 @@
+from django.db import IntegrityError
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -258,7 +259,22 @@ class GoodsReceiptCreateView(APIView):
 
         serializer = GoodsReceiptWriteSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        receipt = serializer.save()
+        try:
+            receipt = serializer.save()
+        except IntegrityError:
+            existing = (
+                GoodsReceipt.objects.filter(
+                    company_id=getattr(request.user, "company_id", None),
+                    client_uuid=client_uuid,
+                ).first()
+                if client_uuid else None
+            )
+            if existing is None:
+                raise
+            return Response(
+                GoodsReceiptReadSerializer(existing, context={"request": request}).data,
+                status=status.HTTP_200_OK,
+            )
         log_activity(
             action="create",
             request=request,

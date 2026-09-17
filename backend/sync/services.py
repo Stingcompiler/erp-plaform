@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from django.db import IntegrityError, transaction
 from rest_framework.exceptions import ValidationError
 
+from core.activity import log_activity
 from core.rbac import role_can
 from inventory.models import StockAdjustment, StockMovement, StockTransfer
 from inventory.serializers import (
@@ -112,10 +113,16 @@ def process_operation(request, op):
                 obj = serializer.save(company_id=company_id)
             else:
                 obj = serializer.save()
+            # Rule #8: the document exists now; its audit row must too. The
+            # live endpoints log in their views, which a synced op never hits.
+            log_activity(
+                action="create", request=request, entity_type=spec.model.__name__,
+                entity_id=obj.pk, metadata={"via": "sync", "op_type": op_type},
+            )
         return APPLIED, spec.model.__name__, str(obj.pk), "", client_uuid
     except ValidationError as exc:
         return ERROR, "", "", _stringify(exc.detail), client_uuid
-    except IntegrityError as exc:
+    except IntegrityError:
         # Two devices (or two tabs) pushed the same client_uuid at once: the
         # pre-check above missed it, the unique index caught it. That is a
         # duplicate, not a failure — report the row that won so the client
@@ -126,7 +133,9 @@ def process_operation(request, op):
             ).first()
             if existing:
                 return DUPLICATE, spec.model.__name__, str(existing.pk), "", client_uuid
-        return ERROR, "", "", str(exc), client_uuid
+        # The raw message names constraints and tables; a client only needs
+        # to know the identifier is taken.
+        return ERROR, "", "", "This operation identifier is already in use.", client_uuid
     except Exception as exc:  # noqa: BLE001 - report, don't crash the batch
         return ERROR, "", "", str(exc), client_uuid
 
