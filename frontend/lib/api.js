@@ -413,6 +413,12 @@ export const platformTeam = {
   activityFacets: () => api.get("/platform/activity/facets/"),
 };
 
+// Production error feed (platform.team.view).
+export const platformErrors = {
+  list: (all = false) => api.get("/platform/errors/", { params: all ? { all: 1 } : {} }),
+  resolve: (id) => api.post(`/platform/errors/${id}/resolve/`),
+};
+
 // First-party visit analytics for the public pages (platform.seo.view).
 export const platformAnalytics = {
   overview: (days = 30) => api.get("/platform/analytics/overview/", { params: { days } }),

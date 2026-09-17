@@ -6,6 +6,7 @@ from accounts.platform_team_views import (
     PlatformInvitationAcceptView,
     PlatformTeamViewSet,
 )
+from core.error_views import ErrorEventViewSet
 from accounts.views import (
     LoginView,
     LogoutView,
@@ -21,6 +22,7 @@ router.register("users", UserViewSet, basename="user")
 router.register("roles", RoleViewSet, basename="role")
 router.register("permissions", PermissionViewSet, basename="permission")
 router.register("platform/team", PlatformTeamViewSet, basename="platform-team")
+router.register("platform/errors", ErrorEventViewSet, basename="platform-errors")
 router.register("platform/activity", PlatformActivityViewSet, basename="platform-activity")
 
 urlpatterns = [

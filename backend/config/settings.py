@@ -141,6 +141,9 @@ MIDDLEWARE = [
     "core.admin_gate.AdminAccessGate",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Last in the list = first to see an unhandled view exception. Records
+    # it for the platform console (core.models.ErrorEvent) and steps aside.
+    "core.error_monitor.ErrorMonitorMiddleware",
     # Note (M1): Rule #1 company-scoping is enforced in the shared DRF base
     # viewset (core/scoping.py), NOT in middleware — DRF resolves the
     # authenticated user inside the view, so request.user isn't available at

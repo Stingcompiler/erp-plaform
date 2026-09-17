@@ -157,3 +157,16 @@ def mark_seen(user, key):
     )
     invalidate(user)
     return True
+
+
+# --- core's own sources -----------------------------------------------------
+# The registry autodiscovers <app>/attention.py; for the core app that file
+# is this module, so its sources simply live here at the bottom.
+from core import platform_roles as _platform_roles  # noqa: E402
+
+
+@register("platform-errors", None, TONE_DANGER, capability=_platform_roles.TEAM_VIEW)
+def _open_error_events(user, since):
+    from core.models import ErrorEvent
+
+    return ErrorEvent.objects.filter(resolved_at__isnull=True, last_seen__gt=since).count()
