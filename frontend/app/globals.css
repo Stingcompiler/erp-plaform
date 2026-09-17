@@ -116,3 +116,48 @@ a:hover .dashboard-stat { border-color: rgb(var(--accent) / .5); }
   .workspace-main { animation: workspace-enter 220ms ease-out; }
   @keyframes workspace-enter { from { opacity: .65; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 }
+
+/* ---- Tables on phones ------------------------------------------------
+   Every data table sits in an `overflow-x-auto` wrapper, so it CAN scroll
+   sideways — but nothing told the user so. In RTL the hidden columns are
+   off the LEFT edge, exactly where a phone shows nothing, so the price and
+   action columns of the stock list simply were not there. Below `sm`:
+   - the wrapper shows a fade on the edge that has more content
+     (scroll-driven, so it disappears when fully scrolled), and a dotted
+     "swipe" cue under the table on first sight;
+   - the first column (the row's identity: SKU, invoice number, name) is
+     pinned so it stays readable while the rest scrolls;
+   - cells shrink a step, and headers stay on one line. */
+@media (max-width: 639px) {
+  .workspace-main .overflow-x-auto:has(> table) {
+    position: relative;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    background:
+      linear-gradient(to left, rgb(var(--surface)) 0, rgb(var(--surface) / 0) 24px),
+      linear-gradient(to right, rgb(var(--surface)) 0, rgb(var(--surface) / 0) 24px),
+      linear-gradient(to left, rgb(var(--ink) / .16), rgb(var(--ink) / 0) 20px),
+      linear-gradient(to right, rgb(var(--ink) / .16), rgb(var(--ink) / 0) 20px);
+    background-repeat: no-repeat;
+    background-position: 100% 0, 0 0, 100% 0, 0 0;
+    background-size: 40px 100%, 40px 100%, 20px 100%, 20px 100%;
+    background-attachment: local, local, scroll, scroll;
+  }
+  .workspace-main .overflow-x-auto > table { font-size: .8125rem; }
+  .workspace-main .overflow-x-auto > table th,
+  .workspace-main .overflow-x-auto > table td { padding-left: .625rem; padding-right: .625rem; }
+  .workspace-main .overflow-x-auto > table th:first-child,
+  .workspace-main .overflow-x-auto > table td:first-child {
+    position: sticky;
+    inset-inline-start: 0;
+    z-index: 1;
+    background: rgb(var(--surface));
+    box-shadow: -1px 0 0 rgb(var(--line));
+    scroll-snap-align: start;
+  }
+  [dir="rtl"] .workspace-main .overflow-x-auto > table th:first-child,
+  [dir="rtl"] .workspace-main .overflow-x-auto > table td:first-child { box-shadow: 1px 0 0 rgb(var(--line)); }
+  .workspace-main .overflow-x-auto > table thead th:first-child { background: rgb(var(--paper)); }
+  .workspace-main .overflow-x-auto > table tbody tr:hover td:first-child { background: rgb(var(--surface)); }
+}
