@@ -123,14 +123,37 @@ def activate_license(envelope, actor=None):
 
 
 def active_license():
+    """The current activation, or None when there is none or it does not
+    verify. The stored columns (kind, dates, modules, limits) are a
+    convenience copy; the signed payload is the truth, and it is re-checked
+    against the trusted key on every resolve so an edited row cannot turn a
+    fixed-term licence into a perpetual one."""
     try:
         installation = Installation.objects.order_by("pk").first()
-        return (
-            installation
-            and installation.activations.filter(superseded_at__isnull=True).first()
-        )
-    except Exception:
+        if installation is None:
+            return None
+        activation = installation.activations.filter(superseded_at__isnull=True).first()
+    except Exception:  # noqa: BLE001 - a broken table is "no licence", not a crash
         return None
+    if activation is None:
+        return None
+    try:
+        verified = verify_envelope(
+            {"payload": activation.payload, "signature": activation.signature},
+            installation,
+        )
+    except (ValidationError, ValueError, TypeError):
+        return None
+    # Derive every enforced field from the verified payload, never from the
+    # mutable columns.
+    activation.kind = verified["kind"]
+    activation.usable_until = verified["usable_until"]
+    activation.grace_until = verified["grace_until"]
+    activation.maintenance_until = verified["maintenance_until"]
+    activation.max_application_version = verified.get("max_application_version", "")
+    activation.modules = verified["modules"]
+    activation.limits = verified["limits"]
+    return activation
 
 
 def resolve_license_entitlements(now=None):

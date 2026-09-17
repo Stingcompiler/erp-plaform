@@ -14,11 +14,12 @@ You are building a commercial, multi-company ERP platform. This file is the fixe
 - Do not create a Dockerfile, docker-compose.yml, or any containerization config, ever, even if it seems like good practice. This is a hard rule, not a default you can override for convenience.
 - The hosted SaaS uses one web service, deployed the traditional way (Render builds directly from the Git repo, no Docker):
   - `erp-api` — Python native runtime, Django + DRF via Gunicorn. Its build step also builds the Next.js frontend as a static export and Django serves it directly (`backend/core/frontend.py`) — no separate frontend service, no cross-service CORS in production. Locally, `next dev` on `:3000` against this API on `:8000` over CORS is still the dev workflow (fast refresh); the static-export serving path only activates when `DEBUG=False`.
-- `erp-worker` — Render Background Worker (Python native), runs Celery
-- `erp-backup-cron` — Render Cron Job (Python native), scheduled backups
+- `erp-backup-cron` — Render Cron Job (Python native), nightly per-company backups
+- `erp-daily-scans` — Render Cron Job (Python native), the receivables / stock / subscription scans, run in-process
 - `erp-db` — Render managed PostgreSQL
-- `erp-cache` — Render managed Key Value (Redis-compatible), used as the Celery broker
-- All five services should be defined in a single `render.yaml` Blueprint at the repo root, kept in sync as services are added.
+- `erp-worker` + `erp-cache` (Celery worker and Redis-compatible broker) are declared in `render.yaml` but NOT deployed: nothing in the product enqueues work at request time, and the cron runs the same task functions. Deploy them only when a feature needs background work, and then remove `erp-daily-scans` so the scans do not run twice.
+- `render.yaml` at the repo root is the reference declaration of these services. The live services were created by hand in the dashboard and must be kept in step with it; `DEPLOYMENT.md` is the runbook.
+- The standalone profile runs the same scans and a full nightly backup from two systemd timers (`deploy/standalone/vezano-daily-scans.timer`, `vezano-backup.timer`); `manage.py preflight` fails when they are not active.
 
 ## Hosting model
 

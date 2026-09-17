@@ -58,6 +58,9 @@ services:
         value: /var/data/media/
       - key: LOG_LEVEL
         value: INFO
+      # Sync Gunicorn workers for the starter instance (see gunicorn.conf.py).
+      - key: WEB_CONCURRENCY
+        value: "3"
       - key: AUTH_COOKIE_SAMESITE
         value: Lax
       - key: DATABASE_URL

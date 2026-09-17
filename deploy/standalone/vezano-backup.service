@@ -1,0 +1,17 @@
+[Unit]
+Description=Vezano ERP full installation backup (database dump + media + env)
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=vezano
+Group=vezano
+Environment=VEZANO_ENV_FILE=/etc/vezano/vezano.env
+Environment=VEZANO_HOME=/opt/vezano/current
+Environment=VEZANO_BACKUP_DIR=/var/backups/vezano
+ExecStart=/opt/vezano/current/deploy/standalone/backup.sh --label nightly
+# Keep 14 nightly backups on the host; off-host copies are the operator's job
+# (see OPERATIONS.md). The prune runs only after a successful backup.
+ExecStartPost=/bin/sh -c 'ls -1dt /var/backups/vezano/*/ 2>/dev/null | tail -n +15 | xargs -r rm -rf'
+PrivateTmp=true
+NoNewPrivileges=true

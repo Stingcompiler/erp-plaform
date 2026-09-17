@@ -65,3 +65,41 @@ class SignedLicenceTests(TestCase):
         envelope["payload"]["limits"]["users"] = 999
         with self.assertRaises(ValidationError):
             activate_license(envelope)
+
+
+class TamperedRowTests(SignedLicenceTests):
+    """The stored columns are a copy; the signed payload governs."""
+
+    def test_editing_the_row_cannot_extend_a_fixed_term_licence(self):
+        from datetime import timedelta
+
+        from licensing.models import LicenseActivation
+
+        envelope = self.envelope()
+        envelope["payload"]["kind"] = "term"
+        envelope["payload"]["usable_until"] = (
+            timezone.now() - timedelta(days=30)
+        ).isoformat()
+        envelope["payload"]["grace_until"] = (
+            timezone.now() - timedelta(days=16)
+        ).isoformat()
+        envelope["signature"] = base64.b64encode(
+            self.private.sign(canonical_payload(envelope["payload"]))
+        ).decode("ascii")
+        activation, _ = activate_license(envelope)
+        self.assertFalse(resolve_license_entitlements().allow_writes)
+        # A customer with database access "fixes" the row.
+        LicenseActivation.objects.filter(pk=activation.pk).update(
+            kind="perpetual", usable_until=None, grace_until=None
+        )
+        decision = resolve_license_entitlements()
+        self.assertFalse(decision.allow_writes)
+        self.assertEqual(decision.state, "read_only")
+
+    def test_a_row_whose_signature_no_longer_verifies_is_unlicensed(self):
+        from licensing.models import LicenseActivation
+
+        activation, _ = activate_license(self.envelope())
+        LicenseActivation.objects.filter(pk=activation.pk).update(signature="AAAA")
+        decision = resolve_license_entitlements()
+        self.assertEqual(decision.state, "unlicensed")
