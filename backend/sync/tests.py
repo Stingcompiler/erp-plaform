@@ -58,7 +58,7 @@ class SyncBase(APITestCase):
             "payload": {
                 "product": self.product.id,
                 "warehouse": self.wh.id,
-                "movement_type": "purchase_in",
+                "movement_type": "adjustment",
                 "quantity": qty,
             },
         }
@@ -84,7 +84,7 @@ class BatchApplyTests(SyncBase):
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content)
         self.assertEqual(resp.data["summary"]["applied"], 2)
         self.assertEqual(
-            StockMovement.objects.filter(movement_type="purchase_in").count(), 1
+            StockMovement.objects.filter(movement_type="adjustment").count(), 1
         )
         self.assertEqual(Invoice.objects.count(), 1)
 
@@ -124,11 +124,11 @@ class BatchApplyTests(SyncBase):
         bad = {
             "op_type": "stock_movement",
             "client_uuid": str(uuid.uuid4()),
-            "payload": {  # purchase_in must be positive -> validation error
+            "payload": {  # a documented type may not be posted raw -> error
                 "product": self.product.id,
                 "warehouse": self.wh.id,
                 "movement_type": "purchase_in",
-                "quantity": "-5",
+                "quantity": "5",
             },
         }
         resp = self.push([good, bad])

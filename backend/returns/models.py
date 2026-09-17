@@ -74,6 +74,18 @@ class SalesReturnLine(models.Model):
         "inventory.Warehouse", on_delete=models.PROTECT, null=True, blank=True,
         related_name="restocked_return_lines",
     )
+    # The lot the goods came back in (scanned at the counter, or the lot they
+    # were sold from). Kept so a restocked batch-tracked item re-enters its
+    # lot rather than becoming untracked stock the expiry report cannot see.
+    batch = models.ForeignKey(
+        "inventory.StockBatch", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="sales_return_lines",
+    )
+    # What the written-off goods were worth (quantity × the cost they were
+    # sold at), so shrinkage is visible in the figures instead of vanishing.
+    written_off_value = models.DecimalField(
+        max_digits=16, decimal_places=2, null=True, blank=True
+    )
     # The sales_return_in movement created on restock (null while quarantined).
     restock_movement = models.OneToOneField(
         "inventory.StockMovement", on_delete=models.PROTECT, null=True, blank=True,
@@ -165,6 +177,8 @@ class CreditNote(models.Model):
         related_name="credit_notes",
     )
     amount = models.DecimalField(max_digits=16, decimal_places=2)
+    currency = models.CharField(max_length=8, blank=True)
+    exchange_rate = models.DecimalField(max_digits=14, decimal_places=6, default=1)
     reason = models.CharField(max_length=255, blank=True)
     is_void = models.BooleanField(default=False)
     created_by = models.ForeignKey(
@@ -239,6 +253,8 @@ class DebitNote(models.Model):
         related_name="debit_notes",
     )
     amount = models.DecimalField(max_digits=16, decimal_places=2)
+    currency = models.CharField(max_length=8, blank=True)
+    exchange_rate = models.DecimalField(max_digits=14, decimal_places=6, default=1)
     reason = models.CharField(max_length=255, blank=True)
     is_void = models.BooleanField(default=False)
     created_by = models.ForeignKey(

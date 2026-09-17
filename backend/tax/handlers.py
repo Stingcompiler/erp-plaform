@@ -22,12 +22,22 @@ class TaxHandler:
     def __init__(self, profile):
         self.profile = profile
 
-    def rate(self):
+    def rate(self, product=None):
+        """Rate applied to a line. Jurisdiction handlers override this to
+        return a per-category or zero rate; the simple handler applies the
+        company's flat rate to everything."""
         return self.profile.flat_tax_rate if self.profile else Decimal("0")
 
-    def compute_tax(self, base):
+    def compute_tax(self, base, product=None):
+        """Tax on a net line amount. THE place tax is computed: POS,
+        quotations and sales orders all call this, so switching a company's
+        invoice_format changes the arithmetic, not only the printout."""
         base = Decimal(base)
-        return (base * self.rate() / Decimal("100")).quantize(TWO)
+        return (base * self.rate(product) / Decimal("100")).quantize(TWO)
+
+    def validate_rate(self, rate):
+        """Bounds for a rate stored on the profile."""
+        return Decimal("0") <= Decimal(rate) <= Decimal("100")
 
     def render(self, invoice):
         raise NotImplementedError

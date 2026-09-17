@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import transaction
 from django.db.models import Q
 from rest_framework import mixins, status, viewsets
@@ -176,23 +178,48 @@ class SalesReturnViewSet(
         # ---- pass 2: apply ----
         results = []
         for line, act, wh_id in planned:
+            # The goods come back at the cost they left at — the sale_out
+            # movement of the original invoice line carries the snapshot.
+            # Costing then reverses exactly the COGS the sale booked; valuing
+            # the return at today's price would invent a margin.
+            sold = StockMovement.objects.filter(
+                reference_type="Invoice",
+                reference_id=str(sales_return.invoice_id),
+                product_id=line.product_id,
+                movement_type=StockMovement.SALE_OUT,
+            ).order_by("id").first()
+            cost = line.product.cost_price
+            if sold is not None and sold.unit_cost is not None:
+                cost = sold.unit_cost
+            batch_id = line.batch_id or (sold.batch_id if sold else None)
             if act == "restock":
                 movement = StockMovement.objects.create(
                     company_id=company_id, product=line.product,
-                    warehouse_id=wh_id, movement_type=StockMovement.SALES_RETURN_IN,
-                    quantity=line.quantity, reference_type="SalesReturn",
+                    warehouse_id=wh_id, batch_id=batch_id,
+                    movement_type=StockMovement.SALES_RETURN_IN,
+                    quantity=line.quantity, unit_cost=cost,
+                    reference_type="SalesReturn",
                     reference_id=str(sales_return.id),
                     created_by=request.user if request.user.is_authenticated else None,
                 )
                 line.disposition = SalesReturnLine.RESTOCKED
                 line.restock_warehouse_id = wh_id
                 line.restock_movement = movement
+                line.batch_id = batch_id
                 line.save(update_fields=[
-                    "disposition", "restock_warehouse", "restock_movement",
+                    "disposition", "restock_warehouse", "restock_movement", "batch",
                 ])
+                log_activity(
+                    action="create", request=request, entity_type="StockMovement",
+                    entity_id=movement.pk,
+                    metadata={"sales_return": sales_return.pk, "restock": True},
+                )
             else:
                 line.disposition = SalesReturnLine.SCRAPPED
-                line.save(update_fields=["disposition"])
+                line.written_off_value = (line.quantity * (cost or Decimal("0"))).quantize(
+                    Decimal("0.01")
+                )
+                line.save(update_fields=["disposition", "written_off_value"])
             results.append({"line_id": line.id, "disposition": line.disposition})
 
         log_activity(

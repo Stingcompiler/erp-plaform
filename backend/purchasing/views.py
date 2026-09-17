@@ -173,12 +173,34 @@ class PurchaseOrderViewSet(AppendOnlyScopedViewSet):
     serializer_class = PurchaseOrderSerializer
     activity_entity_type = "PurchaseOrder"
 
+    # Which manual moves are legal. Receipt-driven states (partially
+    # received, received) are derived from goods receipts and never set by
+    # hand; a cancelled or received order is final.
+    TRANSITIONS = {
+        PurchaseOrder.DRAFT: {PurchaseOrder.SENT, PurchaseOrder.CONFIRMED, PurchaseOrder.CANCELLED},
+        PurchaseOrder.SENT: {PurchaseOrder.CONFIRMED, PurchaseOrder.CANCELLED, PurchaseOrder.DRAFT},
+        PurchaseOrder.CONFIRMED: {PurchaseOrder.CANCELLED},
+        PurchaseOrder.PARTIALLY_RECEIVED: set(),
+        PurchaseOrder.RECEIVED: set(),
+        PurchaseOrder.CANCELLED: set(),
+    }
+
     @action(detail=True, methods=["post"])
     def set_status(self, request, pk=None):
         po = self.get_object()
         new_status = request.data.get("status")
         if new_status not in dict(PurchaseOrder.STATUS_CHOICES):
             return Response({"detail": "Invalid status."}, status=status.HTTP_400_BAD_REQUEST)
+        if new_status not in self.TRANSITIONS.get(po.status, set()):
+            return Response(
+                {"detail": f"An order that is {po.status} cannot be set to {new_status}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if new_status == PurchaseOrder.CANCELLED and po.goods_receipts.exists():
+            return Response(
+                {"detail": "Goods were received against this order; it cannot be cancelled."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         po.status = new_status
         po.save(update_fields=["status"])
         log_activity(

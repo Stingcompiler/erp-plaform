@@ -597,6 +597,10 @@ class Payment(models.Model):
     sender_bank_name = models.CharField(max_length=255, blank=True)
     reference_last4 = models.CharField(max_length=4, blank=True)
     amount = models.DecimalField(max_digits=16, decimal_places=2)
+    # Snapshot per transaction (PROJECT_RULES: currency + rate, no more). A
+    # payment inherits its invoice's currency; the rate is the day's.
+    currency = models.CharField(max_length=8, blank=True)
+    exchange_rate = models.DecimalField(max_digits=14, decimal_places=6, default=1)
     # Which till session took this money. Nullable: payments recorded outside a
     # shift (an office receipt, a bank transfer, anything from before shifts
     # existed) legitimately belong to none, and an offline sale carries the

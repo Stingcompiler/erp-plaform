@@ -368,9 +368,37 @@ class StockAdjustment(models.Model):
         related_name="adjustments",
     )
     quantity = models.DecimalField(max_digits=16, decimal_places=3)  # signed delta
+    # Why stock moved without a document. A coded reason is what lets the
+    # shrinkage report separate breakage from theft from a miscount; free
+    # text alone cannot be aggregated.
+    REASON_COUNT = "count"
+    REASON_DAMAGE = "damage"
+    REASON_EXPIRY = "expiry"
+    REASON_THEFT = "theft"
+    REASON_SAMPLE = "sample"
+    REASON_OPENING = "opening"
+    REASON_OTHER = "other"
+    REASON_CHOICES = [
+        (REASON_COUNT, "Count correction"),
+        (REASON_DAMAGE, "Damaged"),
+        (REASON_EXPIRY, "Expired"),
+        (REASON_THEFT, "Theft / loss"),
+        (REASON_SAMPLE, "Sample / internal use"),
+        (REASON_OPENING, "Opening stock"),
+        (REASON_OTHER, "Other"),
+    ]
+    reason_code = models.CharField(
+        max_length=16, choices=REASON_CHOICES, default=REASON_OTHER
+    )
     reason = models.CharField(max_length=255, blank=True)
     movement = models.OneToOneField(
         StockMovement, on_delete=models.PROTECT, related_name="adjustment"
+    )
+    # Set when the adjustment was large enough to need a second pair of eyes
+    # (company.stock_adjustment_approval_threshold); the approver signs it.
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="stock_adjustments_approved",
     )
     client_uuid = models.UUIDField(null=True, blank=True, unique=True)
     created_by = models.ForeignKey(

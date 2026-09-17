@@ -1,4 +1,7 @@
+from decimal import Decimal, InvalidOperation
+
 from core.activity import log_activity
+from core.rbac import can_approve_high_value
 from core.deletion import ArchiveOnDeleteMixin
 from core.permissions import EntitlementAccess, IsPlatformAdminOrReadOnly
 from core.timezone import is_valid_timezone
@@ -74,6 +77,8 @@ class CompanyProfileView(APIView):
         "currency",
         "timezone",
         "business_type",
+        "payment_approval_threshold",
+        "stock_adjustment_approval_threshold",
     ]
 
     def _company(self, request):
@@ -127,6 +132,18 @@ class CompanyProfileView(APIView):
                         {"business_type": "Unknown business type."},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+                if field.endswith("_threshold"):
+                    if not can_approve_high_value(request.user):
+                        return Response(
+                            {field: "Only a manager or owner may set approval thresholds."},
+                            status=status.HTTP_403_FORBIDDEN,
+                        )
+                    try:
+                        value = Decimal(str(value))
+                    except (InvalidOperation, TypeError, ValueError):
+                        return Response({field: "Must be a number."}, status=400)
+                    if value < 0:
+                        return Response({field: "Cannot be negative."}, status=400)
                 if field == "timezone" and not is_valid_timezone(value):
                     return Response(
                         {

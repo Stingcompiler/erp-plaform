@@ -5,6 +5,7 @@ from django.conf import settings
 from django.db import models
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 
 
 class Supplier(models.Model):
@@ -60,6 +61,12 @@ class PurchaseOrder(models.Model):
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=DRAFT)
     expected_date = models.DateField(null=True, blank=True)
+    # Sudanese importers are billed in USD/AED at a rate that moves weekly.
+    # The document keeps its own currency and the rate on the day, so AP and
+    # inventory cost can be reconstructed; amounts stay in document currency
+    # and `exchange_rate` converts to the company currency.
+    currency = models.CharField(max_length=8, blank=True)
+    exchange_rate = models.DecimalField(max_digits=14, decimal_places=6, default=1)
     subtotal = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     tax_amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=16, decimal_places=2, default=0)
@@ -114,7 +121,17 @@ class GoodsReceipt(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="goods_receipts",
     )
-    received_at = models.DateTimeField(auto_now_add=True)
+    # Business time: when the goods were actually taken in. An offline
+    # receipt synced hours later keeps its real time, so the stock it brought
+    # in is ordered BEFORE the sales it enabled; otherwise FIFO and average
+    # costing treat those sales as oversells.
+    received_at = models.DateTimeField(default=timezone.now, db_index=True)
+    # Server clock, audit only.
+    recorded_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    # Supplier's currency and the day's rate; line costs are in this currency
+    # and the stock movement carries the company-currency equivalent.
+    currency = models.CharField(max_length=8, blank=True)
+    exchange_rate = models.DecimalField(max_digits=14, decimal_places=6, default=1)
     client_uuid = models.UUIDField(null=True, blank=True, unique=True)
 
     class Meta:
@@ -166,6 +183,8 @@ class Bill(models.Model):
         related_name="bills",
     )
     supplier_invoice_number = models.CharField(max_length=64, blank=True)
+    currency = models.CharField(max_length=8, blank=True)
+    exchange_rate = models.DecimalField(max_digits=14, decimal_places=6, default=1)
     subtotal = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     tax_amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=16, decimal_places=2)
@@ -258,6 +277,8 @@ class SupplierPayment(models.Model):
     )
     reference_last4 = models.CharField(max_length=4, blank=True)
     amount = models.DecimalField(max_digits=16, decimal_places=2)
+    currency = models.CharField(max_length=8, blank=True)
+    exchange_rate = models.DecimalField(max_digits=14, decimal_places=6, default=1)
     recorded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="supplier_payments_recorded",
