@@ -91,6 +91,19 @@ class RestoreView(APIView):
         # Restore either from an inline dump or by fetching a stored backup.
         if not isinstance(dump, dict) and storage_key:
             from ops import storage
+            # The key is resolved through the caller's own backup records, never
+            # taken as an arbitrary object path: keys are predictable
+            # (backups/<company_id>/<stamp>-scheduled.json), so an unchecked key
+            # would let one tenant restore another tenant's customers, suppliers
+            # and cost prices into its own company.
+            owned = BackupRecord.objects.filter(
+                company_id=company_id, storage_key=storage_key
+            ).exclude(storage_key="").exists()
+            if not owned:
+                return Response(
+                    {"detail": "That backup does not belong to your company."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
             payload = storage.download_backup(storage_key)
             if not payload:
                 return Response(
@@ -109,6 +122,10 @@ class RestoreView(APIView):
                 {"detail": "data (a backup dump object) or storage_key is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # An inline dump is data the caller already holds (they downloaded it
+        # from their own backup), so restoring it into a fresh company after a
+        # re-creation is legitimate; only the by-key path needs the ownership
+        # check above, because that path fetches data the caller never had.
         company = Company.objects.get(pk=company_id)
         restored = restore_master(company, dump, request.user)
         record = BackupRecord.objects.create(

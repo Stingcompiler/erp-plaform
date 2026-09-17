@@ -157,6 +157,19 @@ class AttendanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
         read_only_fields = ["created_at"]
 
 
+# What a medical report may be. Anything else is refused on upload, and the
+# download always names one of these types explicitly: an HTML or SVG upload
+# served inline on the app origin would run as the reviewer.
+MEDICAL_REPORT_MAX_BYTES = 10 * 1024 * 1024
+MEDICAL_REPORT_TYPES = {
+    "pdf": "application/pdf",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+    "webp": "image/webp",
+}
+
+
 class LeaveRequestSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
     scoped_fk_fields = ("employee",)
     employee_name = serializers.CharField(source="employee.full_name", read_only=True)
@@ -167,6 +180,24 @@ class LeaveRequestSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer)
     # never a public media URL (medical reports are sensitive).
     medical_report = serializers.FileField(required=False, allow_null=True, write_only=True)
     has_report = serializers.SerializerMethodField()
+
+    def validate_medical_report(self, value):
+        if value is None:
+            return value
+        if value.size > MEDICAL_REPORT_MAX_BYTES:
+            raise serializers.ValidationError("A medical report must be 10 MB or smaller.")
+        name = (value.name or "").lower()
+        extension = name.rsplit(".", 1)[-1] if "." in name else ""
+        if extension not in MEDICAL_REPORT_TYPES:
+            raise serializers.ValidationError(
+                "Upload the report as a PDF, JPEG, PNG or WebP file."
+            )
+        declared = getattr(value, "content_type", "") or ""
+        if declared and declared not in MEDICAL_REPORT_TYPES.values():
+            raise serializers.ValidationError(
+                "Upload the report as a PDF, JPEG, PNG or WebP file."
+            )
+        return value
 
     class Meta:
         model = LeaveRequest
