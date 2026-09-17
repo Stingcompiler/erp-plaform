@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ('inventory', '0009_public_site_images'),
         ('org', '0008_company_timezone'),
-        ('sales', '0010_refunds_and_credit_control'),
+        ('sales', '0011_costing_integrity_and_currency'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
