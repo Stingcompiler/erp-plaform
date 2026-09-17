@@ -179,12 +179,34 @@ class PlatformTeamViewSet(
             return PlatformMemberDetailSerializer
         return PlatformMemberSerializer
 
-    def _payload(self, user, token=None):
+    def _payload(self, user, token=None, email_sent=None):
         user = self.get_queryset().get(pk=user.pk)
         data = self.get_serializer(user).data
         if token:
             data["invitation_token"] = token
+            data["invitation_email_sent"] = bool(email_sent)
         return data
+
+    @staticmethod
+    def _email_invitation(user, token):
+        """Best-effort: the inviting admin always gets the link to deliver
+        by hand; with SMTP configured it is also emailed to the member."""
+        from core import mailer
+
+        link = mailer.activation_link(token, kind="platform")
+        if not link:
+            return False
+        body = (
+            f"مرحباً {user.full_name or user.email}،\n\n"
+            "تمت دعوتك للانضمام إلى فريق منصة فيزانو.\n"
+            f"فعّل حسابك من هذا الرابط (صالح لمرة واحدة):\n{link}\n\n"
+            "— Vezano\n\n"
+            f"You have been invited to the Vezano platform team. "
+            f"Activate your account with this one-time link: {link}"
+        )
+        return mailer.send_transactional(
+            "دعوة فريق منصة فيزانو | Vezano platform team invitation", body, user.email
+        )
 
     def create(self, request):
         serializer = PlatformMemberInviteSerializer(data=request.data)
@@ -193,7 +215,10 @@ class PlatformTeamViewSet(
             serializer.validated_data["email"], serializer.validated_data["full_name"],
             serializer.validated_data["role"], request.user, request,
         )
-        return Response(self._payload(user, token), status=status.HTTP_201_CREATED)
+        return Response(
+            self._payload(user, token, email_sent=self._email_invitation(user, token)),
+            status=status.HTTP_201_CREATED,
+        )
 
     def partial_update(self, request, pk=None):
         serializer = PlatformMemberProfileSerializer(data=request.data)
@@ -229,7 +254,10 @@ class PlatformTeamViewSet(
     @action(detail=True, methods=["post"], url_path="reissue-invitation")
     def reissue_invitation(self, request, pk=None):
         user, token = reissue_platform_invitation(pk, request.user, request)
-        return Response(self._payload(user, token), status=status.HTTP_201_CREATED)
+        return Response(
+            self._payload(user, token, email_sent=self._email_invitation(user, token)),
+            status=status.HTTP_201_CREATED,
+        )
 
     @action(detail=True, methods=["post"])
     def deactivate(self, request, pk=None):

@@ -370,6 +370,29 @@ def check_dependency_lock():
     return Finding("dependency_lock", OK, "requirements.lock is present.")
 
 
+def check_email_delivery():
+    """Email is optional, but an operator should know when it is off:
+    invitation links then reach owners only by hand."""
+    if settings.DEBUG:
+        return Finding("email_delivery", OK, "DEBUG: emails echo to the console.")
+    if not getattr(settings, "EMAIL_ENABLED", False):
+        return Finding(
+            "email_delivery",
+            WARN,
+            "EMAIL_HOST is not set; invitation emails are disabled and activation "
+            "links must be delivered manually.",
+        )
+    detail = f"SMTP via {settings.EMAIL_HOST}:{settings.EMAIL_PORT}"
+    if not getattr(settings, "PUBLIC_APP_ORIGIN", ""):
+        return Finding(
+            "email_delivery",
+            WARN,
+            f"{detail}, but PUBLIC_APP_ORIGIN is empty so activation links "
+            "cannot be composed; set it to this install's public origin.",
+        )
+    return Finding("email_delivery", OK, detail)
+
+
 def run_preflight():
     """Every check, in a stable order. Import-time safe: never touches the network."""
     return [
@@ -386,4 +409,5 @@ def run_preflight():
         check_scheduled_jobs(),
         check_backup_freshness(),
         check_dependency_lock(),
+        check_email_delivery(),
     ]

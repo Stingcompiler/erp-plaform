@@ -352,6 +352,36 @@ LOGIN_LOCKOUT_SECONDS = env.int("LOGIN_LOCKOUT_SECONDS", default=15 * 60)
 # restriction (the superuser requirement in core.admin_gate still applies).
 ADMIN_ALLOWED_IPS = env.list("ADMIN_ALLOWED_IPS", default=[])
 
+# --- Transactional email ---
+# Email is optional infrastructure: nothing in the product *requires* it
+# (activation links are always shown to the operator to deliver by hand),
+# but when EMAIL_HOST is set, invitations are also emailed automatically.
+# SMTP when configured; the console backend in DEBUG so developers see the
+# messages; a dummy backend otherwise so an unconfigured production install
+# never queues mail into the void. ops.preflight warns when email is off in
+# production. core.mailer is the one place that sends.
+EMAIL_HOST = env("EMAIL_HOST", default="")
+EMAIL_ENABLED = bool(EMAIL_HOST)
+if EMAIL_ENABLED:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+elif DEBUG:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.dummy.EmailBackend"
+EMAIL_PORT = int(env("EMAIL_PORT", default="587"))
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = str(env("EMAIL_USE_TLS", default="true")).strip().lower() == "true"
+EMAIL_USE_SSL = str(env("EMAIL_USE_SSL", default="false")).strip().lower() == "true"
+EMAIL_TIMEOUT = int(env("EMAIL_TIMEOUT", default="10"))
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default=f"Vezano <no-reply@{VEZANO_CANONICAL_HOST}>")
+# Absolute origin used in links inside emails. The hosted SaaS default is the
+# canonical host; a standalone install sets its own.
+PUBLIC_APP_ORIGIN = env(
+    "PUBLIC_APP_ORIGIN",
+    default=f"https://{VEZANO_CANONICAL_HOST}" if _IS_SAAS else "",
+)
+
 # --- Celery (erp-worker) ---
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")

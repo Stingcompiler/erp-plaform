@@ -132,6 +132,7 @@ const en = {
     noAccess: "Your platform role does not include this area. Ask the platform administrator if you need it.",
   },
   platform: {
+    inviteEmailed: "The activation link was emailed to the recipient. You can still copy it below.",
     title: "Vezano platform operations",
     subtitle: "Manage prospective customers, company subscriptions, and collections separately from customer workspaces.",
     leadsDescription: "Review organizations requesting a Vezano demonstration.",
@@ -2046,6 +2047,7 @@ const ar = {
     noAccess: "دورك في المنصة لا يشمل هذا القسم. تواصل مع مدير المنصة إن كنت بحاجة إليه.",
   },
   platform: {
+    inviteEmailed: "أُرسل رابط التفعيل بالبريد الإلكتروني إلى صاحبه، ويمكنك نسخه أدناه أيضًا.",
     title: "إدارة منصة فيزانو",
     subtitle: "إدارة العملاء المحتملين واشتراكات الشركات والتحصيل بصورة منفصلة عن مساحات عمل الشركات.",
     leadsDescription: "مراجعة الشركات التي طلبت عرضًا تجريبيًا لفيزانو.",

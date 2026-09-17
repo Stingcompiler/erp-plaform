@@ -191,6 +191,8 @@ Every change here must be copied into the service's **Settings** /
 | all Python services | `PYTHON_VERSION` | `3.12.3` (what CI tests) — REQUIRED on the hand-created services; unset, Render picks the newest Python |
 | all Python services | `DJANGO_SECRET_KEY` | one shared random value, 50+ chars — REQUIRED; since #57 the app refuses to start without it when `DEBUG=False` |
 | `erp-api` | `WEB_CONCURRENCY` | `3` |
+| `erp-api` (optional) | `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS` / `DEFAULT_FROM_EMAIL` | SMTP for transactional email (owner/platform activation links). Unset = email disabled: the app still works, activation links are delivered by hand and preflight reports a warning |
+| `erp-api` (optional) | `PUBLIC_APP_ORIGIN` | absolute origin used in emailed links; defaults to `https://vezano.app` on SaaS. A standalone install must set its own origin for emails to carry links |
 
 A worker log showing `transport: redis://localhost:6379/0` means
 `CELERY_BROKER_URL` is missing; `concurrency: 8 (prefork)` followed by

@@ -55,6 +55,18 @@ services:
         value: observe
       - key: DJANGO_ALLOWED_HOSTS
         value: "enterprise.vezano.app,.onrender.com"
+      # Transactional email (activation links). Optional: with EMAIL_HOST
+      # unset the app runs fine and operators deliver links by hand.
+      # Set EMAIL_HOST/EMAIL_HOST_USER/EMAIL_HOST_PASSWORD (sync: false keeps
+      # the secret out of this file) to enable SMTP delivery.
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        value: "Vezano <no-reply@vezano.app>"
       # The paid persistent disk is attached to erp-api at this path in Render.
       # All FileField uploads (medical reports and subscription proofs) land
       # beneath it and therefore survive deploys and restarts.
