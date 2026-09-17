@@ -16,7 +16,9 @@ from rest_framework.test import APIClient
 from core import mailer
 
 
-@override_settings(EMAIL_ENABLED=True, EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+@override_settings(
+    EMAIL_ENABLED=True, EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend"
+)
 class MailerTests(SimpleTestCase):
     def test_sends_when_enabled(self):
         self.assertTrue(mailer.send_transactional("Subject", "Body", "to@example.com"))
