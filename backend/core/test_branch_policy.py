@@ -22,7 +22,8 @@ class BranchPolicyRegistryTests(SimpleTestCase):
     def test_review_flagged_resources_have_documented_policies(self):
         # The 2026-09 review named these as ambiguous; they must stay
         # deliberate: company-wide with a written reason.
-        for label in ("sales.Customer", "purchasing.Supplier", "purchasing.Bill", "finance.Expense"):
+        flagged = ("sales.Customer", "purchasing.Supplier", "purchasing.Bill", "finance.Expense")
+        for label in flagged:
             policy, reason = REGISTRY[label]
             self.assertEqual(policy, COMPANY_WIDE, label)
             self.assertTrue(reason, f"{label} needs a documented reason")
