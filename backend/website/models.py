@@ -443,3 +443,71 @@ class SeoPageOverride(models.Model):
 
     def __str__(self):
         return f"{self.path} [{self.language}]"
+
+
+class PageVisit(models.Model):
+    """One public page view, recorded server-side (website/analytics.py).
+
+    Hot table with a 7-day life: the nightly rollup folds finished days into
+    DailyPageStat and prunes what is older. No cookies and no PII — the
+    visitor hash is salted with the day and the secret key, so the same
+    visitor collapses within a day and is unlinkable across days. Raw
+    company id (not a FK) so a deleted tenant never cascades into history.
+    """
+
+    KIND_MARKETING = "marketing"
+    KIND_PUBLIC_SITE = "public_site"
+    KIND_DIRECTORY = "directory"
+    KIND_CHOICES = [
+        (KIND_MARKETING, "Marketing page"),
+        (KIND_PUBLIC_SITE, "Company public page"),
+        (KIND_DIRECTORY, "Public directory"),
+    ]
+
+    path = models.CharField(max_length=200)
+    page_kind = models.CharField(max_length=16, choices=KIND_CHOICES)
+    company_id = models.BigIntegerField(null=True, blank=True)
+    referrer_host = models.CharField(max_length=100, blank=True)
+    device = models.CharField(max_length=8, blank=True)  # phone / desktop
+    language = models.CharField(max_length=8, blank=True)
+    visitor_hash = models.CharField(max_length=32)
+    is_bot = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["created_at"], name="pagevisit_created_idx")]
+
+    def __str__(self):
+        return f"PageVisit<{self.path} @ {self.created_at:%Y-%m-%d %H:%M}>"
+
+
+class DailyPageStat(models.Model):
+    """One aggregated row per (day, path): what the analytics page reads.
+
+    Written only by the nightly rollup; today's numbers are computed live
+    from PageVisit by the API. Kept forever — a year of a busy site is
+    thousands of rows, not millions.
+    """
+
+    date = models.DateField()
+    path = models.CharField(max_length=200)
+    page_kind = models.CharField(max_length=16, choices=PageVisit.KIND_CHOICES)
+    company_id = models.BigIntegerField(null=True, blank=True)
+    visits = models.PositiveIntegerField(default=0)
+    visitors = models.PositiveIntegerField(default=0)
+    bot_visits = models.PositiveIntegerField(default=0)
+    # {"host": count} for the day; "" is a direct visit.
+    referrers = models.JSONField(default=dict, blank=True)
+    devices = models.JSONField(default=dict, blank=True)
+    languages = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["date", "path"], name="daily_stat_date_path")
+        ]
+        indexes = [
+            models.Index(fields=["date", "page_kind"], name="dailystat_date_kind_idx"),
+        ]
+
+    def __str__(self):
+        return f"DailyPageStat<{self.path} {self.date} v={self.visits}>"

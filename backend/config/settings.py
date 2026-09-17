@@ -409,6 +409,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "core.tasks.archive_activity_logs",
         "schedule": 60 * 60 * 24,
     },
+    "rollup-page-visits": {
+        "task": "website.tasks.rollup_page_visits",
+        "schedule": 60 * 60 * 24,
+    },
 }
 
 # Audit rows older than this move from the hot ActivityLog table to
