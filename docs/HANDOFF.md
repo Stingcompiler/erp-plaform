@@ -1,4 +1,4 @@
-# Handoff — where the work stands (2026-09-17, review fix stack #56–#62)
+# Handoff — where the work stands (2026-09-17, review fix stack #56–#63 merged)
 
 Read this first in a new session. It is the human-readable copy of the
 session memory (`~/.claude/projects/.../memory/`), which the assistant loads
@@ -9,9 +9,10 @@ automatically; this file is the copy that lives with the code.
 A full architecture review (ERP logic, plan-vs-code drift, isolation and
 security, SaaS vs standalone, scalability) was delivered on 2026-09-16. Its
 top findings are implemented as a stack of PRs, in review priority order.
-**None of #56–#62 is merged yet; all are green and stacked bottom-up** (#56
-and #57 on `main`, then each on the one before; GitHub retargets the next PR
-when its base merges). Merge #56 first.
+**All merged to `main` on 2026-09-17** in order #56, #57, #63 (a reopened copy
+of #58, which GitHub auto-closed when its base branch was deleted), #59, #60,
+#61, #62. Lesson: with a stacked PR, retarget the next PR to `main` BEFORE
+deleting the merged base branch, or GitHub closes it.
 
 | PR | Fix | Key files |
 |---|---|---|
