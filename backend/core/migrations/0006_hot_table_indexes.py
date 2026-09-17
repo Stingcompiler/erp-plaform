@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0004_cache_table'),
+        ('core', '0005_scrub_credentials_from_activity_log'),
         ('org', '0009_costing_integrity_and_currency'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
