@@ -26,3 +26,18 @@ def cookie_samesite_requires_csrf(app_configs, **kwargs):
             )
         ]
     return []
+
+
+@register()
+def branch_policy_registry_is_consistent(app_configs, **kwargs):
+    """Every company-scoped resource must carry an explicit branch policy.
+
+    See core.branch_policy: without this check, forgetting `branch_field` on
+    a new viewset silently makes the resource company-wide for branch users.
+    """
+    from core.branch_policy import policy_violations
+
+    return [
+        Error(message, id="vezano.E002")
+        for message in policy_violations()
+    ]
