@@ -25,6 +25,7 @@ import {
 import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import Showcase from "@/components/landing/Showcase";
+import InstallCard from "@/components/sync/InstallCard";
 
 import { demoRequests } from "@/lib/api";
 import { MarketingFooter, MarketingHeader } from "@/components/marketing/Chrome";
@@ -106,6 +107,7 @@ function Hero() {
               )}
             </div>
             <p className="mt-4 text-sm text-muted">{t("home.heroNote")}</p>
+            <InstallCard className="mx-auto mt-6 max-w-md text-start" />
           </Reveal>
         </div>
         <Reveal immediate delay={0.2} className="mx-auto mt-12 max-w-5xl">

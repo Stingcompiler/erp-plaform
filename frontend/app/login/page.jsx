@@ -9,6 +9,7 @@ import { useAuth } from "../providers/AuthProvider";
 import { useI18n } from "../providers/I18nProvider";
 import VezanoMark from "@/components/brand/VezanoMark";
 import PasswordInput from "@/components/ui/PasswordInput";
+import InstallCard from "@/components/sync/InstallCard";
 import { applyUpdate, updateAvailable } from "@/lib/registerServiceWorker";
 
 export default function LoginPage() {
@@ -85,6 +86,7 @@ export default function LoginPage() {
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-white"><VezanoMark size={20} /></span>
             {t("common.appName")}
           </Link>
+          <InstallCard className="mb-6" />
           <h2 className="font-display text-2xl font-semibold">{t("auth.signInHeading")}</h2>
           <p className="mt-1 text-sm text-muted">{t("auth.signInSubtitle")}</p>
 
