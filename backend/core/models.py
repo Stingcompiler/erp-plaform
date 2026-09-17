@@ -145,3 +145,35 @@ class AttentionSeen(models.Model):
 
     def __str__(self):
         return f"{self.user_id}:{self.key}@{self.seen_at:%Y-%m-%d %H:%M}"
+
+
+class ErrorEvent(models.Model):
+    """One kind of unhandled server error, deduplicated by fingerprint.
+
+    Production errors were visible only in the host's process logs; this
+    table is the first-party alternative to a Sentry account, read by the
+    platform console. The middleware (core.error_monitor) folds repeats of
+    the same fingerprint into one row with a count, so an error storm is a
+    counter, not a table flood. Raw ids instead of FKs: an error report
+    must never block deleting the user or company it mentions.
+    """
+
+    fingerprint = models.CharField(max_length=32, unique=True)
+    exc_type = models.CharField(max_length=200)
+    message = models.CharField(max_length=500, blank=True)
+    path = models.CharField(max_length=300)
+    method = models.CharField(max_length=8, blank=True)
+    traceback = models.TextField(blank=True)
+    user_id = models.BigIntegerField(null=True, blank=True)
+    company_id = models.BigIntegerField(null=True, blank=True)
+    count = models.PositiveIntegerField(default=1)
+    first_seen = models.DateTimeField(auto_now_add=True)
+    last_seen = models.DateTimeField(auto_now=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-last_seen"]
+        indexes = [models.Index(fields=["resolved_at", "-last_seen"], name="error_open_recent_idx")]
+
+    def __str__(self):
+        return f"ErrorEvent<{self.exc_type} {self.path} x{self.count}>"

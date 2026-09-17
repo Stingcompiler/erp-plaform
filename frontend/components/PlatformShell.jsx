@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { ChartColumn, CreditCard, FileCheck2, Inbox, Languages, LayoutDashboard, LogOut, MoonStar, ScrollText, SearchCheck, SlidersHorizontal, Sun, SunMoon, UsersRound } from "lucide-react";
+import { ChartColumn, CreditCard, FileCheck2, Inbox, Languages, LayoutDashboard, LogOut, MoonStar, ScrollText, SearchCheck, ShieldAlert, SlidersHorizontal, Sun, SunMoon, UsersRound } from "lucide-react";
 
 import VezanoMark from "@/components/brand/VezanoMark";
 import AttentionBadge, { badgeFor } from "@/components/attention/AttentionBadge";
@@ -24,6 +24,7 @@ const PLATFORM_NAV = [
   { href: "/platform-seo", label: "nav.platformSeo", icon: SearchCheck, capability: "platform.seo.view" },
   { href: "/platform-team", label: "nav.platformTeam", icon: UsersRound, capability: "platform.team.view" },
   { href: "/platform-activity", label: "nav.platformActivity", icon: ScrollText, capability: "platform.team.view" },
+  { href: "/platform-errors", label: "nav.platformErrors", icon: ShieldAlert, attentionKey: "platform-errors", capability: "platform.team.view" },
 ];
 
 export function isPlatformPath(pathname) {
