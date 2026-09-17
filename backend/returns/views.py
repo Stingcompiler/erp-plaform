@@ -298,7 +298,11 @@ def _void_note(viewset, request, entity_type):
             status=status.HTTP_400_BAD_REQUEST,
         )
     with transaction.atomic():
-        note = viewset.get_queryset().select_for_update().get(pk=viewset.get_object().pk)
+        # Resolve through the scoped queryset (404 for another tenant), then
+        # lock the bare row: FOR UPDATE cannot span the viewset's
+        # select_related outer joins on PostgreSQL.
+        target = viewset.get_object()
+        note = type(target).objects.select_for_update().get(pk=target.pk)
         if note.is_void:
             return Response({"detail": "This note is already void."}, status=400)
         if entity_type == "CreditNote" and note.refunds.exists():
