@@ -4,8 +4,8 @@ A sale at 23:30 Khartoum time (21:30 UTC) belongs to "today" for a Khartoum
 shop. Before the company zone existed every "today" was UTC's, so that sale
 showed up in tomorrow's dashboard and the shift close counted it wrong.
 """
-from datetime import timedelta
 from decimal import Decimal
+from unittest import mock
 from zoneinfo import ZoneInfo
 
 from django.urls import reverse
@@ -60,29 +60,24 @@ class CompanyTimezoneTests(APITestCase):
         self.assertEqual(self.company.timezone, "Asia/Riyadh")
 
     def test_late_evening_sale_is_todays_sale_for_the_company(self):
-        # 23:30 today in Khartoum (UTC+2) is 21:30 UTC today — same UTC date,
-        # so pin the case where the two calendars disagree: 01:00 Khartoum
-        # = 23:00 UTC the previous day.
+        # Pin the clock to the case where the two calendars disagree: 01:00 on
+        # 17 September in Khartoum (UTC+2) is 23:00 on 16 September in UTC. A
+        # wall-clock version of this test failed whenever CI happened to run
+        # between 22:00 and 00:00 UTC, because "today" itself was moving.
         khartoum = ZoneInfo("Africa/Khartoum")
-        today_local = timezone.now().astimezone(khartoum).date()
-        sold_at = timezone.datetime(
-            today_local.year, today_local.month, today_local.day, 1, 0, tzinfo=khartoum
-        )
-        if sold_at > timezone.now():
-            sold_at -= timedelta(days=1)
-            today_local -= timedelta(days=1)
-        Invoice.objects.create(
-            company=self.company, branch=self.branch, warehouse=self.warehouse, number=1,
-            total=Decimal("40"), subtotal=Decimal("40"), issued_at=sold_at,
-        )
-        client = login_client(self.owner, "passw0rd123")
-        response = client.get(reverse("dashboard"))
+        frozen_now = timezone.datetime(2026, 9, 16, 23, 30, tzinfo=ZoneInfo("UTC"))
+        sold_at = timezone.datetime(2026, 9, 17, 1, 0, tzinfo=khartoum)
+        self.assertNotEqual(sold_at.astimezone(ZoneInfo("UTC")).date(), sold_at.date())
+        with mock.patch("django.utils.timezone.now", return_value=frozen_now):
+            Invoice.objects.create(
+                company=self.company, branch=self.branch, warehouse=self.warehouse,
+                number=1, total=Decimal("40"), subtotal=Decimal("40"), issued_at=sold_at,
+            )
+            client = login_client(self.owner, "passw0rd123")
+            response = client.get(reverse("dashboard"))
         self.assertEqual(response.status_code, 200, response.data)
-        # Only meaningful when the UTC date differs; assert on the company calendar.
-        self.assertEqual(sold_at.astimezone(khartoum).date(), today_local)
-        if sold_at.astimezone(ZoneInfo("UTC")).date() != today_local:
-            total = Decimal(response.data["sections"]["sales"]["today_total"])
-            self.assertEqual(total, Decimal("40"))
+        total = Decimal(response.data["sections"]["sales"]["today_total"])
+        self.assertEqual(total, Decimal("40"))
 
     def test_zone_does_not_leak_between_requests(self):
         activate_for_user(self.owner)
