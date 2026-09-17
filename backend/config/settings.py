@@ -285,7 +285,7 @@ REST_FRAMEWORK = {
         "core.rbac.RoleModuleAccess",
         "core.permissions.EntitlementAccess",
     ),
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "DEFAULT_PAGINATION_CLASS": "core.pagination.CappedPageNumberPagination",
     "PAGE_SIZE": 50,
     # Exactly one trusted proxy (Render's edge, or the standalone reverse
     # proxy) sits in front and appends the peer address to X-Forwarded-For.

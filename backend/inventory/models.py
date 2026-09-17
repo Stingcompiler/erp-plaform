@@ -341,6 +341,16 @@ class StockMovement(models.Model):
                 name="stockmove_co_prod_wh_idx",
             ),
             models.Index(fields=["movement_type"], name="stockmove_type_idx"),
+            # Every movement list orders by time within a company; the sync
+            # pull pages on received_at.
+            models.Index(fields=["company", "-created_at"], name="stockmove_co_created_idx"),
+            models.Index(fields=["company", "received_at"], name="stockmove_co_received_idx"),
+            # The document a movement belongs to: COGS snapshots join sale_out
+            # rows to their invoice, voids and returns look up by reference.
+            models.Index(
+                fields=["reference_type", "reference_id"], name="stockmove_reference_idx"
+            ),
+            models.Index(fields=["batch"], name="stockmove_batch_idx"),
         ]
 
     def __str__(self):

@@ -48,6 +48,10 @@ class ActivityLog(models.Model):
         indexes = [
             models.Index(fields=["company", "action"], name="actlog_company_action_idx"),
             models.Index(fields=["entity_type", "entity_id"], name="actlog_entity_idx"),
+            # The log page and every per-user history read newest-first
+            # within a company.
+            models.Index(fields=["company", "-created_at"], name="actlog_company_created_idx"),
+            models.Index(fields=["user", "-created_at"], name="actlog_user_created_idx"),
         ]
 
     def __str__(self):

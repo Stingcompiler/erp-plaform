@@ -1,8 +1,43 @@
-# Handoff — where the work stands (2026-09-16, after PR #55)
+# Handoff — where the work stands (2026-09-17, review fix stack #56–#62)
 
 Read this first in a new session. It is the human-readable copy of the
 session memory (`~/.claude/projects/.../memory/`), which the assistant loads
 automatically; this file is the copy that lives with the code.
+
+## Architecture review fixes (2026-09-17) — PRs #56–#62
+
+A full architecture review (ERP logic, plan-vs-code drift, isolation and
+security, SaaS vs standalone, scalability) was delivered on 2026-09-16. Its
+top findings are implemented as a stack of PRs, in review priority order.
+**None of #56–#62 is merged yet; all are green and stacked bottom-up** (#56
+and #57 on `main`, then each on the one before; GitHub retargets the next PR
+when its base merges). Merge #56 first.
+
+| PR | Fix | Key files |
+|---|---|---|
+| #56 | Anonymous path traversal through the frontend catch-all (`/../../backend/.env` was served) → `safe_join` | `core/frontend.py`, `core/test_frontend_containment.py` |
+| #57 | Security batch: audit trail no longer stores passwords (+ `core.0005` scrubs old rows); restore `storage_key` scoped to own backups; authority ladder (a Branch Manager cannot demote a GM); refresh-token rotation and session invalidation on password change; per-account lockout; `NUM_PROXIES=1`; default `SECRET_KEY` refused in prod; `/admin/` superuser-only + `ADMIN_ALLOWED_IPS`; medical uploads validated; exports omit hashes | `core/scoping.py`, `accounts/serializers.py`, `accounts/views.py`, `core/admin_gate.py`, `core/test_security_hardening.py` |
+| #58 | Correction model (Rule #9): `POST /invoices/{id}/void/`, `Refund` model + `/api/refunds/`, note/bill `void`, `Bill.amount_due()` nets debit notes, payment balance lock, `Customer.credit_limit/credit_hold`, credit sale needs a customer; frontend `finance.approve` capability, VoidDrawer/RefundDrawer | `sales/models.py`, `sales/views.py`, `returns/views.py`, `sales/test_corrections.py`, `components/finance/*` |
+| #59 | Stock + costing integrity: raw movement endpoint = adjustments only; transfer availability lock; costing engine (skip transfers, average reset at ≤0, FIFO oversell settle, returns at sale cost); `reason_code` + approval threshold on adjustments; receipts carry business time, currency, rate and roll `cost_price`; PO status derived; tax through `TaxHandler.compute_tax`; currency+rate on purchasing/payment/note documents | `inventory/costing.py`, `inventory/serializers.py`, `purchasing/serializers.py`, `tax/handlers.py`, `inventory/test_costing_integrity.py` |
+| #60 | Offline robustness: `useOfflineMutation` awaits the durable write; POS always sends the displayed `unit_price`; provisional receipt; `DiscardedOperation` + `/api/sync/discard/` with a manager badge; `client_uuid` races answer 200; synced ops logged; pull cursor on `received_at` | `components/sync/*`, `sync/views.py`, `sync/test_offline_robustness.py` |
+| #61 | Standalone readiness: systemd timers for daily scans and nightly backup (checked by `preflight`), licence signature re-verified at every resolve, deployment mode bound to `Installation`, HTTPS hard-required, `requirements.lock`, SaaS hosts/HSTS preload SaaS-only, gunicorn 3 workers, `run_server.bat` removed, PROJECT_RULES/ARCHITECTURE aligned | `deploy/standalone/*.timer`, `licensing/services.py`, `ops/preflight.py`, `config/deployment.py` |
+| #62 | Receivables in SQL: `sales/querysets.py` + `purchasing/querysets.py` used by AR/AP aging, cash-flow, CFO KPIs, debt ledger and the receivables scan (query count no longer grows with invoices); `page_size` param (≤500) and full customer/supplier pickers; composite indexes on StockMovement, Invoice, InvoiceLine, Payment, ActivityLog | `sales/querysets.py`, `sales/debt_queries.py`, `reports/views.py`, `core/pagination.py`, `sales/test_receivables_sql.py` |
+
+Deploy notes for the owner: production must have `DJANGO_SECRET_KEY` set
+(#57 refuses to boot otherwise); migrations `core.0005`, `sales.0010–0012`,
+`inventory.0010–0011`, `org.0009`, `purchasing.0004`, `returns.0004`,
+`sync.0002`, `core.0006` run in the pre-deploy step; `WEB_CONCURRENCY=3` is
+now in `render.yaml` and should be set on the hand-created service too.
+
+Still open from the review (owner decision or separate work): Postgres RLS;
+a branch-policy registry for company-wide resources (customers, suppliers,
+bills, expenses); an email backend; ActivityLog archival; consolidating the
+module list into one registry; the standalone acceptance run on a real
+Ubuntu host.
+
+Testing note: the Postgres CI leg catches what SQLite cannot
+(`select_for_update` over `select_related` outer joins). A local Postgres 16
+recipe is in the session memory (`architecture-review-2026-09.md`).
 
 ## State on 2026-09-16 (PRs #30–#55)
 

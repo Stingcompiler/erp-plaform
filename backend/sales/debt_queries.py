@@ -13,6 +13,8 @@ from rest_framework.exceptions import ValidationError
 
 from returns.models import CreditNote
 from sales.models import Customer, Invoice, Payment, Refund
+from sales.querysets import with_outstanding
+
 
 ZERO = Decimal("0")
 
@@ -77,15 +79,6 @@ def _invoice_balance(invoice):
     return invoice.total - payments - credits + refunds
 
 
-def _by_customer(invoices):
-    """Group once, so a page of customers costs O(invoices), not
-    O(customers × invoices)."""
-    grouped = {}
-    for invoice in invoices:
-        grouped.setdefault(invoice.customer_id, []).append(invoice)
-    return grouped
-
-
 def _customer_events(customer, invoices, standalone_credits):
     """Return statement events in ascending financial order.
 
@@ -144,27 +137,6 @@ def _customer_events(customer, invoices, standalone_credits):
     return sorted(events, key=lambda row: (row["date"], row["type"], row["reference"]))
 
 
-def _customer_totals(customer, invoices, standalone_credits):
-    outstanding = ZERO
-    credit_balance = ZERO
-    overdue = ZERO
-    today = timezone.localdate()
-    for invoice in invoices:
-        if invoice.customer_id != customer.id:
-            continue
-        due = _invoice_balance(invoice)
-        if due > ZERO:
-            outstanding += due
-            if invoice.due_date and invoice.due_date < today:
-                overdue += due
-        elif due < ZERO:
-            credit_balance += -due
-    credit_balance += sum(
-        (note.amount for note in standalone_credits if note.customer_id == customer.id), ZERO
-    )
-    return outstanding, overdue, credit_balance
-
-
 def _date_param(params, key, end=False):
     raw = params.get(key)
     if not raw:
@@ -215,6 +187,39 @@ def statement_for_period(user, customer, params):
     }
 
 
+def _customer_balances(user):
+    """{customer_id: [outstanding, overdue, credit_balance]} for every customer
+    with a non-zero position.
+
+    One query fetches (customer, due_date, outstanding) for every open or
+    over-credited invoice with the balance annotated in SQL; the per-customer
+    fold is a single pass in Python. This replaces a loop that walked every
+    invoice for every customer (O(customers × invoices)) and issued three
+    queries per invoice."""
+    today = timezone.localdate()
+    invoices = with_outstanding(
+        Invoice.objects.filter(company_id=user.company_id, customer__isnull=False)
+        .filter(_branch_filter(_branch_id(user)))
+    ).exclude(outstanding=0).values_list("customer_id", "due_date", "outstanding")
+    balances = {}
+    for customer_id, due_date, outstanding in invoices.iterator(chunk_size=5000):
+        entry = balances.setdefault(customer_id, [ZERO, ZERO, ZERO])
+        if outstanding > ZERO:
+            entry[0] += outstanding
+            if due_date and due_date < today:
+                entry[1] += outstanding
+        else:
+            entry[2] += -outstanding
+    from django.db.models import Sum
+
+    for row in (
+        _standalone_credits(user).values("customer_id").annotate(total=Sum("amount"))
+    ):
+        entry = balances.setdefault(row["customer_id"], [ZERO, ZERO, ZERO])
+        entry[2] += row["total"] or ZERO
+    return balances
+
+
 def customer_debts(user, params):
     """Page the debt list after calculating the same totals used by statements."""
     query = (params.get("search") or "").strip()
@@ -224,19 +229,18 @@ def customer_debts(user, params):
     except (TypeError, ValueError):
         raise ValidationError({"page": "Use a positive integer."})
     try:
-        page_size = min(max(int(params.get("page_size", 50)), 1), 100)
+        page_size = min(max(int(params.get("page_size", 50)), 1), 200)
     except (TypeError, ValueError):
         raise ValidationError({"page_size": "Use a positive integer."})
-    customers = Customer.objects.filter(company_id=user.company_id, is_active=True)
+    balances = _customer_balances(user)
+    customers = Customer.objects.filter(
+        company_id=user.company_id, is_active=True, pk__in=list(balances)
+    )
     if query:
         customers = customers.filter(Q(name__icontains=query) | Q(phone__icontains=query))
-    grouped = _by_customer(_invoice_queryset(user))
-    credits = list(_standalone_credits(user))
     rows = []
-    for customer in customers.order_by("name", "pk"):
-        outstanding, overdue, credit = _customer_totals(
-            customer, grouped.get(customer.id, []), credits
-        )
+    for customer in customers.order_by("name", "pk").only("id", "name", "phone"):
+        outstanding, overdue, credit = balances[customer.id]
         row_status = (
             "overdue" if overdue else "owing" if outstanding
             else "credit" if credit else "settled"
@@ -265,13 +269,17 @@ def customer_debts(user, params):
 
 
 def debt_summary(user):
-    grouped = _by_customer(_invoice_queryset(user))
-    credits = list(_standalone_credits(user))
-    customers = Customer.objects.filter(company_id=user.company_id, is_active=True)
+    balances = _customer_balances(user)
+    active = set(
+        Customer.objects.filter(
+            company_id=user.company_id, is_active=True, pk__in=list(balances)
+        ).values_list("pk", flat=True)
+    )
     outstanding = overdue = credit_balance = ZERO
     debtor_count = 0
-    for customer in customers:
-        due, late, credit = _customer_totals(customer, grouped.get(customer.id, []), credits)
+    for customer_id, (due, late, credit) in balances.items():
+        if customer_id not in active:
+            continue
         outstanding += due
         overdue += late
         credit_balance += credit

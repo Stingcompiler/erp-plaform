@@ -137,6 +137,9 @@ export const sales = {
   payments: (params) => api.get("/payments/", { params }),
   paymentDocument: (id) => api.get(`/payments/${id}/document/`),
   customers: (params) => api.get("/customers/", { params }),
+  // Every customer, for pickers: the POS must be able to name any account
+  // customer, not only the first page.
+  allCustomers: (params) => listAll("/customers/", { page_size: 500, ...params }),
   debtCustomers: (params) => api.get("/debts/customers/", { params }),
   debtSummary: () => api.get("/debts/summary/"),
   debtStatement: (id, params) => api.get(`/customers/${id}/debt-statement/`, { params }),
@@ -179,6 +182,7 @@ export const reports = {
 
 export const purchasing = {
   suppliers: (params) => api.get("/suppliers/", { params }),
+  allSuppliers: (params) => listAll("/suppliers/", { page_size: 500, ...params }),
   createSupplier: (body) => api.post("/suppliers/", body),
   supplierRecords: (id, params) => api.get(`/suppliers/${id}/records/`, { params }),
   supplierRecordsCsv: (id, params) =>
