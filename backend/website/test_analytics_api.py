@@ -143,3 +143,53 @@ class FunnelTests(TestCase):
 
     def test_funnel_needs_platform_access(self):
         self.assertEqual(APIClient().get(self.URL).status_code, 401)
+
+
+class CompanyVisitsTests(TestCase):
+    URL = "/api/website/visits/"
+
+    def _client_for_company(self, company):
+        from accounts.models import Role
+
+        role, _ = Role.objects.get_or_create(
+            name="Business Owner", defaults={"scope_level": Role.SCOPE_BUSINESS}
+        )
+        user = User.objects.create_user(
+            email=f"owner-{company.pk}@x.test", password="Owner-passw0rd!",
+            company=company, role=role,
+        )
+        client = APIClient()
+        client.force_authenticate(user)
+        return client
+
+    def test_company_sees_only_its_own_traffic(self):
+        from org.models import Company
+
+        mine, theirs = Company.objects.create(name="Mine"), Company.objects.create(name="Theirs")
+        today = timezone.localdate()
+        DailyPageStat.objects.create(
+            date=today - timedelta(days=1), path="/s/mine", page_kind="public_site",
+            company_id=mine.pk, visits=9, visitors=5,
+        )
+        DailyPageStat.objects.create(
+            date=today - timedelta(days=1), path="/s/theirs", page_kind="public_site",
+            company_id=theirs.pk, visits=100, visitors=60,
+        )
+        PageVisit.objects.create(
+            path="/s/mine", page_kind="public_site", company_id=mine.pk, visitor_hash="v1"
+        )
+
+        response = self._client_for_company(mine).get(self.URL)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["visits"], 10)     # 9 rolled + 1 live, never theirs
+        self.assertEqual(data["visitors"], 6)
+        self.assertEqual(len(data["series"]), 30)
+        self.assertEqual(data["series"][-1]["visits"], 1)
+
+    def test_platform_admin_without_company_is_refused(self):
+        client = APIClient()
+        client.force_authenticate(
+            User.objects.create_superuser(email="root3@vezano.test", password="Root-passw0rd!")
+        )
+        self.assertEqual(client.get(self.URL).status_code, 403)

@@ -298,6 +298,7 @@ export const users = {
 
 export const website = {
   page: () => api.get("/website/page/"),
+  visits: () => api.get("/website/visits/"),
   updatePage: (body) => api.patch("/website/page/", body),
   publish: (publish) => api.post("/website/page/publish/", { publish }),
   sections: () => api.get("/website/sections/"),

@@ -8,6 +8,7 @@ import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import SectionsEditor from "@/components/website/SectionsEditor";
+import VisitsCard from "@/components/website/VisitsCard";
 import FeaturedProducts from "@/components/website/FeaturedProducts";
 import Gallery from "@/components/website/Gallery";
 import ImagePicker from "@/components/website/ImagePicker";
@@ -109,6 +110,8 @@ export default function WebsitePage() {
           )
         }
       />
+
+      {page?.is_published && <VisitsCard />}
 
       {page && preview && (
         <Card className="mb-6 overflow-hidden">
