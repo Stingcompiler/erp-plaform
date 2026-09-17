@@ -375,7 +375,16 @@ CELERY_BEAT_SCHEDULE = {
         "task": "subscriptions.tasks.scan_subscription_expiries",
         "schedule": 60 * 60 * 24,
     },
+    "archive-activity-logs": {
+        "task": "core.tasks.archive_activity_logs",
+        "schedule": 60 * 60 * 24,
+    },
 }
+
+# Audit rows older than this move from the hot ActivityLog table to
+# ActivityLogArchive on the nightly run (floor of 30 days enforced in
+# core.tasks so a typo cannot sweep recent rows out of the live views).
+ACTIVITY_LOG_RETENTION_DAYS = int(env("ACTIVITY_LOG_RETENTION_DAYS", default="365"))
 
 # --- Delivery profile and commercial entitlement rollout ---
 # Existing installations remain unaffected until the operator deliberately

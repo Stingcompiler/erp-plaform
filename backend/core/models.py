@@ -59,6 +59,44 @@ class ActivityLog(models.Model):
         return f"ActivityLog<{self.action} by {who} @ {self.created_at:%Y-%m-%d %H:%M}>"
 
 
+class ActivityLogArchive(models.Model):
+    """Cold storage for audit rows past the retention window.
+
+    The audit trail is append-only and never discarded (PROJECT_RULES Rule
+    #9), but the hot table backs the live log page and per-user histories,
+    and its indexes should not grow forever. The nightly archival task
+    (core.tasks.archive_activity_logs) moves rows older than
+    ACTIVITY_LOG_RETENTION_DAYS here verbatim.
+
+    Relations are stored as raw ids on purpose: an archive must outlive the
+    company or user it mentions, so nothing here cascades or blocks a
+    deletion. Rows are written once and read through the Django admin.
+    """
+
+    source_id = models.BigIntegerField(unique=True)
+    company_id = models.BigIntegerField(null=True, blank=True)
+    user_id = models.BigIntegerField(null=True, blank=True)
+    action = models.CharField(max_length=64)
+    entity_type = models.CharField(max_length=128, blank=True)
+    entity_id = models.CharField(max_length=64, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField()
+    archived_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["company_id", "-created_at"],
+                name="actlogarc_company_created_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"ActivityLogArchive<{self.action} #{self.source_id} @ {self.created_at:%Y-%m-%d}>"
+
+
 class DocumentSequence(models.Model):
     """
     Per-company, per-document-type counter for formally numbered documents
