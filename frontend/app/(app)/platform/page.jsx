@@ -11,7 +11,7 @@ import { usePlatformRoleLabel } from "@/components/PlatformShell";
 import { Badge, Card, PageHeader } from "@/components/ui/kit";
 
 function MetricCard({ href, icon: Icon, value, title, hint }) {
-  return <Link href={href}><Card className="h-full p-6 transition-transform hover:-translate-y-0.5"><Icon className="text-accent" /><div className="mt-5 text-3xl font-bold tabular-nums">{value ?? "…"}</div><h2 className="mt-2 font-display text-base font-semibold">{title}</h2><p className="mt-1 text-sm text-muted">{hint}</p></Card></Link>;
+  return <Link href={href}><Card className="h-full p-4 transition-transform hover:-translate-y-0.5 sm:p-6"><Icon className="text-accent" size={20} /><div className="mt-3 text-2xl font-bold tabular-nums sm:mt-5 sm:text-3xl">{value ?? "…"}</div><h2 className="mt-1 font-display text-sm font-semibold sm:mt-2 sm:text-base">{title}</h2><p className="mt-1 text-xs text-muted sm:text-sm">{hint}</p></Card></Link>;
 }
 
 export default function PlatformPage() {
@@ -52,7 +52,7 @@ export default function PlatformPage() {
         <Link href="/platform-registrations" className="shrink-0 rounded-control bg-accent px-4 py-2 text-center text-sm font-semibold text-white">{t("platform.createOwnerAction")}</Link>
       </div>
     </Card>
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
       <MetricCard href="/platform-registrations" icon={FileCheck2} value={counts?.registration_attention} title={t("platform.registrationAttention")} hint={t("platform.registrationAttentionHint")} />
       <MetricCard href="/platform-subscriptions" icon={CreditCard} value={counts?.pending_payments} title={t("platform.pendingPaymentsTitle")} hint={t("platform.pendingPaymentsHint")} />
       <MetricCard href="/platform-subscriptions" icon={Building2} value={counts?.provisioned_companies} title={t("platform.provisionedCompanies")} hint={t("platform.provisionedCompaniesHint")} />

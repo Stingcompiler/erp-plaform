@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { CreditCard, FileCheck2, Inbox, Languages, LayoutDashboard, LogOut, MoonStar, ScrollText, SearchCheck, SlidersHorizontal, Sun, SunMoon, UsersRound } from "lucide-react";
 
 import VezanoMark from "@/components/brand/VezanoMark";
@@ -51,6 +52,12 @@ export default function PlatformShell({ children }) {
   const { counts, tones, markSeen } = useAttention();
   const roleLabel = usePlatformRoleLabel();
   const ThemeIcon = theme === "dark" ? MoonStar : theme === "light" ? Sun : SunMoon;
+  // On a phone the nav is a scrolling strip; bring the current area into
+  // view so the member never lands on a page whose tab is off-screen.
+  const navRef = useRef(null);
+  useEffect(() => {
+    navRef.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [pathname]);
 
   return (
     <div className="min-h-screen bg-paper">
@@ -82,7 +89,7 @@ export default function PlatformShell({ children }) {
               </button>
             </div>
           </div>
-          <nav className="flex gap-2 overflow-x-auto" aria-label={t("shell.platformWorkspace")}>
+          <nav ref={navRef} className="platform-nav -mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0" aria-label={t("shell.platformWorkspace")}>
             {visiblePlatformNav(can).map(({ href, label, icon: Icon, attentionKey }) => {
               const active = pathname === href || pathname.startsWith(`${href}/`);
               const badge = badgeFor(attentionKey, counts, tones);
@@ -96,7 +103,7 @@ export default function PlatformShell({ children }) {
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">{children}</main>
+      <main className="workspace-main mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">{children}</main>
     </div>
   );
 }
