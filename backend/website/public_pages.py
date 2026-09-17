@@ -316,6 +316,13 @@ def render_site(request, site, *, preview=False):
         "directory_url": site_url("/s/"),
         "preview": preview,
     }
+    if not preview:
+        from website.analytics import record
+
+        record(
+            request, public_site_path(slug), page_kind="public_site",
+            company_id=site.company_id, language=language,
+        )
     response = render(request, "website/public_site.html", context)
     if preview:
         response["Cache-Control"] = "no-store"
@@ -383,6 +390,9 @@ def public_site_directory(request):
     ]
     # Every listed site gets a card; the complete ones lead.
     cards.sort(key=lambda card: not card["complete"])
+    from website.analytics import record
+
+    record(request, "/s/", page_kind="directory", language="ar")
     return render(
         request,
         "website/public_directory.html",

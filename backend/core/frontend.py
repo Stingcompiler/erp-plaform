@@ -90,6 +90,15 @@ def serve_frontend(request, path=""):
     clean = path.strip("/")
     for candidate in _candidates(clean):
         if candidate.is_file():
+            # Count marketing page views (server-side, first-party; see
+            # website/analytics.py). Only real HTML pages — assets and the
+            # signed-in workspace shell are excluded there and here.
+            if candidate.suffix == ".html" or candidate.name == "index.html":
+                from website.analytics import marketing_kind_for, record
+
+                classified = marketing_kind_for(clean)
+                if classified:
+                    record(request, clean, page_kind=classified[0], language=classified[1])
             return _serve_file(candidate, clean)
 
     not_found = FRONTEND_DIST / "404.html"
