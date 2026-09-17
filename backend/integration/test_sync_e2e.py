@@ -27,7 +27,7 @@ class OfflineSyncEndToEndTests(IntegrationBase):
                     "client_uuid": str(uuid.uuid4()),
                     "payload": {
                         "product": self.product_obj.id, "warehouse": self.wh.id,
-                        "movement_type": "purchase_in", "quantity": "50",
+                        "movement_type": "adjustment", "quantity": "50",
                     },
                 },
                 {
@@ -71,7 +71,7 @@ class OfflineSyncEndToEndTests(IntegrationBase):
             "client_uuid": cu,
             "payload": {
                 "product": self.product_obj.id, "warehouse": self.wh.id,
-                "movement_type": "purchase_in", "quantity": "7",
+                "movement_type": "adjustment", "quantity": "7",
             },
         }
         self.client.post(

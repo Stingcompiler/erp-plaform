@@ -46,11 +46,19 @@ class InventoryBase(APITestCase):
         assert resp.status_code == 200, resp.content
 
     def _move(self, mtype, qty, warehouse, client_uuid=None):
+        """Put stock on or off the shelf the way the product does it.
+
+        The raw movement endpoint now accepts adjustments only: a receipt or
+        a sale without its document would be stock with no paper behind it.
+        Tests that just need a balance post an adjustment; the movement type
+        they name is kept in the ledger's `note` for readability.
+        """
         payload = {
             "product": self.product_a.id,
             "warehouse": warehouse.id,
-            "movement_type": mtype,
+            "movement_type": StockMovement.ADJUSTMENT,
             "quantity": str(qty),
+            "note": mtype,
         }
         if client_uuid:
             payload["client_uuid"] = str(client_uuid)
@@ -78,8 +86,13 @@ class StockLedgerTests(InventoryBase):
         self.assertNotIn("current_stock", field_names)
 
     def test_sign_validation_rejects_wrong_direction(self):
-        # purchase_in must be positive.
-        resp = self._move("purchase_in", -5, self.wh_a1)
+        # purchase_in must be positive — and, since receipts carry a document,
+        # it cannot be posted here at all.
+        resp = self.client.post(
+            reverse("stockmovement-list"),
+            {"product": self.product_a.id, "warehouse": self.wh_a1.id,
+             "movement_type": "purchase_in", "quantity": "-5"},
+        )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_stock_endpoint_breaks_down_by_warehouse(self):
@@ -171,7 +184,7 @@ class InventoryScopingTests(InventoryBase):
             {
                 "product": self.product_b.id,  # belongs to company B
                 "warehouse": self.wh_a1.id,
-                "movement_type": "purchase_in",
+                "movement_type": "adjustment",
                 "quantity": "5",
             },
         )

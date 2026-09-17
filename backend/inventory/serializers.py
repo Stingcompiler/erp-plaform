@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.db import transaction
 from rest_framework import serializers
 
+from core.rbac import can_approve_high_value
 from core.scoping import assert_user_branch
 
 from inventory.models import (
@@ -187,13 +188,31 @@ class StockMovementSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["company", "created_by", "created_at"]
 
+    # Movements that carry a document (a receipt, a sale, a return, a
+    # transfer) are written by that document's own serializer, which is where
+    # the price, the supplier, the invoice and the AP/AR effect live. The raw
+    # endpoint therefore accepts only the one type that has no other home:
+    # an adjustment. Anything else here would be stock appearing or vanishing
+    # with no paper behind it.
+    DIRECT_TYPES = {StockMovement.ADJUSTMENT}
+
     def validate(self, attrs):
+        if attrs["movement_type"] not in self.DIRECT_TYPES:
+            raise serializers.ValidationError(
+                {
+                    "movement_type": (
+                        "Only adjustments can be posted directly. Use receiving, the "
+                        "POS, returns or transfers for every other movement."
+                    )
+                }
+            )
         _validate_sign(attrs["movement_type"], attrs["quantity"])
         self._check_same_company(attrs)
         return attrs
 
     def _check_same_company(self, attrs):
-        # Never let a movement staple together objects from another tenant.
+        # Never let a movement staple together objects from another tenant,
+        # nor a lot of one product with a movement of another.
         request = self.context.get("request")
         user = getattr(request, "user", None)
         if user is None or getattr(user, "is_platform_admin", False):
@@ -207,6 +226,12 @@ class StockMovementSerializer(serializers.ModelSerializer):
                 )
             if key == "warehouse":
                 assert_user_branch(user, obj, key)
+        batch = attrs.get("batch")
+        product = attrs.get("product")
+        if batch is not None and product is not None and batch.product_id != product.pk:
+            raise serializers.ValidationError(
+                {"batch": "That lot belongs to a different product."}
+            )
 
     def create(self, validated_data):
         request = self.context.get("request")
@@ -216,18 +241,46 @@ class StockMovementSerializer(serializers.ModelSerializer):
 
 
 class StockAdjustmentSerializer(serializers.ModelSerializer):
+    reason_code_display = serializers.CharField(
+        source="get_reason_code_display", read_only=True
+    )
+
     class Meta:
         model = StockAdjustment
         fields = [
             "id", "company", "product", "warehouse", "batch", "quantity",
-            "reason", "movement", "client_uuid", "created_by", "created_at",
+            "reason_code", "reason_code_display", "reason", "movement", "client_uuid",
+            "created_by", "approved_by", "created_at",
         ]
-        read_only_fields = ["company", "movement", "created_by", "created_at"]
+        read_only_fields = [
+            "company", "movement", "created_by", "approved_by", "created_at",
+        ]
 
     def validate(self, attrs):
         if attrs["quantity"] == 0:
             raise serializers.ValidationError("Adjustment quantity cannot be zero.")
+        if not (attrs.get("reason") or "").strip():
+            raise serializers.ValidationError(
+                {"reason": "Say why the stock is being adjusted."}
+            )
         StockMovementSerializer._check_same_company(self, attrs)
+        # Above the company's threshold an adjustment is a supervisory act:
+        # the same approver roles that sign off payments and till counts.
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        company = getattr(user, "company", None)
+        threshold = getattr(company, "stock_adjustment_approval_threshold", None) or 0
+        if threshold:
+            value = abs(attrs["quantity"]) * (attrs["product"].cost_price or Decimal("0"))
+            if value >= threshold and not can_approve_high_value(user):
+                raise serializers.ValidationError(
+                    {
+                        "quantity": (
+                            f"An adjustment worth {value} needs a manager or owner "
+                            f"(threshold {threshold})."
+                        )
+                    }
+                )
         return attrs
 
     @transaction.atomic
@@ -238,13 +291,18 @@ class StockAdjustmentSerializer(serializers.ModelSerializer):
         company_id = validated_data.get("company_id")
         if company_id is None:
             raise serializers.ValidationError("Company context is required.")
+        product = validated_data["product"]
         movement = StockMovement.objects.create(
             company_id=company_id,
-            product=validated_data["product"],
+            product=product,
             warehouse=validated_data["warehouse"],
             batch=validated_data.get("batch"),
             movement_type=StockMovement.ADJUSTMENT,
             quantity=validated_data["quantity"],
+            # Valued at the product's cost at the moment of the adjustment,
+            # so a write-off shows its worth in the shrinkage figures and a
+            # positive correction enters the cost layers at a known cost.
+            unit_cost=product.cost_price,
             reference_type="StockAdjustment",
             note=validated_data.get("reason", ""),
             created_by=creator,
@@ -252,6 +310,7 @@ class StockAdjustmentSerializer(serializers.ModelSerializer):
         adjustment = StockAdjustment.objects.create(
             movement=movement,
             created_by=creator,
+            approved_by=creator if can_approve_high_value(user) else None,
             **validated_data,
         )
         movement.reference_id = str(adjustment.id)
@@ -286,10 +345,20 @@ class StockTransferSerializer(serializers.ModelSerializer):
                 "batch": attrs.get("batch"),
             },
         )
-        # dest warehouse company check
-        StockMovementSerializer._check_same_company(
-            self, {"warehouse": attrs.get("dest_warehouse")}
-        )
+        # The destination only has to be ours. A branch manager may send
+        # stock to another branch: authority over the SOURCE is what matters,
+        # and the receiving branch sees the stock arrive in its own ledger.
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        dest = attrs.get("dest_warehouse")
+        if (
+            dest is not None
+            and user is not None
+            and dest.company_id != getattr(user, "company_id", None)
+        ):
+            raise serializers.ValidationError(
+                {"dest_warehouse": "Does not belong to your company."}
+            )
         return attrs
 
     @transaction.atomic
@@ -300,22 +369,44 @@ class StockTransferSerializer(serializers.ModelSerializer):
         company_id = validated_data.get("company_id")
         if company_id is None:
             raise serializers.ValidationError("Company context is required.")
-        product = validated_data["product"]
+        product = Product.objects.select_for_update().get(pk=validated_data["product"].pk)
         batch = validated_data.get("batch")
         qty = validated_data["quantity"]
+        source = validated_data["source_warehouse"]
 
+        # A transfer moves stock that exists. Unlike a sale, nothing physical
+        # has already happened when the form is submitted, so a shortfall is
+        # a data problem to fix (count the shelf) and not a fact to record:
+        # allowing it would invent sellable stock at the destination.
+        available = product.on_hand(warehouse=source, batch=batch)
+        if Decimal(qty) > available:
+            raise serializers.ValidationError(
+                {
+                    "quantity": (
+                        f"Only {available} is on hand at {source.name}"
+                        + (f" in lot {batch.lot_number}" if batch else "")
+                        + ". Count the shelf and adjust before transferring."
+                    )
+                }
+            )
+        # The receiving side carries the sender's cost so a move between
+        # warehouses never re-prices stock.
+        cost = product.cost_price
         out_move = StockMovement.objects.create(
             company_id=company_id, product=product,
-            warehouse=validated_data["source_warehouse"], batch=batch,
+            warehouse=source, batch=batch,
             movement_type=StockMovement.TRANSFER, quantity=-Decimal(qty),
+            unit_cost=cost,
             reference_type="StockTransfer", created_by=creator,
         )
         in_move = StockMovement.objects.create(
             company_id=company_id, product=product,
             warehouse=validated_data["dest_warehouse"], batch=batch,
             movement_type=StockMovement.TRANSFER, quantity=Decimal(qty),
+            unit_cost=cost,
             reference_type="StockTransfer", created_by=creator,
         )
+        validated_data["product"] = product
         transfer = StockTransfer.objects.create(
             source_movement=out_move, dest_movement=in_move, created_by=creator,
             **validated_data,

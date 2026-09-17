@@ -62,6 +62,12 @@ class Company(models.Model):
     payment_approval_threshold = models.DecimalField(
         max_digits=16, decimal_places=2, default=0
     )
+    # A stock adjustment whose value (quantity × cost) reaches this amount
+    # needs an approver role, the same segregation the stock count enforces
+    # with its counter/approver pair. 0 disables the tier.
+    stock_adjustment_approval_threshold = models.DecimalField(
+        max_digits=16, decimal_places=2, default=0
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -9,6 +9,10 @@ import { useOfflineMutation } from "@/components/sync/useOfflineMutation";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Field, Input, Select } from "@/components/ui/kit";
 
+// Mirrors StockAdjustment.REASON_CHOICES on the server: a coded reason is
+// what lets shrinkage be reported by cause rather than as free text.
+const REASON_CODES = ["count", "damage", "expiry", "theft", "sample", "opening", "other"];
+
 const MOVE_KEY = {
   sale_out: "inventory.mvSaleOut",
   purchase_in: "inventory.mvPurchaseIn",
@@ -27,7 +31,7 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
   // exactly when a stock count needs recording.
   const [stockState, setStockState] = useState("loading");
   const [movements, setMovements] = useState([]);
-  const [adjust, setAdjust] = useState({ warehouse: "", quantity: "", reason: "" });
+  const [adjust, setAdjust] = useState({ warehouse: "", quantity: "", reason: "", reason_code: "count" });
   const [transfer, setTransfer] = useState({ source: "", dest: "", quantity: "" });
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
@@ -52,7 +56,7 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
     if (open) {
       setMsg("");
       setStockState("loading");
-      setAdjust({ warehouse: "", quantity: "", reason: "" });
+      setAdjust({ warehouse: "", quantity: "", reason: "", reason_code: "count" });
       setTransfer({ source: "", dest: "", quantity: "" });
       load();
     }
@@ -64,6 +68,10 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
       setMsg(t("inventory.chooseWhQty"));
       return;
     }
+    if (!adjust.reason.trim()) {
+      setMsg(t("inventory.reasonRequired"));
+      return;
+    }
     setBusy(true);
     try {
       const result = await mutate("stock_adjustment", inventory.createAdjustment, {
@@ -72,8 +80,9 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
         warehouse: Number(adjust.warehouse),
         quantity: adjust.quantity,
         reason: adjust.reason,
+        reason_code: adjust.reason_code,
       });
-      setAdjust({ warehouse: "", quantity: "", reason: "" });
+      setAdjust({ warehouse: "", quantity: "", reason: "", reason_code: "count" });
       if (!result.queued) await load();
       onChanged?.();
       setMsg(result.queued ? t("sync.savedForUpload") : t("inventory.stockAdjusted"));
@@ -173,13 +182,23 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
                       onChange={(e) => setAdjust((a) => ({ ...a, quantity: e.target.value }))}
                     />
                   </Field>
-                  <Field label={t("inventory.reason")}>
-                    <Input
-                      value={adjust.reason}
-                      onChange={(e) => setAdjust((a) => ({ ...a, reason: e.target.value }))}
-                    />
+                  <Field label={t("inventory.reasonCode")}>
+                    <Select
+                      value={adjust.reason_code}
+                      onChange={(e) => setAdjust((a) => ({ ...a, reason_code: e.target.value }))}
+                    >
+                      {REASON_CODES.map((code) => (
+                        <option key={code} value={code}>{t(`inventory.reasonCodes.${code}`)}</option>
+                      ))}
+                    </Select>
                   </Field>
                 </div>
+                <Field label={t("inventory.reason")}>
+                  <Input
+                    value={adjust.reason}
+                    onChange={(e) => setAdjust((a) => ({ ...a, reason: e.target.value }))}
+                  />
+                </Field>
                 <Button onClick={submitAdjustment} disabled={busy}>
                   {busy ? t("inventory.posting") : t("inventory.postAdjustment")}
                 </Button>

@@ -60,23 +60,49 @@ class TaxProfileView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             profile.invoice_format = fmt
+        before = {
+            "country": profile.country, "invoice_format": profile.invoice_format,
+            "flat_tax_rate": str(profile.flat_tax_rate),
+            "e_invoicing_enabled": profile.e_invoicing_enabled,
+        }
         if "country" in request.data:
-            profile.country = request.data["country"]
+            country = str(request.data["country"] or "").strip().upper()
+            if len(country) != 2 or not country.isalpha():
+                return Response(
+                    {"country": "Use a two-letter ISO 3166-1 country code."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            profile.country = country
         if "e_invoicing_enabled" in request.data:
             profile.e_invoicing_enabled = bool(request.data["e_invoicing_enabled"])
         if "flat_tax_rate" in request.data:
             try:
-                profile.flat_tax_rate = Decimal(str(request.data["flat_tax_rate"]))
+                rate = Decimal(str(request.data["flat_tax_rate"]))
             except (InvalidOperation, TypeError):
                 return Response(
                     {"detail": "flat_tax_rate must be a number."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            # A typo of 150 would inflate every subsequent invoice by 150%.
+            if not get_handler(profile).validate_rate(rate):
+                return Response(
+                    {"flat_tax_rate": "The rate must be between 0 and 100 percent."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            profile.flat_tax_rate = rate
         profile.save()
+        after = {
+            "country": profile.country, "invoice_format": profile.invoice_format,
+            "flat_tax_rate": str(profile.flat_tax_rate),
+            "e_invoicing_enabled": profile.e_invoicing_enabled,
+        }
         log_activity(
             action="update", request=request, entity_type="TaxProfile",
             entity_id=profile.id,
-            metadata={"invoice_format": profile.invoice_format},
+            metadata={"changes": {
+                k: {"before": before[k], "after": after[k]}
+                for k in before if before[k] != after[k]
+            }},
         )
         return Response(self._serialize(profile))
 

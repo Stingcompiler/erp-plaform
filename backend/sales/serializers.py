@@ -57,9 +57,17 @@ def validate_business_time(value):
 
 
 def _company_tax_rate(company):
-    """Flat rate from the company's TaxProfile (Rule #7) — never hardcoded."""
+    """Headline rate from the company's TaxProfile (Rule #7) — never hardcoded.
+    Kept for the snapshot written on the invoice; the arithmetic itself goes
+    through the jurisdiction handler (see tax_handler_for)."""
     profile = getattr(company, "tax_profile", None)
     return profile.flat_tax_rate if profile else Decimal("0")
+
+
+def tax_handler_for(company):
+    from tax.handlers import get_handler
+
+    return get_handler(getattr(company, "tax_profile", None))
 
 
 def _assert_tenant_relations(serializer, attrs, fields):
@@ -172,29 +180,24 @@ class QuotationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         lines = validated_data.pop("lines")
         company_id = validated_data.get("company_id")
-        rate = _company_tax_rate_by_id(company_id)
+        from org.models import Company
+        handler = tax_handler_for(Company.objects.get(pk=company_id))
         request = self.context.get("request")
         if request and request.user.is_authenticated:
             validated_data["created_by"] = request.user
         quotation = Quotation.objects.create(**validated_data)
         subtotal = Decimal("0")
+        tax_total = Decimal("0")
         for line in lines:
             lt = _q2(line["quantity"] * line["unit_price"])
             QuotationLine.objects.create(quotation=quotation, line_total=lt, **line)
             subtotal += lt
+            tax_total += handler.compute_tax(lt, line.get("product"))
         quotation.subtotal = _q2(subtotal)
-        quotation.tax_amount = _q2(subtotal * rate / 100)
+        quotation.tax_amount = _q2(tax_total)
         quotation.total = quotation.subtotal + quotation.tax_amount
         quotation.save(update_fields=["subtotal", "tax_amount", "total"])
         return quotation
-
-
-def _company_tax_rate_by_id(company_id):
-    from org.models import Company
-    try:
-        return _company_tax_rate(Company.objects.get(pk=company_id))
-    except Company.DoesNotExist:
-        return Decimal("0")
 
 
 # ---------- Sales Order ----------
@@ -236,18 +239,21 @@ class SalesOrderSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         lines = validated_data.pop("lines")
         company_id = validated_data.get("company_id")
-        rate = _company_tax_rate_by_id(company_id)
+        from org.models import Company
+        handler = tax_handler_for(Company.objects.get(pk=company_id))
         request = self.context.get("request")
         if request and request.user.is_authenticated:
             validated_data["created_by"] = request.user
         order = SalesOrder.objects.create(**validated_data)
         subtotal = Decimal("0")
+        tax_total = Decimal("0")
         for line in lines:
             lt = _q2(line["quantity"] * line["unit_price"])
             SalesOrderLine.objects.create(sales_order=order, line_total=lt, **line)
             subtotal += lt
+            tax_total += handler.compute_tax(lt, line.get("product"))
         order.subtotal = _q2(subtotal)
-        order.tax_amount = _q2(subtotal * rate / 100)
+        order.tax_amount = _q2(tax_total)
         order.total = order.subtotal + order.tax_amount
         order.save(update_fields=["subtotal", "tax_amount", "total"])
         return order
@@ -314,7 +320,8 @@ class PaymentSerializer(serializers.ModelSerializer):
         model = Payment
         fields = [
             "id", "company", "invoice", "method", "company_bank_account",
-            "sender_bank_name", "reference_last4", "amount", "shift", "recorded_by",
+            "sender_bank_name", "reference_last4", "amount", "currency", "exchange_rate",
+            "shift", "recorded_by",
             "recorded_at", "received_at", "verified_at", "verified_by", "client_uuid",
         ]
         read_only_fields = [
@@ -418,6 +425,8 @@ class PaymentSerializer(serializers.ModelSerializer):
                     {"amount": f"Amount exceeds the balance due ({due})."}
                 )
             validated_data["invoice"] = invoice
+            validated_data.setdefault("currency", invoice.currency)
+            validated_data.setdefault("exchange_rate", invoice.exchange_rate)
             payment = super().create(validated_data)
             Invoice.objects.filter(pk=payment.invoice_id).update(
                 updated_at=payment.recorded_at
@@ -621,7 +630,7 @@ class POSCheckoutSerializer(serializers.Serializer):
     warehouse = serializers.PrimaryKeyRelatedField(queryset=Warehouse.objects.all())
     currency = serializers.CharField(required=False)
     exchange_rate = serializers.DecimalField(
-        max_digits=14, decimal_places=6, required=False
+        max_digits=14, decimal_places=6, required=False, min_value=Decimal("0.000001")
     )
     client_uuid = serializers.UUIDField(required=False, allow_null=True)
     # The till session this sale was rung under. Sent by the client rather than
@@ -689,6 +698,7 @@ class POSCheckoutSerializer(serializers.Serializer):
         from org.models import Company
         company = Company.objects.get(pk=company_id)
         rate = _company_tax_rate(company)
+        handler = tax_handler_for(company)
 
         # Reports sum invoice totals per company without converting, so a
         # foreign-currency invoice would silently corrupt every figure. Until
@@ -787,7 +797,7 @@ class POSCheckoutSerializer(serializers.Serializer):
         for ln, product, qty, price, gross, own, share in priced:
             discount = own + share
             line_subtotal = gross - discount
-            line_tax = _q2(line_subtotal * rate / 100)
+            line_tax = handler.compute_tax(line_subtotal, product)
             pack_info = ln.get("_pack")
             InvoiceLine.objects.create(
                 invoice=invoice, product=product,
@@ -951,6 +961,7 @@ class POSCheckoutSerializer(serializers.Serializer):
             company_id=company_id, invoice=invoice, method=method,
             company_bank_account=ba, sender_bank_name=sender,
             reference_last4=ref, amount=pay["amount"],
+            currency=invoice.currency, exchange_rate=invoice.exchange_rate,
             shift=shift,
             recorded_by=user if user.is_authenticated else None,
             **({"recorded_at": occurred_at} if occurred_at else {}),

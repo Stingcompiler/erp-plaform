@@ -221,6 +221,8 @@ class SalesReturnWriteSerializer(serializers.Serializer):
                 invoice=invoice,
                 sales_return=sales_return,
                 amount=credit_total,
+                currency=invoice.currency,
+                exchange_rate=invoice.exchange_rate,
                 reason=validated_data.get("reason", ""),
                 created_by=user if user.is_authenticated else None,
             )
@@ -402,6 +404,9 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
                 batch=original.batch,
                 movement_type=StockMovement.PURCHASE_RETURN_OUT,
                 quantity=-ln["quantity"],
+                # The goods go back at what that receipt line cost, matching
+                # the debit note raised for them.
+                unit_cost=original.unit_cost,
                 reference_type="PurchaseReturn", reference_id=str(pr.id),
                 created_by=user if user.is_authenticated else None,
             )
@@ -435,6 +440,8 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
             bill=bill,
             purchase_return=pr,
             amount=debit_amount,
+            currency=receipt.currency,
+            exchange_rate=receipt.exchange_rate,
             reason=validated_data.get("reason", ""),
             created_by=user if user.is_authenticated else None,
         )
