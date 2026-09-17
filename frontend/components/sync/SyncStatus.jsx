@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Cloud, CloudOff, RefreshCw, AlertTriangle, Download, ShieldCheck, ShieldAlert } from "lucide-react";
-import { useInstallPrompt } from "@/lib/installPrompt";
+import { installRoute, useInstallPrompt } from "@/lib/installPrompt";
 import { useSync } from "@/components/sync/SyncProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import Drawer from "@/components/ui/Drawer";
@@ -50,7 +50,9 @@ export default function SyncStatus() {
             </button>
           )}
         </div>
-        {!installed && !canPrompt && <p className="text-xs text-muted">{t("install.manualHint")}</p>}
+        {!installed && !canPrompt && (
+          <p className="text-xs text-muted">{t(`install.route.${installRoute()}`)}</p>
+        )}
         {storageLow && <p role="alert" className="text-xs text-danger">{t("install.storageLow")}</p>}
       </div>
       {errorKey && <p role="alert" className="mb-3 text-sm text-danger">{t(`improvements.${errorKey}`)}</p>}
