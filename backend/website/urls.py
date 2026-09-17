@@ -2,6 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from website.public_pages import public_showcase
+from website.analytics_views import PlatformAnalyticsOverview
 from website.seo_views import (
     PublicSiteContactView, SeoOgImageView, SeoPageOverrideViewSet, SeoSettingsView,
 )
@@ -37,6 +38,10 @@ router.register(
 
 urlpatterns = [
     path("platform/overview/", PlatformOverviewView.as_view(), name="platform-overview"),
+    path(
+        "platform/analytics/overview/", PlatformAnalyticsOverview.as_view(),
+        name="platform-analytics-overview",
+    ),
     path("platform/seo/settings/", SeoSettingsView.as_view(), name="platform-seo-settings"),
     path(
         "platform/seo/settings/image/", SeoOgImageView.as_view(),
