@@ -17,7 +17,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core import platform_roles
-from core.permissions import IsPlatformAdmin
+from core.permissions import IsPlatformAdmin, RoleModuleAccess
 
 WINDOWS = (7, 30, 90)
 
@@ -223,3 +223,51 @@ class PlatformFunnelView(APIView):
                 if previous else None
             )
         return Response({"days": days, "stages": stages})
+
+
+class CompanyVisitsView(APIView):
+    """A tenant's own public-page traffic: /s/<slug>/ visits for the
+    signed-in user's company only.
+
+    This is the sellable side of the analytics: the shop owner sees what
+    their published page brings them. Company scoping is by the user's own
+    company_id — no parameter is accepted, so there is nothing to guess.
+    """
+
+    permission_classes = [IsAuthenticated, RoleModuleAccess]
+    rbac_module = "website"
+
+    def get(self, request):
+        from website.models import DailyPageStat, PageVisit
+
+        company_id = getattr(request.user, "company_id", None)
+        if company_id is None:
+            return Response({"detail": "A company workspace is required."}, status=403)
+
+        today = timezone.localdate()
+        start = today - timedelta(days=29)
+        rows = {
+            row["date"]: row
+            for row in DailyPageStat.objects.filter(
+                company_id=company_id, date__gte=start
+            ).values("date").annotate(v=Sum("visits"), u=Sum("visitors"))
+        }
+        live = PageVisit.objects.filter(
+            company_id=company_id, created_at__date=today, is_bot=False
+        )
+        series = []
+        for offset in range(30):
+            day = start + timedelta(days=offset)
+            if day == today:
+                visits = live.count()
+                visitors = live.values("visitor_hash").distinct().count()
+            else:
+                row = rows.get(day)
+                visits, visitors = (row["v"], row["u"]) if row else (0, 0)
+            series.append({"date": day.isoformat(), "visits": visits, "visitors": visitors})
+        return Response({
+            "days": 30,
+            "visits": sum(point["visits"] for point in series),
+            "visitors": sum(point["visitors"] for point in series),
+            "series": series,
+        })
