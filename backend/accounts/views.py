@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.cache import cache
 from django.db import transaction
 from rest_framework import status, viewsets
 from rest_framework.exceptions import ValidationError
@@ -29,6 +30,18 @@ from org.models import Company
 from subscriptions.services import assert_capacity
 
 
+def _lockout_key(email):
+    return f"login-lockout:{email.strip().lower()}"
+
+
+def failed_login_count(email):
+    return int(cache.get(_lockout_key(email), 0) or 0)
+
+
+def clear_failed_logins(email):
+    cache.delete(_lockout_key(email))
+
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -36,9 +49,36 @@ class LoginView(APIView):
     throttle_scope = "login"
 
     def post(self, request):
+        # Per-account lockout, alongside the per-IP throttle. The IP throttle
+        # alone is defeated by rotating addresses (or forging the forwarded
+        # header); this counter follows the account being attacked instead.
+        email = str(request.data.get("email") or "")
+        attempts = settings.LOGIN_LOCKOUT_ATTEMPTS
+        if email and failed_login_count(email) >= attempts:
+            log_activity(
+                action="login_blocked",
+                request=request,
+                metadata={"reason": "account_locked", "email": email.strip().lower()},
+            )
+            return Response(
+                {
+                    "code": "account_locked",
+                    "detail": "Too many failed sign-in attempts. Try again later.",
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
         serializer = LoginSerializer(data=request.data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            if email:
+                key = _lockout_key(email)
+                cache.add(key, 0, settings.LOGIN_LOCKOUT_SECONDS)
+                try:
+                    cache.incr(key)
+                except ValueError:
+                    cache.set(key, 1, settings.LOGIN_LOCKOUT_SECONDS)
+            raise ValidationError(serializer.errors)
         user = serializer.validated_data["user"]
+        clear_failed_logins(email)
         scope_error = tenant_scope_error(user)
         if scope_error:
             detail = {
@@ -102,7 +142,12 @@ class LogoutView(APIView):
 
 
 class RefreshView(APIView):
-    """Issues a fresh access-token cookie from the refresh-token cookie."""
+    """Rotates the refresh-token cookie and issues a fresh access-token cookie.
+
+    Rotation is what makes ROTATE_REFRESH_TOKENS / BLACKLIST_AFTER_ROTATION
+    mean something: the presented refresh token is blacklisted and a new one
+    set, so a copied cookie stops working the moment the legitimate client
+    refreshes, instead of staying valid for the full seven days."""
 
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -113,14 +158,23 @@ class RefreshView(APIView):
             return Response({"detail": "No refresh token."}, status=status.HTTP_401_UNAUTHORIZED)
         try:
             refresh = RefreshToken(refresh_cookie)
-        except TokenError:
-            return Response(
+            user = User.objects.get(pk=refresh["user_id"], is_active=True)
+        except (TokenError, KeyError, User.DoesNotExist, ValueError):
+            response = Response(
                 {"detail": "Invalid refresh token."},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
+            clear_auth_cookies(response)
+            return response
+
+        rotated = RefreshToken.for_user(user)
+        try:
+            refresh.blacklist()
+        except (TokenError, AttributeError):
+            pass
 
         response = Response({"detail": "Refreshed."}, status=status.HTTP_200_OK)
-        set_auth_cookies(response, str(refresh.access_token))
+        set_auth_cookies(response, str(rotated.access_token), str(rotated))
         return response
 
 

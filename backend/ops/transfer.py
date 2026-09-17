@@ -168,10 +168,23 @@ def transferable_models():
     return _topological_order(company_model_closure())
 
 
+# Fields left out of an export archive. The archive travels between
+# installations by hand; a password hash or session marker inside it is a
+# credential leak, and the import side never carries them anyway (it writes an
+# unusable password and asks the account to reset).
+EXCLUDED_EXPORT_FIELDS = {
+    ("accounts", "User"): {"password", "last_login"},
+}
+
+
 def _serializable_fields(model):
-    """Every concrete field except the primary key, which is exported separately."""
+    """Every concrete field except the primary key, which is exported separately,
+    and the credential fields listed in EXCLUDED_EXPORT_FIELDS."""
+    excluded = EXCLUDED_EXPORT_FIELDS.get(
+        (model._meta.app_label, model.__name__), set()
+    )
     for field in model._meta.fields:
-        if field.primary_key:
+        if field.primary_key or field.name in excluded:
             continue
         yield field
 

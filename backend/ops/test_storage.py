@@ -126,7 +126,7 @@ class BackupStorageIntegrationTests(APITestCase):
         record = BackupRecord.objects.get(company=self.company, kind="manual")
         self.assertEqual(record.storage_key, "")
 
-    def test_restore_from_storage_key_into_empty_company(self):
+    def test_restore_from_storage_key_only_into_the_backed_up_company(self):
         fake = FakeS3()
         original = storage._client
         storage._client = lambda: fake
@@ -140,9 +140,8 @@ class BackupStorageIntegrationTests(APITestCase):
                 ).storage_key
                 self.assertTrue(key)
 
-                # Fresh empty company + owner restores by key. Role names are
-                # globally unique, so reuse the "Business Owner" role created in
-                # setUp rather than creating a colliding duplicate.
+                # Another company's owner must not be able to pull this key:
+                # keys are predictable, and the dump carries cost prices.
                 target = Company.objects.create(name="Target")
                 role = Role.objects.get(name="Business Owner")
                 User.objects.create_user(
@@ -154,10 +153,18 @@ class BackupStorageIntegrationTests(APITestCase):
                     reverse("auth-login"),
                     {"email": "owner@target.test", "password": "passw0rd123"},
                 )
-                restore = tclient.post(
+                foreign = tclient.post(
+                    reverse("ops-restore"), {"storage_key": key}, format="json"
+                )
+                self.assertEqual(foreign.status_code, 404, foreign.content)
+                self.assertFalse(Product.objects.filter(company=target).exists())
+
+                # The owning company, once emptied, restores its own key.
+                Product.objects.filter(company=self.company).delete()
+                own = self.client.post(
                     reverse("ops-restore"), {"storage_key": key}, format="json"
                 )
         finally:
             storage._client = original
-        self.assertEqual(restore.status_code, 200, restore.content)
-        self.assertTrue(Product.objects.filter(company=target, sku="SKU1").exists())
+        self.assertEqual(own.status_code, 200, own.content)
+        self.assertTrue(Product.objects.filter(company=self.company, sku="SKU1").exists())
