@@ -9,9 +9,9 @@ automatically; this file is the copy that lives with the code.
 A full architecture review (ERP logic, plan-vs-code drift, isolation and
 security, SaaS vs standalone, scalability) was delivered on 2026-09-16. Its
 top findings are implemented as a stack of PRs, in review priority order.
-**#56 and #57 are merged; #58–#62 are green and wait for the owner to merge,
-bottom-up** (each is based on the one before; GitHub retargets the next PR
-when its base merges).
+**None of #56–#62 is merged yet; all are green and stacked bottom-up** (#56
+and #57 on `main`, then each on the one before; GitHub retargets the next PR
+when its base merges). Merge #56 first.
 
 | PR | Fix | Key files |
 |---|---|---|
