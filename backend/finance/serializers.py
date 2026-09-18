@@ -14,8 +14,10 @@ class ExpenseSerializer(serializers.ModelSerializer):
         fields = [
             "id", "category", "description", "amount", "method",
             "method_display", "date", "recorded_by_name", "created_at",
+            "payroll_run", "salary_advance",
         ]
-        read_only_fields = ["created_at"]
+        # The HR links are set by the approval flows only.
+        read_only_fields = ["created_at", "payroll_run", "salary_advance"]
 
     def create(self, validated_data):
         request = self.context.get("request")

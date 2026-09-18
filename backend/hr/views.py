@@ -450,6 +450,11 @@ class SalaryAdvanceViewSet(CompanyScopedModelViewSet):
         instance.reviewed_by = request.user
         instance.reviewed_at = timezone.now()
         instance.save(update_fields=["status", "reviewed_by", "reviewed_at"])
+        if status_value == SalaryAdvance.APPROVED:
+            # Cash leaves the company now; put it on the books now.
+            from hr.postings import post_salary_advance_expense
+
+            post_salary_advance_expense(instance, request.user)
         log_activity(
             action="approve" if status_value == SalaryAdvance.APPROVED else "reject",
             request=request,
@@ -580,6 +585,13 @@ class PayrollRunViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
             run.approved_by = request.user
             run.approved_at = timezone.now()
             run.save(update_fields=["status", "approved_by", "approved_at"])
+            # Finance approval is the moment payroll becomes a cost: the
+            # expense is posted in this same transaction so the income
+            # statement and cash-flow views see it, and no approved run can
+            # exist without its figure on the books.
+            from hr.postings import post_payroll_expense
+
+            post_payroll_expense(run, request.user)
             log_activity(
                 action="approve", request=request, entity_type="PayrollRun", entity_id=run.pk
             )
