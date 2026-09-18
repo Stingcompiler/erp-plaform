@@ -164,6 +164,7 @@ const en = {
     reopen: "Reopen",
     reopened: "Budget reopened as a draft.",
     status: { draft: "Draft", approved: "Approved", archived: "Archived" },
+  },
   quotes: {
     tab: "Quotes & orders",
     title: "Quotations",
@@ -2275,6 +2276,7 @@ const ar = {
     reopen: "إعادة فتح",
     reopened: "أُعيد فتح الموازنة كمسودة.",
     status: { draft: "مسودة", approved: "معتمدة", archived: "مؤرشفة" },
+  },
   quotes: {
     tab: "عروض وطلبات",
     title: "عروض الأسعار",
