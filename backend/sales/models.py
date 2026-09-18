@@ -261,6 +261,10 @@ class Invoice(models.Model):
     tax_amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     is_void = models.BooleanField(default=False)  # set only via a Credit Note (M5)
+    # A balance the customer already owed when the company started using
+    # Vezano, carried as a line-less invoice so the debt ledger, aging,
+    # statements and collection all see it — while sales figures skip it.
+    is_opening_balance = models.BooleanField(default=False)
     # Business time vs. audit time. `issued_at` is WHEN THE SALE HAPPENED and
     # is what every report, tax period, and costing walk reads; an offline
     # sale sends it from the till and it may legitimately be hours or days

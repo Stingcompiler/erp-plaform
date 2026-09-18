@@ -41,17 +41,24 @@ def _company_tax_rate_by_id(company_id):
 
 class SupplierSerializer(serializers.ModelSerializer):
     ap_balance = serializers.SerializerMethodField()
+    opening_balance = serializers.SerializerMethodField()
 
     class Meta:
         model = Supplier
         fields = [
             "id", "company", "name", "phone", "email", "address",
-            "is_active", "ap_balance", "updated_at",
+            "is_active", "ap_balance", "opening_balance", "updated_at",
         ]
         read_only_fields = ["company", "updated_at"]
 
     def get_ap_balance(self, obj):
         return obj.ap_balance()
+
+    def get_opening_balance(self, obj):
+        opening = obj.bills.filter(is_opening_balance=True, is_void=False).first()
+        if opening is None:
+            return None
+        return {"amount": str(opening.total), "as_of": opening.due_date, "bill": opening.id}
 
 
 class PurchaseOrderLineSerializer(serializers.ModelSerializer):

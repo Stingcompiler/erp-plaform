@@ -392,7 +392,7 @@ def dashboard(request):
              "/sales",
              Invoice.objects.filter(
                  company_id=company_id,
-                 is_void=False).exists(),
+                 is_void=False, is_opening_balance=False).exists(),
              "sales"),
         ]
         setup = [{"key": key, "href": href, "done": done} for key, href, done, module in checks

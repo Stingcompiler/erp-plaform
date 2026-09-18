@@ -229,7 +229,7 @@ class SalesSummaryReport(ReportView):
         cid = self.company_id(request)
         start, end = self.date_range(request)
         qs = self.apply_range(
-            Invoice.objects.filter(company_id=cid, is_void=False),
+            Invoice.objects.filter(company_id=cid, is_void=False, is_opening_balance=False),
             "issued_at",
             start,
             end,
@@ -478,7 +478,7 @@ class PurchasesSummaryReport(ReportView):
         cid = self.company_id(request)
         start, end = self.date_range(request)
         bills = self.apply_range(
-            Bill.objects.filter(company_id=cid, is_void=False),
+            Bill.objects.filter(company_id=cid, is_void=False, is_opening_balance=False),
             "created_at",
             start,
             end,

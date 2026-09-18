@@ -9,6 +9,8 @@ import { useI18n } from "../../providers/I18nProvider";
 import { Badge, Button, Card, PageHeader } from "@/components/ui/kit";
 import PhoneLink from "@/components/ui/PhoneLink";
 import SupplierForm from "@/components/purchasing/SupplierForm";
+import OpeningBalanceForm from "@/components/finance/OpeningBalanceForm";
+import Drawer from "@/components/ui/Drawer";
 import ReceivingTerminal from "@/components/purchasing/ReceivingTerminal";
 import PurchaseOrders from "@/components/purchasing/PurchaseOrders";
 import BillList from "@/components/purchasing/BillList";
@@ -17,7 +19,7 @@ import NewBillDrawer from "@/components/purchasing/NewBillDrawer";
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-function SupplierList({ suppliers, loading, writable, onNew }) {
+function SupplierList({ suppliers, loading, writable, onNew, onOpen }) {
   const { t } = useI18n();
   return (
     <div>
@@ -37,6 +39,7 @@ function SupplierList({ suppliers, loading, writable, onNew }) {
                 <th className="px-4 py-3 text-start font-medium">{t("common.phone")}</th>
                 <th className="px-4 py-3 text-end font-medium">{t("purchasing.apBalance")}</th>
                 <th className="px-4 py-3 text-end font-medium">{t("common.status")}</th>
+                {writable && <th className="px-4 py-3" />}
               </tr>
             </thead>
             <tbody>
@@ -67,6 +70,13 @@ function SupplierList({ suppliers, loading, writable, onNew }) {
                         <Badge tone="muted">{t("common.inactive")}</Badge>
                       )}
                     </td>
+                    {writable && (
+                      <td className="px-4 py-3 text-end">
+                        <button onClick={() => onOpen(s)} className="text-sm text-accent hover:underline">
+                          {s.opening_balance ? t("openingBalance.view") : t("openingBalance.title")}
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
             </tbody>
@@ -90,6 +100,7 @@ export default function PurchasingPage() {
   const [accounts, setAccounts] = useState([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
+  const [openingFor, setOpeningFor] = useState(null);
   const [billOpen, setBillOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   // An order handed to the receiving screen ("receive against this order").
@@ -166,6 +177,7 @@ export default function PurchasingPage() {
           loading={loadingSuppliers}
           writable={writable}
           onNew={() => setFormOpen(true)}
+          onOpen={setOpeningFor}
         />
       )}
       {tab === "orders" && (
@@ -194,6 +206,15 @@ export default function PurchasingPage() {
       )}
 
       <SupplierForm open={formOpen} onClose={() => setFormOpen(false)} onSaved={loadSuppliers} />
+      <Drawer open={Boolean(openingFor)} onClose={() => setOpeningFor(null)} title={openingFor?.name || ""}>
+        {openingFor && (
+          <OpeningBalanceForm
+            kind="supplier"
+            account={suppliers.find((s) => s.id === openingFor.id) || openingFor}
+            onSaved={loadSuppliers}
+          />
+        )}
+      </Drawer>
       <NewBillDrawer
         open={billOpen}
         onClose={() => setBillOpen(false)}

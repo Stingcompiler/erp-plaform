@@ -194,6 +194,9 @@ class Bill(models.Model):
     tax_amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=16, decimal_places=2)
     is_void = models.BooleanField(default=False)
+    # What the company already owed this supplier when it started using
+    # Vezano — a bill with no receipt behind it, excluded from purchase totals.
+    is_opening_balance = models.BooleanField(default=False)
     # Supplier credit terms — mirrors Invoice on the AR side so AP aging
     # measures lateness rather than age since the bill was entered.
     payment_terms_days = models.PositiveIntegerField(default=0)

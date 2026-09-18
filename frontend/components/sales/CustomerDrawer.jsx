@@ -7,6 +7,7 @@ import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Field, Input } from "@/components/ui/kit";
+import OpeningBalanceForm from "@/components/finance/OpeningBalanceForm";
 
 const EMPTY = { name: "", phone: "", email: "", address: "", payment_terms_days: "", credit_limit: "", credit_hold: false };
 
@@ -106,6 +107,7 @@ export default function CustomerDrawer({ open, onClose, customer, onSaved }) {
             </div>
           </div>
         )}
+        {customer?.id && <OpeningBalanceForm kind="customer" account={customer} onSaved={onSaved} />}
         {error && <p role="alert" className="text-sm text-danger">{error}</p>}
       </div>
     </Drawer>

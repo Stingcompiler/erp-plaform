@@ -97,18 +97,26 @@ def _assert_tenant_relations(serializer, attrs, fields):
 
 class CustomerSerializer(serializers.ModelSerializer):
     ar_balance = serializers.SerializerMethodField()
+    opening_balance = serializers.SerializerMethodField()
 
     class Meta:
         model = Customer
         fields = [
             "id", "company", "name", "phone", "email", "address",
             "is_active", "credit_limit", "credit_hold", "payment_terms_days",
-            "ar_balance", "updated_at",
+            "ar_balance", "opening_balance", "updated_at",
         ]
         read_only_fields = ["company", "updated_at"]
 
     def get_ar_balance(self, obj):
         return obj.ar_balance()
+
+    def get_opening_balance(self, obj):
+        opening = obj.invoices.filter(is_opening_balance=True, is_void=False).first()
+        if opening is None:
+            return None
+        return {"amount": str(opening.total), "as_of": opening.due_date, "invoice": opening.id,
+                "number": opening.number_display}
 
     def validate(self, attrs):
         # Credit terms are a manager's decision, not a data-entry field.

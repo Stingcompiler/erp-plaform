@@ -233,19 +233,23 @@ def customer_debts(user, params):
     except (TypeError, ValueError):
         raise ValidationError({"page_size": "Use a positive integer."})
     balances = _customer_balances(user)
-    customers = Customer.objects.filter(
-        company_id=user.company_id, is_active=True, pk__in=list(balances)
-    )
+    # The ledger lists accounts with a balance. A settled or brand-new
+    # customer is still reachable — by name, or through the "settled" filter —
+    # so terms and an opening balance can be set before the first invoice.
+    include_settled = status == "settled" or bool(query)
+    customers = Customer.objects.filter(company_id=user.company_id, is_active=True)
+    if not include_settled:
+        customers = customers.filter(pk__in=list(balances))
     if query:
         customers = customers.filter(Q(name__icontains=query) | Q(phone__icontains=query))
     rows = []
     for customer in customers.order_by("name", "pk").only("id", "name", "phone"):
-        outstanding, overdue, credit = balances[customer.id]
+        outstanding, overdue, credit = balances.get(customer.id, (ZERO, ZERO, ZERO))
         row_status = (
             "overdue" if overdue else "owing" if outstanding
             else "credit" if credit else "settled"
         )
-        if outstanding == ZERO and credit == ZERO:
+        if row_status == "settled" and not include_settled:
             continue
         if status and row_status != status:
             continue

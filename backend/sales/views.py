@@ -73,6 +73,20 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         overdue = any(inv.is_overdue for inv in customer.invoices.filter(is_void=False))
         return "overdue" if overdue else "owing"
 
+    @action(detail=True, methods=["post"])
+    def opening_balance(self, request, pk=None):
+        """What this customer already owed when the books started here —
+        recorded as a line-less invoice so every debt view sees it."""
+        from core.opening_balances import record_customer_opening_balance
+
+        invoice = record_customer_opening_balance(self.get_object(), request.user, request.data)
+        log_activity(
+            action="create", request=request, entity_type="Invoice", entity_id=invoice.pk,
+            metadata={"opening_balance": str(invoice.total), "customer": invoice.customer_id},
+        )
+        return Response(InvoiceSerializer(invoice, context={"request": request}).data,
+                        status=status.HTTP_201_CREATED)
+
     @action(detail=True, methods=["get"])
     def records(self, request, pk=None):
         """
