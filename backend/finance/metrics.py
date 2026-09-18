@@ -89,7 +89,8 @@ def _revenue_terms(company_id, start=None, end=None, branch_id=None):
     # net subtotal per unit — not the gross list price, which overstates the
     # reversal for any discounted or pack-priced line.
     returned_sales = returned_lines.aggregate(t=Coalesce(Sum(ExpressionWrapper(
-        F("quantity") * F("invoice_line__line_subtotal") / F("invoice_line__quantity"),
+        RealOnSQLite(F("quantity"), output_field=MONEY)
+        * F("invoice_line__line_subtotal") / F("invoice_line__quantity"),
         output_field=MONEY,
     )), ZERO, output_field=MONEY))["t"]
     # Credit notes that are not the paperwork of a return (price corrections,

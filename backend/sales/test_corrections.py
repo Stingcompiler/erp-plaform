@@ -502,3 +502,32 @@ class ReturnRevenueBasisTests(CorrectionBase):
         self.assertEqual(Decimal(summary["sales_returns"]), Decimal("50.00"))
         self.assertEqual(Decimal(summary["revenue"]), Decimal("50.00"))
         self.assertEqual(Payment.objects.count(), 1)
+
+    def test_partial_return_of_a_whole_number_line_divides_exactly(self):
+        # 3 units for 100.00 then 1 unit back: 33.33 reversed, 66.67 kept.
+        # SQLite stores whole decimals as integers and would otherwise divide
+        # 1 * 100 / 3 as integers (33), which PostgreSQL never does.
+        sale = self._sell(qty="3", paid="300.00")
+        self.assertEqual(sale.status_code, 201, sale.data)
+        invoice = Invoice.objects.get(pk=sale.data["id"])
+        line = invoice.lines.get()
+        # Reprice the stored line so 3 units net to exactly 100.00; the
+        # checkout's per-unit price can't express 100/3 in two decimals.
+        line.line_subtotal = line.line_total = Decimal("100.00")
+        line.save(update_fields=["line_subtotal", "line_total"])
+        Invoice.objects.filter(pk=invoice.pk).update(
+            subtotal=Decimal("100.00"), total=Decimal("100.00")
+        )
+        self._as(self.owner)
+        response = self.client.post(
+            reverse("salesreturn-list"),
+            {"invoice": invoice.pk, "lines": [
+                {"invoice_line": line.pk, "product": self.product.pk, "quantity": "1"}
+            ]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        summary = operating_summary(self.company.pk)
+        self.assertEqual(Decimal(summary["gross_sales"]), Decimal("100.00"))
+        self.assertEqual(Decimal(summary["sales_returns"]), Decimal("33.33"))
+        self.assertEqual(Decimal(summary["revenue"]), Decimal("66.67"))
