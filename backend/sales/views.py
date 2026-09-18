@@ -552,11 +552,21 @@ class InvoiceViewSet(
 
     def get_queryset(self):
         qs = super().get_queryset()
-        if self.request.query_params.get("overdue") == "1":
+        params = self.request.query_params
+        customer_id = params.get("customer", "").strip()
+        if customer_id.isdigit():
+            qs = qs.filter(customer_id=int(customer_id))
+        if params.get("overdue") == "1":
             from sales.querysets import overdue_invoices
 
             qs = overdue_invoices(qs)
-        search = self.request.query_params.get("search", "").strip()
+        elif params.get("open") == "1":
+            # The collection drawer: a customer's unpaid invoices, oldest
+            # first, so a payment settles the longest-standing debt first.
+            from sales.querysets import open_invoices
+
+            return open_invoices(qs).order_by("issued_at", "pk")
+        search = params.get("search", "").strip()
         if search:
             from django.db.models import Q
 
