@@ -882,6 +882,8 @@ const en = {
     viewer: "Viewer",
   },
   sync: {
+    staleTitle: "Showing saved data",
+    staleBody: "The server could not be reached; these figures are from {time} and may have changed since.",
     synced: "Synced",
     allSynced: "All changes synced",
     sync: "Sync",
@@ -3177,6 +3179,8 @@ const ar = {
     viewer: "مستعرض",
   },
   sync: {
+    staleTitle: "تعرض بيانات محفوظة",
+    staleBody: "تعذر الوصول إلى الخادم؛ هذه الأرقام من الساعة {time} وقد تكون تغيّرت.",
     synced: "متزامن",
     allSynced: "تمت مزامنة كل التغييرات",
     sync: "مزامنة",
