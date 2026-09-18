@@ -156,19 +156,27 @@ class CompanyBankAccountSerializer(serializers.ModelSerializer):
 # ---------- Quotation ----------
 
 class QuotationLineSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source="product.name", read_only=True, default="")
+    product_sku = serializers.CharField(source="product.sku", read_only=True, default="")
+
     class Meta:
         model = QuotationLine
-        fields = ["id", "product", "description", "quantity", "unit_price", "line_total"]
+        fields = [
+            "id", "product", "product_name", "product_sku", "description",
+            "quantity", "unit_price", "line_total",
+        ]
         read_only_fields = ["line_total"]
 
 
 class QuotationSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source="customer.name", read_only=True, default="")
+
     lines = QuotationLineSerializer(many=True)
 
     class Meta:
         model = Quotation
         fields = [
-            "id", "company", "customer", "branch", "status", "valid_until",
+            "id", "company", "customer", "customer_name", "branch", "status", "valid_until",
             "note", "subtotal", "tax_amount", "total", "lines", "created_at",
         ]
         read_only_fields = ["company", "subtotal", "tax_amount", "total", "created_at"]
@@ -206,22 +214,35 @@ class QuotationSerializer(serializers.ModelSerializer):
 # ---------- Sales Order ----------
 
 class SalesOrderLineSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source="product.name", read_only=True, default="")
+    product_sku = serializers.CharField(source="product.sku", read_only=True, default="")
+
     class Meta:
         model = SalesOrderLine
-        fields = ["id", "product", "description", "quantity", "unit_price", "line_total"]
+        fields = [
+            "id", "product", "product_name", "product_sku", "description",
+            "quantity", "unit_price", "line_total",
+        ]
         read_only_fields = ["line_total"]
 
 
 class SalesOrderSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source="customer.name", read_only=True, default="")
+    invoice_id = serializers.SerializerMethodField()
+
     lines = SalesOrderLineSerializer(many=True)
 
     class Meta:
         model = SalesOrder
         fields = [
-            "id", "company", "customer", "branch", "source_quotation", "status",
-            "subtotal", "tax_amount", "total", "lines", "created_at",
+            "id", "company", "customer", "customer_name", "branch", "source_quotation", "status",
+            "subtotal", "tax_amount", "total", "lines", "invoice_id", "created_at",
         ]
         read_only_fields = ["company", "subtotal", "tax_amount", "total", "created_at"]
+
+    def get_invoice_id(self, obj):
+        invoice = obj.invoices.order_by("pk").first()
+        return invoice.pk if invoice else None
 
     def validate(self, attrs):
         _assert_tenant_relations(
@@ -662,6 +683,11 @@ class POSCheckoutSerializer(serializers.Serializer):
     client_uuid = serializers.UUIDField(required=False, allow_null=True)
     # Optional override; otherwise the customer's terms, else the company's.
     payment_terms_days = serializers.IntegerField(required=False, min_value=0)
+    # Invoicing a confirmed sales order: the invoice links back to it and
+    # the order is fulfilled in the same transaction.
+    source_order = serializers.PrimaryKeyRelatedField(
+        queryset=SalesOrder.objects.all(), required=False, allow_null=True
+    )
     # The till session this sale was rung under. Sent by the client rather than
     # inferred from the clock, because an offline sale can sync long after its
     # shift closed and must still land in the drawer that actually took the cash.
@@ -746,6 +772,19 @@ class POSCheckoutSerializer(serializers.Serializer):
         from django.utils import timezone
         occurred_at = validated_data.get("occurred_at") or timezone.now()
 
+        source_order = validated_data.get("source_order")
+        if source_order is not None:
+            self._assert_company(source_order, company_id, "source_order")
+            if source_order.status != SalesOrder.CONFIRMED:
+                raise serializers.ValidationError(
+                    {"source_order": _("Only a confirmed sales order can be invoiced.")}
+                )
+            sale_customer_id = getattr(validated_data.get("customer"), "pk", None)
+            if source_order.customer_id != sale_customer_id:
+                raise serializers.ValidationError(
+                    {"source_order": _("The sale's customer must match the order's customer.")}
+                )
+
         number = allocate_invoice_number(company_id)
         terms = validated_data.get("payment_terms_days")
         if terms is None:
@@ -769,7 +808,11 @@ class POSCheckoutSerializer(serializers.Serializer):
             issued_at=occurred_at,
             local_reference=validated_data.get("local_reference", ""),
             payment_terms_days=terms,
+            source_order=source_order,
         )
+        if source_order is not None:
+            source_order.status = SalesOrder.FULFILLED
+            source_order.save(update_fields=["status"])
 
         # Pass 1: gross and own-discount per line, so the ticket discount
         # can be allocated before anything is written.
