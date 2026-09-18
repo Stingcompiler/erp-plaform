@@ -647,7 +647,7 @@ class CashFlowForecastReport(ReportView):
 
         invoices = open_invoices(
             Invoice.objects.filter(company_id=cid, due_date__lte=horizon, due_date__isnull=False)
-        ).values_list("due_date", "outstanding_base")
+        ).values_list("due_date", "outstanding")
         invoices = self.apply_branch(request, invoices, "branch")
         for due_date, due in invoices.iterator(chunk_size=5000):
             buckets[bucket_of(due_date)]["inflow"] += due
