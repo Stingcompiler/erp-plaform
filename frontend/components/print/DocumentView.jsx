@@ -40,6 +40,7 @@ function Line({ label, value }) {
 }
 
 function Party({ heading, party }) {
+  const { t } = useI18n();
   if (!party?.name) return null;
   return (
     <div className="avoid-break">
@@ -47,9 +48,11 @@ function Party({ heading, party }) {
         {heading}
       </div>
       <div className="font-medium">{party.name}</div>
-      {party.address && <div className="text-black/70">{party.address}</div>}
-      {party.phone && <div className="tabular text-black/70">{party.phone}</div>}
-      {party.email && <div className="text-black/70">{party.email}</div>}
+      {/* Labelled: a bare district name under a customer ("بري") read as a
+          truncated word on the printed note. */}
+      {party.address && <div className="text-black/70"><span className="text-black/50">{t("doc.address")}: </span>{party.address}</div>}
+      {party.phone && <div className="tabular text-black/70"><span className="text-black/50">{t("doc.phone")}: </span>{party.phone}</div>}
+      {party.email && <div className="text-black/70"><span className="text-black/50">{t("doc.email")}: </span>{party.email}</div>}
     </div>
   );
 }
@@ -69,8 +72,20 @@ function TotalRow({ label, value, currency, strong, divide }) {
   );
 }
 
+// Documents carry ISO timestamps; a customer reads a date, not
+// "2026-09-18T18:14:17.579835+00:00".
+function fmtDate(value, language) {
+  if (!value) return value;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  const opts = /T\d/.test(String(value))
+    ? { dateStyle: "medium", timeStyle: "short" }
+    : { dateStyle: "medium" };
+  return d.toLocaleString(language === "ar" ? "ar" : "en", opts);
+}
+
 export default function DocumentView({ doc }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   if (!doc) return null;
 
   // The Gulf VAT handler emits raw XML — a developer artefact, not something to
@@ -128,8 +143,8 @@ export default function DocumentView({ doc }) {
             {doc.number || doc.invoice_number}
           </div>
           <div className="mt-1 space-y-0.5 text-[12px]">
-            <Line label={t("doc.date")} value={doc.date || doc.issued_at} />
-            <Line label={t("doc.dueDate")} value={doc.due_date} />
+            <Line label={t("doc.date")} value={fmtDate(doc.date || doc.issued_at, language)} />
+            <Line label={t("doc.dueDate")} value={fmtDate(doc.due_date, language)} />
           </div>
           {doc.is_void && (
             <div className="mt-2 inline-block border border-black px-2 py-0.5 text-[11px] font-bold uppercase">
