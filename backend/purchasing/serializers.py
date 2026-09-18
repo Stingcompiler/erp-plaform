@@ -2,6 +2,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from django.db import transaction
+from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.db.models import Sum
 from rest_framework import serializers
@@ -163,6 +164,24 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
     def validate_lines(self, lines):
         if not lines:
             raise serializers.ValidationError(_("At least one line is required."))
+        today = timezone.localdate()
+        for line in lines:
+            product = line["product"]
+            # A batch-tracked product received without a lot would land as
+            # untracked stock the expiry report can never see — the whole
+            # point of tracking it is lost at the door.
+            if product.track_batches and not (line.get("lot_number") or "").strip():
+                raise serializers.ValidationError(
+                    _("%(sku)s is batch-tracked: enter the lot number.")
+                    % {"sku": product.sku}
+                )
+            expiry = line.get("expiry_date")
+            if expiry is not None and expiry < today:
+                raise serializers.ValidationError(
+                    _("%(sku)s: the expiry date %(date)s is already past; "
+                      "expired goods are returned, not received.")
+                    % {"sku": product.sku, "date": expiry}
+                )
         return lines
 
     def validate(self, attrs):

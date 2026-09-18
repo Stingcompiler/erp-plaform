@@ -96,6 +96,26 @@ class ReceivingTests(PurchasingBase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
 
+class ReceivingBatchRulesTests(PurchasingBase):
+    def test_tracked_product_needs_a_lot(self):
+        resp = self.receive([{"product": self.batch_product.id, "quantity": "5"}])
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST, resp.content)
+        self.assertIn("SKU2", str(resp.data))
+        self.assertEqual(StockMovement.objects.count(), 0)
+
+    def test_past_expiry_is_refused(self):
+        resp = self.receive([{
+            "product": self.batch_product.id, "quantity": "5",
+            "lot_number": "OLD", "expiry_date": "2020-01-01",
+        }])
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST, resp.content)
+        self.assertEqual(StockBatch.objects.count(), 0)
+
+    def test_untracked_product_needs_nothing_extra(self):
+        resp = self.receive([{"product": self.product.id, "quantity": "5"}])
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content)
+
+
 class APBalanceTests(PurchasingBase):
     def test_ap_balance_is_bill_total_minus_payments(self):
         bill = self.client.post(
