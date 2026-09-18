@@ -391,3 +391,55 @@ msgstr "رابط إعادة التعيين غير صالح أو استُخدم �
 msgid "Only a financial manager or an authorised executive may approve this."
 msgstr "المدير المالي أو مسؤول تنفيذي مخوَّل فقط يمكنه اعتماد هذا."
 
+msgid ""
+"%(note)s settled what was still owed on the invoice; no money was paid that "
+"could be handed back."
+msgstr "%(note)s سدّد ما كان متبقيًا على الفاتورة؛ لم يُدفع مال يمكن ردّه."
+
+msgid "The first row must name the columns, and one of them must be the name."
+msgstr "يجب أن يحمل الصف الأول أسماء الأعمدة، وأحدها يجب أن يكون الاسم."
+
+msgid "Excel import is not available on this server."
+msgstr "استيراد Excel غير متاح على هذا الخادم."
+
+msgid "Upload an .xlsx or .csv file."
+msgstr "ارفع ملف .xlsx أو .csv."
+
+msgid "The file is empty."
+msgstr "الملف فارغ."
+
+msgid "At most %(n)s rows per file."
+msgstr "الحد الأقصى %(n)s صفًا في الملف الواحد."
+
+msgid "%(field)s is not a number."
+msgstr "%(field)s ليس رقمًا."
+
+msgid "Name is missing."
+msgstr "الاسم مفقود."
+
+msgid "Email is not valid."
+msgstr "البريد الإلكتروني غير صالح."
+
+msgid "Opening balance"
+msgstr "الرصيد الافتتاحي"
+
+msgid "Opening balance cannot be negative."
+msgstr "لا يمكن أن يكون الرصيد الافتتاحي سالبًا."
+
+msgid "Payment terms"
+msgstr "مهلة السداد"
+
+msgid "Payment terms must be whole days between 0 and 365."
+msgstr "مهلة السداد أيام صحيحة بين 0 و365."
+
+msgid "Duplicate of an earlier row in the file."
+msgstr "مكرر لصف سابق في الملف."
+
+msgid "Opening balance ignored: only a manager or owner may record one."
+msgstr "تم تجاهل الرصيد الافتتاحي: المدير أو المالك فقط يمكنه تسجيله."
+
+msgid "Opening balance kept: this account already has one."
+msgstr "بقي الرصيد الافتتاحي كما هو: لهذا الحساب رصيد مسجَّل بالفعل."
+
+msgid "Choose a file to import."
+msgstr "اختر ملفًا للاستيراد."

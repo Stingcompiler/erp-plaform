@@ -1172,6 +1172,15 @@ class RefundSerializer(serializers.ModelSerializer):
             )
             remaining = note.remaining_refundable()
             if validated_data["amount"] > remaining:
+                if remaining <= 0 and note.invoice_id:
+                    raise serializers.ValidationError(
+                        {
+                            "amount": _(
+                                "%(note)s settled what was still owed on the invoice; "
+                                "no money was paid that could be handed back."
+                            ) % {"note": note.number_display}
+                        }
+                    )
                 raise serializers.ValidationError(
                     {
                         "amount": _("Only %(remaining)s remains refundable on %(note)s.")

@@ -25,6 +25,7 @@ export default function CustomerRecordsPage() {
         "payment",
         "return",
         "credit_note",
+        "refund",
         "data_change",
       ]}
     />

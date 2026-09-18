@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Lock, Plus } from "lucide-react";
+import { FileSpreadsheet, Lock, Plus } from "lucide-react";
 
 import { inventory, purchasing, bankAccounts as bankApi } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
@@ -10,6 +10,7 @@ import { Badge, Button, Card, PageHeader } from "@/components/ui/kit";
 import PhoneLink from "@/components/ui/PhoneLink";
 import SupplierForm from "@/components/purchasing/SupplierForm";
 import OpeningBalanceForm from "@/components/finance/OpeningBalanceForm";
+import ImportPartiesDrawer from "@/components/records/ImportPartiesDrawer";
 import Drawer from "@/components/ui/Drawer";
 import ReceivingTerminal from "@/components/purchasing/ReceivingTerminal";
 import PurchaseOrders from "@/components/purchasing/PurchaseOrders";
@@ -19,15 +20,20 @@ import NewBillDrawer from "@/components/purchasing/NewBillDrawer";
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-function SupplierList({ suppliers, loading, writable, onNew, onOpen }) {
+function SupplierList({ suppliers, loading, writable, onNew, onOpen, onImport }) {
   const { t } = useI18n();
   return (
     <div>
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex justify-end gap-2">
         {writable && (
-          <Button onClick={onNew}>
-            <Plus size={16} /> {t("purchasing.newSupplier")}
-          </Button>
+          <>
+            <Button variant="ghost" onClick={onImport}>
+              <FileSpreadsheet size={16} /> {t("importParties.button")}
+            </Button>
+            <Button onClick={onNew}>
+              <Plus size={16} /> {t("purchasing.newSupplier")}
+            </Button>
+          </>
         )}
       </div>
       <Card>
@@ -101,6 +107,7 @@ export default function PurchasingPage() {
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [openingFor, setOpeningFor] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [billOpen, setBillOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   // An order handed to the receiving screen ("receive against this order").
@@ -178,6 +185,7 @@ export default function PurchasingPage() {
           writable={writable}
           onNew={() => setFormOpen(true)}
           onOpen={setOpeningFor}
+          onImport={() => setImportOpen(true)}
         />
       )}
       {tab === "orders" && (
@@ -206,6 +214,7 @@ export default function PurchasingPage() {
       )}
 
       <SupplierForm open={formOpen} onClose={() => setFormOpen(false)} onSaved={loadSuppliers} />
+      <ImportPartiesDrawer kind="supplier" open={importOpen} onClose={() => setImportOpen(false)} onImported={loadSuppliers} />
       <Drawer open={Boolean(openingFor)} onClose={() => setOpeningFor(null)} title={openingFor?.name || ""}>
         {openingFor && (
           <OpeningBalanceForm

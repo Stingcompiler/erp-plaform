@@ -6,6 +6,7 @@ from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -73,6 +74,34 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         overdue = any(inv.is_overdue for inv in customer.invoices.filter(is_void=False))
         return "overdue" if overdue else "owing"
 
+    @action(detail=False, methods=["post"], url_path="import",
+            parser_classes=[MultiPartParser, FormParser])
+    def import_sheet(self, request):
+        """Bulk import from .xlsx/.csv; `dry_run=1` previews without writing."""
+        from core.opening_balances import record_customer_opening_balance
+        from core.party_import import run_import
+
+        uploaded = request.FILES.get("file")
+        if uploaded is None:
+            raise ValidationError({"file": [_("Choose a file to import.")]})
+        dry_run = str(request.data.get("dry_run", "")).lower() in ("1", "true", "yes")
+
+        def opening(party, user=None, amount=None):
+            if amount is None:
+                return party.invoices.filter(is_opening_balance=True, is_void=False).exists()
+            return record_customer_opening_balance(party, user, {"amount": str(amount)})
+
+        result = run_import(
+            Customer, request.user.company, request.user, uploaded,
+            dry_run=dry_run, opening_balance_fn=opening, supports_terms=True,
+        )
+        if not dry_run:
+            log_activity(
+                action="import", request=request, entity_type="Customer", entity_id="",
+                metadata=result["summary"],
+            )
+        return Response(result)
+
     @action(detail=True, methods=["post"])
     def opening_balance(self, request, pk=None):
         """What this customer already owed when the books started here —
@@ -129,9 +158,10 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
                     "invoice",
                     "Invoice",
                     inv.issued_at,
-                    inv.number or inv.id,
+                    inv.number_display,
                     inv.total,
                     "void" if inv.is_void else f"due {inv.amount_due()}",
+                    entity_id=inv.id,
                 )
             )
             for pay in inv.payments.all():
@@ -140,9 +170,10 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
                         "payment",
                         "Payment",
                         pay.recorded_at,
-                        inv.number or inv.id,
+                        inv.number_display,
                         pay.amount,
                         pay.get_method_display(),
+                        entity_id=pay.id,
                     )
                 )
         for sr in customer.sales_returns.all():
@@ -162,11 +193,25 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
                     "credit_note",
                     "Credit note",
                     cn.created_at,
-                    cn.id,
+                    cn.number_display,
                     cn.amount,
                     cn.reason,
+                    entity_id=cn.id,
                 )
             )
+            # Money handed back is a movement in its own right on the account.
+            for refund in cn.refunds.all():
+                events.append(
+                    record_event(
+                        "refund",
+                        "Refund",
+                        refund.recorded_at,
+                        cn.number_display,
+                        refund.amount,
+                        refund.get_method_display(),
+                        entity_id=refund.id,
+                    )
+                )
 
         events += data_change_events(customer.company_id, "Customer", customer.pk)
         events = assemble_records(events, request.query_params)

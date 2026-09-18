@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, Lock, Search } from "lucide-react";
+import { Download, FileText, Lock, Search } from "lucide-react";
+
+import { purchasing, returns, sales } from "@/lib/api";
+import DocumentDrawer from "@/components/print/DocumentDrawer";
 
 import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
@@ -22,7 +25,22 @@ const STATUS_KEY = {
   overdue: "records.statusOverdue",
   suspended: "records.statusSuspended",
 };
+// Rows that have a printable document behind them, per party kind.
+const DOCUMENT_FETCHERS = {
+  customer: {
+    invoice: sales.invoiceDocument,
+    payment: sales.paymentDocument,
+    credit_note: returns.creditNoteDocument,
+    refund: sales.refundDocument,
+  },
+  supplier: {
+    payment: purchasing.supplierPaymentDocument,
+    debit_note: returns.debitNoteDocument,
+  },
+};
+
 const TYPE_KEY = {
+  refund: "records.typeRefund",
   quotation: "records.typeQuotation",
   order: "records.typeOrder",
   invoice: "records.typeInvoice",
@@ -42,6 +60,7 @@ const TYPE_TONE = {
   return: "warn",
   credit_note: "danger",
   debit_note: "danger",
+  refund: "warn",
   data_change: "muted",
 };
 
@@ -67,6 +86,8 @@ export default function PartyRecords({
   const { canRead } = useAuth();
   const { t, language } = useI18n();
   const allowed = canRead(module);
+  const fetchers = DOCUMENT_FETCHERS[kind] || {};
+  const [doc, setDoc] = useState(null); // { type, id }
 
   const [parties, setParties] = useState([]);
   const [partyQuery, setPartyQuery] = useState("");
@@ -277,6 +298,7 @@ export default function PartyRecords({
                           <th className="px-4 py-3 text-start font-medium">{t("common.reference")}</th>
                           <th className="px-4 py-3 text-end font-medium">{t("common.amount")}</th>
                           <th className="px-4 py-3 text-start font-medium">{t("logs.changes")}</th>
+                          <th className="px-4 py-3" />
                         </tr>
                       </thead>
                       <tbody>
@@ -291,6 +313,18 @@ export default function PartyRecords({
                             <td className="tabular px-4 py-3 text-ink">{e.reference || "—"}</td>
                             <td className="tabular px-4 py-3 text-end text-ink">{money(e.amount)}</td>
                             <td className="px-4 py-3 text-xs text-muted">{e.meta || "—"}</td>
+                            <td className="px-4 py-3 text-end">
+                              {fetchers[e.type] && e.entity_id && (
+                                <button
+                                  onClick={() => setDoc({ type: e.type, id: e.entity_id })}
+                                  className="inline-flex items-center gap-1 text-sm text-accent hover:underline"
+                                  title={t("records.print")}
+                                  aria-label={t("records.print")}
+                                >
+                                  <FileText size={15} />{t("records.print")}
+                                </button>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -302,6 +336,13 @@ export default function PartyRecords({
           )}
         </div>
       </div>
+      <DocumentDrawer
+        open={Boolean(doc)}
+        onClose={() => setDoc(null)}
+        fetcher={doc ? fetchers[doc.type] : null}
+        id={doc?.id}
+        title={doc ? t(TYPE_KEY[doc.type] || doc.type) : ""}
+      />
     </div>
   );
 }

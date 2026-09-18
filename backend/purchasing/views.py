@@ -1,7 +1,10 @@
 from django.db import IntegrityError
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -50,6 +53,34 @@ class SupplierViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         if not supplier.is_active:
             return "suspended"
         return "owing" if supplier.ap_balance() > 0 else "settled"
+
+    @action(detail=False, methods=["post"], url_path="import",
+            parser_classes=[MultiPartParser, FormParser])
+    def import_sheet(self, request):
+        """Bulk import from .xlsx/.csv; `dry_run=1` previews without writing."""
+        from core.opening_balances import record_supplier_opening_balance
+        from core.party_import import run_import
+
+        uploaded = request.FILES.get("file")
+        if uploaded is None:
+            raise ValidationError({"file": [_("Choose a file to import.")]})
+        dry_run = str(request.data.get("dry_run", "")).lower() in ("1", "true", "yes")
+
+        def opening(party, user=None, amount=None):
+            if amount is None:
+                return party.bills.filter(is_opening_balance=True, is_void=False).exists()
+            return record_supplier_opening_balance(party, user, {"amount": str(amount)})
+
+        result = run_import(
+            Supplier, request.user.company, request.user, uploaded,
+            dry_run=dry_run, opening_balance_fn=opening, supports_terms=False,
+        )
+        if not dry_run:
+            log_activity(
+                action="import", request=request, entity_type="Supplier", entity_id="",
+                metadata=result["summary"],
+            )
+        return Response(result)
 
     @action(detail=True, methods=["post"])
     def opening_balance(self, request, pk=None):
@@ -112,15 +143,16 @@ class SupplierViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
                     "void" if bill.is_void else f"due {bill.amount_due()}",
                 )
             )
-        for pay in supplier.payments.all():
+        for pay in supplier.payments.select_related("bill").all():
             events.append(
                 record_event(
                     "payment",
                     "Payment",
                     pay.recorded_at,
-                    pay.bill_id or "",
+                    (pay.bill.supplier_invoice_number or pay.bill_id) if pay.bill_id else "",
                     pay.amount,
                     pay.get_method_display(),
+                    entity_id=pay.id,
                 )
             )
         for pr in supplier.purchase_returns.all():
@@ -140,9 +172,10 @@ class SupplierViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
                     "debit_note",
                     "Debit note",
                     dn.created_at,
-                    dn.id,
+                    dn.number_display,
                     dn.amount,
                     dn.reason,
+                    entity_id=dn.id,
                 )
             )
 
