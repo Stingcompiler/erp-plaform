@@ -73,3 +73,70 @@ class StockAlertTests(TestCase):
         inventory = client.get(reverse("dashboard")).data["sections"]["inventory"]
         self.assertEqual(inventory["expiring_batch_count"], 1)
         self.assertEqual(inventory["negative_stock_count"], 1)
+
+
+class ProductExpiryStatusTests(TestCase):
+    """The till's warning inputs: on_hand and the soonest live lot's expiry."""
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+
+        self.company = Company.objects.create(name="Alpha")
+        branch = Branch.objects.create(company=self.company, name="Main")
+        role = Role.objects.create(name="Business Owner", scope_level=Role.SCOPE_BUSINESS)
+        user = User.objects.create_user(
+            email="o@alpha.test", password="passw0rd123", company=self.company, role=role,
+        )
+        self.wh = Warehouse.objects.create(company=self.company, branch=branch, name="W")
+        self.client = APIClient()
+        self.client.force_authenticate(user)
+
+    def _product(self, sku, lots):
+        product = Product.objects.create(
+            company=self.company, sku=sku, name=sku, track_batches=bool(lots)
+        )
+        for expiry, qty in lots:
+            batch = StockBatch.objects.create(
+                company=self.company, product=product,
+                lot_number=f"L-{expiry}", expiry_date=expiry,
+            )
+            StockMovement.objects.create(
+                company=self.company, product=product, warehouse=self.wh, batch=batch,
+                movement_type=StockMovement.PURCHASE_IN, quantity=qty,
+            )
+        return product
+
+    def _row(self, product):
+        rows = self.client.get("/api/products/", {"search": product.sku}).data
+        rows = rows["results"] if isinstance(rows, dict) else rows
+        return next(r for r in rows if r["id"] == product.pk)
+
+    def test_expired_lot_with_stock_flags_expired(self):
+        today = timezone.localdate()
+        p = self._product("EXP", [(today - timedelta(days=1), 5), (today + timedelta(days=90), 5)])
+        row = self._row(p)
+        self.assertEqual(row["expiry_status"], "expired")
+        self.assertEqual(str(row["next_expiry"]), str(today - timedelta(days=1)))
+        self.assertEqual(Decimal(str(row["on_hand"])), Decimal("10"))
+
+    def test_expiring_within_horizon_flags_expiring(self):
+        today = timezone.localdate()
+        p = self._product("SOON", [(today + timedelta(days=10), 5)])
+        self.assertEqual(self._row(p)["expiry_status"], "expiring")
+
+    def test_empty_expired_lot_is_ignored(self):
+        # The expired lot is sold out; the live lot is far away → no warning.
+        today = timezone.localdate()
+        p = self._product(
+            "SOLD", [(today - timedelta(days=5), 3), (today + timedelta(days=200), 4)]
+        )
+        expired = p.batches.get(expiry_date=today - timedelta(days=5))
+        StockMovement.objects.create(
+            company=self.company, product=p, warehouse=self.wh, batch=expired,
+            movement_type=StockMovement.SALE_OUT, quantity=-3,
+        )
+        self.assertIsNone(self._row(p)["expiry_status"])
+
+    def test_untracked_product_has_no_status(self):
+        p = self._product("PLAIN", [])
+        self.assertIsNone(self._row(p)["expiry_status"])

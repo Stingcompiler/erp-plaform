@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.utils import timezone
-from django.db.models import F, Sum
+from django.db.models import F, OuterRef, Subquery, Sum
 from django.db.models.functions import Coalesce
 from rest_framework import status
 from rest_framework.decorators import action
@@ -126,6 +126,16 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
             super()
             .get_queryset()
             .annotate(annotated_on_hand=Coalesce(Sum("stock_movements__quantity"), Decimal("0")))
+            # The soonest expiry among lots that still hold stock, so the
+            # till can warn before ringing up an expired or expiring item.
+            # One correlated subquery, not a query per row.
+            .annotate(next_expiry=Subquery(
+                StockBatch.objects.filter(product=OuterRef("pk"), expiry_date__isnull=False)
+                .annotate(remaining=Coalesce(Sum("stock_movements__quantity"), Decimal("0")))
+                .filter(remaining__gt=0)
+                .order_by("expiry_date")
+                .values("expiry_date")[:1]
+            ))
         )
         # Archived products stay out of the way in listings but must remain
         # reachable — otherwise archiving is deletion with extra steps and
