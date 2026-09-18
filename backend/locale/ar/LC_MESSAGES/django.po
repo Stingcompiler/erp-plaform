@@ -357,7 +357,6 @@ msgstr "المتبقي القابل للاسترداد من %(note)s هو %(rema
 msgid "You already have an open till session. Close it before opening another."
 msgstr "لديك وردية مفتوحة بالفعل. أغلقها قبل فتح أخرى."
 
-<<<<<<< HEAD
 msgid "Only a manager or owner may record an opening balance."
 msgstr "المدير أو المالك فقط يمكنه تسجيل رصيد افتتاحي."
 
@@ -383,10 +382,8 @@ msgstr "لهذا المورد رصيد افتتاحي بالفعل. صحّحه �
 msgid "Create a warehouse before recording balances."
 msgstr "أنشئ مخزنًا قبل تسجيل الأرصدة."
 
-=======
 msgid "Target company already has products; restore only into an empty company."
 msgstr "الشركة الهدف لديها منتجات بالفعل؛ الاستعادة ممكنة فقط إلى شركة فارغة."
 
 msgid "This reset link is invalid or has already been used."
 msgstr "رابط إعادة التعيين غير صالح أو استُخدم من قبل."
->>>>>>> origin/main
