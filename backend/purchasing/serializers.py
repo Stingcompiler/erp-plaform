@@ -549,12 +549,29 @@ class BillSerializer(serializers.ModelSerializer):
 # ---------- Supplier payment (Rule #3 spirit) ----------
 
 class SupplierPaymentSerializer(serializers.ModelSerializer):
+    # Display fields for the payments ledger and its verification worklist.
+    supplier_name = serializers.CharField(source="supplier.name", read_only=True)
+    bill_number = serializers.CharField(
+        source="bill.supplier_invoice_number", read_only=True, default=None
+    )
+    from_bank_account_name = serializers.CharField(
+        source="from_bank_account.bank_name", read_only=True, default=None
+    )
+    recorded_by_name = serializers.CharField(
+        source="recorded_by.full_name", read_only=True, default=None
+    )
+    verified_by_name = serializers.CharField(
+        source="verified_by.full_name", read_only=True, default=None
+    )
+
     class Meta:
         model = SupplierPayment
         fields = [
-            "id", "company", "supplier", "bill", "method", "from_bank_account",
-            "reference_last4", "amount", "currency", "exchange_rate", "recorded_by",
-            "recorded_at", "verified_at", "verified_by", "client_uuid",
+            "id", "company", "supplier", "supplier_name", "bill", "bill_number",
+            "method", "from_bank_account", "from_bank_account_name",
+            "reference_last4", "amount", "currency", "exchange_rate",
+            "recorded_by", "recorded_by_name", "recorded_at",
+            "verified_at", "verified_by", "verified_by_name", "client_uuid",
         ]
         read_only_fields = [
             "company", "recorded_by", "recorded_at", "verified_at", "verified_by",

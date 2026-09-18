@@ -70,7 +70,7 @@ export default function PaymentVerificationPanel({ refreshKey }) {
                   </Badge>
                 </div>
                 <div className="mt-0.5 text-xs text-muted">
-                  {p.recorded_by_name && t("finance.recordedBy", { name: p.recorded_by_name })}
+                  {p.recorded_by_name && t("finance.recordedByName", { name: p.recorded_by_name })}
                   {" · "}{fmt(p.recorded_at)}
                   {p.method === "bank_transfer" && p.reference_last4 && (
                     <span dir="ltr"> · {p.bank_account_name} · {p.sender_bank_name} · #{p.reference_last4}</span>

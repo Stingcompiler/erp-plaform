@@ -66,6 +66,8 @@ export default function ReportsPage() {
   const [profit, setProfit] = useState(null);
   const [income, setIncome] = useState(null);
   const [cash, setCash] = useState(null);
+  const [forecast, setForecast] = useState(null);
+  const [forecastWeeks, setForecastWeeks] = useState(8);
   const [collections, setCollections] = useState(null);
   const [kpis, setKpis] = useState(null);
   const [payables, setPayables] = useState(null);
@@ -105,13 +107,14 @@ export default function ReportsPage() {
         settle(reports.profitSummary({ ...p, method: costMethod }), setProfit, null),
         settle(reports.incomeStatement({ ...p, method: costMethod }), setIncome, null),
         settle(reports.cashFlow(p), setCash, null),
+        settle(reports.cashFlowForecast({ weeks: forecastWeeks }), setForecast, null),
         settle(reports.cfoKpis({ ...p, method: costMethod }), setKpis, null),
       ] : []),
       ...(hrReports ? [settle(reports.hrSummary(p), setHrSummary, null)] : []),
       ...(payrollReports ? [settle(reports.payroll(p), setPayroll, [])] : []),
     ]);
     setLoading(false);
-  }, [range.start, range.end, costMethod, salesReports, inventoryReports, purchasingReports, financeReports, hrReports, payrollReports]);
+  }, [range.start, range.end, costMethod, salesReports, inventoryReports, purchasingReports, financeReports, hrReports, payrollReports, forecastWeeks]);
 
   useEffect(() => {
     load();
@@ -470,6 +473,61 @@ export default function ReportsPage() {
                   tone={Number(cash.net_cash_flow) < 0 ? "ink" : "ok"}
                   value={money(cash.net_cash_flow)}
                 />
+              </div>
+            </SectionCard>
+          )}
+
+          {/* Cash-flow forecast (committed documents, by week) */}
+          {financeReports && forecast && (
+            <SectionCard
+              title={t("reports.forecastTitle")}
+              action={
+                <div className="flex items-center gap-2">
+                  <select
+                    value={forecastWeeks}
+                    onChange={(e) => setForecastWeeks(Number(e.target.value))}
+                    className="rounded-control border border-line bg-surface px-2 py-1 text-sm"
+                    aria-label={t("reports.forecastWeeks")}
+                  >
+                    {[4, 8, 13, 26].map((w) => <option key={w} value={w}>{t("reports.forecastWeeksN", { n: w })}</option>)}
+                  </select>
+                  <a href={csv("/reports/cash-flow-forecast/", { weeks: forecastWeeks })}>
+                    <Button variant="ghost">
+                      <Download size={15} /> CSV
+                    </Button>
+                  </a>
+                </div>
+              }
+            >
+              <p className="mb-3 text-xs text-muted">{t("reports.forecastHint")}</p>
+              <div className="mb-4 grid gap-4 sm:grid-cols-3">
+                <Kpi label={t("reports.forecastOverdueIn")} tone="ok" value={money(forecast.rows[0]?.inflow)} />
+                <Kpi label={t("reports.forecastOverdueOut")} value={money(forecast.rows[0]?.outflow)} />
+                <Kpi label={t("reports.forecastClosing")} tone={Number(forecast.closing_position) < 0 ? "ink" : "ok"} value={money(forecast.closing_position)} />
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
+                      <th className="px-3 py-2 text-start font-medium">{t("reports.forecastBucket")}</th>
+                      <th className="px-3 py-2 text-end font-medium">{t("reports.forecastIn")}</th>
+                      <th className="px-3 py-2 text-end font-medium">{t("reports.forecastOut")}</th>
+                      <th className="px-3 py-2 text-end font-medium">{t("reports.forecastNet")}</th>
+                      <th className="px-3 py-2 text-end font-medium">{t("reports.forecastCumulative")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {forecast.rows.map((r) => (
+                      <tr key={r.bucket} className="border-b border-line last:border-0">
+                        <td className="px-3 py-2">{r.bucket === "overdue" ? t("reports.forecastOverdue") : t("reports.forecastWeekFrom", { date: new Date(`${r.starts_on}T00:00:00`).toLocaleDateString(language === "ar" ? "ar" : "en", { day: "numeric", month: "short" }) })}</td>
+                        <td className="tabular px-3 py-2 text-end text-ok">{money(r.inflow)}</td>
+                        <td className="tabular px-3 py-2 text-end text-danger">{money(r.outflow)}</td>
+                        <td className={`tabular px-3 py-2 text-end ${Number(r.net) < 0 ? "text-danger" : ""}`}>{money(r.net)}</td>
+                        <td className={`tabular px-3 py-2 text-end font-medium ${Number(r.cumulative) < 0 ? "text-danger" : ""}`}>{money(r.cumulative)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </SectionCard>
           )}

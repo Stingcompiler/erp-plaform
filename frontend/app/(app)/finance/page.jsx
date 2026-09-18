@@ -11,6 +11,7 @@ import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/compone
 import Drawer from "@/components/ui/Drawer";
 import PaymentVerificationPanel from "@/components/finance/PaymentVerificationPanel";
 import BudgetsPanel from "@/components/finance/BudgetsPanel";
+import MoneyLedger from "@/components/finance/MoneyLedger";
 
 function StatTile({ label, value, tone = "ink", icon: Icon }) {
   const toneClass = tone === "ok" ? "text-ok" : tone === "danger" ? "text-danger" : "text-ink";
@@ -185,5 +186,6 @@ export default function FinancePage() {
     </Card>}
     <ExpenseDrawer open={drawerOpen} writable={writable} categories={categories} onClose={() => setDrawerOpen(false)} onSaved={() => { load(); loadCategories(); }} />
     <BudgetsPanel writable={writable} categories={categories} />
+    <MoneyLedger />
   </div>;
 }

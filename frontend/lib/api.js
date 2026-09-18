@@ -193,6 +193,7 @@ export const reports = {
   arAging: () => api.get("/reports/ar-aging/"),
   apAging: () => api.get("/reports/ap-aging/"),
   purchasesSummary: (params) => api.get("/reports/purchases-summary/", { params }),
+  cashFlowForecast: (params) => api.get("/reports/cash-flow-forecast/", { params }),
   profitSummary: (params) => api.get("/reports/profit-summary/", { params }),
 };
 
@@ -216,6 +217,7 @@ export const purchasing = {
   createPurchaseOrder: (body) => api.post("/purchase-orders/", body),
   setPurchaseOrderStatus: (id, status) => api.post(`/purchase-orders/${id}/set_status/`, { status }),
   supplierPayments: (params) => api.get("/supplier-payments/", { params }),
+  verifySupplierPayment: (id) => api.post(`/supplier-payments/${id}/verify/`),
   supplierPaymentDocument: (id) => api.get(`/supplier-payments/${id}/document/`),
 };
 

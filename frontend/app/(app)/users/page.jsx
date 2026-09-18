@@ -9,12 +9,15 @@ import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { translateRole } from "@/lib/i18n";
 import { Badge, Button, Card, PageHeader } from "@/components/ui/kit";
+import { useToast } from "@/components/ui/Toast";
 import UserForm from "@/components/users/UserForm";
 
 export default function UsersPage() {
   const { user: currentUser, canRead, canWrite, can } = useAuth();
   const { t } = useI18n();
+  const toast = useToast();
   const writable = canWrite("users");
+  const [busyId, setBusyId] = useState(null);
   const canAssignOwner = can("users.assign_owner");
   const canEditUser = (target) => {
     if (!writable || target.id === currentUser?.id) return false;
@@ -45,6 +48,21 @@ export default function UsersPage() {
       .catch(() => setRows([]))
       .finally(() => setLoading(false));
   }, []);
+
+  async function toggleActive(u) {
+    if (u.is_active && !window.confirm(t("users.deactivateConfirm", { email: u.email }))) return;
+    setBusyId(u.id);
+    try {
+      await (u.is_active ? usersApi.deactivate(u.id) : usersApi.reactivate(u.id));
+      toast.success(u.is_active ? t("users.deactivated") : t("users.reactivated"));
+      load();
+    } catch (err) {
+      const data = err?.response?.data;
+      toast.error(data?.detail || (data && Object.values(data).flat().join(" ")) || t("users.toggleError"));
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   useEffect(() => {
     load();
@@ -162,15 +180,24 @@ export default function UsersPage() {
                     {writable && (
                       <td className="px-4 py-3 text-end">
                         {canEditUser(u) && (
-                          <button
-                            onClick={() => {
-                              setEditing(u);
-                              setFormOpen(true);
-                            }}
-                            className="text-sm text-accent hover:underline"
-                          >
-                            {t("common.edit")}
-                          </button>
+                          <span className="inline-flex items-center gap-3">
+                            <button
+                              onClick={() => {
+                                setEditing(u);
+                                setFormOpen(true);
+                              }}
+                              className="text-sm text-accent hover:underline"
+                            >
+                              {t("common.edit")}
+                            </button>
+                            <button
+                              onClick={() => toggleActive(u)}
+                              disabled={busyId === u.id}
+                              className={`text-sm hover:underline disabled:opacity-50 ${u.is_active ? "text-danger" : "text-ok"}`}
+                            >
+                              {u.is_active ? t("users.deactivate") : t("users.reactivate")}
+                            </button>
+                          </span>
                         )}
                       </td>
                     )}
