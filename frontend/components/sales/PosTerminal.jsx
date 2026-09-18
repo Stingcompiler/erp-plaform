@@ -23,6 +23,7 @@ export default function PosTerminal({
   warehouses,
   customers,
   onCustomersChanged,
+  initialOrder = null,
   bankAccounts = [],
   shift = null,
   onSold,
@@ -34,6 +35,21 @@ export default function PosTerminal({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [cart, setCart] = useState([]);
+  const [sourceOrder, setSourceOrder] = useState(null);
+  // "Invoice this order": customer and lines come from the confirmed sales
+  // order; checkout carries source_order so the invoice links back and the
+  // order is fulfilled server-side.
+  useEffect(() => {
+    if (!initialOrder) return;
+    if (!saleUuid.current) saleUuid.current = crypto.randomUUID();
+    setSourceOrder(initialOrder.id);
+    setCustomer(String(initialOrder.customer));
+    setCart(initialOrder.lines.map((l) => ({
+      key: lineKey(l.product, null), id: l.product, sku: l.product_sku, name: l.product_name,
+      price: String(l.unit_price), listPrice: String(l.unit_price), qty: String(Number(l.quantity)),
+      unit: "", packs: [], packId: "", packQty: 1, onHand: null, expiryStatus: null,
+    })));
+  }, [initialOrder]);
   const [provisionalDoc, setProvisionalDoc] = useState(null);
   const [method, setMethod] = useState("cash");
   const [amount, setAmount] = useState("");
@@ -244,6 +260,7 @@ export default function PosTerminal({
     // Keep the saved copy until the sale completes or is held again.
   }
   async function resetSale() {
+    setSourceOrder(null);
     try { await heldCarts.remove(restoredId.current); setHeld(await heldCarts.list()); }
     catch { toast.error(t("improvements.heldError")); }
     restoredId.current = null;
@@ -296,6 +313,7 @@ export default function PosTerminal({
       occurred_at: new Date().toISOString(),
       warehouse: Number(warehouse),
       customer: customer ? Number(customer) : null,
+      ...(sourceOrder ? { source_order: sourceOrder } : {}),
       lines: cart.map((l) => ({
         product: l.id,
         ...(l.packId ? { pack: Number(l.packId) } : {}),

@@ -5,13 +5,34 @@ method must be displayed: standard uses current cost, FIFO/average the ledger.
 """
 from decimal import Decimal
 
-from django.db.models import CharField, DecimalField, ExpressionWrapper, F, Q, Sum
+from django.db.models import CharField, DecimalField, ExpressionWrapper, F, Func, Q, Sum
 from django.db.models.functions import Cast, Coalesce
 from django.utils.dateparse import parse_date
 from rest_framework.exceptions import ValidationError
 
 ZERO = Decimal("0")
 MONEY = DecimalField(max_digits=20, decimal_places=2)
+
+
+class RealOnSQLite(Func):
+    """Force real-number arithmetic on SQLite; a no-op on PostgreSQL.
+
+    SQLite stores a whole-number decimal (115.00, 100.00) as an integer and
+    divides two integers as integers (115 / 100 = 1). Casting to a
+    DecimalField does not help: Django renders that as CAST(... AS NUMERIC)
+    and NUMERIC affinity collapses back to an integer. A REAL, once produced,
+    survives every later NUMERIC cast, so wrapping one operand is enough.
+    PostgreSQL divides numerics exactly and is left untouched.
+    """
+
+    arity = 1
+    template = "%(expressions)s"
+
+    def as_sqlite(self, compiler, connection, **extra_context):
+        return super().as_sql(
+            compiler, connection, template="CAST(%(expressions)s AS REAL)",
+            **extra_context,
+        )
 
 
 def date_range(params):
@@ -75,8 +96,11 @@ def _revenue_terms(company_id, start=None, end=None, branch_id=None):
     # goodwill) lower what the customer owes and therefore revenue too. Notes
     # that belong to a voided invoice are excluded: the void already removed
     # the invoice's lines from gross sales.
+    # RealOnSQLite keeps the ratio a real number on SQLite (115 / 100 would
+    # otherwise be integer division = 1, leaving the tax inside the note).
     tax_share = Coalesce(
-        F("invoice__total") / F("invoice__subtotal"), Decimal("1"), output_field=MONEY
+        RealOnSQLite(F("invoice__total"), output_field=MONEY) / F("invoice__subtotal"),
+        Decimal("1"), output_field=MONEY,
     )
     adjustments = notes.annotate(tax_share=tax_share).aggregate(t=Coalesce(Sum(ExpressionWrapper(
         F("amount") / F("tax_share"), output_field=MONEY,

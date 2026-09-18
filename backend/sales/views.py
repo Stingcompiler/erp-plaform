@@ -530,6 +530,33 @@ class SalesOrderViewSet(AppendOnlyScopedViewSet):
     serializer_class = SalesOrderSerializer
     activity_entity_type = "SalesOrder"
 
+    # Fulfilment happens only by invoicing the order (POS checkout with
+    # source_order); here the buyer's side of the lifecycle.
+    TRANSITIONS = {
+        SalesOrder.DRAFT: {SalesOrder.CONFIRMED, SalesOrder.CANCELLED},
+        SalesOrder.CONFIRMED: {SalesOrder.CANCELLED, SalesOrder.DRAFT},
+        SalesOrder.FULFILLED: set(),
+        SalesOrder.CANCELLED: set(),
+    }
+
+    @action(detail=True, methods=["post"])
+    def set_status(self, request, pk=None):
+        order = self.get_object()
+        new_status = request.data.get("status")
+        if new_status not in self.TRANSITIONS.get(order.status, set()):
+            return Response(
+                {"detail": _("An order that is %(current)s cannot be set to %(target)s.")
+                 % {"current": order.status, "target": new_status}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        order.status = new_status
+        order.save(update_fields=["status"])
+        log_activity(
+            action="update", request=request, entity_type="SalesOrder",
+            entity_id=order.pk, metadata={"status": new_status},
+        )
+        return Response(self.get_serializer(order).data)
+
 
 class InvoiceViewSet(
     CompanyScopedQuerySetMixin,

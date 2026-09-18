@@ -143,6 +143,13 @@ export const sales = {
   verifyPayment: (id) => api.post(`/payments/${id}/verify/`),
   customers: (params) => api.get("/customers/", { params }),
   createCustomer: (body) => api.post("/customers/", body),
+  // Quote-to-cash: quotation → sales order → invoice (POS checkout with source_order).
+  quotations: (params) => api.get("/quotations/", { params }),
+  createQuotation: (body) => api.post("/quotations/", body),
+  setQuotationStatus: (id, status) => api.post(`/quotations/${id}/set_status/`, { status }),
+  convertQuotation: (id) => api.post(`/quotations/${id}/convert_to_order/`),
+  orders: (params) => api.get("/sales-orders/", { params }),
+  setOrderStatus: (id, status) => api.post(`/sales-orders/${id}/set_status/`, { status }),
   updateCustomer: (id, body) => api.patch(`/customers/${id}/`, body),
   // Every customer, for pickers: the POS must be able to name any account
   // customer, not only the first page.
