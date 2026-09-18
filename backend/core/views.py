@@ -216,14 +216,16 @@ def dashboard(request):
             .exclude(lines__product__name=None)
             .order_by("-revenue")[:5]
         )
+        # Revenue here is the income statement's revenue (net of returns and
+        # price-correction notes, before tax) — not invoice totals — so the
+        # overview and the P&L never disagree about the same period.
+        from finance.metrics import net_revenue
+        today = timezone.localdate()
         sections["sales"] = {
             "invoice_count": inv.count(),
-            "today_total": str(inv.filter(issued_at__date=timezone.localdate()).aggregate(
-                t=Coalesce(Sum("total"), Decimal("0")))["t"]),
+            "today_total": str(net_revenue(company_id, today, today, branch_id)),
             "overdue_count": overdue_invoices(inv).count(),
-            "revenue_total": str(
-                inv.aggregate(t=Coalesce(Sum("total"), Decimal("0")))["t"]
-            ),
+            "revenue_total": str(net_revenue(company_id, branch_id=branch_id)),
             "top_products": [
                 {"label": r["lines__product__name"], "value": str(r["revenue"])}
                 for r in top
