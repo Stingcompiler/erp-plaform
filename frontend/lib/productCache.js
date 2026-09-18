@@ -20,6 +20,9 @@ function slim(p) {
     track_batches: p.track_batches,
     unit_name: p.unit_name,
     is_stock_tracked: p.is_stock_tracked,
+    // Warning inputs for the till; stale offline, but a stale warning beats none.
+    on_hand: p.on_hand,
+    expiry_status: p.expiry_status,
   };
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Minus, Plus, Printer, Search, Trash2, ShoppingBag, CreditCard } from "lucide-react";
+import { AlertTriangle, Check, Minus, Plus, Printer, Search, Trash2, ShoppingBag, CreditCard } from "lucide-react";
 
 import { inventory, sales } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
@@ -145,6 +145,15 @@ export default function PosTerminal({
   // piece and by the carton are two lines, so the key carries the pack.
   const lineKey = (productId, packId) => (packId ? `${productId}:p${packId}` : String(productId));
 
+  // Base units the line takes off the shelf, versus what the ledger says is
+  // there. Null when the product is not stock-tracked or on_hand is unknown.
+  const shortfall = (l) => {
+    if (l.onHand === null || l.onHand === undefined) return null;
+    const taking = qtyOf(l) * (l.packId ? Number(l.packQty) || 1 : 1);
+    const over = taking - Number(l.onHand);
+    return over > 0 ? over : 0;
+  };
+
   function addProduct(p, pack = p.scanned_pack || null) {
     if (!saleUuid.current) saleUuid.current = crypto.randomUUID();
     const key = lineKey(p.id, pack?.id);
@@ -172,6 +181,10 @@ export default function PosTerminal({
           packs: p.packs || [],
           packId: pack ? String(pack.id) : "",
           packQty: pack ? Number(pack.quantity) : 1,
+          // Warnings only — the sale is never blocked on them (offline-first:
+          // what was handed over the counter is a fact to record).
+          onHand: p.is_stock_tracked === false ? null : (p.on_hand ?? null),
+          expiryStatus: p.expiry_status || null,
         },
       ];
     });
@@ -471,11 +484,20 @@ export default function PosTerminal({
                   onClick={() => addProduct(p)}
                   className="flex w-full items-center justify-between px-4 py-2.5 text-start text-sm hover:bg-paper"
                 >
-                  <span>
+                  <span className="min-w-0">
                     <span className="tabular text-muted">{p.sku}</span>{" "}
                     <span className="text-ink">{p.name}</span>
+                    {p.expiry_status === "expired" && <span className="ms-2 text-xs font-medium text-danger">{t("sales.expired")}</span>}
+                    {p.expiry_status === "expiring" && <span className="ms-2 text-xs font-medium text-warn">{t("sales.expiring")}</span>}
                   </span>
-                  <span className="tabular text-ink">{money(p.sale_price)}</span>
+                  <span className="flex shrink-0 items-center gap-3">
+                    {p.is_stock_tracked !== false && p.on_hand !== undefined && (
+                      <span className={`tabular text-xs ${Number(p.on_hand) <= 0 ? "text-danger" : "text-muted"}`}>
+                        {t("sales.onHand", { qty: Number(p.on_hand) })}
+                      </span>
+                    )}
+                    <span className="tabular text-ink">{money(p.sale_price)}</span>
+                  </span>
                 </button>
               ))}
             </Card>
@@ -516,6 +538,24 @@ export default function PosTerminal({
                         </span>
                       )}
                     </div>
+                    {(shortfall(l) > 0 || l.expiryStatus) && (
+                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
+                        {shortfall(l) > 0 && (
+                          <span className={`inline-flex items-center gap-1 ${Number(l.onHand) <= 0 ? "text-danger" : "text-warn"}`}>
+                            <AlertTriangle size={12} />
+                            {Number(l.onHand) <= 0
+                              ? t("sales.outOfStock")
+                              : t("sales.exceedsStock", { qty: Number(l.onHand) })}
+                          </span>
+                        )}
+                        {l.expiryStatus === "expired" && (
+                          <span className="inline-flex items-center gap-1 text-danger"><AlertTriangle size={12} />{t("sales.expiredLine")}</span>
+                        )}
+                        {l.expiryStatus === "expiring" && (
+                          <span className="inline-flex items-center gap-1 text-warn"><AlertTriangle size={12} />{t("sales.expiringLine")}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Typed, not stepped: a grocery sells 1.250 kg of tomatoes,
@@ -726,6 +766,22 @@ export default function PosTerminal({
           )}
 
           {error && <p className="text-sm text-danger">{error}</p>}
+
+          {(() => {
+            const short = cart.filter((l) => shortfall(l) > 0).length;
+            const expired = cart.filter((l) => l.expiryStatus === "expired").length;
+            if (!short && !expired) return null;
+            return (
+              <div role="status" className="flex items-start gap-2 rounded-control border border-warn/40 bg-warn/10 p-3 text-sm text-ink">
+                <AlertTriangle size={16} className="mt-0.5 shrink-0 text-warn" />
+                <div>
+                  {short > 0 && <div>{t("sales.checkoutShortfall", { count: short })}</div>}
+                  {expired > 0 && <div>{t("sales.checkoutExpired", { count: expired })}</div>}
+                  <div className="mt-0.5 text-xs text-muted">{t("sales.checkoutWarnHint")}</div>
+                </div>
+              </div>
+            );
+          })()}
 
           <Button className="min-h-12 w-full" onClick={checkout} disabled={submitting || cart.length === 0}>
             {submitting ? t("sales.recording") : t("sales.completeSale")}

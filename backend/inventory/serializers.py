@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 
 from core.rbac import can_approve_high_value
@@ -95,6 +96,10 @@ class ProductPackSerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
     on_hand = serializers.SerializerMethodField()
+    # "expired" | "expiring" | None — from the soonest lot that still holds
+    # stock (see ProductViewSet.get_queryset); the till warns on it.
+    expiry_status = serializers.SerializerMethodField()
+    next_expiry = serializers.SerializerMethodField()
     # Selling units (carton, strip, sack) with their base-unit multiplier and
     # price, so the till can offer them without a second request.
     packs = ProductPackSerializer(many=True, read_only=True)
@@ -110,6 +115,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "id", "company", "sku", "name", "category", "brand", "unit",
             "barcode", "qr_code", "cost_price", "sale_price", "reorder_level",
             "track_batches", "is_stock_tracked", "is_active", "on_hand",
+            "expiry_status", "next_expiry",
             "unit_name", "packs",
             "image_url",
         ]
@@ -144,6 +150,22 @@ class ProductSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         _assert_tenant_relations(self, attrs, ("category", "brand", "unit"))
         return attrs
+
+    def get_next_expiry(self, obj):
+        return getattr(obj, "next_expiry", None)
+
+    def get_expiry_status(self, obj):
+        from inventory.alerts import EXPIRY_HORIZON_DAYS
+
+        expiry = getattr(obj, "next_expiry", None)
+        if expiry is None:
+            return None
+        today = timezone.localdate()
+        if expiry < today:
+            return "expired"
+        if (expiry - today).days <= EXPIRY_HORIZON_DAYS:
+            return "expiring"
+        return None
 
     def get_on_hand(self, obj):
         # Uses the annotated value when present (list view), else computes it.
