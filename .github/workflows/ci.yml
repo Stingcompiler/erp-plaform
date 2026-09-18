@@ -50,6 +50,17 @@ jobs:
       - name: Lint (flake8)
         run: flake8 .
 
+      # The compiled catalogue is committed (Render's build has no gettext);
+      # this fails the build if someone edits django.po without recompiling.
+      - name: Translation catalogue is compiled
+        env:
+          DJANGO_SECRET_KEY: ci-test-secret-key
+          DEBUG: "True"
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq gettext >/dev/null
+          python manage.py compilemessages -l ar
+          git diff --exit-code -- locale/ || (echo "locale/*.mo is stale: run 'manage.py compilemessages -l ar' and commit" && exit 1)
+
       - name: Django system check
         env:
           DJANGO_SECRET_KEY: ci-test-secret-key

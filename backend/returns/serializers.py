@@ -2,6 +2,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from django.db import transaction
+from django.utils.translation import gettext as _
 from django.db.models import Sum
 from rest_framework import serializers
 
@@ -30,7 +31,7 @@ def _assert_company(serializer, obj, label):
     if user is None or getattr(user, "is_platform_admin", False):
         return
     if obj.company_id != getattr(user, "company_id", None):
-        raise serializers.ValidationError({label: "Not your company's record."})
+        raise serializers.ValidationError({label: _("Not your company's record.")})
 
 
 # ---------- Sales return (Rule #5) ----------
@@ -78,7 +79,7 @@ class SalesReturnWriteSerializer(serializers.Serializer):
 
     def validate_lines(self, lines):
         if not lines:
-            raise serializers.ValidationError("At least one line is required.")
+            raise serializers.ValidationError(_("At least one line is required."))
         return lines
 
     def validate(self, attrs):
@@ -100,7 +101,7 @@ class SalesReturnWriteSerializer(serializers.Serializer):
         assert_user_branch(self.context["request"].user, invoice, "invoice")
         if invoice.is_void:
             raise serializers.ValidationError(
-                {"invoice": "A void invoice cannot be returned."}
+                {"invoice": _("A void invoice cannot be returned.")}
             )
 
         errors = []
@@ -113,14 +114,15 @@ class SalesReturnWriteSerializer(serializers.Serializer):
             inv_line = ln["invoice_line"]
             if inv_line.invoice_id != invoice.pk:
                 errors.append(
-                    f"Invoice line {inv_line.pk} is not on invoice "
-                    f"{invoice.pk}."
+                    _("%(sku)s is not on invoice %(invoice)s.")
+                    % {"sku": inv_line.product.sku, "invoice": invoice.number_display}
                 )
                 continue
             if inv_line.product_id != ln["product"].pk:
                 errors.append(
-                    f"Invoice line {inv_line.pk} is for a different product "
-                    f"than the one being returned."
+                    _("Invoice line for %(sku)s is for a different product "
+                      "than the one being returned.")
+                    % {"sku": inv_line.product.sku}
                 )
                 continue
             seen[inv_line.pk] = inv_line
@@ -140,9 +142,10 @@ class SalesReturnWriteSerializer(serializers.Serializer):
             remaining = inv_line.quantity - already.get(line_id, Decimal("0"))
             if qty > remaining:
                 errors.append(
-                    f"Cannot return {qty} of {inv_line.product.sku}: only "
-                    f"{remaining} of the {inv_line.quantity} sold on invoice "
-                    f"line {line_id} remain returnable."
+                    _("Cannot return %(qty)s of %(sku)s: only %(remaining)s of the "
+                      "%(sold)s sold remain returnable.")
+                    % {"qty": qty, "sku": inv_line.product.sku,
+                       "remaining": remaining, "sold": inv_line.quantity}
                 )
         if errors:
             raise serializers.ValidationError({"lines": errors})
@@ -154,7 +157,7 @@ class SalesReturnWriteSerializer(serializers.Serializer):
         user = request.user
         company_id = getattr(user, "company_id", None)
         if company_id is None:
-            raise serializers.ValidationError("A company-scoped user is required.")
+            raise serializers.ValidationError(_("A company-scoped user is required."))
 
         invoice = validated_data["invoice"]
 
@@ -177,7 +180,10 @@ class SalesReturnWriteSerializer(serializers.Serializer):
             remaining = locked[line_id].quantity - already.get(line_id, Decimal("0"))
             if quantity > remaining:
                 raise serializers.ValidationError(
-                    {"lines": f"Only {remaining} remains returnable on line {line_id}."}
+                    {
+                        "lines": _("Only %(remaining)s remains returnable for %(sku)s.")
+                        % {"remaining": remaining, "sku": locked[line_id].product.sku}
+                    }
                 )
 
         sales_return = SalesReturn.objects.create(
@@ -290,7 +296,7 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
 
     def validate_lines(self, lines):
         if not lines:
-            raise serializers.ValidationError("At least one line is required.")
+            raise serializers.ValidationError(_("At least one line is required."))
         return lines
 
     def validate(self, attrs):
@@ -307,11 +313,11 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
             _assert_company(self, obj, label)
         if receipt.supplier_id != supplier.pk:
             raise serializers.ValidationError(
-                {"goods_receipt": "Receipt is not for this supplier."}
+                {"goods_receipt": _("Receipt is not for this supplier.")}
             )
         if receipt.warehouse_id != warehouse.pk:
             raise serializers.ValidationError(
-                {"warehouse": "Return must leave from the receipt warehouse."}
+                {"warehouse": _("Return must leave from the receipt warehouse.")}
             )
 
         requested = defaultdict(Decimal)
@@ -319,7 +325,7 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
             original = line["goods_receipt_line"]
             if original.receipt_id != receipt.pk:
                 raise serializers.ValidationError(
-                    {"lines": "Every return line must belong to the selected receipt."}
+                    {"lines": _("Every return line must belong to the selected receipt.")}
                 )
             requested[original.pk] += line["quantity"]
         already = dict(
@@ -332,7 +338,10 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
             remaining = originals[line_id].quantity - already.get(line_id, Decimal("0"))
             if quantity > remaining:
                 raise serializers.ValidationError(
-                    {"lines": f"Only {remaining} remains returnable on receipt line {line_id}."}
+                    {
+                        "lines": _("Only %(remaining)s remains returnable for %(sku)s.")
+                        % {"remaining": remaining, "sku": originals[line_id].product.sku}
+                    }
                 )
             original = originals[line_id]
             stock_filter = {
@@ -347,16 +356,19 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
             )["total"] or Decimal("0")
             if quantity > available:
                 raise serializers.ValidationError(
-                    {"lines": f"Only {available} is available for receipt line {line_id}."}
+                    {
+                        "lines": _("Only %(available)s of %(sku)s is on hand to return.")
+                        % {"available": available, "sku": original.product.sku}
+                    }
                 )
 
         bill = attrs.get("bill")
         if bill is not None:
             _assert_company(self, bill, "bill")
             if bill.supplier_id != supplier.pk:
-                raise serializers.ValidationError({"bill": "Bill is not for this supplier."})
+                raise serializers.ValidationError({"bill": _("Bill is not for this supplier.")})
             if bill.goods_receipt_id and bill.goods_receipt_id != receipt.pk:
-                raise serializers.ValidationError({"bill": "Bill is not for this receipt."})
+                raise serializers.ValidationError({"bill": _("Bill is not for this receipt.")})
         return attrs
 
     @transaction.atomic
@@ -365,7 +377,7 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
         user = request.user
         company_id = getattr(user, "company_id", None)
         if company_id is None:
-            raise serializers.ValidationError("A company-scoped user is required.")
+            raise serializers.ValidationError(_("A company-scoped user is required."))
 
         supplier = validated_data["supplier"]
         warehouse = validated_data["warehouse"]
@@ -386,7 +398,10 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
             remaining = locked[line_id].quantity - already.get(line_id, Decimal("0"))
             if quantity > remaining:
                 raise serializers.ValidationError(
-                    {"lines": f"Only {remaining} remains returnable on receipt line {line_id}."}
+                    {
+                        "lines": _("Only %(remaining)s remains returnable for %(sku)s.")
+                        % {"remaining": remaining, "sku": locked[line_id].product.sku}
+                    }
                 )
 
         pr = PurchaseReturn.objects.create(
@@ -429,7 +444,10 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
             # Claiming more from the supplier than the goods cost us is a
             # negotiated adjustment, not a clerk's data entry.
             raise serializers.ValidationError(
-                {"debit_amount": f"The debit note cannot exceed the goods' cost ({cost_basis})."}
+                {
+                    "debit_amount": _("The debit note cannot exceed the goods' cost (%(cost)s).")
+                    % {"cost": cost_basis}
+                }
             )
         bill = validated_data.get("bill")
         if bill is not None:
@@ -500,7 +518,7 @@ class CreditNoteSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         if attrs.get("amount") is None or attrs["amount"] <= 0:
-            raise serializers.ValidationError("Amount must be positive.")
+            raise serializers.ValidationError(_("Amount must be positive."))
         _assert_company(self, attrs.get("customer"), "customer")
         _assert_company(self, attrs.get("invoice"), "invoice")
         _assert_company(self, attrs.get("sales_return"), "sales_return")
@@ -509,28 +527,31 @@ class CreditNoteSerializer(serializers.ModelSerializer):
         sales_return = attrs.get("sales_return")
         if invoice is not None and invoice.customer_id != getattr(customer, "pk", None):
             raise serializers.ValidationError(
-                {"customer": "Customer must match the linked invoice."}
+                {"customer": _("Customer must match the linked invoice.")}
             )
         if sales_return is not None:
             if invoice is not None and sales_return.invoice_id != invoice.pk:
                 raise serializers.ValidationError(
-                    {"sales_return": "Return must belong to the linked invoice."}
+                    {"sales_return": _("Return must belong to the linked invoice.")}
                 )
             if sales_return.customer_id != getattr(customer, "pk", None):
                 raise serializers.ValidationError(
-                    {"customer": "Customer must match the linked return."}
+                    {"customer": _("Customer must match the linked return.")}
                 )
         if customer is None and invoice is None:
             raise serializers.ValidationError(
-                {"customer": "A customer is required unless this note is linked to an invoice."}
+                {"customer": _("A customer is required unless this note is linked to an invoice.")}
             )
         if invoice is not None:
             if invoice.is_void:
-                raise serializers.ValidationError({"invoice": "That invoice is void."})
+                raise serializers.ValidationError({"invoice": _("That invoice is void.")})
             ceiling = invoice.total - invoice.credited_total()
             if attrs["amount"] > ceiling:
                 raise serializers.ValidationError(
-                    {"amount": f"Only {ceiling} of this invoice remains creditable."}
+                    {
+                        "amount": _("Only %(ceiling)s of this invoice remains creditable.")
+                        % {"ceiling": ceiling}
+                    }
                 )
         return attrs
 
@@ -545,7 +566,10 @@ class CreditNoteSerializer(serializers.ModelSerializer):
                 ceiling = invoice.total - invoice.credited_total()
                 if validated_data["amount"] > ceiling:
                     raise serializers.ValidationError(
-                        {"amount": f"Only {ceiling} of this invoice remains creditable."}
+                        {
+                            "amount": _("Only %(ceiling)s of this invoice remains creditable.")
+                            % {"ceiling": ceiling}
+                        }
                     )
                 validated_data["invoice"] = invoice
             note = super().create(validated_data)
@@ -572,7 +596,7 @@ class DebitNoteSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         if attrs.get("amount") is None or attrs["amount"] <= 0:
-            raise serializers.ValidationError("Amount must be positive.")
+            raise serializers.ValidationError(_("Amount must be positive."))
         _assert_company(self, attrs.get("supplier"), "supplier")
         _assert_company(self, attrs.get("bill"), "bill")
         _assert_company(self, attrs.get("purchase_return"), "purchase_return")
@@ -580,15 +604,15 @@ class DebitNoteSerializer(serializers.ModelSerializer):
         bill = attrs.get("bill")
         purchase_return = attrs.get("purchase_return")
         if bill is not None and bill.supplier_id != supplier.pk:
-            raise serializers.ValidationError({"bill": "Bill is not for this supplier."})
+            raise serializers.ValidationError({"bill": _("Bill is not for this supplier.")})
         if purchase_return is not None:
             if purchase_return.supplier_id != supplier.pk:
                 raise serializers.ValidationError(
-                    {"purchase_return": "Return is not for this supplier."}
+                    {"purchase_return": _("Return is not for this supplier.")}
                 )
             if bill is not None and purchase_return.goods_receipt_id != bill.goods_receipt_id:
                 raise serializers.ValidationError(
-                    {"purchase_return": "Return and bill must refer to the same receipt."}
+                    {"purchase_return": _("Return and bill must refer to the same receipt.")}
                 )
         return attrs
 
