@@ -2,6 +2,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from django.db import transaction
+from django.utils.translation import gettext as _
 from django.db.models import Sum
 from rest_framework import serializers
 
@@ -112,7 +113,7 @@ def _assert_same_company(serializer, obj, label):
     if user is None or getattr(user, "is_platform_admin", False):
         return
     if obj.company_id != getattr(user, "company_id", None):
-        raise serializers.ValidationError({label: "Not your company's record."})
+        raise serializers.ValidationError({label: _("Not your company's record.")})
 
 
 # ---------- Goods Receipt ----------
@@ -161,7 +162,7 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
 
     def validate_lines(self, lines):
         if not lines:
-            raise serializers.ValidationError("At least one line is required.")
+            raise serializers.ValidationError(_("At least one line is required."))
         return lines
 
     def validate(self, attrs):
@@ -169,12 +170,12 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
         po = attrs.get("purchase_order")
         if po is not None and supplier is not None and po.supplier_id != supplier.pk:
             raise serializers.ValidationError(
-                {"purchase_order": "Purchase order is not for this supplier."}
+                {"purchase_order": _("Purchase order is not for this supplier.")}
             )
         if po is not None:
             if po.status == PurchaseOrder.CANCELLED:
                 raise serializers.ValidationError(
-                    {"purchase_order": "A cancelled purchase order cannot be received."}
+                    {"purchase_order": _("A cancelled purchase order cannot be received.")}
                 )
             ordered_products = set(po.lines.values_list("product_id", flat=True))
             unknown = [
@@ -183,11 +184,13 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
             ]
             if unknown:
                 raise serializers.ValidationError(
-                    {"lines": "Every received product must be on the purchase order."}
+                    {"lines": _("Every received product must be on the purchase order.")}
                 )
             requested = defaultdict(Decimal)
+            products = {}
             for line in attrs.get("lines", []):
                 requested[line["product"].pk] += line["quantity"]
+                products[line["product"].pk] = line["product"]
             ordered = dict(
                 po.lines.values("product_id").annotate(total=Sum("quantity_ordered"))
                 .values_list("product_id", "total")
@@ -201,7 +204,10 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
                 remaining = ordered[product_id] - received.get(product_id, Decimal("0"))
                 if quantity > remaining:
                     raise serializers.ValidationError(
-                        {"lines": f"Only {remaining} remains receivable for product {product_id}."}
+                        {
+                            "lines": _("Only %(remaining)s remains receivable for %(sku)s.")
+                            % {"remaining": remaining, "sku": products[product_id].sku}
+                        }
                     )
         return attrs
 
@@ -211,7 +217,7 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
         user = request.user
         company_id = getattr(user, "company_id", None)
         if company_id is None:
-            raise serializers.ValidationError("A company-scoped user is required.")
+            raise serializers.ValidationError(_("A company-scoped user is required."))
 
         supplier = validated_data["supplier"]
         warehouse = validated_data["warehouse"]
@@ -240,14 +246,17 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
             rate = po.exchange_rate if same else Decimal("1")
         if currency == company.currency and rate != 1:
             raise serializers.ValidationError(
-                {"exchange_rate": "A receipt in the company currency has a rate of 1."}
+                {"exchange_rate": _("A receipt in the company currency has a rate of 1.")}
             )
         if (
             currency != company.currency and rate == 1
             and validated_data.get("exchange_rate") is None
         ):
             raise serializers.ValidationError(
-                {"exchange_rate": f"Give the {currency}->{company.currency} rate."}
+                {
+                    "exchange_rate": _("Give the %(from)s->%(to)s rate.")
+                    % {"from": currency, "to": company.currency}
+                }
             )
         occurred_at = validated_data.get("occurred_at") or timezone.now()
 
@@ -257,8 +266,10 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
             # lock on the order.
             po = PurchaseOrder.objects.select_for_update().get(pk=po.pk)
             requested = defaultdict(Decimal)
+            products = {}
             for ln in validated_data["lines"]:
                 requested[ln["product"].pk] += ln["quantity"]
+                products[ln["product"].pk] = ln["product"]
             ordered = dict(
                 po.lines.values("product_id").annotate(total=Sum("quantity_ordered"))
                 .values_list("product_id", "total")
@@ -275,7 +286,10 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
                 )
                 if quantity > remaining:
                     raise serializers.ValidationError(
-                        {"lines": f"Only {remaining} remains receivable for product {product_id}."}
+                        {
+                            "lines": _("Only %(remaining)s remains receivable for %(sku)s.")
+                            % {"remaining": remaining, "sku": products[product_id].sku}
+                        }
                     )
 
         receipt = GoodsReceipt.objects.create(
@@ -302,7 +316,7 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
             batch = None
             lot = ln.get("lot_number") or ""
             if product.track_batches and lot:
-                batch, _ = StockBatch.objects.get_or_create(
+                batch, _created = StockBatch.objects.get_or_create(
                     company_id=company_id, product=product, lot_number=lot,
                     defaults={"expiry_date": ln.get("expiry_date")},
                 )
@@ -430,16 +444,16 @@ class BillSerializer(serializers.ModelSerializer):
         )
         if po is not None and supplier is not None and po.supplier_id != supplier.pk:
             raise serializers.ValidationError(
-                {"purchase_order": "Purchase order is not for this supplier."}
+                {"purchase_order": _("Purchase order is not for this supplier.")}
             )
         if receipt is not None and supplier is not None:
             if receipt.supplier_id != supplier.pk:
                 raise serializers.ValidationError(
-                    {"goods_receipt": "Goods receipt is not for this supplier."}
+                    {"goods_receipt": _("Goods receipt is not for this supplier.")}
                 )
             if po is not None and receipt.purchase_order_id != po.pk:
                 raise serializers.ValidationError(
-                    {"goods_receipt": "Goods receipt is not for this purchase order."}
+                    {"goods_receipt": _("Goods receipt is not for this purchase order.")}
                 )
             # One receipt, one bill. A second bill for the same goods is how
             # a supplier gets paid twice.
@@ -448,7 +462,7 @@ class BillSerializer(serializers.ModelSerializer):
                 already = already.exclude(pk=self.instance.pk)
             if already.exists():
                 raise serializers.ValidationError(
-                    {"goods_receipt": "This receipt already has a bill; void that one first."}
+                    {"goods_receipt": _("This receipt already has a bill; void that one first.")}
                 )
             # Three-way match: the bill should cover what was received.
             received_value = sum(
@@ -466,8 +480,9 @@ class BillSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {
                         "subtotal": (
-                            f"The bill ({claimed}) does not match the receipt "
-                            f"({received_value}). A manager must approve the difference."
+                            _("The bill (%(claimed)s) does not match the receipt "
+                              "(%(received)s). A manager must approve the difference.")
+                            % {"claimed": claimed, "received": received_value}
                         )
                     }
                 )
@@ -475,10 +490,10 @@ class BillSerializer(serializers.ModelSerializer):
         tax = attrs.get("tax_amount", getattr(self.instance, "tax_amount", None))
         total = attrs.get("total", getattr(self.instance, "total", None))
         if total is None or total < 0:
-            raise serializers.ValidationError("Total must be non-negative.")
+            raise serializers.ValidationError(_("Total must be non-negative."))
         if subtotal is not None and tax is not None and _q2(subtotal + tax) != total:
             raise serializers.ValidationError(
-                {"total": "Total must equal subtotal plus tax amount."}
+                {"total": _("Total must equal subtotal plus tax amount.")}
             )
         return attrs
 
@@ -507,7 +522,7 @@ class SupplierPaymentSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         amount = attrs.get("amount")
         if amount is None or amount <= 0:
-            raise serializers.ValidationError("Amount must be positive.")
+            raise serializers.ValidationError(_("Amount must be positive."))
 
         method = attrs.get("method")
         bank = attrs.get("from_bank_account")
@@ -516,16 +531,16 @@ class SupplierPaymentSerializer(serializers.ModelSerializer):
         if method == SupplierPayment.BANK_TRANSFER:
             if bank is None:
                 raise serializers.ValidationError(
-                    "Bank transfer requires the paying-from company bank account."
+                    _("Bank transfer requires the paying-from company bank account.")
                 )
             if not ref or not ref.isdigit() or len(ref) > 4:
                 raise serializers.ValidationError(
-                    "reference_last4 must be up to 4 digits."
+                    _("reference_last4 must be up to 4 digits.")
                 )
         elif method == SupplierPayment.CASH:
             if bank or ref:
                 raise serializers.ValidationError(
-                    "Cash payments must not carry bank/reference details."
+                    _("Cash payments must not carry bank/reference details.")
                 )
 
         _assert_same_company(self, attrs.get("supplier"), "supplier")
@@ -534,12 +549,15 @@ class SupplierPaymentSerializer(serializers.ModelSerializer):
         bill = attrs.get("bill")
         supplier = attrs.get("supplier")
         if bill is not None and supplier is not None and bill.supplier_id != supplier.id:
-            raise serializers.ValidationError({"bill": "Bill is not for this supplier."})
+            raise serializers.ValidationError({"bill": _("Bill is not for this supplier.")})
         if bill is not None and bill.is_void:
-            raise serializers.ValidationError({"bill": "That bill is void."})
+            raise serializers.ValidationError({"bill": _("That bill is void.")})
         if bill is not None and amount > bill.amount_due():
             raise serializers.ValidationError(
-                {"amount": f"Amount exceeds the balance due on this bill ({bill.amount_due()})."}
+                {
+                    "amount": _("Amount exceeds the balance due on this bill (%(due)s).")
+                    % {"due": bill.amount_due()}
+                }
             )
         if bill is not None and not attrs.get("currency"):
             attrs["currency"] = bill.currency
@@ -560,7 +578,10 @@ class SupplierPaymentSerializer(serializers.ModelSerializer):
             due = locked.amount_due()
             if validated_data["amount"] > due:
                 raise serializers.ValidationError(
-                    {"amount": f"Amount exceeds the balance due on this bill ({due})."}
+                    {
+                        "amount": _("Amount exceeds the balance due on this bill (%(due)s).")
+                        % {"due": due}
+                    }
                 )
             validated_data["bill"] = locked
             return super().create(validated_data)

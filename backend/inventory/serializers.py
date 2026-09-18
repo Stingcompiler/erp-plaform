@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.db import transaction
+from django.utils.translation import gettext as _
 from rest_framework import serializers
 
 from core.rbac import can_approve_high_value
@@ -30,7 +31,7 @@ def _assert_tenant_relations(serializer, attrs, fields):
         obj = attrs.get(name)
         if obj is not None and obj.company_id != company_id:
             raise serializers.ValidationError(
-                {name: "Does not belong to your company."}
+                {name: _("Does not belong to your company.")}
             )
 
 
@@ -88,7 +89,9 @@ class ProductPackSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         _assert_tenant_relations(self, attrs, ("product",))
         if attrs.get("quantity") is not None and attrs["quantity"] <= 0:
-            raise serializers.ValidationError({"quantity": "A pack must hold at least one unit."})
+            raise serializers.ValidationError(
+                {"quantity": _("A pack must hold at least one unit.")}
+            )
         return attrs
 
 
@@ -167,14 +170,14 @@ class StockBatchSerializer(serializers.ModelSerializer):
 def _validate_sign(movement_type, quantity):
     """Enforce the sign contract for a movement type (see StockMovement)."""
     if quantity == 0:
-        raise serializers.ValidationError("Quantity cannot be zero.")
+        raise serializers.ValidationError(_("Quantity cannot be zero."))
     if movement_type in StockMovement.POSITIVE_TYPES and quantity < 0:
         raise serializers.ValidationError(
-            f"{movement_type} must have a positive quantity."
+            _("%(type)s must have a positive quantity.") % {"type": movement_type}
         )
     if movement_type in StockMovement.NEGATIVE_TYPES and quantity > 0:
         raise serializers.ValidationError(
-            f"{movement_type} must have a negative quantity."
+            _("%(type)s must have a negative quantity.") % {"type": movement_type}
         )
 
 
@@ -201,8 +204,8 @@ class StockMovementSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {
                     "movement_type": (
-                        "Only adjustments can be posted directly. Use receiving, the "
-                        "POS, returns or transfers for every other movement."
+                        _("Only adjustments can be posted directly. Use receiving, the "
+                          "POS, returns or transfers for every other movement.")
                     )
                 }
             )
@@ -222,7 +225,7 @@ class StockMovementSerializer(serializers.ModelSerializer):
             obj = attrs.get(key)
             if obj is not None and obj.company_id != company_id:
                 raise serializers.ValidationError(
-                    {key: "Does not belong to your company."}
+                    {key: _("Does not belong to your company.")}
                 )
             if key == "warehouse":
                 assert_user_branch(user, obj, key)
@@ -230,7 +233,7 @@ class StockMovementSerializer(serializers.ModelSerializer):
         product = attrs.get("product")
         if batch is not None and product is not None and batch.product_id != product.pk:
             raise serializers.ValidationError(
-                {"batch": "That lot belongs to a different product."}
+                {"batch": _("That lot belongs to a different product.")}
             )
 
     def create(self, validated_data):
@@ -258,10 +261,10 @@ class StockAdjustmentSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         if attrs["quantity"] == 0:
-            raise serializers.ValidationError("Adjustment quantity cannot be zero.")
+            raise serializers.ValidationError(_("Adjustment quantity cannot be zero."))
         if not (attrs.get("reason") or "").strip():
             raise serializers.ValidationError(
-                {"reason": "Say why the stock is being adjusted."}
+                {"reason": _("Say why the stock is being adjusted.")}
             )
         StockMovementSerializer._check_same_company(self, attrs)
         # Above the company's threshold an adjustment is a supervisory act:
@@ -276,8 +279,9 @@ class StockAdjustmentSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {
                         "quantity": (
-                            f"An adjustment worth {value} needs a manager or owner "
-                            f"(threshold {threshold})."
+                            _("An adjustment worth %(value)s needs a manager or owner "
+                              "(threshold %(threshold)s).")
+                            % {"value": value, "threshold": threshold}
                         )
                     }
                 )
@@ -290,7 +294,7 @@ class StockAdjustmentSerializer(serializers.ModelSerializer):
         creator = user if user.is_authenticated else None
         company_id = validated_data.get("company_id")
         if company_id is None:
-            raise serializers.ValidationError("Company context is required.")
+            raise serializers.ValidationError(_("Company context is required."))
         product = validated_data["product"]
         movement = StockMovement.objects.create(
             company_id=company_id,
@@ -332,10 +336,10 @@ class StockTransferSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         if attrs["quantity"] <= 0:
-            raise serializers.ValidationError("Transfer quantity must be positive.")
+            raise serializers.ValidationError(_("Transfer quantity must be positive."))
         if attrs["source_warehouse"] == attrs["dest_warehouse"]:
             raise serializers.ValidationError(
-                "Source and destination warehouses must differ."
+                _("Source and destination warehouses must differ.")
             )
         StockMovementSerializer._check_same_company(
             self,
@@ -357,7 +361,7 @@ class StockTransferSerializer(serializers.ModelSerializer):
             and dest.company_id != getattr(user, "company_id", None)
         ):
             raise serializers.ValidationError(
-                {"dest_warehouse": "Does not belong to your company."}
+                {"dest_warehouse": _("Does not belong to your company.")}
             )
         return attrs
 
@@ -368,7 +372,7 @@ class StockTransferSerializer(serializers.ModelSerializer):
         creator = user if user.is_authenticated else None
         company_id = validated_data.get("company_id")
         if company_id is None:
-            raise serializers.ValidationError("Company context is required.")
+            raise serializers.ValidationError(_("Company context is required."))
         product = Product.objects.select_for_update().get(pk=validated_data["product"].pk)
         batch = validated_data.get("batch")
         qty = validated_data["quantity"]
@@ -383,9 +387,14 @@ class StockTransferSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {
                     "quantity": (
-                        f"Only {available} is on hand at {source.name}"
-                        + (f" in lot {batch.lot_number}" if batch else "")
-                        + ". Count the shelf and adjust before transferring."
+                        _("Only %(available)s is on hand at %(warehouse)s in lot %(lot)s. "
+                          "Count the shelf and adjust before transferring.")
+                        % {"available": available, "warehouse": source.name,
+                           "lot": batch.lot_number}
+                        if batch
+                        else _("Only %(available)s is on hand at %(warehouse)s. "
+                               "Count the shelf and adjust before transferring.")
+                        % {"available": available, "warehouse": source.name}
                     )
                 }
             )
@@ -438,9 +447,13 @@ class StockCountLineSerializer(serializers.ModelSerializer):
         batch = attrs.get("batch")
         product = attrs.get("product")
         if batch is not None and product is not None and batch.product_id != product.pk:
-            raise serializers.ValidationError({"batch": "That lot belongs to a different product."})
+            raise serializers.ValidationError(
+                {"batch": _("That lot belongs to a different product.")}
+            )
         if attrs.get("counted_quantity") is not None and attrs["counted_quantity"] < 0:
-            raise serializers.ValidationError({"counted_quantity": "A count cannot be negative."})
+            raise serializers.ValidationError(
+                {"counted_quantity": _("A count cannot be negative.")}
+            )
         return attrs
 
 
@@ -479,7 +492,7 @@ class StockCountSerializer(serializers.ModelSerializer):
         if request is not None and attrs.get("warehouse") is not None:
             assert_user_branch(request.user, attrs["warehouse"], "warehouse")
         if self.instance is not None and self.instance.status != self.instance.DRAFT:
-            raise serializers.ValidationError("Only a draft count can be edited.")
+            raise serializers.ValidationError(_("Only a draft count can be edited."))
         return attrs
 
     def _write_lines(self, count, lines):
@@ -491,7 +504,10 @@ class StockCountSerializer(serializers.ModelSerializer):
             key = (line["product"].pk, line.get("batch").pk if line.get("batch") else None)
             if key in seen:
                 raise serializers.ValidationError(
-                    {"lines": f"{line['product'].sku} is listed twice for the same lot."}
+                    {
+                        "lines": _("%(sku)s is listed twice for the same lot.")
+                        % {"sku": line["product"].sku}
+                    }
                 )
             seen.add(key)
             StockCountLine.objects.create(count=count, **line)

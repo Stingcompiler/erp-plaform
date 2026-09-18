@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import IntegrityError
 from django.db.models import Q
 from rest_framework import mixins, status, viewsets
@@ -202,6 +204,21 @@ class CompanyScopedModelViewSet(
     pass
 
 
+def valid_client_uuid(value):
+    """The client-supplied idempotency key, or None when absent or malformed.
+
+    A malformed key used to reach the ORM lookup and raise ValueError — a
+    500 for a typo. Treating it as absent lets the serializer refuse it
+    with a proper 400 (client_uuid is a UUIDField there).
+    """
+    if not value:
+        return None
+    try:
+        return str(uuid.UUID(str(value)))
+    except (ValueError, AttributeError, TypeError):
+        return None
+
+
 class IdempotentCreateMixin:
     """
     Makes create replay-safe (PROJECT_RULES Rule #2). A client-supplied
@@ -212,7 +229,7 @@ class IdempotentCreateMixin:
     """
 
     def create(self, request, *args, **kwargs):
-        client_uuid = request.data.get("client_uuid")
+        client_uuid = valid_client_uuid(request.data.get("client_uuid"))
         if client_uuid:
             existing = self.get_queryset().filter(client_uuid=client_uuid).first()
             if existing:

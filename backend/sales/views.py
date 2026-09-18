@@ -1,6 +1,7 @@
 from decimal import Decimal, InvalidOperation
 
 from django.db import IntegrityError, transaction
+from django.utils.translation import gettext as _
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -20,6 +21,7 @@ from core.records import data_change_events
 from core.records import event as record_event
 from core.records import rows_csv as records_rows_csv
 from core.scoping import (
+    valid_client_uuid,
     AppendOnlyScopedViewSet,
     CompanyScopedModelViewSet,
     CompanyScopedQuerySetMixin,
@@ -286,8 +288,8 @@ class CashShiftViewSet(AppendOnlyScopedViewSet):
         if existing:
             raise ValidationError(
                 {
-                    "detail": "You already have an open till session. Close it "
-                    "before opening another.",
+                    "detail": _("You already have an open till session. Close it "
+                                "before opening another."),
                     "shift": existing.id,
                 }
             )
@@ -819,7 +821,7 @@ class POSCheckoutView(APIView):
     rbac_module = "sales"
 
     def is_completed_entitlement_replay(self, request):
-        client_uuid = request.data.get("client_uuid")
+        client_uuid = valid_client_uuid(request.data.get("client_uuid"))
         company_id = getattr(request.user, "company_id", None)
         return bool(
             client_uuid
@@ -830,7 +832,7 @@ class POSCheckoutView(APIView):
         )
 
     def post(self, request):
-        client_uuid = request.data.get("client_uuid")
+        client_uuid = valid_client_uuid(request.data.get("client_uuid"))
         if client_uuid:
             company_id = getattr(request.user, "company_id", None)
             existing = Invoice.objects.filter(

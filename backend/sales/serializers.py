@@ -2,6 +2,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.db import transaction
+from django.utils.translation import gettext as _
 from rest_framework import serializers
 
 from core.activity import log_activity
@@ -47,11 +48,12 @@ def validate_business_time(value):
         return None
     now = timezone.now()
     if value > now + timedelta(minutes=10):
-        raise serializers.ValidationError("occurred_at cannot be in the future.")
+        raise serializers.ValidationError(_("occurred_at cannot be in the future."))
     max_days = getattr(settings, "VEZANO_MAX_BACKDATE_DAYS", 31)
     if value < now - timedelta(days=max_days):
         raise serializers.ValidationError(
-            f"occurred_at is older than {max_days} days; contact your manager to backdate."
+            _("occurred_at is older than %(days)s days; contact your manager to backdate.")
+            % {"days": max_days}
         )
     return value
 
@@ -81,7 +83,7 @@ def _assert_tenant_relations(serializer, attrs, fields):
         obj = attrs.get(name)
         if obj is not None and obj.company_id != company_id:
             raise serializers.ValidationError(
-                {name: "Not your company's record."}
+                {name: _("Not your company's record.")}
             )
         if obj is not None and role and role.scope_level == "branch":
             object_branch_id = (
@@ -89,7 +91,7 @@ def _assert_tenant_relations(serializer, attrs, fields):
             )
             if object_branch_id is not None and object_branch_id != user.branch_id:
                 raise serializers.ValidationError(
-                    {name: "This record is outside your assigned branch."}
+                    {name: _("This record is outside your assigned branch.")}
                 )
 
 
@@ -120,7 +122,7 @@ class CustomerSerializer(serializers.ModelSerializer):
             )
             if changed and not can_approve_high_value(request.user):
                 raise serializers.ValidationError(
-                    {"credit_limit": "Only a manager may set credit terms."}
+                    {"credit_limit": _("Only a manager may set credit terms.")}
                 )
         return attrs
 
@@ -229,7 +231,7 @@ class SalesOrderSerializer(serializers.ModelSerializer):
         if quotation is not None and customer is not None:
             if quotation.customer_id != customer.pk:
                 raise serializers.ValidationError(
-                    {"source_quotation": "Quotation and order customer must match."}
+                    {"source_quotation": _("Quotation and order customer must match.")}
                 )
         for line in attrs.get("lines", []):
             _assert_tenant_relations(self, line, ("product",))
@@ -336,7 +338,7 @@ class PaymentSerializer(serializers.ModelSerializer):
         method = attrs.get("method")
         amount = attrs.get("amount")
         if amount is None or amount <= 0:
-            raise serializers.ValidationError("Amount must be positive.")
+            raise serializers.ValidationError(_("Amount must be positive."))
 
         bank_account = attrs.get("company_bank_account")
         sender = attrs.get("sender_bank_name", "")
@@ -345,20 +347,20 @@ class PaymentSerializer(serializers.ModelSerializer):
         if method == Payment.BANK_TRANSFER:
             if bank_account is None:
                 raise serializers.ValidationError(
-                    "Bank transfer requires the receiving company bank account."
+                    _("Bank transfer requires the receiving company bank account.")
                 )
             if not sender:
                 raise serializers.ValidationError(
-                    "Bank transfer requires the sender's bank name."
+                    _("Bank transfer requires the sender's bank name.")
                 )
             if not ref or not ref.isdigit() or len(ref) > 4:
                 raise serializers.ValidationError(
-                    "reference_last4 must be up to 4 digits."
+                    _("reference_last4 must be up to 4 digits.")
                 )
         elif method == Payment.CASH:
             if bank_account or sender or ref:
                 raise serializers.ValidationError(
-                    "Cash payments must not carry bank/reference details."
+                    _("Cash payments must not carry bank/reference details.")
                 )
 
         self._check_company(attrs)
@@ -369,8 +371,9 @@ class PaymentSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {
                         "amount": (
-                            f"Amount exceeds the balance due ({due}). Record the "
-                            "surplus separately instead of overpaying the invoice."
+                            _("Amount exceeds the balance due (%(due)s). Record the "
+                              "surplus separately instead of overpaying the invoice.")
+                            % {"due": due}
                         )
                     }
                 )
@@ -384,12 +387,12 @@ class PaymentSerializer(serializers.ModelSerializer):
         company_id = getattr(user, "company_id", None)
         invoice = attrs.get("invoice")
         if invoice is not None and invoice.company_id != company_id:
-            raise serializers.ValidationError({"invoice": "Not your company's invoice."})
+            raise serializers.ValidationError({"invoice": _("Not your company's invoice.")})
         assert_user_branch(user, invoice, "invoice")
         ba = attrs.get("company_bank_account")
         if ba is not None and ba.company_id != company_id:
             raise serializers.ValidationError(
-                {"company_bank_account": "Not your company's bank account."}
+                {"company_bank_account": _("Not your company's bank account.")}
             )
         shift = attrs.get("shift")
         if shift is not None:
@@ -397,14 +400,14 @@ class PaymentSerializer(serializers.ModelSerializer):
             # shift's expected cash includes it. Only the holder of an open
             # drawer (or a manager) may book money into it.
             if shift.company_id != company_id:
-                raise serializers.ValidationError({"shift": "Not your company's till session."})
+                raise serializers.ValidationError({"shift": _("Not your company's till session.")})
             if shift.status != CashShift.OPEN:
                 raise serializers.ValidationError(
-                    {"shift": "That till session is closed — open a new one."}
+                    {"shift": _("That till session is closed — open a new one.")}
                 )
             if shift.opened_by_id != user.pk and not can_approve_high_value(user):
                 raise serializers.ValidationError(
-                    {"shift": "You can only record cash into your own open drawer."}
+                    {"shift": _("You can only record cash into your own open drawer.")}
                 )
 
     def create(self, validated_data):
@@ -422,7 +425,7 @@ class PaymentSerializer(serializers.ModelSerializer):
             due = invoice.amount_due()
             if validated_data["amount"] > due:
                 raise serializers.ValidationError(
-                    {"amount": f"Amount exceeds the balance due ({due})."}
+                    {"amount": _("Amount exceeds the balance due (%(due)s).") % {"due": due}}
                 )
             validated_data["invoice"] = invoice
             validated_data.setdefault("currency", invoice.currency)
@@ -466,7 +469,7 @@ class POSLineSerializer(serializers.Serializer):
     def validate(self, attrs):
         if attrs.get("discount_percent") is not None and attrs.get("discount_amount") is not None:
             raise serializers.ValidationError(
-                "Use either discount_percent or discount_amount on a line, not both."
+                _("Use either discount_percent or discount_amount on a line, not both.")
             )
         return attrs
 
@@ -499,16 +502,22 @@ class CashDrawerMovementSerializer(serializers.ModelSerializer):
         kind = attrs.get("kind")
         amount = attrs.get("amount")
         if amount is None or amount == 0:
-            raise serializers.ValidationError("Amount must not be zero.")
+            raise serializers.ValidationError(_("Amount must not be zero."))
         # The sign carries the meaning, so a typo must not turn a refund into a
         # deposit and quietly hide a shortfall.
         if kind in CashDrawerMovement.NEGATIVE_ONLY and amount > 0:
             raise serializers.ValidationError(
-                {"amount": f"A '{kind}' takes money out — the amount must be negative."}
+                {
+                    "amount": _("A '%(kind)s' takes money out — the amount must be negative.")
+                    % {"kind": kind}
+                }
             )
         if kind in CashDrawerMovement.POSITIVE_ONLY and amount < 0:
             raise serializers.ValidationError(
-                {"amount": f"A '{kind}' puts money in — the amount must be positive."}
+                {
+                    "amount": _("A '%(kind)s' puts money in — the amount must be positive.")
+                    % {"kind": kind}
+                }
             )
 
         shift = attrs.get("shift")
@@ -518,12 +527,12 @@ class CashDrawerMovementSerializer(serializers.ModelSerializer):
             if user is not None and not getattr(user, "is_platform_admin", False):
                 if shift.company_id != getattr(user, "company_id", None):
                     raise serializers.ValidationError(
-                        {"shift": "Not your company's shift."}
+                        {"shift": _("Not your company's shift.")}
                     )
                 assert_user_branch(user, shift, "shift")
             if shift.status != CashShift.OPEN:
                 raise serializers.ValidationError(
-                    {"shift": "That shift is closed — cash cannot move in or out of it."}
+                    {"shift": _("That shift is closed — cash cannot move in or out of it.")}
                 )
         return attrs
 
@@ -571,12 +580,12 @@ class CashShiftSerializer(serializers.ModelSerializer):
         if user is not None and branch is not None:
             if branch.company_id != getattr(user, "company_id", None):
                 raise serializers.ValidationError(
-                    {"branch": "Not your company's branch."}
+                    {"branch": _("Not your company's branch.")}
                 )
             role = getattr(user, "role", None)
             if role and role.scope_level == "branch" and branch.pk != user.branch_id:
                 raise serializers.ValidationError(
-                    {"branch": "A branch user can only open a drawer at their own branch."}
+                    {"branch": _("A branch user can only open a drawer at their own branch.")}
                 )
         return attrs
 
@@ -656,12 +665,12 @@ class POSCheckoutSerializer(serializers.Serializer):
 
     def validate_lines(self, lines):
         if not lines:
-            raise serializers.ValidationError("At least one line is required.")
+            raise serializers.ValidationError(_("At least one line is required."))
         return lines
 
     def _assert_company(self, obj, company_id, label):
         if obj is not None and obj.company_id != company_id:
-            raise serializers.ValidationError({label: "Not your company's record."})
+            raise serializers.ValidationError({label: _("Not your company's record.")})
 
     @transaction.atomic
     def create(self, validated_data):
@@ -669,7 +678,7 @@ class POSCheckoutSerializer(serializers.Serializer):
         user = request.user
         company_id = getattr(user, "company_id", None)
         if company_id is None:
-            raise serializers.ValidationError("A company-scoped user is required.")
+            raise serializers.ValidationError(_("A company-scoped user is required."))
 
         # Company checks on referenced objects.
         self._assert_company(validated_data.get("customer"), company_id, "customer")
@@ -686,11 +695,11 @@ class POSCheckoutSerializer(serializers.Serializer):
             from org.models import Branch
             if not Branch.objects.filter(pk=branch_id, company_id=company_id).exists():
                 raise serializers.ValidationError(
-                    {"branch": "Not your company's branch."}
+                    {"branch": _("Not your company's branch.")}
                 )
             if role and role.scope_level == "branch" and user_branch_id != branch_id:
                 raise serializers.ValidationError(
-                    {"branch": "A branch user can only sell from their own branch."}
+                    {"branch": _("A branch user can only sell from their own branch.")}
                 )
         for ln in validated_data["lines"]:
             self._assert_company(ln["product"], company_id, "product")
@@ -708,7 +717,8 @@ class POSCheckoutSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {
                     "currency": (
-                        f"Sales are recorded in the company currency ({company.currency})."
+                        _("Sales are recorded in the company currency (%(currency)s).")
+                        % {"currency": company.currency}
                     )
                 }
             )
@@ -742,10 +752,10 @@ class POSCheckoutSerializer(serializers.Serializer):
                 self._assert_company(pack, company_id, "pack")
                 if pack.product_id != product.pk:
                     raise serializers.ValidationError(
-                        {"pack": "That pack belongs to a different product."}
+                        {"pack": _("That pack belongs to a different product.")}
                     )
                 if not pack.is_active:
-                    raise serializers.ValidationError({"pack": "That pack is no longer sold."})
+                    raise serializers.ValidationError({"pack": _("That pack is no longer sold.")})
                 packs_sold = ln["quantity"]
                 pack_price = ln.get("unit_price")
                 if pack_price is None:
@@ -768,14 +778,17 @@ class POSCheckoutSerializer(serializers.Serializer):
                 own = _q2(ln.get("discount_amount") or 0)
             if own > gross:
                 raise serializers.ValidationError(
-                    {"lines": f"Discount on {product.sku} exceeds the line value."}
+                    {
+                        "lines": _("Discount on %(sku)s exceeds the line value.")
+                        % {"sku": product.sku}
+                    }
                 )
             priced.append([ln, product, qty, price, gross, own])
         ticket_discount = _q2(validated_data.get("discount_amount") or 0)
         net_base = sum((row[4] - row[5] for row in priced), Decimal("0"))
         if ticket_discount > net_base:
             raise serializers.ValidationError(
-                {"discount_amount": "The ticket discount exceeds the sale value."}
+                {"discount_amount": _("The ticket discount exceeds the sale value.")}
             )
         # Allocate proportionally; the last line absorbs rounding so the
         # allocated parts sum exactly to the ticket discount.
@@ -830,7 +843,7 @@ class POSCheckoutSerializer(serializers.Serializer):
                     self._assert_company(preferred, company_id, "batch")
                     if preferred.product_id != product.pk:
                         raise serializers.ValidationError(
-                            {"batch": "That lot belongs to a different product."}
+                            {"batch": _("That lot belongs to a different product.")}
                         )
                 if product.track_batches:
                     from inventory.fefo import allocate_fefo
@@ -899,11 +912,11 @@ class POSCheckoutSerializer(serializers.Serializer):
             return
         if customer is None:
             raise serializers.ValidationError(
-                {"customer": "A sale on account needs a named customer."}
+                {"customer": _("A sale on account needs a named customer.")}
             )
         if customer.credit_hold:
             raise serializers.ValidationError(
-                {"customer": "This customer's account is on hold; take full payment."}
+                {"customer": _("This customer's account is on hold; take full payment.")}
             )
         if customer.credit_limit is not None:
             # The invoice row already exists at this point (payment not yet),
@@ -915,8 +928,9 @@ class POSCheckoutSerializer(serializers.Serializer):
                     raise serializers.ValidationError(
                         {
                             "customer": (
-                                f"This sale would take the customer to {exposure}, above "
-                                f"their credit limit of {customer.credit_limit}."
+                                _("This sale would take the customer to %(exposure)s, above "
+                                  "their credit limit of %(limit)s.")
+                                % {"exposure": exposure, "limit": customer.credit_limit}
                             )
                         }
                     )
@@ -931,14 +945,14 @@ class POSCheckoutSerializer(serializers.Serializer):
             self._assert_company(shift, company_id, "shift")
             if shift.status != CashShift.OPEN:
                 raise serializers.ValidationError(
-                    {"shift": "That till session is closed — open a new one."}
+                    {"shift": _("That till session is closed — open a new one.")}
                 )
         if pay["amount"] > invoice.total:
             raise serializers.ValidationError(
                 {
                     "payment": (
-                        "Payment exceeds the invoice total (tax included). "
-                        "Give change instead of overpaying."
+                        _("Payment exceeds the invoice total (tax included). "
+                          "Give change instead of overpaying.")
                     )
                 }
             )
@@ -949,13 +963,13 @@ class POSCheckoutSerializer(serializers.Serializer):
         if method == Payment.BANK_TRANSFER:
             if ba is None or not sender or not ref or not ref.isdigit() or len(ref) > 4:
                 raise serializers.ValidationError(
-                    "Bank transfer needs receiving account, sender bank, and "
-                    "up-to-4-digit reference."
+                    _("Bank transfer needs receiving account, sender bank, and "
+                      "up-to-4-digit reference.")
                 )
             self._assert_company(ba, company_id, "company_bank_account")
         elif method == Payment.CASH and (ba or sender or ref):
             raise serializers.ValidationError(
-                "Cash payment must not carry bank/reference details."
+                _("Cash payment must not carry bank/reference details.")
             )
         return Payment.objects.create(
             company_id=company_id, invoice=invoice, method=method,
@@ -1002,12 +1016,12 @@ class RefundSerializer(serializers.ModelSerializer):
         company_id = getattr(user, "company_id", None)
         amount = attrs.get("amount")
         if amount is None or amount <= 0:
-            raise serializers.ValidationError({"amount": "Amount must be positive."})
+            raise serializers.ValidationError({"amount": _("Amount must be positive.")})
         note = attrs["credit_note"]
         if note.company_id != company_id:
-            raise serializers.ValidationError({"credit_note": "Not your company's credit note."})
+            raise serializers.ValidationError({"credit_note": _("Not your company's credit note.")})
         if note.is_void:
-            raise serializers.ValidationError({"credit_note": "That credit note is void."})
+            raise serializers.ValidationError({"credit_note": _("That credit note is void.")})
         if note.invoice_id:
             assert_user_branch(user, note.invoice, "credit_note")
         method = attrs.get("method")
@@ -1016,38 +1030,41 @@ class RefundSerializer(serializers.ModelSerializer):
         if method == Refund.BANK_TRANSFER:
             if ba is None:
                 raise serializers.ValidationError(
-                    {"company_bank_account": "A bank refund needs the paying account."}
+                    {"company_bank_account": _("A bank refund needs the paying account.")}
                 )
             if ba.company_id != company_id:
                 raise serializers.ValidationError(
-                    {"company_bank_account": "Not your company's bank account."}
+                    {"company_bank_account": _("Not your company's bank account.")}
                 )
             if not ref or not ref.isdigit() or len(ref) > 4:
                 raise serializers.ValidationError(
-                    {"reference_last4": "Enter up to 4 reference digits."}
+                    {"reference_last4": _("Enter up to 4 reference digits.")}
                 )
         elif method == Refund.CASH and (ba or ref):
             raise serializers.ValidationError(
-                "A cash refund must not carry bank or reference details."
+                _("A cash refund must not carry bank or reference details.")
             )
         shift = attrs.get("shift")
         if shift is not None:
             if shift.company_id != company_id:
-                raise serializers.ValidationError({"shift": "Not your company's till session."})
+                raise serializers.ValidationError({"shift": _("Not your company's till session.")})
             if shift.status != CashShift.OPEN:
-                raise serializers.ValidationError({"shift": "That till session is closed."})
+                raise serializers.ValidationError({"shift": _("That till session is closed.")})
             if shift.opened_by_id != user.pk and not can_approve_high_value(user):
                 raise serializers.ValidationError(
-                    {"shift": "You can only refund cash from your own open drawer."}
+                    {"shift": _("You can only refund cash from your own open drawer.")}
                 )
         elif method == Refund.CASH:
             raise serializers.ValidationError(
-                {"shift": "A cash refund must come out of an open till session."}
+                {"shift": _("A cash refund must come out of an open till session.")}
             )
         threshold = getattr(note.company, "payment_approval_threshold", 0) or 0
         if threshold and amount >= threshold and not can_approve_high_value(user):
             raise serializers.ValidationError(
-                {"amount": f"Refunds of {threshold} or more need a manager or owner."}
+                {
+                    "amount": _("Refunds of %(threshold)s or more need a manager or owner.")
+                    % {"threshold": threshold}
+                }
             )
         return attrs
 
@@ -1064,7 +1081,10 @@ class RefundSerializer(serializers.ModelSerializer):
             remaining = note.remaining_refundable()
             if validated_data["amount"] > remaining:
                 raise serializers.ValidationError(
-                    {"amount": f"Only {remaining} remains refundable on {note.number_display}."}
+                    {
+                        "amount": _("Only %(remaining)s remains refundable on %(note)s.")
+                        % {"remaining": remaining, "note": note.number_display}
+                    }
                 )
             validated_data["credit_note"] = note
             refund = super().create(validated_data)
