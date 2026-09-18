@@ -140,6 +140,18 @@ changes.
   dashboard, overdue and expiry checks and report day boundaries. The server
   clock and all stored timestamps stay UTC.
 
+## One-time data steps
+
+- **HR postings backfill (after 2026-09-18).** Payroll runs and salary
+  advances approved before `hr.postings` shipped have no `Expense` behind
+  them, so the income statement understates those months. From the `erp-api`
+  shell, preview then apply:
+
+  ```bash
+  python manage.py backfill_hr_postings            # dry run: lists what would post
+  python manage.py backfill_hr_postings --yes      # writes; safe to re-run (skips linked docs)
+  ```
+
 ## Known caveats
 
 - **Backup retention.** `POST /api/ops/backups/` and the nightly cron generate

@@ -148,3 +148,53 @@ class IncomeStatementTests(PostingBase):
             for row in after.data["expenses_by_category"]
         }
         self.assertEqual(categories.get("Payroll"), Decimal("1000.00"))
+
+
+class BackfillCommandTests(PostingBase):
+    """Documents approved before postings existed get their expense once."""
+
+    def _approved_without_expense(self):
+        # Simulate history: approve, then delete the expense the approval posted.
+        run_id = self._run("2026-08")
+        self.cfo.post(reverse("payrollrun-approve", args=[run_id]))
+        adv_id = self._advance("200.00")
+        self.cfo.post(reverse("salaryadvance-approve", args=[adv_id]))
+        Expense.objects.all().delete()
+        return run_id, adv_id
+
+    def test_dry_run_writes_nothing(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        self._approved_without_expense()
+        out = StringIO()
+        call_command("backfill_hr_postings", stdout=out)
+        self.assertIn("Dry run: 1 payroll run(s) and 1 advance(s)", out.getvalue())
+        self.assertEqual(Expense.objects.count(), 0)
+
+    def test_yes_posts_once_and_is_idempotent(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        run_id, adv_id = self._approved_without_expense()
+        call_command("backfill_hr_postings", "--yes", stdout=StringIO())
+        self.assertEqual(Expense.objects.filter(payroll_run_id=run_id).count(), 1)
+        self.assertEqual(Expense.objects.filter(salary_advance_id=adv_id).count(), 1)
+        self.assertEqual(Expense.objects.get(payroll_run_id=run_id).amount, Decimal("1000.00"))
+
+        out = StringIO()
+        call_command("backfill_hr_postings", "--yes", stdout=out)
+        self.assertIn("Posted 0 payroll run(s) and 0 advance(s)", out.getvalue())
+        self.assertEqual(Expense.objects.count(), 2)
+
+    def test_company_scope_is_respected(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        self._approved_without_expense()
+        out = StringIO()
+        call_command("backfill_hr_postings", "--yes", "--company", "999999", stdout=out)
+        self.assertEqual(Expense.objects.count(), 0)
