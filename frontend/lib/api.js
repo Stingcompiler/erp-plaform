@@ -303,6 +303,12 @@ export const logs = {
 };
 
 export const finance = {
+  categories: () => api.get("/expenses/categories/"),
+  budgets: (params) => api.get("/budgets/", { params }),
+  createBudget: (body) => api.post("/budgets/", body),
+  approveBudget: (id) => api.post(`/budgets/${id}/approve/`),
+  reopenBudget: (id) => api.post(`/budgets/${id}/reopen/`),
+  budgetVariance: (id) => api.get(`/budgets/${id}/variance/`),
   expenses: (params) => api.get("/expenses/", { params }),
   createExpense: (body) => api.post("/expenses/", body),
   summary: (params) => api.get("/expenses/summary/", { params }),
