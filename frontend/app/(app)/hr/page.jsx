@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import Drawer from "@/components/ui/Drawer";
 import EmployeeDrawer from "@/components/hr/EmployeeDrawer";
+import AttendanceRegister from "@/components/hr/AttendanceRegister";
 import LeaveBalances from "@/components/hr/LeaveBalances";
 import LeavePolicies from "@/components/hr/LeavePolicies";
 
@@ -402,6 +403,7 @@ const TABS = [
   ["employees", "hr.employees"],
   ["positions", "hr.positions"],
   ["departments", "hr.departments"],
+  ["attendance", "hr.attendance.tab"],
   ["leave", "hr.leaveRequests"],
   ["leave-balances", "hr.leaveBalances"],
   ["leave-policies", "hr.leavePolicies"],
@@ -526,7 +528,7 @@ export default function HrPage() {
 
   function headerAction() {
     if (!writable) return null;
-    if (tab === "leave-balances" || tab === "leave-policies") return null;
+    if (tab === "leave-balances" || tab === "leave-policies" || tab === "attendance") return null;
     const map = {
       employees: () => setEmpDrawer({ open: true, employee: null }),
       positions: () => setPositionDrawer({ open: true, position: null }),
@@ -602,6 +604,7 @@ export default function HrPage() {
       </div>
 
       {loading && <p className="py-8 text-center text-muted">{t("common.loading")}</p>}
+      {tab === "attendance" && <AttendanceRegister writable={writable} />}
       {tab === "leave-balances" && <LeaveBalances writable={writable} />}
       {tab === "leave-policies" && <LeavePolicies writable={writable} />}
 
