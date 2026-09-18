@@ -77,6 +77,9 @@ class WarehouseViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     queryset = Warehouse.objects.select_related("branch").all()
     serializer_class = WarehouseSerializer
     activity_entity_type = "Warehouse"
+    # Sales, purchasing and finance documents name a warehouse; the org page
+    # lists them under branches. Reading names is not stock access.
+    rbac_read_modules = ("sales", "purchasing", "finance", "org")
 
     @transaction.atomic
     def perform_create(self, serializer):
@@ -95,6 +98,8 @@ class StockBatchViewSet(CompanyScopedModelViewSet):
 
 class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     serializer_class = ProductSerializer
+    # The public-website editor picks featured products from the catalogue.
+    rbac_read_modules = ("website",)
     activity_entity_type = "Product"
     queryset = Product.objects.select_related("category", "brand", "unit").all()
     filter_backends = [SearchFilter]

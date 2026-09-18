@@ -17,7 +17,7 @@ import ShiftHistory from "@/components/sales/ShiftHistory";
 import TabBar from "@/components/ui/TabBar";
 
 export default function SalesPage() {
-  const { canRead, canWrite } = useAuth();
+  const { canRead, canWrite, can } = useAuth();
   const { t } = useI18n();
   const writable = canWrite("sales");
   const [tab, setTab] = useState(writable ? "pos" : "invoices");
@@ -62,7 +62,8 @@ export default function SalesPage() {
 
   const tabs = [
     ...(writable ? [{ id: "pos", label: t("sales.pos") }] : []),
-    ...(writable ? [{ id: "till", label: t("till.tab") }] : []),
+    // Approvers who cannot sell (the CFO) still sign off drawer counts.
+    ...(writable || can("finance.approve") ? [{ id: "till", label: t("till.tab") }] : []),
     { id: "quotes", label: t("quotes.tab") },
     { id: "invoices", label: t("sales.invoices"), attentionKey: "sales" },
     ...(writable ? [{ id: "banks", label: t("sales.bankAccounts") }] : []),
@@ -96,9 +97,9 @@ export default function SalesPage() {
       {/* Mounted on every tab so the shift is known before the till is opened —
           otherwise a cashier could ring up sales that belong to no drawer
           simply by never visiting this tab. Hidden rather than unmounted. */}
-      <div className={tab === "till" && writable ? "" : "hidden"}>
+      <div className={tab === "till" ? "" : "hidden"}>
         {writable && <CashDrawer onShiftChange={onShiftChange} />}
-        {writable && tab === "till" && <ShiftHistory refreshKey={refreshKey} />}
+        {(writable || can("finance.approve")) && tab === "till" && <ShiftHistory refreshKey={refreshKey} />}
       </div>
       {tab === "invoices" && <InvoiceList refreshKey={refreshKey} />}
       {tab === "banks" && writable && (

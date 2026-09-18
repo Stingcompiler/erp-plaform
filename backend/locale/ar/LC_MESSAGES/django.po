@@ -387,3 +387,7 @@ msgstr "الشركة الهدف لديها منتجات بالفعل؛ الاس�
 
 msgid "This reset link is invalid or has already been used."
 msgstr "رابط إعادة التعيين غير صالح أو استُخدم من قبل."
+
+msgid "Only a financial manager or an authorised executive may approve this."
+msgstr "المدير المالي أو مسؤول تنفيذي مخوَّل فقط يمكنه اعتماد هذا."
+

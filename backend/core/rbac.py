@@ -302,7 +302,18 @@ class RoleModuleAccess(BasePermission):
         if module is None:
             return True  # not a module-scoped endpoint; leave to other perms
         write = request.method not in SAFE_METHODS
-        return role_can(user, module, write)
+        if role_can(user, module, write):
+            return True
+        # Reference data another department must be able to *see* to do its
+        # own job: the purchasing officer paying a supplier picks a company
+        # bank account (a sales-module row), the CFO signing off a drawer or
+        # reading the org page lists warehouses (inventory), the treasurer
+        # verifies supplier payments (purchasing). Read only — writes stay
+        # with the owning module.
+        if not write:
+            extra = getattr(view, "rbac_read_modules", ())
+            return any(role_can(user, m, False) for m in extra)
+        return False
 
     def _module_for(self, view):
         explicit = getattr(view, "rbac_module", None)

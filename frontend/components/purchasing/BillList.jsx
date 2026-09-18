@@ -159,7 +159,7 @@ export default function BillList({ suppliersById, bankAccounts, writable, refres
   return (
     <Card>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
               <th className="px-4 py-3 text-start font-medium">{t("purchasing.supplier")}</th>

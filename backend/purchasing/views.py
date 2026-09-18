@@ -352,6 +352,9 @@ class SupplierPaymentViewSet(AppendOnlyScopedViewSet):
     serializer_class = SupplierPaymentSerializer
     activity_entity_type = "SupplierPayment"
     approval_module = "purchasing"
+    # The treasurer verifies these (CanVerifyPayment already lets finance
+    # write do so) and reads them in the money ledger.
+    rbac_read_modules = ("finance",)
 
     def get_queryset(self):
         qs = super().get_queryset()
