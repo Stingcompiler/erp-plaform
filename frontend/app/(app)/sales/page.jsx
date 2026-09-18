@@ -13,6 +13,7 @@ import { offlineStore } from "@/lib/offlineStore";
 import InvoiceList from "@/components/sales/InvoiceList";
 import BankAccounts from "@/components/sales/BankAccounts";
 import CashDrawer from "@/components/sales/CashDrawer";
+import ShiftHistory from "@/components/sales/ShiftHistory";
 import TabBar from "@/components/ui/TabBar";
 
 export default function SalesPage() {
@@ -97,6 +98,7 @@ export default function SalesPage() {
           simply by never visiting this tab. Hidden rather than unmounted. */}
       <div className={tab === "till" && writable ? "" : "hidden"}>
         {writable && <CashDrawer onShiftChange={onShiftChange} />}
+        {writable && tab === "till" && <ShiftHistory refreshKey={refreshKey} />}
       </div>
       {tab === "invoices" && <InvoiceList refreshKey={refreshKey} />}
       {tab === "banks" && writable && (
