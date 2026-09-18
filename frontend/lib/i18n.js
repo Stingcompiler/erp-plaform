@@ -1823,6 +1823,7 @@ const en = {
     noBarcodeProducts: "No products with barcodes yet.",
   },
   corrections: {
+    refundQueued: "Offline — the refund is saved on this device and will upload when the connection returns.",
     reason: "Reason",
     reasonRequired: "Give a reason; it is written to the audit trail.",
     voidExplain: "Nothing is edited or deleted. The system writes the offsetting entries (credit note, stock reversal, refund) and marks the document void.",
@@ -4069,6 +4070,7 @@ const ar = {
     noBarcodeProducts: "لا توجد منتجات لها باركود بعد.",
   },
   corrections: {
+    refundQueued: "بلا اتصال — حُفظ الاسترداد على هذا الجهاز وسيُرفع عند عودة الاتصال.",
     reason: "السبب",
     reasonRequired: "اذكر السبب؛ يُسجَّل في سجل التدقيق.",
     voidExplain: "لا يُعدَّل أو يُحذف أي سجل. يكتب النظام القيود المقابلة (إشعار دائن، عكس حركة المخزون، سند استرداد) ويعلّم المستند كملغى.",

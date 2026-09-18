@@ -201,3 +201,42 @@ class SyncPullTests(SyncBase):
     def test_missing_batch_uuid_rejected(self):
         resp = self.client.post(reverse("sync-push"), {"operations": []}, format="json")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class QueuedRefundTests(SyncBase):
+    """A refund recorded offline applies through the same serializer as the
+    live endpoint — including the drawer movement it writes."""
+
+    def test_queued_cash_refund_applies_with_drawer_movement(self):
+        from returns.models import CreditNote
+        from sales.models import CashShift, Customer, Invoice, Refund
+
+        customer = Customer.objects.create(company=self.company, name="Buyer")
+        invoice = Invoice.objects.create(
+            company=self.company, branch=self.branch, warehouse=self.wh, customer=customer,
+            number=1, subtotal=Decimal("40"), total=Decimal("40"),
+        )
+        note = CreditNote.objects.create(
+            company=self.company, customer=customer, invoice=invoice, amount=Decimal("15"),
+            created_by=self.user, number=1,
+        )
+        shift = CashShift.objects.create(
+            company=self.company, branch=self.branch, opened_by=self.user,
+            opening_float=Decimal("100"),
+        )
+        cu = uuid.uuid4()
+        response = self.push([{
+            "op_type": "refund",
+            "client_uuid": str(cu),
+            "payload": {
+                "client_uuid": str(cu), "credit_note": note.id, "method": "cash",
+                "amount": "15.00", "shift": shift.id,
+            },
+        }])
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["summary"]["applied"], 1, response.data)
+        refund = Refund.objects.get(client_uuid=cu)
+        self.assertEqual(refund.amount, Decimal("15.00"))
+        self.assertEqual(refund.recorded_by, self.user)
+        self.assertEqual(shift.drawer_movements.count(), 1)
+        self.assertEqual(shift.drawer_movements.get().amount, Decimal("-15.00"))
