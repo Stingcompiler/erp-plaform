@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 
 import { bankAccounts as bankApi, cashShifts, sales } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
+import { useOfflineMutation } from "@/components/sync/useOfflineMutation";
+import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Field, Input, Select } from "@/components/ui/kit";
 
@@ -20,6 +22,8 @@ const money = (v) =>
  */
 export default function RefundDrawer({ note, open, onClose, onDone }) {
   const { t } = useI18n();
+  const mutate = useOfflineMutation();
+  const toast = useToast();
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("cash");
   const [account, setAccount] = useState("");
@@ -52,7 +56,11 @@ export default function RefundDrawer({ note, open, onClose, onDone }) {
     }
     setBusy(true);
     try {
-      await sales.createRefund(body);
+      // Cash back at the till is exactly the moment the connection tends to
+      // be down; the server already accepts a queued `refund` op through the
+      // same serializer, so the drawer goes through the offline path too.
+      const result = await mutate("refund", sales.createRefund, body);
+      if (result.queued) toast.info(t("corrections.refundQueued"));
       onDone?.();
       onClose();
     } catch (err) {
