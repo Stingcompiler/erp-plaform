@@ -226,6 +226,7 @@ export default function CrmPage() {
         writable={writable}
         onClose={() => setDrawerOpen(false)}
         onSaved={load}
+        onGroupsChanged={() => crm.groups().then((r) => setGroups(r.data.results)).catch(() => {})}
       />
     </div>
   );

@@ -29,7 +29,7 @@ const EMPTY = {
   customer_group: "",
 };
 
-export default function LeadDrawer({ open, lead, groups, writable, onClose, onSaved }) {
+export default function LeadDrawer({ open, lead, groups, writable, onClose, onSaved, onGroupsChanged }) {
   const { t, language } = useI18n();
   const toast = useToast();
   const editing = Boolean(lead?.id);
@@ -41,6 +41,27 @@ export default function LeadDrawer({ open, lead, groups, writable, onClose, onSa
   const [newFollowup, setNewFollowup] = useState({ due_date: "", summary: "" });
   const [noteBody, setNoteBody] = useState("");
 
+  // Segments (customer groups) had an API and translations but no screen:
+  // the dropdown could only show groups nobody could create.
+  const [addingSegment, setAddingSegment] = useState(false);
+  const [segmentName, setSegmentName] = useState("");
+  const [savingSegment, setSavingSegment] = useState(false);
+  async function createSegment() {
+    const name = segmentName.trim();
+    if (!name) return;
+    setSavingSegment(true);
+    try {
+      const r = await crm.createGroup({ name });
+      onGroupsChanged?.();
+      set("customer_group", String(r.data.id));
+      setSegmentName(""); setAddingSegment(false);
+      toast.success(t("crm.segmentCreated"));
+    } catch {
+      toast.error(t("crm.segmentError"));
+    } finally {
+      setSavingSegment(false);
+    }
+  }
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const loadActivity = useCallback(() => {
@@ -175,13 +196,29 @@ export default function LeadDrawer({ open, lead, groups, writable, onClose, onSa
             <Input type="number" value={form.estimated_value} onChange={(e) => set("estimated_value", e.target.value)} disabled={!writable} />
           </Field>
         </div>
-        <Field label={t("crm.segment")}>
-          <Select value={form.customer_group} onChange={(e) => set("customer_group", e.target.value)} disabled={!writable}>
-            <option value="">—</option>
-            {(groups || []).map((g) => (
-              <option key={g.id} value={g.id}>{g.name}</option>
-            ))}
-          </Select>
+        <Field label={t("crm.segment")} hint={t("crm.segmentHint")}>
+          <div className="flex gap-2">
+            <Select value={form.customer_group} onChange={(e) => set("customer_group", e.target.value)} disabled={!writable}>
+              <option value="">—</option>
+              {(groups || []).map((g) => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </Select>
+            {writable && (
+              <Button type="button" variant="outline" className="shrink-0" onClick={() => setAddingSegment((v) => !v)} aria-label={t("crm.newSegment")} title={t("crm.newSegment")}>
+                <Plus size={16} />
+              </Button>
+            )}
+          </div>
+          {addingSegment && (
+            <div className="mt-2 flex gap-2">
+              <Input value={segmentName} onChange={(e) => setSegmentName(e.target.value)} placeholder={t("crm.segmentName")} autoFocus
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); createSegment(); } }} />
+              <Button type="button" className="shrink-0" onClick={createSegment} disabled={!segmentName.trim() || savingSegment}>
+                {savingSegment ? t("common.saving") : t("common.save")}
+              </Button>
+            </div>
+          )}
         </Field>
 
         {editing && (
