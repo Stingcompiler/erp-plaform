@@ -40,6 +40,25 @@ class ExpenseViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
         "and budget variance. Record an offsetting negative expense instead."
     )
 
+    @action(detail=False, methods=["get"])
+    def categories(self, request):
+        """The category names this company already uses — on expenses and on
+        budget lines — so the expense form and the budget editor offer one
+        vocabulary. Budgets match expenses by exact category, so a free-text
+        field with no shared list could never line up."""
+        from finance.models import BudgetLine
+
+        company_id = getattr(request.user, "company_id", None)
+        used = set(
+            Expense.objects.filter(company_id=company_id)
+            .exclude(category="").values_list("category", flat=True).distinct()
+        )
+        planned = set(
+            BudgetLine.objects.filter(budget__company_id=company_id, kind=BudgetLine.EXPENSE)
+            .exclude(category="").values_list("category", flat=True).distinct()
+        )
+        return Response(sorted(used | planned, key=str.casefold))
+
     def update(self, request, *args, **kwargs):
         return Response(
             {"detail": "Expenses are append-only. Record an offsetting correction."},
