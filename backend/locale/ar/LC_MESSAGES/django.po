@@ -449,3 +449,23 @@ msgstr "هذا الباركود مسجَّل بالفعل للمنتج %(product
 msgid "This barcode already belongs to a pack of %(product)s."
 msgstr "هذا الباركود مسجَّل بالفعل لعبوة من المنتج %(product)s."
 
+msgid "Store credit needs the credit note it draws on."
+msgstr "الدفع من الرصيد يحتاج الإشعار الدائن الذي يُسحب منه."
+
+msgid "A credit note can only pay an invoice of the same customer."
+msgstr "الإشعار الدائن يسدّد فواتير العميل نفسه فقط."
+
+msgid "This note already reduces that invoice; it cannot pay it twice."
+msgstr "هذا الإشعار يخفّض تلك الفاتورة أصلًا؛ لا يمكن أن يسدّدها مرتين."
+
+msgid "Only %(remaining)s of %(note)s is still available."
+msgstr "المتاح من %(note)s هو %(remaining)s فقط."
+
+msgid "Store credit is not money: no bank, reference or till details."
+msgstr "الدفع من الرصيد ليس نقدًا: بلا بنك أو مرجع أو وردية."
+
+msgid "Only a store-credit payment names a credit note."
+msgstr "الإشعار الدائن يُذكر فقط في الدفع من الرصيد."
+
+msgid "Credit plus payment exceed the invoice total."
+msgstr "الرصيد المستخدم مع الدفعة يتجاوزان إجمالي الفاتورة."

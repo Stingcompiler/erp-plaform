@@ -52,6 +52,12 @@ export default function PosTerminal({
   }, [initialOrder]);
   const [provisionalDoc, setProvisionalDoc] = useState(null);
   const [method, setMethod] = useState("cash");
+  // Store credit: the customer's open credit notes and how much of them
+  // this sale draws on. Loaded when a customer is picked; the tendered
+  // amount then covers only the rest.
+  const [credit, setCredit] = useState(null); // { total, notes }
+  const [creditNote, setCreditNote] = useState("");
+  const [creditAmount, setCreditAmount] = useState("");
   const [amount, setAmount] = useState("");
   const [bankAccount, setBankAccount] = useState("");
   const [reference, setReference] = useState("");
@@ -159,6 +165,19 @@ export default function PosTerminal({
   const discountTotal = round2(cart.reduce((s, l) => s + lineDiscount(l), 0) + ticket);
   const taxTotal = round2(netLines.reduce((s, n) => s + round2((n * taxRate) / 100), 0));
   const grandTotal = round2(subtotal + taxTotal);
+
+  useEffect(() => {
+    setCredit(null); setCreditNote(""); setCreditAmount("");
+    if (!customer) return undefined;
+    let alive = true;
+    sales.customerCredit(customer)
+      .then((r) => { if (alive && Number(r.data.total) > 0) setCredit(r.data); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [customer]);
+
+  const creditApplied = creditNote ? Math.min(round2(Number(creditAmount || 0)), grandTotal) : 0;
+  const cashDue = round2(Math.max(0, grandTotal - creditApplied));
 
   // A line is one product sold in one unit: the same water sold by the
   // piece and by the carton are two lines, so the key carries the pack.
@@ -292,12 +311,12 @@ export default function PosTerminal({
     // overpay the invoice and leave a phantom credit on the account, so the
     // payment is capped at what is owed and the surplus is handed back as
     // change. Typing less than the bill still records a partial payment.
-    const tendered = amount === "" ? grandTotal : Number(amount || 0);
+    const tendered = amount === "" ? cashDue : Number(amount || 0);
     // Nothing tendered is a credit sale: send no payment rather than a
     // payment of zero, which would appear in the ledger as money received.
     const payment = tendered > 0 ? {
       method,
-      amount: String(Math.min(tendered, grandTotal)),
+      amount: String(Math.min(tendered, cashDue)),
     } : null;
     if (payment && method === "bank_transfer") {
       payment.company_bank_account = Number(bankAccount);
@@ -330,6 +349,7 @@ export default function PosTerminal({
       })),
       ...(ticket > 0 ? { discount_amount: String(round2(ticket)) } : {}),
       payment,
+      ...(creditApplied > 0 ? { apply_credit: { credit_note: Number(creditNote), amount: String(creditApplied) } } : {}),
       // Stamped from the client, not the server clock: an offline sale can
       // sync after its shift closed and must still land in the drawer that
       // actually took the cash.
@@ -737,6 +757,42 @@ export default function PosTerminal({
             </div>
           </div>
 
+          {credit && (
+            <div className="rounded-card border border-accent/30 bg-accent/5 p-3">
+              <label className="flex items-center justify-between gap-3 text-sm">
+                <span className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-accent"
+                    checked={Boolean(creditNote)}
+                    onChange={(e) => {
+                      if (!e.target.checked) { setCreditNote(""); setCreditAmount(""); return; }
+                      const first = credit.notes[0];
+                      setCreditNote(String(first.id));
+                      setCreditAmount(String(Math.min(Number(first.remaining), grandTotal)));
+                    }}
+                  />
+                  {t("sales.useCredit")}
+                </span>
+                <span className="tabular font-semibold text-accent">{money(credit.total)}</span>
+              </label>
+              {creditNote && (
+                <div className="mt-2 grid grid-cols-2 gap-3">
+                  <Select value={creditNote} onChange={(e) => { setCreditNote(e.target.value); const n = credit.notes.find((x) => String(x.id) === e.target.value); if (n) setCreditAmount(String(Math.min(Number(n.remaining), grandTotal))); }} aria-label={t("sales.creditNote")}>
+                    {credit.notes.map((n) => <option key={n.id} value={n.id}>{n.number} · {money(n.remaining)}</option>)}
+                  </Select>
+                  <Input type="number" inputMode="decimal" min="0" step="0.01" value={creditAmount} onChange={(e) => setCreditAmount(e.target.value)} aria-label={t("sales.creditAmount")} className="text-end" />
+                </div>
+              )}
+              {creditApplied > 0 && (
+                <div className="mt-2 flex items-center justify-between text-sm">
+                  <span className="text-muted">{t("sales.afterCredit")}</span>
+                  <span className="tabular font-semibold">{money(cashDue)}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <Field label={t("sales.payment")}>
               <Select value={method} onChange={(e) => setMethod(e.target.value)}>
@@ -751,26 +807,26 @@ export default function PosTerminal({
                 ref={amountRef}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder={money(grandTotal)}
+                placeholder={money(cashDue)}
               />
             </Field>
           </div>
 
           {/* Change due. Cash only — there is nothing to hand back on a
               transfer, and showing a figure there would just be noise. */}
-          {method === "cash" && amount !== "" && Number(amount) > grandTotal && (
+          {method === "cash" && amount !== "" && Number(amount) > cashDue && (
             <div className="flex items-center justify-between rounded-card border border-ok/40 bg-ok/5 px-3 py-2">
               <span className="text-sm text-muted">{t("sales.changeDue")}</span>
               <span className="tabular text-lg font-semibold text-ok">
-                {money(Number(amount) - grandTotal)}
+                {money(Number(amount) - cashDue)}
               </span>
             </div>
           )}
-          {method === "cash" && amount !== "" && Number(amount) < grandTotal && (
+          {method === "cash" && amount !== "" && Number(amount) < cashDue && (
             <div className="flex items-center justify-between rounded-card border border-warn/40 bg-warn/5 px-3 py-2">
               <span className="text-sm text-muted">{t("sales.stillOwed")}</span>
               <span className="tabular text-lg font-semibold text-warn">
-                {money(grandTotal - Number(amount))}
+                {money(cashDue - Number(amount))}
               </span>
             </div>
           )}

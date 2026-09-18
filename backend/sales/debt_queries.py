@@ -46,7 +46,12 @@ def _invoice_queryset(user):
             queryset=CreditNote.objects.filter(is_void=False)
             .order_by("created_at", "pk")
             .prefetch_related(
-                Prefetch("refunds", queryset=Refund.objects.order_by("recorded_at", "pk"))
+                Prefetch("refunds", queryset=Refund.objects.order_by("recorded_at", "pk")),
+                Prefetch(
+                    "applications",
+                    queryset=Payment.objects.select_related("invoice")
+                    .order_by("recorded_at", "pk"),
+                ),
             ),
         ),
     )
@@ -76,6 +81,7 @@ def _invoice_balance(invoice):
     for note in invoice.credit_notes.all():
         credits += note.amount
         refunds += sum((refund.amount for refund in note.refunds.all()), ZERO)
+        refunds += sum((use.amount for use in note.applications.all()), ZERO)
     return invoice.total - payments - credits + refunds
 
 
@@ -123,6 +129,16 @@ def _customer_events(customer, invoices, standalone_credits):
                     "debit": refund.amount,
                     "credit": ZERO,
                     "method": refund.method,
+                })
+            # Credit spent on another invoice: leaves this note (debit) and
+            # appears as a payment row on the invoice it settled.
+            for use in note.applications.all():
+                events.append({
+                    "date": use.recorded_at,
+                    "type": "credit_applied",
+                    "reference": f"{note.number_display} → {use.invoice.number_display}",
+                    "debit": use.amount,
+                    "credit": ZERO,
                 })
     for note in standalone_credits:
         if note.customer_id == customer.id:
@@ -210,13 +226,9 @@ def _customer_balances(user):
                 entry[1] += outstanding
         else:
             entry[2] += -outstanding
-    from django.db.models import Sum
-
-    for row in (
-        _standalone_credits(user).values("customer_id").annotate(total=Sum("amount"))
-    ):
-        entry = balances.setdefault(row["customer_id"], [ZERO, ZERO, ZERO])
-        entry[2] += row["total"] or ZERO
+    for note in _standalone_credits(user):
+        entry = balances.setdefault(note.customer_id, [ZERO, ZERO, ZERO])
+        entry[2] += note.remaining_refundable()
     return balances
 
 

@@ -70,6 +70,7 @@ export default function MoneyLedger({ refreshKey }) {
             <option value="">{t("finance.ledger.allMethods")}</option>
             <option value="cash">{t("finance.ledger.cash")}</option>
             <option value="bank_transfer">{t("finance.ledger.bank")}</option>
+            {tab === "payments" && <option value="credit">{t("finance.ledger.storeCredit")}</option>}
           </Select>
         </div>
       </div>
@@ -99,11 +100,11 @@ export default function MoneyLedger({ refreshKey }) {
                 <td className="px-3 py-2 whitespace-nowrap">{fmt(r.recorded_at)}</td>
                 <td className="px-3 py-2">{who(r)}</td>
                 <td className="px-3 py-2 text-muted">{ref(r)}</td>
-                <td className="px-3 py-2"><div>{r.method === "cash" ? t("finance.ledger.cash") : t("finance.ledger.bank")}</div>{bank(r) && <div className="text-xs text-muted">{bank(r)}{r.reference_last4 ? ` · ${r.reference_last4}` : ""}</div>}</td>
+                <td className="px-3 py-2"><div>{r.method === "cash" ? t("finance.ledger.cash") : r.method === "credit" ? t("finance.ledger.storeCredit") : t("finance.ledger.bank")}</div>{bank(r) && <div className="text-xs text-muted">{bank(r)}{r.reference_last4 ? ` · ${r.reference_last4}` : ""}</div>}{r.credit_note_number && <div className="text-xs text-muted">{r.credit_note_number}</div>}</td>
                 <td className={`tabular px-3 py-2 text-end font-medium ${SOURCES[tab].out ? "text-danger" : "text-ok"}`}>{SOURCES[tab].out ? "−" : "+"}{money(r.amount)}{r.currency && r.currency !== "SDG" ? ` ${r.currency}` : ""}</td>
                 <td className="px-3 py-2 text-xs text-muted">
                   <div>{t("finance.recordedByName", { name: r.recorded_by_name || "—" })}</div>
-                  {tab !== "refunds" && (r.verified_at ? <Badge tone="ok">{t("finance.ledger.verifiedBy", { name: r.verified_by_name || "—" })}</Badge> : <Badge tone="warn">{t("finance.ledger.unverified")}</Badge>)}
+                  {tab !== "refunds" && r.method !== "credit" && (r.verified_at ? <Badge tone="ok">{t("finance.ledger.verifiedBy", { name: r.verified_by_name || "—" })}</Badge> : <Badge tone="warn">{t("finance.ledger.unverified")}</Badge>)}
                 </td>
                 <td className="px-3 py-2 text-end whitespace-nowrap">
                   {tab === "supplier" && canVerify && !r.verified_at && (

@@ -348,6 +348,35 @@ class InvoiceSerializer(serializers.ModelSerializer):
 
 # ---------- Payment (Rule #3) ----------
 
+def assert_store_credit(note, invoice, amount, company_id):
+    """The rules for paying an invoice with a customer's credit note: same
+    company, same customer, note alive, and no more than the credit actually
+    left on it (`remaining_refundable` already nets refunds, earlier
+    applications and what the note settled on its own invoice)."""
+    if note is None:
+        raise serializers.ValidationError(
+            {"credit_note": _("Store credit needs the credit note it draws on.")}
+        )
+    if note.company_id != company_id:
+        raise serializers.ValidationError({"credit_note": _("Not your company's credit note.")})
+    if note.is_void:
+        raise serializers.ValidationError({"credit_note": _("That credit note is void.")})
+    if invoice.customer_id is None or note.customer_id != invoice.customer_id:
+        raise serializers.ValidationError(
+            {"credit_note": _("A credit note can only pay an invoice of the same customer.")}
+        )
+    if note.invoice_id == invoice.pk:
+        raise serializers.ValidationError(
+            {"credit_note": _("This note already reduces that invoice; it cannot pay it twice.")}
+        )
+    remaining = note.remaining_refundable()
+    if amount > remaining:
+        raise serializers.ValidationError(
+            {"amount": _("Only %(remaining)s of %(note)s is still available.")
+             % {"remaining": remaining, "note": note.number_display}}
+        )
+
+
 class PaymentSerializer(serializers.ModelSerializer):
     # Display fields for the verification worklist and payment lists.
     invoice_number = serializers.CharField(source="invoice.number_display", read_only=True)
@@ -360,6 +389,9 @@ class PaymentSerializer(serializers.ModelSerializer):
     verified_by_name = serializers.CharField(
         source="verified_by.full_name", read_only=True, default=""
     )
+    credit_note_number = serializers.CharField(
+        source="credit_note.number_display", read_only=True, default=None
+    )
     bank_account_name = serializers.CharField(
         source="company_bank_account.bank_name", read_only=True, default=""
     )
@@ -369,6 +401,7 @@ class PaymentSerializer(serializers.ModelSerializer):
         fields = [
             "id", "company", "invoice", "invoice_number", "customer_name",
             "method", "company_bank_account", "bank_account_name",
+            "credit_note", "credit_note_number",
             "sender_bank_name", "reference_last4", "amount", "currency", "exchange_rate",
             "shift", "recorded_by", "recorded_by_name",
             "recorded_at", "received_at", "verified_at", "verified_by", "verified_by_name",
@@ -410,9 +443,22 @@ class PaymentSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     _("Cash payments must not carry bank/reference details.")
                 )
+        elif method == Payment.STORE_CREDIT:
+            if bank_account or sender or ref or attrs.get("shift"):
+                raise serializers.ValidationError(
+                    _("Store credit is not money: no bank, reference or till details.")
+                )
 
         self._check_company(attrs)
         invoice = attrs.get("invoice") or getattr(self.instance, "invoice", None)
+        if method == Payment.STORE_CREDIT and invoice is not None:
+            request = self.context.get("request")
+            company_id = getattr(getattr(request, "user", None), "company_id", None)
+            assert_store_credit(attrs.get("credit_note"), invoice, amount, company_id)
+        elif attrs.get("credit_note") is not None:
+            raise serializers.ValidationError(
+                {"credit_note": _("Only a store-credit payment names a credit note.")}
+            )
         if invoice is not None and amount is not None:
             due = invoice.amount_due()
             if amount > due:
@@ -478,6 +524,14 @@ class PaymentSerializer(serializers.ModelSerializer):
             validated_data["invoice"] = invoice
             validated_data.setdefault("currency", invoice.currency)
             validated_data.setdefault("exchange_rate", invoice.exchange_rate)
+            if validated_data.get("method") == Payment.STORE_CREDIT:
+                from returns.models import CreditNote
+
+                note = CreditNote.objects.select_for_update().get(
+                    pk=validated_data["credit_note"].pk
+                )
+                assert_store_credit(note, invoice, validated_data["amount"], invoice.company_id)
+                validated_data["credit_note"] = note
             payment = super().create(validated_data)
             Invoice.objects.filter(pk=payment.invoice_id).update(
                 updated_at=payment.recorded_at
@@ -530,6 +584,11 @@ class POSPaymentSerializer(serializers.Serializer):
     sender_bank_name = serializers.CharField(required=False, allow_blank=True)
     reference_last4 = serializers.CharField(required=False, allow_blank=True)
     amount = serializers.DecimalField(max_digits=16, decimal_places=2)
+
+
+class POSApplyCreditSerializer(serializers.Serializer):
+    credit_note = serializers.IntegerField()
+    amount = serializers.DecimalField(max_digits=16, decimal_places=2, min_value=Decimal("0.01"))
 
 
 class CashDrawerMovementSerializer(serializers.ModelSerializer):
@@ -705,6 +764,8 @@ class POSCheckoutSerializer(serializers.Serializer):
     )
     lines = POSLineSerializer(many=True)
     payment = POSPaymentSerializer(required=False, allow_null=True)
+    # Store credit spent on this sale, alongside (or instead of) money.
+    apply_credit = POSApplyCreditSerializer(required=False, allow_null=True)
     # A discount on the whole ticket, spread across lines in proportion to
     # their net value so per-line tax and per-line returns stay exact.
     discount_amount = serializers.DecimalField(
@@ -960,8 +1021,29 @@ class POSCheckoutSerializer(serializers.Serializer):
         if pay and pay["amount"] <= 0:
             pay = None
         paid_now = pay["amount"] if pay else Decimal("0")
+        applied = validated_data.get("apply_credit")
+        credit_used = Decimal("0")
+        if applied:
+            from returns.models import CreditNote
+
+            note = CreditNote.objects.select_for_update().filter(
+                pk=applied["credit_note"], company_id=company_id
+            ).first()
+            credit_used = min(applied["amount"], invoice.total)
+            assert_store_credit(note, invoice, credit_used, company_id)
+            if paid_now + credit_used > invoice.total:
+                raise serializers.ValidationError(
+                    {"payment": _("Credit plus payment exceed the invoice total.")}
+                )
+            Payment.objects.create(
+                company_id=company_id, invoice=invoice, method=Payment.STORE_CREDIT,
+                credit_note=note, amount=credit_used,
+                currency=invoice.currency, exchange_rate=invoice.exchange_rate,
+                recorded_by=user if user.is_authenticated else None,
+                recorded_at=occurred_at,
+            )
         self._assert_credit_allowed(
-            validated_data.get("customer"), invoice, invoice.total - paid_now, user
+            validated_data.get("customer"), invoice, invoice.total - paid_now - credit_used, user
         )
         if pay:
             payment = self._record_payment(

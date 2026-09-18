@@ -41,12 +41,21 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [receiptId, setReceiptId] = useState(null);
+  const [credit, setCredit] = useState(null);
+  const [creditNote, setCreditNote] = useState("");
 
   useEffect(() => {
     if (!open) return;
     setAmount(""); setMethod("cash"); setAccount(""); setSenderBank(""); setReference("");
     setOverrides({}); setError(""); setResult(null);
     bankAccountsApi.list().then((r) => setAccounts(r.data.results ?? r.data)).catch(() => setAccounts([]));
+    setCredit(null); setCreditNote("");
+    const customerId = customer?.id ?? invoice?.customer;
+    if (customerId) {
+      sales.customerCredit(customerId)
+        .then((r) => { if (Number(r.data.total) > 0) { setCredit(r.data); setCreditNote(String(r.data.notes[0].id)); } })
+        .catch(() => {});
+    }
     if (invoice) {
       setInvoices([invoice]);
       setAmount(String(invoice.amount_due ?? ""));
@@ -99,6 +108,11 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
       if (!senderBank.trim()) return setError(t("debts.senderBankRequired"));
       if (!/^\d{1,4}$/.test(reference)) return setError(t("debts.referenceRequired"));
     }
+    if (method === "credit") {
+      const note = credit?.notes.find((n) => String(n.id) === creditNote);
+      if (!note) return setError(t("debts.creditRequired"));
+      if (round2(amount) > Number(note.remaining) + 0.001) return setError(t("debts.creditExceeded", { remaining: money(note.remaining) }));
+    }
     setBusy(true);
     const done = [];
     let queued = 0;
@@ -116,6 +130,7 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
           body.sender_bank_name = senderBank.trim();
           body.reference_last4 = reference;
         }
+        if (method === "credit") body.credit_note = Number(creditNote);
         const res = await mutate("payment", (payload) => sales.createPayment(payload), body);
         if (res.queued) queued += 1;
         else done.push(res.data);
@@ -213,6 +228,7 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
               <Select value={method} onChange={(e) => setMethod(e.target.value)}>
                 <option value="cash">{t("common.cash")}</option>
                 <option value="bank_transfer">{t("common.bankTransfer")}</option>
+                {credit && <option value="credit">{t("debts.storeCredit", { amount: money(credit.total) })}</option>}
               </Select>
             </Field>
           </div>
@@ -220,7 +236,19 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
             <Button variant="outline" onClick={() => { setAmount(String(totalDue)); setOverrides({}); }}>
               {t("debts.payAll")}
             </Button>
+            {credit && method !== "credit" && (
+              <Button variant="ghost" onClick={() => { setMethod("credit"); setAmount(String(Math.min(Number(credit.total), totalDue))); setOverrides({}); }}>
+                {t("debts.useCredit", { amount: money(Math.min(Number(credit.total), totalDue)) })}
+              </Button>
+            )}
           </div>
+          {method === "credit" && credit && (
+            <Field label={t("debts.creditNoteLabel")}>
+              <Select value={creditNote} onChange={(e) => setCreditNote(e.target.value)}>
+                {credit.notes.map((n) => <option key={n.id} value={n.id}>{n.number} · {money(n.remaining)}{n.invoice ? ` · ${n.invoice}` : ""}</option>)}
+              </Select>
+            </Field>
+          )}
 
           {method === "bank_transfer" && (
             <div className="grid gap-3 sm:grid-cols-3">
