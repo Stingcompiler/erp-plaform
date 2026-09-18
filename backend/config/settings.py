@@ -311,7 +311,8 @@ REST_FRAMEWORK = {
     # production limit remains unchanged, and per-view throttle tests that set
     # their own rate still exercise the real cache.
     "DEFAULT_THROTTLE_RATES": {
-        "login": "10000/min" if "test" in sys.argv else "10/min"
+        "login": "10000/min" if "test" in sys.argv else "10/min",
+        "password_reset": "10000/min" if "test" in sys.argv else "5/hour",
     },
     # Reports export CSV via `?format=csv`, handled manually in the report views
     # (ReportView.wants_csv). Disable DRF's built-in `format` query-param

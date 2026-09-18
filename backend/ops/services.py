@@ -8,6 +8,7 @@ target company (transactional records are captured in the dump but not replayed
 #8), and the snapshot is derived live from the tables (nothing stored to drift).
 """
 
+from django.utils.translation import gettext as _
 from rest_framework.exceptions import ValidationError
 
 BACKUP_VERSION = 1
@@ -91,7 +92,7 @@ def restore_master(target_company, dump, user=None):
 
     if Product.objects.filter(company=target_company).exists():
         raise ValidationError(
-            "Target company already has products; restore only into an empty company."
+            _("Target company already has products; restore only into an empty company.")
         )
 
     master = dump.get("master", {})
