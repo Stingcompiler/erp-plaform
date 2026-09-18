@@ -69,6 +69,8 @@ export default function ReportsPage() {
   const [collections, setCollections] = useState(null);
   const [kpis, setKpis] = useState(null);
   const [payables, setPayables] = useState(null);
+  const [apAging, setApAging] = useState([]);
+  const [purchases, setPurchases] = useState(null);
   const [hrSummary, setHrSummary] = useState(null);
   const [payroll, setPayroll] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -96,6 +98,8 @@ export default function ReportsPage() {
       ] : []),
       ...(purchasingReports ? [
         settle(reports.payablesDue(), setPayables, null),
+        settle(reports.apAging(), setApAging, []),
+        settle(reports.purchasesSummary(p), setPurchases, null),
       ] : []),
       ...(financeReports ? [
         settle(reports.profitSummary({ ...p, method: costMethod }), setProfit, null),
@@ -310,6 +314,51 @@ export default function ReportsPage() {
           )}
 
           {/* Obligations due (AP side of the worklist) */}
+          {purchasingReports && purchases && (
+            <SectionCard title={t("reports.purchasesSummaryTitle")}>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <div className="rounded-control bg-paper p-3"><div className="text-xs text-muted">{t("reports.purchasesTotal")}</div><div className="mt-1 tabular text-xl font-semibold">{money(purchases.purchases_total)}</div></div>
+                <div className="rounded-control bg-paper p-3"><div className="text-xs text-muted">{t("reports.billCount")}</div><div className="mt-1 tabular text-xl font-semibold">{purchases.bill_count}</div></div>
+                <div className="rounded-control bg-paper p-3"><div className="text-xs text-muted">{t("reports.receiptCount")}</div><div className="mt-1 tabular text-xl font-semibold">{purchases.receipt_count}</div></div>
+              </div>
+            </SectionCard>
+          )}
+          {purchasingReports && (
+            <SectionCard title={t("reports.apAgingTitle")}>
+              {apAging.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted">{t("reports.nothingOutstanding")}</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
+                        <th className="px-3 py-2 text-start font-medium">{t("reports.supplier")}</th>
+                        <th className="px-3 py-2 text-end font-medium">{t("reports.current")}</th>
+                        <th className="px-3 py-2 text-end font-medium">1–30</th>
+                        <th className="px-3 py-2 text-end font-medium">31–60</th>
+                        <th className="px-3 py-2 text-end font-medium">61–90</th>
+                        <th className="px-3 py-2 text-end font-medium">{t("reports.over90")}</th>
+                        <th className="px-3 py-2 text-end font-medium">{t("common.total")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {apAging.map((row) => (
+                        <tr key={row.supplier} className="border-b border-line last:border-0">
+                          <td className="px-3 py-2 text-ink">{row.name}</td>
+                          <td className="tabular px-3 py-2 text-end text-muted">{money(row.current)}</td>
+                          <td className="tabular px-3 py-2 text-end text-muted">{money(row["1_30"])}</td>
+                          <td className="tabular px-3 py-2 text-end text-muted">{money(row["31_60"])}</td>
+                          <td className="tabular px-3 py-2 text-end text-muted">{money(row["61_90"])}</td>
+                          <td className="tabular px-3 py-2 text-end text-warn">{money(row.over_90)}</td>
+                          <td className="tabular px-3 py-2 text-end font-medium text-ink">{money(row.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </SectionCard>
+          )}
           {purchasingReports && payables && (
             <SectionCard
               title={t("reports.payablesDue")}

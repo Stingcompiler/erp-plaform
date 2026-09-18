@@ -5,6 +5,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.db.models import Sum
+from django.db.models.functions import Coalesce
 from rest_framework import serializers
 
 from core.activity import log_activity
@@ -54,22 +55,44 @@ class SupplierSerializer(serializers.ModelSerializer):
 
 
 class PurchaseOrderLineSerializer(serializers.ModelSerializer):
+    # What has already arrived against this line, so the receiving screen
+    # can prefill the remainder and the order page can show progress.
+    received_quantity = serializers.SerializerMethodField()
+    remaining_quantity = serializers.SerializerMethodField()
+    product_name = serializers.CharField(source="product.name", read_only=True, default="")
+    product_sku = serializers.CharField(source="product.sku", read_only=True, default="")
+
     class Meta:
         model = PurchaseOrderLine
         fields = [
-            "id", "product", "description", "quantity_ordered",
-            "unit_cost", "line_total",
+            "id", "product", "product_name", "product_sku", "description", "quantity_ordered",
+            "unit_cost", "line_total", "received_quantity", "remaining_quantity",
         ]
         read_only_fields = ["line_total"]
 
+    def _received(self, obj):
+        if obj.pk is None:
+            return Decimal("0")
+        return GoodsReceiptLine.objects.filter(
+            receipt__purchase_order_id=obj.purchase_order_id, product_id=obj.product_id,
+        ).aggregate(t=Coalesce(Sum("quantity"), Decimal("0")))["t"]
+
+    def get_received_quantity(self, obj):
+        return str(self._received(obj))
+
+    def get_remaining_quantity(self, obj):
+        return str(max(obj.quantity_ordered - self._received(obj), Decimal("0")))
+
 
 class PurchaseOrderSerializer(serializers.ModelSerializer):
+    supplier_name = serializers.CharField(source="supplier.name", read_only=True, default="")
+
     lines = PurchaseOrderLineSerializer(many=True)
 
     class Meta:
         model = PurchaseOrder
         fields = [
-            "id", "company", "supplier", "branch", "status", "expected_date",
+            "id", "company", "supplier", "supplier_name", "branch", "status", "expected_date",
             "currency", "exchange_rate",
             "subtotal", "tax_amount", "total", "lines", "created_at",
         ]

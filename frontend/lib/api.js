@@ -191,6 +191,8 @@ export const reports = {
   salesByProduct: (params) => api.get("/reports/sales-by-product/", { params }),
   inventoryValuation: (params) => api.get("/reports/inventory-valuation/", { params }),
   arAging: () => api.get("/reports/ar-aging/"),
+  apAging: () => api.get("/reports/ap-aging/"),
+  purchasesSummary: (params) => api.get("/reports/purchases-summary/", { params }),
   profitSummary: (params) => api.get("/reports/profit-summary/", { params }),
 };
 
@@ -207,6 +209,12 @@ export const purchasing = {
   createBill: (body) => api.post("/bills/", body),
   voidBill: (id, body) => api.post(`/bills/${id}/void/`, body),
   createSupplierPayment: (body) => api.post("/supplier-payments/", body),
+  // Purchase orders: raise, send, confirm, receive against (the receiving
+  // call carries purchase_order), cancel.
+  purchaseOrders: (params) => api.get("/purchase-orders/", { params }),
+  purchaseOrder: (id) => api.get(`/purchase-orders/${id}/`),
+  createPurchaseOrder: (body) => api.post("/purchase-orders/", body),
+  setPurchaseOrderStatus: (id, status) => api.post(`/purchase-orders/${id}/set_status/`, { status }),
   supplierPayments: (params) => api.get("/supplier-payments/", { params }),
   supplierPaymentDocument: (id) => api.get(`/supplier-payments/${id}/document/`),
 };
