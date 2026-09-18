@@ -57,6 +57,7 @@ jobs:
           DJANGO_SECRET_KEY: ci-test-secret-key
           DEBUG: "True"
         run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq gettext >/dev/null
           python manage.py compilemessages -l ar
           git diff --exit-code -- locale/ || (echo "locale/*.mo is stale: run 'manage.py compilemessages -l ar' and commit" && exit 1)
 
