@@ -173,7 +173,7 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived, i
       <div>
         {/* Scan incoming goods to build the receipt without manual entry. */}
         <div className="mb-3">
-          <BarcodeScanInput onScan={addProduct} />
+          <BarcodeScanInput onScan={addProduct} captureGlobal />
         </div>
         <div className="relative">
           <Search size={16} className="pointer-events-none absolute inset-y-0 start-3 my-auto text-muted" />

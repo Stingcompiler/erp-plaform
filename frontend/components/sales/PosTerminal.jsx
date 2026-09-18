@@ -488,7 +488,7 @@ export default function PosTerminal({
         {/* Scan first: the till's primary input. Falls back to the search
             below for products without a barcode. */}
         <div className="mb-3">
-          <BarcodeScanInput onScan={addProduct} />
+          <BarcodeScanInput onScan={addProduct} captureGlobal />
         </div>
         <div className="relative">
           <Search size={16} className="pointer-events-none absolute inset-y-0 start-3 my-auto text-muted" />
