@@ -6,7 +6,7 @@ excluded. Debit notes not tied to a bill reduce the supplier's balance once
 """
 from decimal import Decimal
 
-from django.db.models import DecimalField, F, OuterRef, Subquery, Sum
+from django.db.models import DecimalField, ExpressionWrapper, F, OuterRef, Subquery, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
@@ -26,12 +26,21 @@ def with_outstanding(qs):
         DebitNote.objects.filter(bill_id=OuterRef("pk"), is_void=False)
         .order_by().values("bill_id").annotate(total=Sum("amount")).values("total")
     )
+    outstanding = (
+        F("total")
+        - Coalesce(Subquery(paid), ZERO, output_field=MONEY)
+        - Coalesce(Subquery(debited), ZERO, output_field=MONEY)
+    )
+    # `outstanding` is what the supplier is still owed in the bill's own
+    # currency (payments and notes default to it). Company-level figures —
+    # aging, payables due, cash-flow, CFO KPIs — must not add a dollar bill
+    # to a pound one, so they read `outstanding_base`, converted at the
+    # bill's recorded rate.
     return qs.filter(is_void=False).annotate(
-        outstanding=(
-            F("total")
-            - Coalesce(Subquery(paid), ZERO, output_field=MONEY)
-            - Coalesce(Subquery(debited), ZERO, output_field=MONEY)
-        )
+        outstanding=outstanding,
+        outstanding_base=ExpressionWrapper(
+            outstanding * F("exchange_rate"), output_field=MONEY
+        ),
     )
 
 
@@ -44,6 +53,7 @@ def overdue_bills(qs):
 
 
 def payable_total(qs):
+    """Open payables in the company currency."""
     return open_bills(qs).aggregate(
-        t=Coalesce(Sum("outstanding"), ZERO, output_field=MONEY)
+        t=Coalesce(Sum("outstanding_base"), ZERO, output_field=MONEY)
     )["t"]
