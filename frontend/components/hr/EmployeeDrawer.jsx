@@ -7,6 +7,7 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Field, Input, Select } from "@/components/ui/kit";
+import EmployeeRecords from "@/components/hr/EmployeeRecords";
 
 const EMPTY = {
   full_name: "",
@@ -75,6 +76,7 @@ export default function EmployeeDrawer({ open, employee, positions, departments,
       open={open}
       onClose={onClose}
       title={editing ? t("hr.editEmployee") : t("hr.newEmployee")}
+      wide={editing}
       footer={
         writable && (
           <div className="flex justify-end gap-2">
@@ -128,6 +130,7 @@ export default function EmployeeDrawer({ open, employee, positions, departments,
             </Select>
           </Field>
         </div>
+        {editing && <EmployeeRecords employee={employee} writable={writable} />}
       </div>
     </Drawer>
   );
