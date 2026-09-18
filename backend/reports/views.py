@@ -442,7 +442,7 @@ class APAgingReport(ReportView):
         per_supplier = {}
         bills = open_bills(Bill.objects.filter(company_id=cid)).select_related("supplier")
         for bill in bills.iterator(chunk_size=2000):
-            due = bill.outstanding
+            due = bill.outstanding_base
             key = bill.supplier_id
             # Age by due date (see ARAgingReport) — falls back for legacy rows.
             reference = bill.due_date or bill.created_at.date()
@@ -647,14 +647,14 @@ class CashFlowForecastReport(ReportView):
 
         invoices = open_invoices(
             Invoice.objects.filter(company_id=cid, due_date__lte=horizon, due_date__isnull=False)
-        ).values_list("due_date", "outstanding")
+        ).values_list("due_date", "outstanding_base")
         invoices = self.apply_branch(request, invoices, "branch")
         for due_date, due in invoices.iterator(chunk_size=5000):
             buckets[bucket_of(due_date)]["inflow"] += due
 
         bills = open_bills(
             Bill.objects.filter(company_id=cid, due_date__lte=horizon, due_date__isnull=False)
-        ).values_list("due_date", "outstanding")
+        ).values_list("due_date", "outstanding_base")
         for due_date, due in bills.iterator(chunk_size=5000):
             buckets[bucket_of(due_date)]["outflow"] += due
 
@@ -817,7 +817,7 @@ class PayablesDueReport(ReportView):
                 "supplier": b.supplier.name if b.supplier else "",
                 "due_date": b.due_date.isoformat() if b.due_date else None,
                 "days_overdue": max(0, (today - b.due_date).days) if b.due_date else 0,
-                "amount_due": str(b.outstanding),
+                "amount_due": str(b.outstanding_base),
             }
             for b in bills.iterator(chunk_size=2000)
         ]

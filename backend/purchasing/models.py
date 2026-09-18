@@ -27,13 +27,18 @@ class Supplier(models.Model):
         return self.name
 
     def ap_balance(self):
-        """Payable = sum of unpaid amounts across this supplier's bills. Derived."""
+        """Payable in the company currency: each bill's remaining balance at
+        the bill's recorded rate, less debit notes not tied to a bill at
+        theirs. A supplier invoicing in dollars and one in pounds must not
+        be summed as if they were the same unit. Derived, never stored."""
         total = Decimal("0")
         for bill in self.bills.all():
-            total += bill.amount_due()
-        # M5 extension: debit notes reduce AP. Additive only, no schema change.
-        from returns.models import applied_debit_total
-        return total - applied_debit_total(self)
+            total += bill.amount_due() * (bill.exchange_rate or Decimal("1"))
+        # Debit notes reduce AP; those linked to a bill are already netted
+        # inside Bill.amount_due(), so only free-standing ones count here.
+        for note in self.debit_notes.filter(is_void=False, bill__isnull=True):
+            total -= note.amount * (note.exchange_rate or Decimal("1"))
+        return total.quantize(Decimal("0.01"))
 
 
 class PurchaseOrder(models.Model):
