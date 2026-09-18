@@ -100,7 +100,10 @@ export default function LoginPage() {
             className="mt-1 w-full rounded-control border border-line bg-surface px-3 py-2.5 outline-none focus:border-accent"
           />
 
-          <label className="mt-4 block text-sm font-medium">{t("auth.passwordLabel")}</label>
+          <div className="mt-4 flex items-baseline justify-between">
+            <label className="block text-sm font-medium">{t("auth.passwordLabel")}</label>
+            <Link href="/forgot-password" className="text-xs text-accent hover:underline">{t("auth.forgotPassword")}</Link>
+          </div>
           <div className="mt-1">
             <PasswordInput
               autoComplete="current-password"

@@ -55,6 +55,9 @@ export const auth = {
   login: (email, password) => api.post("/auth/login/", { email, password }),
   logout: () => api.post("/auth/logout/"),
   me: () => api.get("/auth/me/"),
+  requestPasswordReset: (email) => api.post("/auth/password-reset/", { email }),
+  confirmPasswordReset: (uid, token, password) =>
+    api.post("/auth/password-reset/confirm/", { uid, token, password }),
 };
 
 export const rbac = {
@@ -374,6 +377,7 @@ export const settings = {
   createBackup: () => api.post("/ops/backups/"),
   // A plain link (cookie auth), so the browser saves it as a file directly.
   backupDownloadUrl: (id) => `${api.defaults.baseURL}/ops/backups/${id}/download/`,
+  restoreBackup: (body) => api.post("/ops/backups/restore/", body),
 };
 
 export const sync = {
