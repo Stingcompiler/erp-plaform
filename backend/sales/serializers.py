@@ -102,7 +102,8 @@ class CustomerSerializer(serializers.ModelSerializer):
         model = Customer
         fields = [
             "id", "company", "name", "phone", "email", "address",
-            "is_active", "credit_limit", "credit_hold", "ar_balance", "updated_at",
+            "is_active", "credit_limit", "credit_hold", "payment_terms_days",
+            "ar_balance", "updated_at",
         ]
         read_only_fields = ["company", "updated_at"]
 
@@ -659,6 +660,8 @@ class POSCheckoutSerializer(serializers.Serializer):
         max_digits=14, decimal_places=6, required=False, min_value=Decimal("0.000001")
     )
     client_uuid = serializers.UUIDField(required=False, allow_null=True)
+    # Optional override; otherwise the customer's terms, else the company's.
+    payment_terms_days = serializers.IntegerField(required=False, min_value=0)
     # The till session this sale was rung under. Sent by the client rather than
     # inferred from the clock, because an offline sale can sync long after its
     # shift closed and must still land in the drawer that actually took the cash.
@@ -744,6 +747,14 @@ class POSCheckoutSerializer(serializers.Serializer):
         occurred_at = validated_data.get("occurred_at") or timezone.now()
 
         number = allocate_invoice_number(company_id)
+        terms = validated_data.get("payment_terms_days")
+        if terms is None:
+            sale_customer = validated_data.get("customer")
+            terms = (
+                sale_customer.effective_payment_terms_days()
+                if sale_customer is not None
+                else company.default_payment_terms_days
+            )
         invoice = Invoice.objects.create(
             company_id=company_id,
             customer=validated_data.get("customer"),
@@ -757,6 +768,7 @@ class POSCheckoutSerializer(serializers.Serializer):
             client_uuid=validated_data.get("client_uuid"),
             issued_at=occurred_at,
             local_reference=validated_data.get("local_reference", ""),
+            payment_terms_days=terms,
         )
 
         # Pass 1: gross and own-discount per line, so the ticket discount

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, HandCoins, Lock, Search, UsersRound, Wallet } from "lucide-react";
+import { AlertTriangle, HandCoins, Lock, Pencil, Search, UserPlus, UsersRound, Wallet } from "lucide-react";
 
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
@@ -9,6 +9,7 @@ import { sales } from "@/lib/api";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import PhoneLink from "@/components/ui/PhoneLink";
 import CollectPaymentDrawer from "@/components/sales/CollectPaymentDrawer";
+import CustomerDrawer from "@/components/sales/CustomerDrawer";
 
 const STATUS_TONE = { overdue: "danger", owing: "warn", credit: "accent", settled: "ok" };
 
@@ -29,6 +30,8 @@ export default function DebtsPage() {
   const allowed = canRead("sales");
   const canCollect = canWrite("sales");
   const [collecting, setCollecting] = useState(false);
+  // null = closed, "new" = create, object = edit that customer
+  const [editing, setEditing] = useState(null);
   const [filters, setFilters] = useState({ search: "", status: "" });
   const [rows, setRows] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -99,6 +102,12 @@ export default function DebtsPage() {
   return (
     <div>
       <PageHeader title={t("debts.title")} subtitle={t("debts.subtitle")} />
+      <CustomerDrawer
+        open={Boolean(editing)}
+        onClose={() => setEditing(null)}
+        customer={editing === "new" ? null : editing}
+        onSaved={(saved) => { loadList(); if (editing !== "new") setSelected((c) => ({ ...c, ...saved })); }}
+      />
 
       <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map(({ label, value, icon: Icon, tone, count }) => (
@@ -119,7 +128,14 @@ export default function DebtsPage() {
         <Card className="p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="font-display text-lg font-semibold">{t("debts.customers")}</h2>
-            {loading && <span className="text-xs text-muted">…</span>}
+            <div className="flex items-center gap-2">
+              {loading && <span className="text-xs text-muted">…</span>}
+              {canCollect && (
+                <Button variant="outline" onClick={() => setEditing("new")}>
+                  <UserPlus size={15} />{t("customers.new")}
+                </Button>
+              )}
+            </div>
           </div>
           <div className="mb-3 grid gap-2 sm:grid-cols-[1fr_132px] xl:grid-cols-1">
             <div className="relative">
@@ -157,6 +173,11 @@ export default function DebtsPage() {
                   <div><h2 className="font-display text-xl font-semibold">{selected.name}</h2><p className="mt-1 text-sm text-muted"><PhoneLink phone={selected.phone} /></p></div>
                   <div className="flex items-center gap-4">
                     <div className="text-end"><div className="text-xs text-muted">{t("debts.closingBalance")}</div><div className="tabular text-xl font-semibold">{amount(statement?.closing_balance, language)}</div></div>
+                    {canCollect && (
+                      <Button variant="outline" onClick={() => setEditing(selected)} aria-label={t("customers.edit")}>
+                        <Pencil size={15} />{t("customers.edit")}
+                      </Button>
+                    )}
                     {canCollect && Number(statement?.closing_balance || selected.outstanding || 0) > 0 && (
                       <Button onClick={() => setCollecting(true)}><HandCoins size={16} />{t("debts.collect")}</Button>
                     )}

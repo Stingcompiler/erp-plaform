@@ -68,6 +68,10 @@ class Company(models.Model):
     stock_adjustment_approval_threshold = models.DecimalField(
         max_digits=16, decimal_places=2, default=0
     )
+    # Days a credit sale has before it is overdue, unless the customer
+    # carries their own terms. Zero meant "due the day it was sold", which
+    # turned every account sale overdue the next morning.
+    default_payment_terms_days = models.PositiveIntegerField(default=30)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

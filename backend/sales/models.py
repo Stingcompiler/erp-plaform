@@ -26,11 +26,18 @@ class Customer(models.Model):
         max_digits=16, decimal_places=2, null=True, blank=True
     )
     credit_hold = models.BooleanField(default=False)
+    # Own payment terms; null = the company default applies.
+    payment_terms_days = models.PositiveIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["name"]
+
+    def effective_payment_terms_days(self):
+        if self.payment_terms_days is not None:
+            return self.payment_terms_days
+        return self.company.default_payment_terms_days
 
     def __str__(self):
         return self.name

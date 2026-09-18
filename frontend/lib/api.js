@@ -142,6 +142,8 @@ export const sales = {
   // amounts at/above the company threshold need an approver role).
   verifyPayment: (id) => api.post(`/payments/${id}/verify/`),
   customers: (params) => api.get("/customers/", { params }),
+  createCustomer: (body) => api.post("/customers/", body),
+  updateCustomer: (id, body) => api.patch(`/customers/${id}/`, body),
   // Every customer, for pickers: the POS must be able to name any account
   // customer, not only the first page.
   allCustomers: (params) => listAll("/customers/", { page_size: 500, ...params }),

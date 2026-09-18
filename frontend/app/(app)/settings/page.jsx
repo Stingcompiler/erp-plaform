@@ -114,6 +114,7 @@ export default function SettingsPage() {
         registration_number: company.registration_number,
         currency: company.currency,
         timezone: company.timezone,
+        default_payment_terms_days: company.default_payment_terms_days,
         ...(canApprove ? {
           payment_approval_threshold: company.payment_approval_threshold,
           stock_adjustment_approval_threshold: company.stock_adjustment_approval_threshold,
@@ -226,6 +227,15 @@ export default function SettingsPage() {
                 />
               </Field>
             </div>
+            <Field label={t("settings.defaultTerms")} hint={t("settings.defaultTermsHint")}>
+              <Input
+                type="number" inputMode="numeric" min="0" max="365"
+                value={company.default_payment_terms_days ?? ""}
+                onChange={setCo("default_payment_terms_days")}
+                disabled={!writable}
+                className="w-32"
+              />
+            </Field>
             {canApprove && (
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label={t("settings.paymentThreshold")} hint={t("settings.paymentThresholdHint")}>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, Check, Minus, Plus, Printer, Search, Trash2, ShoppingBag, CreditCard } from "lucide-react";
+import { AlertTriangle, Check, Minus, Plus, Printer, Search, Trash2, ShoppingBag, CreditCard, UserPlus } from "lucide-react";
+import CustomerDrawer from "@/components/sales/CustomerDrawer";
 
 import { inventory, sales } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
@@ -21,6 +22,7 @@ const money = (v) =>
 export default function PosTerminal({
   warehouses,
   customers,
+  onCustomersChanged,
   bankAccounts = [],
   shift = null,
   onSold,
@@ -28,6 +30,7 @@ export default function PosTerminal({
   const { t, language } = useI18n();
   const [warehouse, setWarehouse] = useState("");
   const [customer, setCustomer] = useState("");
+  const [newCustomerOpen, setNewCustomerOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [cart, setCart] = useState([]);
@@ -658,15 +661,25 @@ export default function PosTerminal({
             )
           )}
           <Field label={t("sales.customer")} hint={t("sales.customerHint")}>
-            <Select value={customer} onChange={(e) => setCustomer(e.target.value)}>
-              <option value="">{t("sales.walkIn")}</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
+            <div className="flex gap-2">
+              <Select value={customer} onChange={(e) => setCustomer(e.target.value)}>
+                <option value="">{t("sales.walkIn")}</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+              <Button variant="outline" onClick={() => setNewCustomerOpen(true)} aria-label={t("customers.new")} title={t("customers.new")}>
+                <UserPlus size={16} />
+              </Button>
+            </div>
           </Field>
+          <CustomerDrawer
+            open={newCustomerOpen}
+            onClose={() => setNewCustomerOpen(false)}
+            onSaved={async (saved) => { await onCustomersChanged?.(); setCustomer(String(saved.id)); }}
+          />
 
           <div className="rounded-xl bg-accent/5 p-4">
             <div className="flex items-center justify-between gap-3 text-sm text-muted">
