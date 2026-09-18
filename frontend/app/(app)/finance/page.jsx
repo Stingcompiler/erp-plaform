@@ -9,6 +9,7 @@ import { useI18n } from "../../providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import Drawer from "@/components/ui/Drawer";
+import PaymentVerificationPanel from "@/components/finance/PaymentVerificationPanel";
 
 function StatTile({ label, value, tone = "ink", icon: Icon }) {
   const toneClass = tone === "ok" ? "text-ok" : tone === "danger" ? "text-danger" : "text-ink";
@@ -140,6 +141,7 @@ export default function FinancePage() {
       <Button variant="outline" onClick={() => { setPage(1); setFilters((f) => ({ ...f,start:"",end:"" })); }}>{t("improvements.allTime")}</Button>
     </Card>
     {invalidDates && <p role="alert" className="mb-4 text-danger">{t("improvements.invalidDates")}</p>}
+    {writable && <PaymentVerificationPanel />}
     {error && <Card className="mb-4 p-4"><p role="alert" className="mb-3 text-danger">{t("improvements.loadError")}</p><Button onClick={load}>{t("improvements.retry")}</Button></Card>}
     <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-busy={loading}>
       <StatTile label={t("finance.revenue")} value={money(summary?.revenue)} icon={ArrowUpRight} />
