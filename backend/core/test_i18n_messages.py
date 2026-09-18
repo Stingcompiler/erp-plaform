@@ -80,6 +80,16 @@ class LanguageNegotiationTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("المبلغ يجب أن يكون موجبًا", str(response.data))
 
+    @override_settings(LANGUAGE_CODE="ar")
+    def test_browser_accept_language_never_decides(self):
+        # An English OS with an Arabic screen: the screen wins. The header is
+        # what Django's stock middleware would have used when the cookie is
+        # missing, and it produced English refusals on production.
+        self.client.credentials(HTTP_ACCEPT_LANGUAGE="en-US,en;q=0.9")
+        response = self._post_bad_payment()
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("المبلغ يجب أن يكون موجبًا", str(response.data))
+
 
 class MalformedClientUuidTests(TestCase):
     """A typo in the idempotency key is a 400, not a 500."""

@@ -99,12 +99,16 @@ export function I18nProvider({ children }) {
     if (routeLanguage) setLanguageState(routeLanguage);
   }, [routeLanguage]);
 
-  // Reflect language + direction on <html> whenever language changes.
+  // Reflect language + direction on <html> whenever language changes, and
+  // tell the API too. The cookie used to be written only on a manual toggle,
+  // so a user who never switched sent none and LocaleMiddleware fell back to
+  // the browser's Accept-Language — an Arabic screen got English refusals.
   useEffect(() => {
     const dir = dirFor(language);
     const root = document.documentElement;
     root.setAttribute("lang", language);
     root.setAttribute("dir", dir);
+    writeCookie("erp_language", language);
   }, [language]);
 
   // Reflect theme on <html> (.dark class), reacting to system changes too.
