@@ -17,7 +17,7 @@ from core.scoping import (
     AppendOnlyScopedViewSet,
     CompanyScopedModelViewSet,
 )
-from inventory.barcodes import next_internal_barcode
+from inventory.barcodes import next_internal_barcode, scan_candidates
 from inventory.models import (
     ProductPack,
     StockCount,
@@ -245,20 +245,24 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
                 {"detail": "A barcode is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        product = self.get_queryset().filter(barcode=code).first()
-        pack = None
-        if product is None:
+        product = pack = None
+        for candidate in scan_candidates(code):
+            product = self.get_queryset().filter(barcode=candidate).first()
+            if product is not None:
+                break
             # A carton/strip barcode resolves to its product plus the pack,
             # so one scan rings up the whole pack.
             pack = (
                 ProductPack.objects.filter(
                     company_id=getattr(request.user, "company_id", None),
-                    barcode=code, is_active=True,
+                    barcode=candidate, is_active=True,
                 )
                 .select_related("product")
                 .first()
             )
-            product = pack.product if pack else None
+            if pack is not None:
+                product = pack.product
+                break
         if product is None:
             return Response(
                 {"detail": "No product matches this barcode.", "code": code},

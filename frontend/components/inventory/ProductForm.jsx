@@ -5,7 +5,7 @@ import { Barcode, Plus, X } from "lucide-react";
 
 import { inventory } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
-import { ean13Svg } from "@/lib/ean13";
+import { ean13Svg, isValidEan13 } from "@/lib/ean13";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Field, Input, Select } from "@/components/ui/kit";
 import PackEditor from "@/components/inventory/PackEditor";
@@ -96,6 +96,9 @@ export default function ProductForm({ open, onClose, onSaved, product }) {
 
   // Live preview of the scannable symbol (only valid EAN-13 renders).
   const barcodePreview = useMemo(() => ean13Svg(form.barcode), [form.barcode]);
+  // Thirteen digits that fail the checksum is almost always a typo in a
+  // hand-copied label; say so, but let a deliberate non-EAN code through.
+  const checksumWarning = /^\d{13}$/.test(form.barcode.trim()) && !isValidEan13(form.barcode.trim());
 
   async function generateBarcode() {
     setGenerating(true);
@@ -199,7 +202,11 @@ export default function ProductForm({ open, onClose, onSaved, product }) {
         <Field label={t("common.name")}>
           <Input value={form.name} onChange={set("name")} />
         </Field>
-        <Field label={t("inventory.barcode")} hint={barcodePreview ? undefined : t("inventory.scanHint")}>
+        <Field
+          label={t("inventory.barcode")}
+          hint={barcodePreview ? undefined : t("inventory.scanHint")}
+          error={checksumWarning ? t("inventory.barcodeChecksum") : undefined}
+        >
           <div className="flex gap-2">
             <Input value={form.barcode} onChange={set("barcode")} />
             {editing && !form.barcode && (

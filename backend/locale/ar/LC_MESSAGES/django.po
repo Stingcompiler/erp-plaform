@@ -443,3 +443,9 @@ msgstr "بقي الرصيد الافتتاحي كما هو: لهذا الحسا�
 
 msgid "Choose a file to import."
 msgstr "اختر ملفًا للاستيراد."
+msgid "This barcode already belongs to %(product)s."
+msgstr "هذا الباركود مسجَّل بالفعل للمنتج %(product)s."
+
+msgid "This barcode already belongs to a pack of %(product)s."
+msgstr "هذا الباركود مسجَّل بالفعل لعبوة من المنتج %(product)s."
+

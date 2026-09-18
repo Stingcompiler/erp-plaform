@@ -154,6 +154,33 @@ class ProductSerializer(serializers.ModelSerializer):
         _assert_tenant_relations(self, attrs, ("category", "brand", "unit"))
         return attrs
 
+    def validate_barcode(self, value):
+        """A barcode must resolve to exactly one thing when scanned. The
+        database constraint already refuses a duplicate; this turns the crash
+        into a message that names the product holding the code."""
+        value = (value or "").strip()
+        if not value:
+            return value
+        request = self.context.get("request")
+        company_id = getattr(getattr(request, "user", None), "company_id", None)
+        if company_id is None:
+            return value
+        clash = Product.objects.filter(company_id=company_id, barcode=value)
+        if self.instance is not None:
+            clash = clash.exclude(pk=self.instance.pk)
+        holder = clash.first()
+        if holder is not None:
+            raise serializers.ValidationError(
+                _("This barcode already belongs to %(product)s.") % {"product": holder.name}
+            )
+        pack = ProductPack.objects.filter(company_id=company_id, barcode=value).first()
+        if pack is not None:
+            raise serializers.ValidationError(
+                _("This barcode already belongs to a pack of %(product)s.")
+                % {"product": pack.product.name}
+            )
+        return value
+
     def get_next_expiry(self, obj):
         return getattr(obj, "next_expiry", None)
 
