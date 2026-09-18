@@ -40,7 +40,24 @@ class Expense(models.Model):
         null=True,
         blank=True,
     )
+    # HR postings. A finance-approved payroll run and an approved salary
+    # advance each post exactly one expense, so payroll reaches the income
+    # statement and the cash-flow views like every other cost. PROTECT: the
+    # HR document is the evidence behind the figure and must outlive it.
+    payroll_run = models.OneToOneField(
+        "hr.PayrollRun", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="expense",
+    )
+    salary_advance = models.OneToOneField(
+        "hr.SalaryAdvance", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="expense",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # Category labels the HR postings use; the P&L groups by category, so
+    # keeping these fixed keeps payroll one line there.
+    CATEGORY_PAYROLL = "Payroll"
+    CATEGORY_SALARY_ADVANCE = "Salary advances"
 
     class Meta:
         ordering = ["-date", "-created_at"]

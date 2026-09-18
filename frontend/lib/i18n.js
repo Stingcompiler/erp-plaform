@@ -1968,6 +1968,7 @@ const en = {
     statusSet: "Status → {value}",
   },
   finance: {
+    fromHr: "HR",
     title: "Finance",
     subtitle: "Company funds — revenue, expenses and net.",
     noAccess: "Your role doesn't include Finance.",
@@ -3928,6 +3929,7 @@ const ar = {
     statusSet: "الحالة ← {value}",
   },
   finance: {
+    fromHr: "من الموارد البشرية",
     title: "المالية",
     subtitle: "أموال الشركة — الإيرادات والمصروفات والصافي.",
     noAccess: "دورك لا يشمل المالية.",
