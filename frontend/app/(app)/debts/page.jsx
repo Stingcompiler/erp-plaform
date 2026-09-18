@@ -148,6 +148,7 @@ export default function DebtsPage() {
               <option value="overdue">{t("debts.overdue")}</option>
               <option value="owing">{t("debts.owing")}</option>
               <option value="credit">{t("debts.credit")}</option>
+              <option value="settled">{t("debts.settled")}</option>
             </Select>
           </div>
           <div className="max-h-[560px] space-y-1 overflow-y-auto">

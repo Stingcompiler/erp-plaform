@@ -51,6 +51,20 @@ class SupplierViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
             return "suspended"
         return "owing" if supplier.ap_balance() > 0 else "settled"
 
+    @action(detail=True, methods=["post"])
+    def opening_balance(self, request, pk=None):
+        """What the company already owed this supplier when the books started
+        here — a receipt-less bill, so AP, aging and payments see it."""
+        from core.opening_balances import record_supplier_opening_balance
+
+        bill = record_supplier_opening_balance(self.get_object(), request.user, request.data)
+        log_activity(
+            action="create", request=request, entity_type="Bill", entity_id=bill.pk,
+            metadata={"opening_balance": str(bill.total), "supplier": bill.supplier_id},
+        )
+        return Response(BillSerializer(bill, context={"request": request}).data,
+                        status=status.HTTP_201_CREATED)
+
     @action(detail=True, methods=["get"])
     def records(self, request, pk=None):
         """

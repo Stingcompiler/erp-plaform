@@ -127,6 +127,17 @@ class DebtLedgerTestCase(APITestCase):
             400,
         )
 
+    def test_settled_and_new_customers_are_reachable_by_filter_or_search(self):
+        Customer.objects.create(company=self.company, name="Fresh Face")
+        self.invoice("20")
+        default = self.secure_get(reverse("debt-customer-list"))
+        self.assertEqual([r["name"] for r in default.data["results"]], [self.customer.name])
+        settled = self.secure_get(reverse("debt-customer-list"), {"status": "settled"})
+        self.assertEqual([r["name"] for r in settled.data["results"]], ["Fresh Face"])
+        self.assertEqual(settled.data["results"][0]["status"], "settled")
+        searched = self.secure_get(reverse("debt-customer-list"), {"search": "fresh"})
+        self.assertEqual(searched.data["count"], 1)
+
     def test_dashboard_uses_the_same_debt_summary(self):
         invoice = self.invoice("100", due_date=timezone.localdate() - timedelta(days=1))
         Payment.objects.create(

@@ -357,6 +357,31 @@ msgstr "المتبقي القابل للاسترداد من %(note)s هو %(rema
 msgid "You already have an open till session. Close it before opening another."
 msgstr "لديك وردية مفتوحة بالفعل. أغلقها قبل فتح أخرى."
 
+msgid "Only a manager or owner may record an opening balance."
+msgstr "المدير أو المالك فقط يمكنه تسجيل رصيد افتتاحي."
+
+msgid "Enter a valid amount."
+msgstr "أدخل مبلغًا صحيحًا."
+
+msgid "Enter a valid date."
+msgstr "أدخل تاريخًا صحيحًا."
+
+msgid "An opening balance cannot be dated in the future."
+msgstr "لا يمكن أن يكون تاريخ الرصيد الافتتاحي في المستقبل."
+
+msgid ""
+"This customer already has an opening balance. Correct it with a credit note "
+"instead of adding another."
+msgstr "لهذا العميل رصيد افتتاحي بالفعل. صحّحه بإشعار دائن بدل إضافة رصيد آخر."
+
+msgid ""
+"This supplier already has an opening balance. Correct it with a debit note "
+"instead of adding another."
+msgstr "لهذا المورد رصيد افتتاحي بالفعل. صحّحه بإشعار مدين بدل إضافة رصيد آخر."
+
+msgid "Create a warehouse before recording balances."
+msgstr "أنشئ مخزنًا قبل تسجيل الأرصدة."
+
 msgid "Target company already has products; restore only into an empty company."
 msgstr "الشركة الهدف لديها منتجات بالفعل؛ الاستعادة ممكنة فقط إلى شركة فارغة."
 

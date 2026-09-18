@@ -154,6 +154,7 @@ export const sales = {
   orders: (params) => api.get("/sales-orders/", { params }),
   setOrderStatus: (id, status) => api.post(`/sales-orders/${id}/set_status/`, { status }),
   updateCustomer: (id, body) => api.patch(`/customers/${id}/`, body),
+  customerOpeningBalance: (id, body) => api.post(`/customers/${id}/opening_balance/`, body),
   // Every customer, for pickers: the POS must be able to name any account
   // customer, not only the first page.
   allCustomers: (params) => listAll("/customers/", { page_size: 500, ...params }),
@@ -204,6 +205,7 @@ export const purchasing = {
   suppliers: (params) => api.get("/suppliers/", { params }),
   allSuppliers: (params) => listAll("/suppliers/", { page_size: 500, ...params }),
   createSupplier: (body) => api.post("/suppliers/", body),
+  supplierOpeningBalance: (id, body) => api.post(`/suppliers/${id}/opening_balance/`, body),
   supplierRecords: (id, params) => api.get(`/suppliers/${id}/records/`, { params }),
   supplierRecordsCsv: (id, params) =>
     `${API_BASE}/suppliers/${id}/records/?${new URLSearchParams({ ...params, format: "csv" })}`,
