@@ -33,7 +33,9 @@ export default function SalesPage() {
   // The caller's open till session, lifted here so the POS can stamp every
   // sale with it and the till tab can show the running expectation.
   const [shift, setShift] = useState(null);
-  const onShiftChange = useCallback((s) => setShift(s), []);
+  const [shiftKey, setShiftKey] = useState(0);
+  // Opening or closing the drawer changes what the history below must show.
+  const onShiftChange = useCallback((s) => { setShift(s); setShiftKey((k) => k + 1); }, []);
 
   const loadAccounts = () =>
     bankApi.list().then((r) => setAccounts(r.data.results || r.data)).catch(() => {});
@@ -99,7 +101,7 @@ export default function SalesPage() {
           simply by never visiting this tab. Hidden rather than unmounted. */}
       <div className={tab === "till" ? "" : "hidden"}>
         {writable && <CashDrawer onShiftChange={onShiftChange} />}
-        {(writable || can("finance.approve")) && tab === "till" && <ShiftHistory refreshKey={refreshKey} />}
+        {(writable || can("finance.approve")) && tab === "till" && <ShiftHistory refreshKey={`${refreshKey}-${shiftKey}`} />}
       </div>
       {tab === "invoices" && <InvoiceList refreshKey={refreshKey} />}
       {tab === "banks" && writable && (

@@ -185,7 +185,7 @@ export default function FinancePage() {
       </div>
     </Card>}
     <ExpenseDrawer open={drawerOpen} writable={writable} categories={categories} onClose={() => setDrawerOpen(false)} onSaved={() => { load(); loadCategories(); }} />
-    <BudgetsPanel writable={writable} categories={categories} />
+    <BudgetsPanel writable={writable} categories={categories} onChanged={loadCategories} />
     <MoneyLedger />
   </div>;
 }
