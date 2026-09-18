@@ -380,7 +380,7 @@ msgid ""
 msgstr "لهذا المورد رصيد افتتاحي بالفعل. صحّحه بإشعار مدين بدل إضافة رصيد آخر."
 
 msgid "Create a warehouse before recording balances."
-msgstr "أنشئ مخزنًا قبل تسجيل الأرصدة."
+msgstr "أنشئ مستودعًا أولًا من صفحة المؤسسة (الفروع والمستودعات) ثم سجّل الرصيد."
 
 msgid "Target company already has products; restore only into an empty company."
 msgstr "الشركة الهدف لديها منتجات بالفعل؛ الاستعادة ممكنة فقط إلى شركة فارغة."

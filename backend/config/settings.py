@@ -130,7 +130,8 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.locale.LocaleMiddleware",  # M10: i18n (en / ar)
+    # M10: i18n (en / ar). Cookie or site default only — never Accept-Language.
+    "core.locale_middleware.CookieOnlyLocaleMiddleware",
     # Clears the active time zone per request; the company's zone is
     # activated by accounts.authentication once the user is known.
     "core.timezone.CompanyTimezoneMiddleware",

@@ -120,7 +120,7 @@ function VarianceTable({ budgetId }) {
  * free-text expense category could not match a plan — the shared category
  * list (finance.categories) fixes the second half.
  */
-export default function BudgetsPanel({ writable, categories }) {
+export default function BudgetsPanel({ writable, categories, onChanged }) {
   const { t, language } = useI18n();
   const { can } = useAuth();
   const toast = useToast();
@@ -171,7 +171,7 @@ export default function BudgetsPanel({ writable, categories }) {
           ))}
         </div>
       )}
-      <NewBudgetDrawer open={drawer} onClose={() => setDrawer(false)} categories={categories} onSaved={() => { load(); toast.success(t("budgets.created")); }} />
+      <NewBudgetDrawer open={drawer} onClose={() => setDrawer(false)} categories={categories} onSaved={() => { load(); onChanged?.(); toast.success(t("budgets.created")); }} />
     </Card>
   );
 }
