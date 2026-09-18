@@ -73,6 +73,7 @@ export default function SalesPage() {
         <PosTerminal
           warehouses={warehouses}
           customers={customers}
+          onCustomersChanged={() => sales.allCustomers().then((rows) => setCustomers(rows)).catch(() => {})}
           bankAccounts={accounts}
           shift={shift}
           onSold={() => setRefreshKey((k) => k + 1)}
