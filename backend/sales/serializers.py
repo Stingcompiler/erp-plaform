@@ -1067,14 +1067,20 @@ class RefundSerializer(serializers.ModelSerializer):
     customer_name = serializers.CharField(
         source="credit_note.customer.name", read_only=True, default=None
     )
+    recorded_by_name = serializers.CharField(
+        source="recorded_by.full_name", read_only=True, default=None
+    )
+    bank_account_name = serializers.CharField(
+        source="company_bank_account.bank_name", read_only=True, default=None
+    )
 
     class Meta:
         model = Refund
         fields = [
             "id", "company", "credit_note", "credit_note_number", "invoice",
-            "customer_name", "method", "company_bank_account", "reference_last4",
-            "amount", "shift", "note", "recorded_by", "recorded_at", "received_at",
-            "client_uuid",
+            "customer_name", "method", "company_bank_account", "bank_account_name",
+            "reference_last4", "amount", "shift", "note", "recorded_by",
+            "recorded_by_name", "recorded_at", "received_at", "client_uuid",
         ]
         read_only_fields = ["company", "recorded_by", "received_at"]
         extra_kwargs = {"recorded_at": {"required": False}}

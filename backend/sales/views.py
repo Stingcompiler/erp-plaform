@@ -275,7 +275,10 @@ class CashShiftViewSet(AppendOnlyScopedViewSet):
             qs = qs.filter(status=status_filter)
         if self.request.query_params.get("mine") in ("1", "true"):
             qs = qs.filter(opened_by=self.request.user)
-        return qs
+        # The sign-off worklist: counted drawers no manager has accepted yet.
+        if self.request.query_params.get("unreviewed") == "1":
+            qs = qs.filter(status=CashShift.CLOSED, reviewed_at__isnull=True)
+        return qs.order_by("-opened_at", "-pk")
 
     def perform_create(self, serializer):
         # A second open drawer would make every takings figure ambiguous. The DB
@@ -931,6 +934,13 @@ class RefundViewSet(AppendOnlyScopedViewSet):
     ).all()
     serializer_class = RefundSerializer
     activity_entity_type = "Refund"
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        method = self.request.query_params.get("method")
+        if method in (Refund.CASH, Refund.BANK_TRANSFER):
+            qs = qs.filter(method=method)
+        return qs.order_by("-recorded_at", "-pk")
 
     def perform_create(self, serializer):
         # RefundSerializer.create already writes the audit row with the note

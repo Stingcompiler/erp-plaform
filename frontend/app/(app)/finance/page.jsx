@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import Drawer from "@/components/ui/Drawer";
 import PaymentVerificationPanel from "@/components/finance/PaymentVerificationPanel";
+import MoneyLedger from "@/components/finance/MoneyLedger";
 
 function StatTile({ label, value, tone = "ink", icon: Icon }) {
   const toneClass = tone === "ok" ? "text-ok" : tone === "danger" ? "text-danger" : "text-ink";
@@ -177,5 +178,6 @@ export default function FinancePage() {
       </div>
     </Card>}
     <ExpenseDrawer open={drawerOpen} writable={writable} onClose={() => setDrawerOpen(false)} onSaved={load} />
+    <MoneyLedger />
   </div>;
 }

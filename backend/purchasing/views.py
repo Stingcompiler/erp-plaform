@@ -339,6 +339,17 @@ class SupplierPaymentViewSet(AppendOnlyScopedViewSet):
     activity_entity_type = "SupplierPayment"
     approval_module = "purchasing"
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        params = self.request.query_params
+        if params.get("unverified") == "1":
+            return qs.filter(verified_at__isnull=True).order_by("recorded_at", "pk")
+        if params.get("method") in (SupplierPayment.CASH, SupplierPayment.BANK_TRANSFER):
+            qs = qs.filter(method=params["method"])
+        if params.get("supplier"):
+            qs = qs.filter(supplier_id=params["supplier"])
+        return qs.order_by("-recorded_at", "-pk")
+
     @action(detail=True, methods=["get"])
     def document(self, request, pk=None):
         """Printable voucher for money paid out to a supplier."""
