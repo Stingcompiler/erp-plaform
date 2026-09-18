@@ -1,7 +1,7 @@
 import json
 
 from django.conf import settings
-from django.core.serializers.json import DjangoJSONEncoder
+from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -9,8 +9,9 @@ from rest_framework.views import APIView
 
 from core.activity import log_activity
 from core.rbac import RoleModuleAccess
+from ops import snapshots
 from ops.models import BackupRecord, UserPreference
-from ops.services import count_records, dump_company, restore_master
+from ops.services import dump_company, restore_master
 
 
 class BackupView(APIView):
@@ -26,11 +27,22 @@ class BackupView(APIView):
 
     def get(self, request):
         company_id = getattr(request.user, "company_id", None)
-        records = BackupRecord.objects.filter(company_id=company_id).values(
+        records = BackupRecord.objects.filter(company_id=company_id).only(
             "id", "kind", "status", "record_count", "size_bytes",
-            "storage_key", "created_at"
-        )
-        return Response(list(records))
+            "storage_key", "created_at",
+        ).defer("payload_gz")
+        return Response([
+            {
+                "id": r.id, "kind": r.kind, "status": r.status,
+                "record_count": r.record_count, "size_bytes": r.size_bytes,
+                "storage_key": r.storage_key, "created_at": r.created_at,
+                # A payload exists somewhere the API can read it back from.
+                "downloadable": bool(r.storage_key) or BackupRecord.objects.filter(
+                    pk=r.pk, payload_gz__isnull=False
+                ).exists(),
+            }
+            for r in records
+        ])
 
     def post(self, request):
         from org.models import Company
@@ -42,15 +54,7 @@ class BackupView(APIView):
             )
         company = Company.objects.get(pk=company_id)
         data = dump_company(company)
-        payload = json.dumps(data, cls=DjangoJSONEncoder)
-        from ops import storage
-        storage_key = storage.upload_backup(company_id, BackupRecord.MANUAL, payload)
-        record = BackupRecord.objects.create(
-            company=company, kind=BackupRecord.MANUAL, status=BackupRecord.SUCCESS,
-            record_count=count_records(data), size_bytes=len(payload),
-            storage_key=storage_key or "",
-            created_by=request.user if request.user.is_authenticated else None,
-        )
+        record = snapshots.store(company, BackupRecord.MANUAL, data, user=request.user)
         log_activity(
             action="create", request=request, entity_type="BackupRecord",
             entity_id=record.id, metadata={"kind": "manual"},
@@ -88,23 +92,22 @@ class RestoreView(APIView):
             )
         dump = request.data.get("data")
         storage_key = request.data.get("storage_key")
-        # Restore either from an inline dump or by fetching a stored backup.
-        if not isinstance(dump, dict) and storage_key:
-            from ops import storage
-            # The key is resolved through the caller's own backup records, never
-            # taken as an arbitrary object path: keys are predictable
-            # (backups/<company_id>/<stamp>-scheduled.json), so an unchecked key
-            # would let one tenant restore another tenant's customers, suppliers
-            # and cost prices into its own company.
-            owned = BackupRecord.objects.filter(
-                company_id=company_id, storage_key=storage_key
-            ).exclude(storage_key="").exists()
-            if not owned:
+        backup_id = request.data.get("backup_id")
+        # Restore either from an inline dump or from one of the caller's own
+        # stored backups (by record id, or the legacy object-storage key).
+        # The record is resolved through the caller's company, never as an
+        # arbitrary id/key: keys are predictable, and an unchecked lookup
+        # would let one tenant restore another tenant's customers, suppliers
+        # and cost prices into its own company.
+        if not isinstance(dump, dict) and (backup_id or storage_key):
+            lookup = {"pk": backup_id} if backup_id else {"storage_key": storage_key}
+            record = BackupRecord.objects.filter(company_id=company_id, **lookup).first()
+            if record is None or not record.is_downloadable:
                 return Response(
                     {"detail": "That backup does not belong to your company."},
                     status=status.HTTP_404_NOT_FOUND,
                 )
-            payload = storage.download_backup(storage_key)
+            payload = snapshots.read(record)
             if not payload:
                 return Response(
                     {"detail": "Could not read that backup from storage."},
@@ -119,7 +122,7 @@ class RestoreView(APIView):
                 )
         if not isinstance(dump, dict):
             return Response(
-                {"detail": "data (a backup dump object) or storage_key is required."},
+                {"detail": "data (a backup dump object) or backup_id is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         # An inline dump is data the caller already holds (they downloaded it
@@ -138,6 +141,31 @@ class RestoreView(APIView):
             entity_id=record.id, metadata={"kind": "restore", "restored": restored},
         )
         return Response({"restored": restored}, status=status.HTTP_200_OK)
+
+
+class BackupDownloadView(APIView):
+    """GET /api/ops/backups/<id>/download/ — the snapshot as a JSON file.
+
+    Resolved through the caller's own company, like restore; a record with
+    no stored payload (pre-tier metadata-only rows) is a 404.
+    """
+
+    permission_classes = [IsAuthenticated, RoleModuleAccess]
+    rbac_module = "settings"
+
+    def get(self, request, pk):
+        company_id = getattr(request.user, "company_id", None)
+        record = BackupRecord.objects.filter(company_id=company_id, pk=pk).first()
+        payload = snapshots.read(record) if record is not None else None
+        if not payload:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        stamp = record.created_at.strftime("%Y-%m-%dT%H-%M-%S")
+        response = HttpResponse(payload, content_type="application/json; charset=utf-8")
+        response["Content-Disposition"] = (
+            f'attachment; filename="vezano-backup-{stamp}-{record.kind}.json"'
+        )
+        response["Cache-Control"] = "no-store"
+        return response
 
 
 class PreferenceView(APIView):

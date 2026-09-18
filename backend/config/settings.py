@@ -456,6 +456,10 @@ BACKUP_S3_ENDPOINT_URL = env("BACKUP_S3_ENDPOINT_URL", default="")
 BACKUP_S3_REGION = env("BACKUP_S3_REGION", default="")
 BACKUP_S3_ACCESS_KEY_ID = env("BACKUP_S3_ACCESS_KEY_ID", default="")
 BACKUP_S3_SECRET_ACCESS_KEY = env("BACKUP_S3_SECRET_ACCESS_KEY", default="")
+# Without object storage, snapshots live gzip-compressed in the database
+# (ops.BackupRecord.payload_gz). Rows older than this are pruned nightly;
+# each company's most recent successful snapshot is always kept.
+BACKUP_RETENTION_DAYS = int(env("BACKUP_RETENTION_DAYS", default="30"))
 
 # --- Logging (M12) ---
 # Log to stdout so Render captures it; level configurable via LOG_LEVEL.

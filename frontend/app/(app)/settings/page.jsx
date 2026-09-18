@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Database, Lock } from "lucide-react";
+import { Database, Download, Lock } from "lucide-react";
 
 import { settings, users } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
@@ -381,6 +381,16 @@ export default function SettingsPage() {
                 <span className="flex items-center gap-2 tabular text-muted">
                   {b.storage_key && <Badge tone="accent">{t("settings.offSite")}</Badge>}
                   {b.record_count} {t("settings.records")} · {bytes(b.size_bytes)}
+                  {b.downloadable && (
+                    <a
+                      href={settings.backupDownloadUrl(b.id)}
+                      download
+                      className="inline-flex items-center gap-1 rounded-control border border-line px-2 py-1 text-xs text-ink hover:bg-paper"
+                      title={t("settings.downloadBackup")}
+                    >
+                      <Download size={13} />{t("settings.downloadBackup")}
+                    </a>
+                  )}
                 </span>
               </div>
             ))}

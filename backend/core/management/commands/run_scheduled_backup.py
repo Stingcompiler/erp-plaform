@@ -1,48 +1,39 @@
-import json
-
 from django.core.management.base import BaseCommand
-from django.core.serializers.json import DjangoJSONEncoder
 
 
 class Command(BaseCommand):
     """
     Entry point for the `erp-backup-cron` Render Cron Job (daily).
 
-    M10: performs a real logical backup of every active company, writing a
-    BackupRecord per company (Rule #8). The snapshot itself is generated in
-    memory and its size/record-count recorded; wiring the payload to durable
-    object storage (e.g. S3/R2) is an infra step noted in the milestone docs —
-    Render's filesystem is ephemeral, so this command intentionally does not
-    rely on local disk for retention.
+    Performs a real logical backup of every active company, writing a
+    BackupRecord per company (Rule #8) with the snapshot stored through
+    ops.snapshots: object storage when configured, otherwise gzip in the
+    database row — never the ephemeral local disk. Then prunes in-database
+    payloads past BACKUP_RETENTION_DAYS, keeping each company's newest.
     """
 
     help = "Run scheduled logical backups for all active companies."
 
     def handle(self, *args, **options):
+        from ops import snapshots
         from ops.models import BackupRecord
-        from ops.services import count_records, dump_company
-        from ops.storage import upload_backup
+        from ops.services import dump_company
         from org.models import Company
 
         companies = Company.objects.filter(is_active=True)
         done = 0
         for company in companies:
             try:
-                data = dump_company(company)
-                payload = json.dumps(data, cls=DjangoJSONEncoder)
-                key = upload_backup(company.id, BackupRecord.SCHEDULED, payload)
-                BackupRecord.objects.create(
-                    company=company, kind=BackupRecord.SCHEDULED,
-                    status=BackupRecord.SUCCESS,
-                    record_count=count_records(data), size_bytes=len(payload),
-                    storage_key=key or "",
-                )
+                snapshots.store(company, BackupRecord.SCHEDULED, dump_company(company))
                 done += 1
             except Exception as exc:  # noqa: BLE001
                 BackupRecord.objects.create(
                     company=company, kind=BackupRecord.SCHEDULED,
                     status=BackupRecord.FAILED, note=str(exc)[:255],
                 )
+        pruned = snapshots.prune()
         self.stdout.write(
-            self.style.SUCCESS(f"Scheduled backup complete: {done} companies.")
+            self.style.SUCCESS(
+                f"Scheduled backup complete: {done} companies, {pruned} old snapshots pruned."
+            )
         )
