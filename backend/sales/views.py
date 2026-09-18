@@ -743,6 +743,17 @@ class PaymentViewSet(AppendOnlyScopedViewSet):
     activity_entity_type = "Payment"
     approval_module = "sales"
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        params = self.request.query_params
+        # The verification worklist: money recorded that no second person
+        # has confirmed yet, oldest first so nothing waits forever.
+        if params.get("unverified") == "1":
+            return qs.filter(verified_at__isnull=True).order_by("recorded_at", "pk")
+        if params.get("method") in (Payment.CASH, Payment.BANK_TRANSFER):
+            qs = qs.filter(method=params["method"])
+        return qs.order_by("-recorded_at", "-pk")
+
     @action(detail=True, methods=["get"])
     def document(self, request, pk=None):
         """Printable receipt for money received. Invoice totals on it are

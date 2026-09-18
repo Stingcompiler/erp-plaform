@@ -318,13 +318,30 @@ class InvoiceSerializer(serializers.ModelSerializer):
 # ---------- Payment (Rule #3) ----------
 
 class PaymentSerializer(serializers.ModelSerializer):
+    # Display fields for the verification worklist and payment lists.
+    invoice_number = serializers.CharField(source="invoice.number_display", read_only=True)
+    customer_name = serializers.CharField(
+        source="invoice.customer.name", read_only=True, default=""
+    )
+    recorded_by_name = serializers.CharField(
+        source="recorded_by.full_name", read_only=True, default=""
+    )
+    verified_by_name = serializers.CharField(
+        source="verified_by.full_name", read_only=True, default=""
+    )
+    bank_account_name = serializers.CharField(
+        source="company_bank_account.bank_name", read_only=True, default=""
+    )
+
     class Meta:
         model = Payment
         fields = [
-            "id", "company", "invoice", "method", "company_bank_account",
+            "id", "company", "invoice", "invoice_number", "customer_name",
+            "method", "company_bank_account", "bank_account_name",
             "sender_bank_name", "reference_last4", "amount", "currency", "exchange_rate",
-            "shift", "recorded_by",
-            "recorded_at", "received_at", "verified_at", "verified_by", "client_uuid",
+            "shift", "recorded_by", "recorded_by_name",
+            "recorded_at", "received_at", "verified_at", "verified_by", "verified_by_name",
+            "client_uuid",
         ]
         read_only_fields = [
             "company", "recorded_by", "received_at", "verified_at", "verified_by",
