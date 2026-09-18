@@ -6,6 +6,7 @@ from accounts.platform_team_views import (
     PlatformInvitationAcceptView,
     PlatformTeamViewSet,
 )
+from accounts.password_reset import PasswordResetConfirmView, PasswordResetRequestView
 from core.error_views import ErrorEventViewSet
 from accounts.views import (
     LoginView,
@@ -30,6 +31,14 @@ urlpatterns = [
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
     path("auth/refresh/", RefreshView.as_view(), name="auth-refresh"),
     path("auth/me/", MeView.as_view(), name="auth-me"),
+    path(
+        "auth/password-reset/",
+        PasswordResetRequestView.as_view(), name="auth-password-reset",
+    ),
+    path(
+        "auth/password-reset/confirm/",
+        PasswordResetConfirmView.as_view(), name="auth-password-reset-confirm",
+    ),
     path(
         "public/platform-invitations/accept/", PlatformInvitationAcceptView.as_view(),
         name="platform-invitation-accept",

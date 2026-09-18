@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Database, Download, Lock } from "lucide-react";
+import { Database, Download, Lock, RotateCcw, Upload } from "lucide-react";
 
 import { settings, users } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
@@ -25,6 +25,8 @@ export default function SettingsPage() {
   const [company, setCompany] = useState(null);
   const [handlers, setHandlers] = useState([]);
   const [backups, setBackups] = useState([]);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreMsg, setRestoreMsg] = useState(null);
   const [savingTax, setSavingTax] = useState(false);
   const [savingCompany, setSavingCompany] = useState(false);
   const [companyMsg, setCompanyMsg] = useState("");
@@ -131,6 +133,34 @@ export default function SettingsPage() {
       );
     } finally {
       setSavingCompany(false);
+    }
+  }
+
+  async function restore(body) {
+    if (!window.confirm(t("settings.restoreConfirm"))) return;
+    setRestoring(true);
+    setRestoreMsg(null);
+    try {
+      const r = await settings.restoreBackup(body);
+      setRestoreMsg({ ok: true, text: t("settings.restoreDone", { count: r.data.restored }) });
+      await loadBackups();
+    } catch (err) {
+      const data = err?.response?.data;
+      setRestoreMsg({ ok: false, text: data?.detail || (Array.isArray(data) ? data.join(" ") : t("settings.restoreFailed")) });
+    } finally {
+      setRestoring(false);
+    }
+  }
+
+  async function restoreFromFile(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      await restore({ data: parsed.data ?? parsed });
+    } catch {
+      setRestoreMsg({ ok: false, text: t("settings.restoreBadFile") });
     }
   }
 
@@ -420,12 +450,40 @@ export default function SettingsPage() {
                       <Download size={13} />{t("settings.downloadBackup")}
                     </a>
                   )}
+                  {b.downloadable && writable && b.kind !== "restore" && (
+                    <button
+                      type="button"
+                      onClick={() => restore({ backup_id: b.id })}
+                      disabled={restoring}
+                      className="inline-flex items-center gap-1 rounded-control border border-line px-2 py-1 text-xs text-ink hover:bg-paper disabled:opacity-50"
+                      title={t("settings.restoreThis")}
+                    >
+                      <RotateCcw size={13} />{t("settings.restoreThis")}
+                    </button>
+                  )}
                 </span>
               </div>
             ))}
           </div>
         )}
         <p className="mt-3 text-xs text-muted">{t("settings.backupsNote")}</p>
+        {writable && (
+          <div className="mt-4 rounded-control border border-line bg-paper p-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium text-ink">{t("settings.restoreTitle")}</div>
+                <p className="mt-0.5 text-xs text-muted">{t("settings.restoreHint")}</p>
+              </div>
+              <label className={`inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-control border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink shadow-sm hover:bg-paper ${restoring ? "pointer-events-none opacity-50" : ""}`}>
+                <Upload size={15} />{restoring ? t("settings.restoring") : t("settings.restoreFromFile")}
+                <input type="file" accept="application/json,.json" className="hidden" onChange={restoreFromFile} disabled={restoring} />
+              </label>
+            </div>
+            {restoreMsg && (
+              <p role="alert" className={`mt-3 text-sm ${restoreMsg.ok ? "text-ok" : "text-danger"}`}>{restoreMsg.text}</p>
+            )}
+          </div>
+        )}
       </Card>
     </div>
   );
