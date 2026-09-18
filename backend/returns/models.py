@@ -221,6 +221,12 @@ class CreditNote(models.Model):
         from django.db.models.functions import Coalesce
         return self.refunds.aggregate(t=Coalesce(Sum("amount"), Decimal("0")))["t"]
 
+    def applied_total(self):
+        """Store credit from this note already used to pay other invoices."""
+        from django.db.models import Sum
+        from django.db.models.functions import Coalesce
+        return self.applications.aggregate(t=Coalesce(Sum("amount"), Decimal("0")))["t"]
+
     def remaining_refundable(self):
         """What may still be handed back in money against this note.
 
@@ -232,7 +238,7 @@ class CreditNote(models.Model):
         """
         if self.is_void:
             return Decimal("0")
-        remaining = self.amount - self.refunded_total()
+        remaining = self.amount - self.refunded_total() - self.applied_total()
         if self.invoice_id:
             # amount_due() already nets earlier refunds back in, so a
             # negative balance is exactly the credit still sitting on the

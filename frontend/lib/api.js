@@ -155,6 +155,7 @@ export const sales = {
   setOrderStatus: (id, status) => api.post(`/sales-orders/${id}/set_status/`, { status }),
   updateCustomer: (id, body) => api.patch(`/customers/${id}/`, body),
   customerOpeningBalance: (id, body) => api.post(`/customers/${id}/opening_balance/`, body),
+  customerCredit: (id) => api.get(`/customers/${id}/credit/`),
   importCustomers: (file, dryRun) => {
     const form = new FormData();
     form.append("file", file);

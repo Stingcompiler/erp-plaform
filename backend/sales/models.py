@@ -352,7 +352,7 @@ class Invoice(models.Model):
             return Decimal("0")
         return (
             self.total - self.amount_paid() - self._applied_credits()
-            + self.refunded_total()
+            + self.refunded_total() + self.credit_spent_elsewhere()
         )
 
     def credited_total(self):
@@ -363,6 +363,13 @@ class Invoice(models.Model):
         return Refund.objects.filter(credit_note__invoice=self).aggregate(
             t=Coalesce(Sum("amount"), Decimal("0"))
         )["t"]
+
+    def credit_spent_elsewhere(self):
+        """Credit from this invoice's notes used to settle other invoices.
+        Like a refund, it consumes the credit sitting here."""
+        return Payment.objects.filter(
+            credit_note__invoice=self, method=Payment.STORE_CREDIT
+        ).aggregate(t=Coalesce(Sum("amount"), Decimal("0")))["t"]
 
     def _applied_credits(self):
         # M5 extension: credit notes reduce AR. Lazy import avoids a
@@ -610,7 +617,15 @@ class Payment(models.Model):
 
     CASH = "cash"
     BANK_TRANSFER = "bank_transfer"
-    METHOD_CHOICES = [(CASH, "Cash"), (BANK_TRANSFER, "Bank Transfer")]
+    # Store credit: a customer's credit note (from a return on a paid sale)
+    # settling a later invoice. No money changes hands, so it is excluded
+    # from cash-flow, takings and the verification worklist; it exists so the
+    # credit does not have to be handed back in cash first.
+    STORE_CREDIT = "credit"
+    METHOD_CHOICES = [
+        (CASH, "Cash"), (BANK_TRANSFER, "Bank Transfer"), (STORE_CREDIT, "Store credit"),
+    ]
+    MONEY_METHODS = (CASH, BANK_TRANSFER)
 
     company = models.ForeignKey(
         "org.Company", on_delete=models.CASCADE, related_name="payments"
@@ -619,6 +634,11 @@ class Payment(models.Model):
         Invoice, on_delete=models.PROTECT, related_name="payments"
     )
     method = models.CharField(max_length=16, choices=METHOD_CHOICES)
+    # The credit note this payment draws on when method is STORE_CREDIT.
+    credit_note = models.ForeignKey(
+        "returns.CreditNote", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="applications",
+    )
     # Receiving account + sender details apply to bank_transfer only.
     company_bank_account = models.ForeignKey(
         CompanyBankAccount, on_delete=models.PROTECT, null=True, blank=True,

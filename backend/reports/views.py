@@ -743,7 +743,8 @@ class CfoKpiReport(ReportView):
         )
 
         cash_in = self.apply_range(
-            Payment.objects.filter(company_id=cid), "recorded_at", start, end
+            Payment.objects.filter(company_id=cid).exclude(method=Payment.STORE_CREDIT),
+            "recorded_at", start, end,
         ).aggregate(t=Coalesce(Sum("amount"), ZERO, output_field=MONEY))["t"]
         cash_out = (
             self.apply_range(
@@ -867,8 +868,10 @@ class CashFlowReport(ReportView):
         cid = self.company_id(request)
         start, end = self.date_range(request)
 
+        # Store credit settles a debt without money arriving.
         inflow_qs = self.apply_range(
-            Payment.objects.filter(company_id=cid), "recorded_at", start, end
+            Payment.objects.filter(company_id=cid).exclude(method=Payment.STORE_CREDIT),
+            "recorded_at", start, end,
         )
         outflow_pay_qs = self.apply_range(
             SupplierPayment.objects.filter(company_id=cid), "recorded_at", start, end

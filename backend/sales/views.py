@@ -74,6 +74,23 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         overdue = any(inv.is_overdue for inv in customer.invoices.filter(is_void=False))
         return "overdue" if overdue else "owing"
 
+    @action(detail=True, methods=["get"])
+    def credit(self, request, pk=None):
+        """Credit notes of this customer with credit still on them — what the
+        till can apply to a new sale or hand back."""
+        customer = self.get_object()
+        notes = []
+        for note in customer.credit_notes.filter(is_void=False).select_related("invoice"):
+            remaining = note.remaining_refundable()
+            if remaining > 0:
+                notes.append({
+                    "id": note.id, "number": note.number_display, "remaining": str(remaining),
+                    "invoice": note.invoice.number_display if note.invoice_id else None,
+                    "reason": note.reason,
+                })
+        total = sum((Decimal(n["remaining"]) for n in notes), Decimal("0"))
+        return Response({"total": str(total), "notes": notes})
+
     @action(detail=False, methods=["post"], url_path="import",
             parser_classes=[MultiPartParser, FormParser])
     def import_sheet(self, request):
@@ -840,8 +857,13 @@ class PaymentViewSet(AppendOnlyScopedViewSet):
         # The verification worklist: money recorded that no second person
         # has confirmed yet, oldest first so nothing waits forever.
         if params.get("unverified") == "1":
-            return qs.filter(verified_at__isnull=True).order_by("recorded_at", "pk")
-        if params.get("method") in (Payment.CASH, Payment.BANK_TRANSFER):
+            # Store credit moved no money; there is nothing to confirm.
+            return (
+                qs.filter(verified_at__isnull=True)
+                .exclude(method=Payment.STORE_CREDIT)
+                .order_by("recorded_at", "pk")
+            )
+        if params.get("method") in dict(Payment.METHOD_CHOICES):
             qs = qs.filter(method=params["method"])
         return qs.order_by("-recorded_at", "-pk")
 

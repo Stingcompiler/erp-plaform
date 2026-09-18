@@ -5,7 +5,8 @@
 invoices — aging, cash-flow, the debt ledger, the due-receivables scan, the
 dashboard — annotates them here instead, so a company with 100k invoices
 answers in one query rather than 300k. The arithmetic is identical:
-total − payments − credit notes + refunds, void invoices excluded.
+total − payments − credit notes + refunds + credit spent elsewhere,
+void invoices excluded.
 """
 from decimal import Decimal
 
@@ -37,12 +38,16 @@ def with_outstanding(qs):
     paid = _sum_for(Payment, "invoice_id")
     credited = _sum_for(CreditNote, "invoice_id", is_void=False)
     refunded = _sum_for(Refund, "credit_note__invoice_id")
+    # Store credit spent on another invoice leaves this one the same way a
+    # refund does: the credit is gone, the balance comes back up.
+    spent = _sum_for(Payment, "credit_note__invoice_id", method=Payment.STORE_CREDIT)
     return qs.filter(is_void=False).annotate(
         outstanding=(
             F("total")
             - Coalesce(Subquery(paid), ZERO, output_field=MONEY)
             - Coalesce(Subquery(credited), ZERO, output_field=MONEY)
             + Coalesce(Subquery(refunded), ZERO, output_field=MONEY)
+            + Coalesce(Subquery(spent), ZERO, output_field=MONEY)
         )
     )
 
