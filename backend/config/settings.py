@@ -224,6 +224,11 @@ LANGUAGE_CODE = "ar"
 LANGUAGES = [("ar", "العربية"), ("en", "English")]
 TIME_ZONE = "UTC"
 USE_I18N = True
+# The frontend persists the user's UI language in this cookie (see
+# I18nProvider); LocaleMiddleware reads it so validation messages come back
+# in the language the person is actually reading.
+LANGUAGE_COOKIE_NAME = "erp_language"
+LOCALE_PATHS = [BASE_DIR / "locale"]
 USE_TZ = True
 
 # Commercial defaults are configuration, not hard-coded workflow rules. The

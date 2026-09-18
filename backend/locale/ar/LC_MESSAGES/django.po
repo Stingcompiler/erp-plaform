@@ -1,0 +1,358 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-09-18 09:46+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
+"&& n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
+msgid "Does not belong to your company."
+msgstr "لا ينتمي إلى شركتك."
+
+msgid "A pack must hold at least one unit."
+msgstr "العبوة يجب أن تحوي وحدة واحدة على الأقل."
+
+msgid "Quantity cannot be zero."
+msgstr "الكمية لا يمكن أن تكون صفرًا."
+
+#, python-format
+msgid "%(type)s must have a positive quantity."
+msgstr "الحركة %(type)s يجب أن تكون بكمية موجبة."
+
+#, python-format
+msgid "%(type)s must have a negative quantity."
+msgstr "الحركة %(type)s يجب أن تكون بكمية سالبة."
+
+msgid "Only adjustments can be posted directly. Use receiving, the POS, returns or transfers for every other movement."
+msgstr "لا يُسجَّل مباشرةً إلا التسويات. استخدم الاستلام أو نقطة البيع أو المرتجعات أو التحويلات لكل حركة أخرى."
+
+msgid "That lot belongs to a different product."
+msgstr "هذه الدفعة تخص صنفًا آخر."
+
+msgid "Adjustment quantity cannot be zero."
+msgstr "كمية التسوية لا يمكن أن تكون صفرًا."
+
+msgid "Say why the stock is being adjusted."
+msgstr "اذكر سبب تسوية المخزون."
+
+#, python-format
+msgid "An adjustment worth %(value)s needs a manager or owner (threshold %(threshold)s)."
+msgstr "تسوية بقيمة %(value)s تحتاج موافقة مدير أو مالك (الحد %(threshold)s)."
+
+msgid "Company context is required."
+msgstr "يلزم سياق شركة."
+
+msgid "Transfer quantity must be positive."
+msgstr "كمية التحويل يجب أن تكون موجبة."
+
+msgid "Source and destination warehouses must differ."
+msgstr "مستودع المصدر والوجهة يجب أن يختلفا."
+
+#, python-format
+msgid "Only %(available)s is on hand at %(warehouse)s in lot %(lot)s. Count the shelf and adjust before transferring."
+msgstr "المتاح في %(warehouse)s من الدفعة %(lot)s هو %(available)s فقط. عُدّ الرف وسوِّ المخزون قبل التحويل."
+
+#, python-format
+msgid "Only %(available)s is on hand at %(warehouse)s. Count the shelf and adjust before transferring."
+msgstr "المتاح في %(warehouse)s هو %(available)s فقط. عُدّ الرف وسوِّ المخزون قبل التحويل."
+
+msgid "A count cannot be negative."
+msgstr "العدّ لا يمكن أن يكون سالبًا."
+
+msgid "Only a draft count can be edited."
+msgstr "لا يمكن تعديل إلا الجرد الذي ما زال مسودة."
+
+#, python-format
+msgid "%(sku)s is listed twice for the same lot."
+msgstr "الصنف %(sku)s مذكور مرتين للدفعة نفسها."
+
+msgid "Not your company's record."
+msgstr "هذا السجل ليس لشركتك."
+
+msgid "At least one line is required."
+msgstr "يلزم سطر واحد على الأقل."
+
+msgid "Purchase order is not for this supplier."
+msgstr "أمر الشراء ليس لهذا المورّد."
+
+msgid "A cancelled purchase order cannot be received."
+msgstr "لا يمكن الاستلام على أمر شراء ملغى."
+
+msgid "Every received product must be on the purchase order."
+msgstr "كل صنف مستلَم يجب أن يكون في أمر الشراء."
+
+#, python-format
+msgid "Only %(remaining)s remains receivable for %(sku)s."
+msgstr "المتبقي للاستلام من %(sku)s هو %(remaining)s فقط."
+
+msgid "A company-scoped user is required."
+msgstr "يلزم مستخدم مرتبط بشركة."
+
+msgid "A receipt in the company currency has a rate of 1."
+msgstr "الاستلام بعملة الشركة سعر صرفه 1."
+
+#, python-format
+msgid "Give the %(from)s->%(to)s rate."
+msgstr "أدخل سعر صرف %(from)s إلى %(to)s."
+
+msgid "Goods receipt is not for this supplier."
+msgstr "إذن الاستلام ليس لهذا المورّد."
+
+msgid "Goods receipt is not for this purchase order."
+msgstr "إذن الاستلام ليس لأمر الشراء هذا."
+
+msgid "This receipt already has a bill; void that one first."
+msgstr "لهذا الاستلام فاتورة مسجلة بالفعل؛ أبطِلها أولًا."
+
+#, python-format
+msgid "The bill (%(claimed)s) does not match the receipt (%(received)s). A manager must approve the difference."
+msgstr "الفاتورة (%(claimed)s) لا تطابق الاستلام (%(received)s). الفرق يحتاج موافقة مدير."
+
+msgid "Total must be non-negative."
+msgstr "الإجمالي لا يمكن أن يكون سالبًا."
+
+msgid "Total must equal subtotal plus tax amount."
+msgstr "الإجمالي يجب أن يساوي المجموع الفرعي زائد الضريبة."
+
+msgid "Amount must be positive."
+msgstr "المبلغ يجب أن يكون موجبًا."
+
+msgid "Bank transfer requires the paying-from company bank account."
+msgstr "التحويل البنكي يتطلب تحديد حساب الشركة الدافع."
+
+msgid "reference_last4 must be up to 4 digits."
+msgstr "مرجع التحويل يجب ألا يتجاوز 4 أرقام."
+
+msgid "Cash payments must not carry bank/reference details."
+msgstr "الدفع النقدي لا يحمل بيانات بنك أو مرجع."
+
+msgid "Bill is not for this supplier."
+msgstr "الفاتورة ليست لهذا المورّد."
+
+msgid "That bill is void."
+msgstr "هذه الفاتورة مُبطَلة."
+
+#, python-format
+msgid "Amount exceeds the balance due on this bill (%(due)s)."
+msgstr "المبلغ يتجاوز المستحق على هذه الفاتورة (%(due)s)."
+
+msgid "A void invoice cannot be returned."
+msgstr "لا يمكن الإرجاع على فاتورة مُبطَلة."
+
+#, python-format
+msgid "%(sku)s is not on invoice %(invoice)s."
+msgstr "الصنف %(sku)s ليس في الفاتورة %(invoice)s."
+
+#, python-format
+msgid "Invoice line for %(sku)s is for a different product than the one being returned."
+msgstr "سطر الفاتورة للصنف %(sku)s يخص صنفًا غير المُرجَع."
+
+#, python-format
+msgid "Cannot return %(qty)s of %(sku)s: only %(remaining)s of the %(sold)s sold remain returnable."
+msgstr "لا يمكن إرجاع %(qty)s من %(sku)s: المتبقي القابل للإرجاع %(remaining)s من أصل %(sold)s مبيعة."
+
+#, python-format
+msgid "Only %(remaining)s remains returnable for %(sku)s."
+msgstr "المتبقي القابل للإرجاع من %(sku)s هو %(remaining)s فقط."
+
+msgid "Receipt is not for this supplier."
+msgstr "الاستلام ليس لهذا المورّد."
+
+msgid "Return must leave from the receipt warehouse."
+msgstr "الإرجاع يجب أن يخرج من مستودع الاستلام نفسه."
+
+msgid "Every return line must belong to the selected receipt."
+msgstr "كل سطر إرجاع يجب أن يخص الاستلام المحدد."
+
+#, python-format
+msgid "Only %(available)s of %(sku)s is on hand to return."
+msgstr "المتاح على الرف من %(sku)s للإرجاع هو %(available)s فقط."
+
+msgid "Bill is not for this receipt."
+msgstr "الفاتورة ليست لهذا الاستلام."
+
+#, python-format
+msgid "The debit note cannot exceed the goods' cost (%(cost)s)."
+msgstr "الإشعار المدين لا يمكن أن يتجاوز تكلفة البضاعة (%(cost)s)."
+
+msgid "Customer must match the linked invoice."
+msgstr "العميل يجب أن يطابق الفاتورة المرتبطة."
+
+msgid "Return must belong to the linked invoice."
+msgstr "المرتجع يجب أن يخص الفاتورة المرتبطة."
+
+msgid "Customer must match the linked return."
+msgstr "العميل يجب أن يطابق المرتجع المرتبط."
+
+msgid "A customer is required unless this note is linked to an invoice."
+msgstr "يلزم تحديد عميل ما لم يكن الإشعار مرتبطًا بفاتورة."
+
+msgid "That invoice is void."
+msgstr "هذه الفاتورة مُبطَلة."
+
+#, python-format
+msgid "Only %(ceiling)s of this invoice remains creditable."
+msgstr "المتبقي القابل للتقييد من هذه الفاتورة هو %(ceiling)s فقط."
+
+msgid "Return is not for this supplier."
+msgstr "المرتجع ليس لهذا المورّد."
+
+msgid "Return and bill must refer to the same receipt."
+msgstr "المرتجع والفاتورة يجب أن يشيرا إلى الاستلام نفسه."
+
+msgid "occurred_at cannot be in the future."
+msgstr "تاريخ الحركة لا يمكن أن يكون في المستقبل."
+
+#, python-format
+msgid "occurred_at is older than %(days)s days; contact your manager to backdate."
+msgstr "تاريخ الحركة أقدم من %(days)s يومًا؛ راجع مديرك لتسجيله بأثر رجعي."
+
+msgid "This record is outside your assigned branch."
+msgstr "هذا السجل خارج فرعك."
+
+msgid "Only a manager may set credit terms."
+msgstr "شروط الائتمان يحددها المدير فقط."
+
+msgid "Quotation and order customer must match."
+msgstr "عميل عرض السعر يجب أن يطابق عميل الطلب."
+
+msgid "Bank transfer requires the receiving company bank account."
+msgstr "التحويل البنكي يتطلب تحديد حساب الشركة المستلِم."
+
+msgid "Bank transfer requires the sender's bank name."
+msgstr "التحويل البنكي يتطلب اسم بنك المرسِل."
+
+#, python-format
+msgid "Amount exceeds the balance due (%(due)s). Record the surplus separately instead of overpaying the invoice."
+msgstr "المبلغ يتجاوز المستحق (%(due)s). سجّل الزيادة على حدة بدل الدفع الزائد على الفاتورة."
+
+msgid "Not your company's invoice."
+msgstr "هذه الفاتورة ليست لشركتك."
+
+msgid "Not your company's bank account."
+msgstr "هذا الحساب البنكي ليس لشركتك."
+
+msgid "Not your company's till session."
+msgstr "هذه الوردية ليست لشركتك."
+
+msgid "That till session is closed — open a new one."
+msgstr "هذه الوردية مغلقة — افتح وردية جديدة."
+
+msgid "You can only record cash into your own open drawer."
+msgstr "لا يمكنك تسجيل نقد إلا في درجك المفتوح."
+
+#, python-format
+msgid "Amount exceeds the balance due (%(due)s)."
+msgstr "المبلغ يتجاوز المستحق (%(due)s)."
+
+msgid "Use either discount_percent or discount_amount on a line, not both."
+msgstr "استخدم نسبة الخصم أو مبلغه في السطر، لا كليهما."
+
+msgid "Amount must not be zero."
+msgstr "المبلغ لا يمكن أن يكون صفرًا."
+
+#, python-format
+msgid "A '%(kind)s' takes money out — the amount must be negative."
+msgstr "حركة '%(kind)s' تُخرج نقدًا — المبلغ يجب أن يكون سالبًا."
+
+#, python-format
+msgid "A '%(kind)s' puts money in — the amount must be positive."
+msgstr "حركة '%(kind)s' تُدخل نقدًا — المبلغ يجب أن يكون موجبًا."
+
+msgid "Not your company's shift."
+msgstr "هذه الوردية ليست لشركتك."
+
+msgid "That shift is closed — cash cannot move in or out of it."
+msgstr "هذه الوردية مغلقة — لا يمكن إدخال نقد إليها أو إخراجه منها."
+
+msgid "Not your company's branch."
+msgstr "هذا الفرع ليس لشركتك."
+
+msgid "A branch user can only open a drawer at their own branch."
+msgstr "مستخدم الفرع لا يفتح درجًا إلا في فرعه."
+
+msgid "A branch user can only sell from their own branch."
+msgstr "مستخدم الفرع لا يبيع إلا من فرعه."
+
+#, python-format
+msgid "Sales are recorded in the company currency (%(currency)s)."
+msgstr "المبيعات تُسجَّل بعملة الشركة (%(currency)s)."
+
+msgid "That pack belongs to a different product."
+msgstr "هذه العبوة تخص صنفًا آخر."
+
+msgid "That pack is no longer sold."
+msgstr "هذه العبوة لم تعد تُباع."
+
+#, python-format
+msgid "Discount on %(sku)s exceeds the line value."
+msgstr "الخصم على %(sku)s يتجاوز قيمة السطر."
+
+msgid "The ticket discount exceeds the sale value."
+msgstr "خصم الفاتورة يتجاوز قيمة البيع."
+
+msgid "A sale on account needs a named customer."
+msgstr "البيع الآجل يحتاج عميلًا محددًا."
+
+msgid "This customer's account is on hold; take full payment."
+msgstr "حساب هذا العميل موقوف؛ استلم المبلغ كاملًا."
+
+#, python-format
+msgid "This sale would take the customer to %(exposure)s, above their credit limit of %(limit)s."
+msgstr "هذا البيع يرفع رصيد العميل إلى %(exposure)s متجاوزًا حد ائتمانه %(limit)s."
+
+msgid "Payment exceeds the invoice total (tax included). Give change instead of overpaying."
+msgstr "المدفوع يتجاوز إجمالي الفاتورة (شاملة الضريبة). أعطِ الباقي بدل الدفع الزائد."
+
+msgid "Bank transfer needs receiving account, sender bank, and up-to-4-digit reference."
+msgstr "التحويل البنكي يحتاج حساب الاستلام وبنك المرسِل ومرجعًا حتى 4 أرقام."
+
+msgid "Cash payment must not carry bank/reference details."
+msgstr "الدفع النقدي لا يحمل بيانات بنك أو مرجع."
+
+msgid "Not your company's credit note."
+msgstr "هذا الإشعار الدائن ليس لشركتك."
+
+msgid "That credit note is void."
+msgstr "هذا الإشعار الدائن مُبطَل."
+
+msgid "A bank refund needs the paying account."
+msgstr "الاسترداد البنكي يحتاج تحديد الحساب الدافع."
+
+msgid "Enter up to 4 reference digits."
+msgstr "أدخل حتى 4 أرقام من المرجع."
+
+msgid "A cash refund must not carry bank or reference details."
+msgstr "الاسترداد النقدي لا يحمل بيانات بنك أو مرجع."
+
+msgid "That till session is closed."
+msgstr "هذه الوردية مغلقة."
+
+msgid "You can only refund cash from your own open drawer."
+msgstr "لا يمكنك الاسترداد نقدًا إلا من درجك المفتوح."
+
+msgid "A cash refund must come out of an open till session."
+msgstr "الاسترداد النقدي يجب أن يخرج من وردية مفتوحة."
+
+#, python-format
+msgid "Refunds of %(threshold)s or more need a manager or owner."
+msgstr "الاستردادات بقيمة %(threshold)s فأكثر تحتاج موافقة مدير أو مالك."
+
+#, python-format
+msgid "Only %(remaining)s remains refundable on %(note)s."
+msgstr "المتبقي القابل للاسترداد من %(note)s هو %(remaining)s فقط."
+
+msgid "You already have an open till session. Close it before opening another."
+msgstr "لديك وردية مفتوحة بالفعل. أغلقها قبل فتح أخرى."

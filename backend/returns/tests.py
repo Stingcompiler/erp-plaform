@@ -220,7 +220,9 @@ class Rule4ReturnCapTests(ReturnsBase):
     def test_returning_more_than_was_sold_is_rejected(self):
         resp = self.create_return(qty="100")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("returnable", str(resp.content).lower())
+        # The refusal names the line cap; the wording is localised, so
+        # assert on the field it lands in rather than on English prose.
+        self.assertIn("lines", resp.data)
         # Nothing was written — no return, and above all no credit note.
         self.assertEqual(SalesReturn.objects.count(), 0)
         self.assertEqual(CreditNote.objects.count(), 0)
