@@ -14,9 +14,9 @@ from rest_framework.test import APIClient, APITestCase
 
 from accounts.models import Role, User
 from core.timezone import activate_for_user, is_valid_timezone
-from inventory.models import Warehouse
+from inventory.models import Product, Warehouse
 from org.models import Branch, Company
-from sales.models import Invoice
+from sales.models import Invoice, InvoiceLine
 
 
 def login_client(user, password):
@@ -69,9 +69,15 @@ class CompanyTimezoneTests(APITestCase):
         sold_at = timezone.datetime(2026, 9, 17, 1, 0, tzinfo=khartoum)
         self.assertNotEqual(sold_at.astimezone(ZoneInfo("UTC")).date(), sold_at.date())
         with mock.patch("django.utils.timezone.now", return_value=frozen_now):
-            Invoice.objects.create(
+            invoice = Invoice.objects.create(
                 company=self.company, branch=self.branch, warehouse=self.warehouse,
                 number=1, total=Decimal("40"), subtotal=Decimal("40"), issued_at=sold_at,
+            )
+            # Dashboard revenue is the income statement's: built from lines.
+            product = Product.objects.create(company=self.company, sku="TZ", name="Thing")
+            InvoiceLine.objects.create(
+                invoice=invoice, product=product, quantity=Decimal("1"),
+                unit_price=Decimal("40"), line_subtotal=Decimal("40"), line_total=Decimal("40"),
             )
             client = login_client(self.owner, "passw0rd123")
             response = client.get(reverse("dashboard"))

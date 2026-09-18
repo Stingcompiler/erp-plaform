@@ -38,22 +38,32 @@ def in_range(qs, field, start, end):
     return qs
 
 
-def operating_summary(company_id, start=None, end=None, method="standard"):
-    from finance.models import Expense
-    from inventory.costing import METHODS, company_totals
+def _revenue_terms(company_id, start=None, end=None, branch_id=None):
+    """The one revenue formula: invoiced line subtotals, minus what returned
+    goods were actually charged, minus price-correction credit notes (net
+    of tax). Shared by the income statement and the dashboard so the two
+    screens can never show different revenue for the same period."""
     from sales.models import InvoiceLine
     from returns.models import CreditNote, SalesReturnLine
 
-    if method not in METHODS:
-        raise ValidationError({"method": "Choose standard, average or fifo."})
     lines = in_range(InvoiceLine.objects.filter(
         invoice__company_id=company_id, invoice__is_void=False,
     ), "invoice__issued_at__date", start, end)
-    gross_sales = lines.aggregate(t=Coalesce(Sum("line_subtotal"), ZERO, output_field=MONEY))["t"]
     returned_lines = in_range(
         SalesReturnLine.objects.filter(sales_return__company_id=company_id),
         "sales_return__created_at__date", start, end,
     )
+    notes = in_range(
+        CreditNote.objects.filter(
+            company_id=company_id, is_void=False, sales_return__isnull=True,
+        ).filter(Q(invoice__isnull=True) | Q(invoice__is_void=False)),
+        "created_at__date", start, end,
+    )
+    if branch_id is not None:
+        lines = lines.filter(invoice__branch_id=branch_id)
+        returned_lines = returned_lines.filter(sales_return__invoice__branch_id=branch_id)
+        notes = notes.filter(invoice__branch_id=branch_id)
+    gross_sales = lines.aggregate(t=Coalesce(Sum("line_subtotal"), ZERO, output_field=MONEY))["t"]
     # Reverse what was actually charged for the returned units — the line's
     # net subtotal per unit — not the gross list price, which overstates the
     # reversal for any discounted or pack-priced line.
@@ -68,15 +78,28 @@ def operating_summary(company_id, start=None, end=None, method="standard"):
     tax_share = Coalesce(
         F("invoice__total") / F("invoice__subtotal"), Decimal("1"), output_field=MONEY
     )
-    adjustments = in_range(
-        CreditNote.objects.filter(
-            company_id=company_id, is_void=False, sales_return__isnull=True,
-        ).filter(Q(invoice__isnull=True) | Q(invoice__is_void=False)),
-        "created_at__date", start, end,
-    ).annotate(tax_share=tax_share).aggregate(t=Coalesce(Sum(ExpressionWrapper(
+    adjustments = notes.annotate(tax_share=tax_share).aggregate(t=Coalesce(Sum(ExpressionWrapper(
         F("amount") / F("tax_share"), output_field=MONEY,
     )), ZERO, output_field=MONEY))["t"]
     revenue = gross_sales - returned_sales - adjustments
+    return lines, gross_sales, returned_sales, adjustments, revenue
+
+
+def net_revenue(company_id, start=None, end=None, branch_id=None):
+    """Revenue as the income statement defines it, for any screen."""
+    return _revenue_terms(company_id, start, end, branch_id)[4]
+
+
+def operating_summary(company_id, start=None, end=None, method="standard"):
+    from finance.models import Expense
+    from inventory.costing import METHODS, company_totals
+    from returns.models import SalesReturnLine
+
+    if method not in METHODS:
+        raise ValidationError({"method": "Choose standard, average or fifo."})
+    lines, gross_sales, returned_sales, adjustments, revenue = _revenue_terms(
+        company_id, start, end
+    )
     if method == "standard":
         # Cost as it was when the goods left: the sale_out movement carries a
         # unit_cost snapshot. Rows written before the snapshot existed fall
