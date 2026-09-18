@@ -143,18 +143,16 @@ changes.
 ## Known caveats
 
 - **Backup retention.** `POST /api/ops/backups/` and the nightly cron generate
-  and record logical backups. For durable, off-box retention (Render's
-  filesystem is ephemeral), set the object-storage env vars on `erp-api` and
-  `erp-backup-cron`: `BACKUP_S3_BUCKET` (required to enable), plus
-  `BACKUP_S3_ENDPOINT_URL` (for R2/MinIO), `BACKUP_S3_REGION`,
-  `BACKUP_S3_ACCESS_KEY_ID`, and `BACKUP_S3_SECRET_ACCESS_KEY`. When set, each
-  backup payload is uploaded and its object key stored on the `BackupRecord`
-  (`storage_key`). When unset, backups remain metadata-only (previous
-  behavior). `boto3` is bundled but only imported when storage is enabled.
-- **Tests run in CI, not in the build sandbox.** The build environment used to
-  author this repo had no network to install Django, so the full test suite is
-  verified by GitHub Actions on push (lint, system check, migration-sync check,
-  deploy check, pytest) rather than locally.
+  logical snapshots. Without any object storage configured, each snapshot is
+  kept gzip-compressed in the database row (`ops.BackupRecord.payload_gz`),
+  downloadable from Settings → Backups as a JSON file and restorable by id;
+  rows older than `BACKUP_RETENTION_DAYS` (default 30) lose their payload
+  nightly, except each company's newest, which is always kept. The managed
+  PostgreSQL is itself backed up daily by Render — that is the disaster
+  layer; these snapshots are for restoring or moving one company. Optionally
+  set `BACKUP_S3_BUCKET` (+ `BACKUP_S3_ENDPOINT_URL`, `BACKUP_S3_REGION`,
+  `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`) on `erp-api` and
+  `erp-backup-cron` to push snapshots off-box instead.
 
 ## What is actually deployed today
 

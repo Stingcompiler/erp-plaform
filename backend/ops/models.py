@@ -28,6 +28,17 @@ class BackupRecord(models.Model):
     # Object-storage key when the payload was pushed off-box (S3/R2); blank when
     # durable storage isn't configured and only metadata was recorded.
     storage_key = models.CharField(max_length=512, blank=True)
+    # The snapshot itself, gzip-compressed, kept in the database when no
+    # object storage is configured — so a backup is a file the owner can
+    # download and restore from, not just a log line. The managed database
+    # is itself backed up daily by the host, which is the disaster layer;
+    # these rows are for restoring or moving one company. Pruned by the
+    # nightly job past BACKUP_RETENTION_DAYS; the latest one always stays.
+    payload_gz = models.BinaryField(null=True, blank=True, editable=False)
+
+    @property
+    def is_downloadable(self):
+        return bool(self.storage_key) or self.payload_gz is not None
     note = models.CharField(max_length=255, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,

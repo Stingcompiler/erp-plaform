@@ -342,6 +342,8 @@ export const settings = {
   taxHandlers: () => api.get("/tax/handlers/"),
   backups: () => api.get("/ops/backups/"),
   createBackup: () => api.post("/ops/backups/"),
+  // A plain link (cookie auth), so the browser saves it as a file directly.
+  backupDownloadUrl: (id) => `${api.defaults.baseURL}/ops/backups/${id}/download/`,
 };
 
 export const sync = {

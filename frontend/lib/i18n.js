@@ -1279,7 +1279,8 @@ const en = {
     backUpNow: "Back up now",
     backingUp: "Backing up…",
     offSite: "off-site",
-    backupsNote: "Back up now also downloads the snapshot file — keep it somewhere safe; restoring reads that file. Nightly snapshots are retained off-box only once the object-storage env vars (BACKUP_S3_*) are set — see DEPLOYMENT.md.",
+    downloadBackup: "Download",
+    backupsNote: "Every snapshot — manual or nightly — is kept for 30 days and can be downloaded here as a JSON file; the most recent one is always kept. Restore reads one of these files.",
   },
   reports: {
     title: "Reports",
@@ -3239,7 +3240,8 @@ const ar = {
     backUpNow: "إنشاء نسخة الآن",
     backingUp: "جارٍ النسخ…",
     offSite: "خارج الموقع",
-    backupsNote: "زر إنشاء نسخة الآن ينزّل ملف اللقطة أيضًا — احفظه في مكان آمن؛ الاسترجاع يقرأ هذا الملف. النسخ الليلية تُحفظ خارج الخادم فقط بعد ضبط متغيرات تخزين الكائنات (BACKUP_S3_*) — راجع DEPLOYMENT.md.",
+    downloadBackup: "تنزيل",
+    backupsNote: "كل نسخة — يدوية أو ليلية — تُحفظ 30 يومًا ويمكن تنزيلها من هنا كملف JSON، وتبقى الأحدث دائمًا. الاسترجاع يقرأ أحد هذه الملفات.",
   },
   reports: {
     title: "التقارير",
