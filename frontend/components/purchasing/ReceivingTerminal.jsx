@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, Search, Trash2 } from "lucide-react";
 
 import { inventory, purchasing } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
@@ -57,7 +57,12 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived })
       if (found) return ls.map((l) => (l.id === p.id ? { ...l, qty: l.qty + 1 } : l));
       return [
         ...ls,
-        { id: p.id, sku: p.sku, name: p.name, qty: 1, unit_cost: String(p.cost_price ?? "0") },
+        {
+          id: p.id, sku: p.sku, name: p.name, qty: 1, unit_cost: String(p.cost_price ?? "0"),
+          // Lot and expiry are asked for only on batch-tracked products —
+          // the server refuses a tracked line without a lot.
+          tracked: Boolean(p.track_batches), lot: "", expiry: "",
+        },
       ];
     });
     setQuery("");
@@ -70,6 +75,15 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived })
 
   const total = lines.reduce((s, l) => s + Number(l.unit_cost || 0) * Number(l.qty || 0), 0);
 
+  // "past" | "soon" | null — the shelf-life read the receiver sees while typing.
+  const expiryState = (l) => {
+    if (!l.expiry) return null;
+    const days = Math.round((new Date(`${l.expiry}T00:00:00`) - new Date().setHours(0, 0, 0, 0)) / 86400000);
+    if (days < 0) return "past";
+    if (days <= 30) return "soon";
+    return null;
+  };
+
   function reset() {
     setLines([]);
     setNote("");
@@ -81,6 +95,10 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived })
     if (!supplier) return setError(t("purchasing.selectSupplierErr"));
     if (!warehouse) return setError(t("purchasing.selectWarehouseErr"));
     if (lines.length === 0) return setError(t("purchasing.addProductErr"));
+    const missingLot = lines.find((l) => l.tracked && !l.lot.trim());
+    if (missingLot) return setError(t("purchasing.lotRequired", { sku: missingLot.sku }));
+    const past = lines.find((l) => expiryState(l) === "past");
+    if (past) return setError(t("purchasing.expiryPast", { sku: past.sku }));
     if (!receiptUuid.current) receiptUuid.current = crypto.randomUUID();
 
     setSubmitting(true);
@@ -94,6 +112,7 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived })
           product: l.id,
           quantity: String(l.qty),
           unit_cost: l.unit_cost === "" ? undefined : l.unit_cost,
+          ...(l.tracked ? { lot_number: l.lot.trim(), expiry_date: l.expiry || null } : {}),
         })),
       });
       reset();
@@ -171,10 +190,43 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived })
           ) : (
             <div className="divide-y divide-line">
               {lines.map((l) => (
-                <div key={l.id} className="flex items-center gap-3 px-4 py-3">
+                <div key={l.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm text-ink">{l.name}</div>
                     <div className="tabular text-xs text-muted">{l.sku}</div>
+                    {l.tracked && (
+                      <div className="mt-2 flex flex-wrap items-end gap-2">
+                        <label className="text-xs text-muted">
+                          {t("purchasing.lot")}
+                          <Input
+                            value={l.lot}
+                            onChange={(e) => updateLine(l.id, { lot: e.target.value })}
+                            placeholder="LOT-2026-09"
+                            aria-label={`${t("purchasing.lot")} ${l.sku}`}
+                            className="mt-0.5 w-36"
+                          />
+                        </label>
+                        <label className="text-xs text-muted">
+                          {t("purchasing.expiry")}
+                          <Input
+                            type="date"
+                            value={l.expiry}
+                            onChange={(e) => updateLine(l.id, { expiry: e.target.value })}
+                            aria-label={`${t("purchasing.expiry")} ${l.sku}`}
+                            className={`mt-0.5 w-40 ${expiryState(l) === "past" ? "border-danger" : expiryState(l) === "soon" ? "border-warn" : ""}`}
+                          />
+                        </label>
+                        {expiryState(l) === "past" && (
+                          <span className="inline-flex items-center gap-1 text-xs text-danger"><AlertTriangle size={12} />{t("purchasing.expiryPastHint")}</span>
+                        )}
+                        {expiryState(l) === "soon" && (
+                          <span className="inline-flex items-center gap-1 text-xs text-warn"><AlertTriangle size={12} />{t("purchasing.expirySoonHint")}</span>
+                        )}
+                        {!l.lot.trim() && (
+                          <span className="text-xs text-muted">{t("purchasing.lotHint")}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <label className="text-xs text-muted">
                     {t("purchasing.qty")}
