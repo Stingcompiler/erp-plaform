@@ -1,7 +1,7 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
-from django.db.models import Q, Sum
+from django.db.models import Count, Q, Sum
 from django.db import transaction
 from django.db.models.functions import Coalesce
 from django.http import FileResponse, Http404
@@ -127,7 +127,43 @@ class AttendanceViewSet(CompanyScopedModelViewSet):
         date = self.request.query_params.get("date")
         if date:
             qs = qs.filter(date=date)
+        start = self.request.query_params.get("start")
+        end = self.request.query_params.get("end")
+        if start:
+            qs = qs.filter(date__gte=start)
+        if end:
+            qs = qs.filter(date__lte=end)
         return qs
+
+    @action(detail=False, methods=["get"])
+    def summary(self, request):
+        """Days per status for every employee in a month — the register's
+        month view. `month` is YYYY-MM; defaults to the current month."""
+        month = request.query_params.get("month") or timezone.localdate().strftime("%Y-%m")
+        try:
+            year, mon = (int(part) for part in month.split("-"))
+            first = date(year, mon, 1)
+        except (TypeError, ValueError):
+            raise ValidationError({"month": "Use YYYY-MM."})
+        last = (first.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+        counts = (
+            self.get_queryset()
+            .filter(date__gte=first, date__lte=last)
+            .values("employee_id", "employee__full_name", "status")
+            .annotate(days=Count("id"))
+        )
+        rows = {}
+        for row in counts:
+            entry = rows.setdefault(
+                row["employee_id"],
+                {"employee": row["employee_id"], "employee_name": row["employee__full_name"],
+                 "present": 0, "absent": 0, "leave": 0, "half_day": 0},
+            )
+            entry[row["status"]] = row["days"]
+        ordered = sorted(rows.values(), key=lambda r: (r["employee_name"] or "").casefold())
+        return Response(
+            {"month": month, "start": first.isoformat(), "end": last.isoformat(), "rows": ordered}
+        )
 
 
 class LeaveRequestViewSet(CompanyScopedModelViewSet):

@@ -413,16 +413,22 @@ class PerformanceRecordSerializer(_CompanyScopedFKMixin, serializers.ModelSerial
 
 class EmployeeDocumentSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
     scoped_fk_fields = ("employee",)
+    employee_name = serializers.CharField(source="employee.full_name", read_only=True)
+    uploaded_by_name = serializers.CharField(
+        source="uploaded_by.full_name", read_only=True, default=None
+    )
 
     class Meta:
         model = EmployeeDocument
         fields = [
             "id",
             "employee",
+            "employee_name",
             "title",
             "doc_type",
             "file_url",
             "note",
+            "uploaded_by_name",
             "created_at",
         ]
         read_only_fields = ["created_at"]
