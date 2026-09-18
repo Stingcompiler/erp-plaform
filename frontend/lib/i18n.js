@@ -1279,7 +1279,7 @@ const en = {
     backUpNow: "Back up now",
     backingUp: "Backing up…",
     offSite: "off-site",
-    backupsNote: "Backups are logical snapshots. Set the object-storage env vars (BACKUP_S3_*) to push them off-box for durable retention — see DEPLOYMENT.md.",
+    backupsNote: "Back up now also downloads the snapshot file — keep it somewhere safe; restoring reads that file. Nightly snapshots are retained off-box only once the object-storage env vars (BACKUP_S3_*) are set — see DEPLOYMENT.md.",
   },
   reports: {
     title: "Reports",
@@ -3239,7 +3239,7 @@ const ar = {
     backUpNow: "إنشاء نسخة الآن",
     backingUp: "جارٍ النسخ…",
     offSite: "خارج الموقع",
-    backupsNote: "النسخ الاحتياطية لقطات منطقية. اضبط متغيرات تخزين الكائنات (BACKUP_S3_*) لدفعها خارج الخادم للاحتفاظ الدائم — راجع DEPLOYMENT.md.",
+    backupsNote: "زر إنشاء نسخة الآن ينزّل ملف اللقطة أيضًا — احفظه في مكان آمن؛ الاسترجاع يقرأ هذا الملف. النسخ الليلية تُحفظ خارج الخادم فقط بعد ضبط متغيرات تخزين الكائنات (BACKUP_S3_*) — راجع DEPLOYMENT.md.",
   },
   reports: {
     title: "التقارير",

@@ -131,7 +131,22 @@ export default function SettingsPage() {
   async function makeBackup() {
     setBackingUp(true);
     try {
-      await settings.createBackup();
+      const response = await settings.createBackup();
+      // The dump only exists in this response unless off-site storage is
+      // configured — hand it to the owner as a file, so every manual
+      // backup is actually IN their hands, restorable from any install.
+      try {
+        const stamp = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
+        const blob = new Blob(
+          [JSON.stringify(response.data.data ?? response.data, null, 1)],
+          { type: "application/json" },
+        );
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `vezano-backup-${stamp}.json`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      } catch { /* recording succeeded; the download is best-effort */ }
       await loadBackups();
     } finally {
       setBackingUp(false);
