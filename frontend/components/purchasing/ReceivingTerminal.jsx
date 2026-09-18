@@ -14,7 +14,7 @@ import { cacheProducts } from "@/lib/productCache";
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export default function ReceivingTerminal({ suppliers, warehouses, onReceived }) {
+export default function ReceivingTerminal({ suppliers, warehouses, onReceived, initialOrder = null }) {
   const { t } = useI18n();
   const mutate = useOfflineMutation();
   const [supplier, setSupplier] = useState("");
@@ -26,6 +26,24 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived })
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
+  const [orderId, setOrderId] = useState(null);
+
+  // "Receive against this order": supplier and the still-outstanding
+  // quantities come from the order, at the order's costs; the receipt
+  // carries purchase_order so the server caps it at what remains.
+  useEffect(() => {
+    if (!initialOrder) return;
+    setOrderId(initialOrder.id);
+    setSupplier(String(initialOrder.supplier));
+    setLines(initialOrder.lines
+      .filter((l) => Number(l.remaining_quantity) > 0)
+      .map((l) => ({
+        id: l.product, sku: l.product_sku, name: l.product_name,
+        qty: Number(l.remaining_quantity), unit_cost: String(l.unit_cost ?? "0"),
+        tracked: false, lot: "", expiry: "",
+      })));
+    if (!receiptUuid.current) receiptUuid.current = crypto.randomUUID();
+  }, [initialOrder]);
   const receiptUuid = useRef(null);
   const toast = useToast();
 
@@ -87,6 +105,7 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived })
   function reset() {
     setLines([]);
     setNote("");
+    setOrderId(null);
     receiptUuid.current = null;
   }
 
@@ -107,6 +126,7 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived })
         client_uuid: receiptUuid.current,
         supplier: Number(supplier),
         warehouse: Number(warehouse),
+        ...(orderId ? { purchase_order: orderId } : {}),
         note,
         lines: lines.map((l) => ({
           product: l.id,
