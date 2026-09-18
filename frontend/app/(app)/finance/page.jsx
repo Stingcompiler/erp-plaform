@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import Drawer from "@/components/ui/Drawer";
 import PaymentVerificationPanel from "@/components/finance/PaymentVerificationPanel";
+import BudgetsPanel from "@/components/finance/BudgetsPanel";
 
 function StatTile({ label, value, tone = "ink", icon: Icon }) {
   const toneClass = tone === "ok" ? "text-ok" : tone === "danger" ? "text-danger" : "text-ink";
@@ -21,7 +22,7 @@ function StatTile({ label, value, tone = "ink", icon: Icon }) {
   );
 }
 
-function ExpenseDrawer({ open, writable, onClose, onSaved }) {
+function ExpenseDrawer({ open, writable, onClose, onSaved, categories = [] }) {
   const { t } = useI18n();
   const toast = useToast();
   const today = new Date().toISOString().slice(0, 10);
@@ -67,7 +68,8 @@ function ExpenseDrawer({ open, writable, onClose, onSaved }) {
     >
       <div className="space-y-4">
         <Field label={t("finance.category")}>
-          <Input value={form.category} onChange={(e) => set("category", e.target.value)} />
+          <Input list="expense-categories" value={form.category} onChange={(e) => set("category", e.target.value)} />
+          <datalist id="expense-categories">{categories.map((c) => <option key={c} value={c} />)}</datalist>
         </Field>
         <Field label={t("finance.description")}>
           <Input value={form.description} onChange={(e) => set("description", e.target.value)} />
@@ -95,6 +97,11 @@ export default function FinancePage() {
   const { canRead, canWrite } = useAuth();
   const { t, language } = useI18n();
   const writable = canWrite("finance");
+  const [categories, setCategories] = useState([]);
+  const loadCategories = useCallback(() => {
+    finance.categories().then((r) => setCategories(r.data)).catch(() => {});
+  }, []);
+  useEffect(() => { loadCategories(); }, [loadCategories]);
   const [summary, setSummary] = useState(null);
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -176,6 +183,7 @@ export default function FinancePage() {
         <Button variant="outline" disabled={!next} onClick={() => setPage((p) => p+1)}>{t("improvements.next")}</Button>
       </div>
     </Card>}
-    <ExpenseDrawer open={drawerOpen} writable={writable} onClose={() => setDrawerOpen(false)} onSaved={load} />
+    <ExpenseDrawer open={drawerOpen} writable={writable} categories={categories} onClose={() => setDrawerOpen(false)} onSaved={() => { load(); loadCategories(); }} />
+    <BudgetsPanel writable={writable} categories={categories} />
   </div>;
 }

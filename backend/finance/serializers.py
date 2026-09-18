@@ -1,9 +1,30 @@
+from django.utils.translation import gettext as _
 from rest_framework import serializers
 
 from finance.models import Budget, BudgetLine, Expense
 
 
 class ExpenseSerializer(serializers.ModelSerializer):
+    def validate(self, attrs):
+        # The same tier every other money-moving record has: at or above the
+        # company's payment threshold an expense needs an approver role.
+        # Expenses were the one outflow anyone with finance write could post
+        # unbounded.
+        from core.rbac import can_approve_high_value
+
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        company = getattr(user, "company", None)
+        threshold = getattr(company, "payment_approval_threshold", 0) or 0
+        amount = attrs.get("amount")
+        if threshold and amount is not None and amount >= threshold:
+            if not can_approve_high_value(user):
+                raise serializers.ValidationError(
+                    {"amount": _("Expenses of %(threshold)s or more need a manager or owner.")
+                     % {"threshold": threshold}}
+                )
+        return attrs
+
     method_display = serializers.CharField(source="get_method_display", read_only=True)
     recorded_by_name = serializers.CharField(
         source="recorded_by.full_name", read_only=True, default=None
