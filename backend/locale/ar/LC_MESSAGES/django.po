@@ -356,3 +356,9 @@ msgstr "المتبقي القابل للاسترداد من %(note)s هو %(rema
 
 msgid "You already have an open till session. Close it before opening another."
 msgstr "لديك وردية مفتوحة بالفعل. أغلقها قبل فتح أخرى."
+
+msgid "Target company already has products; restore only into an empty company."
+msgstr "الشركة الهدف لديها منتجات بالفعل؛ الاستعادة ممكنة فقط إلى شركة فارغة."
+
+msgid "This reset link is invalid or has already been used."
+msgstr "رابط إعادة التعيين غير صالح أو استُخدم من قبل."
