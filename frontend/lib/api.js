@@ -155,6 +155,12 @@ export const sales = {
   setOrderStatus: (id, status) => api.post(`/sales-orders/${id}/set_status/`, { status }),
   updateCustomer: (id, body) => api.patch(`/customers/${id}/`, body),
   customerOpeningBalance: (id, body) => api.post(`/customers/${id}/opening_balance/`, body),
+  importCustomers: (file, dryRun) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("dry_run", dryRun ? "1" : "0");
+    return api.post("/customers/import/", form, { headers: { "Content-Type": "multipart/form-data" } });
+  },
   // Every customer, for pickers: the POS must be able to name any account
   // customer, not only the first page.
   allCustomers: (params) => listAll("/customers/", { page_size: 500, ...params }),
@@ -206,6 +212,12 @@ export const purchasing = {
   allSuppliers: (params) => listAll("/suppliers/", { page_size: 500, ...params }),
   createSupplier: (body) => api.post("/suppliers/", body),
   supplierOpeningBalance: (id, body) => api.post(`/suppliers/${id}/opening_balance/`, body),
+  importSuppliers: (file, dryRun) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("dry_run", dryRun ? "1" : "0");
+    return api.post("/suppliers/import/", form, { headers: { "Content-Type": "multipart/form-data" } });
+  },
   supplierRecords: (id, params) => api.get(`/suppliers/${id}/records/`, { params }),
   supplierRecordsCsv: (id, params) =>
     `${API_BASE}/suppliers/${id}/records/?${new URLSearchParams({ ...params, format: "csv" })}`,

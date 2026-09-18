@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, HandCoins, Lock, Pencil, Search, UserPlus, UsersRound, Wallet } from "lucide-react";
+import { AlertTriangle, HandCoins, Lock, Pencil, Search, UserPlus, UsersRound, Wallet, FileSpreadsheet } from "lucide-react";
 
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
@@ -10,6 +10,7 @@ import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/compone
 import PhoneLink from "@/components/ui/PhoneLink";
 import CollectPaymentDrawer from "@/components/sales/CollectPaymentDrawer";
 import CustomerDrawer from "@/components/sales/CustomerDrawer";
+import ImportPartiesDrawer from "@/components/records/ImportPartiesDrawer";
 
 const STATUS_TONE = { overdue: "danger", owing: "warn", credit: "accent", settled: "ok" };
 
@@ -32,6 +33,7 @@ export default function DebtsPage() {
   const [collecting, setCollecting] = useState(false);
   // null = closed, "new" = create, object = edit that customer
   const [editing, setEditing] = useState(null);
+  const [importing, setImporting] = useState(false);
   const [filters, setFilters] = useState({ search: "", status: "" });
   const [rows, setRows] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -102,6 +104,7 @@ export default function DebtsPage() {
   return (
     <div>
       <PageHeader title={t("debts.title")} subtitle={t("debts.subtitle")} />
+      <ImportPartiesDrawer kind="customer" open={importing} onClose={() => setImporting(false)} onImported={() => setFilters((f) => ({ ...f }))} />
       <CustomerDrawer
         open={Boolean(editing)}
         onClose={() => setEditing(null)}
@@ -131,9 +134,14 @@ export default function DebtsPage() {
             <div className="flex items-center gap-2">
               {loading && <span className="text-xs text-muted">…</span>}
               {canCollect && (
-                <Button variant="outline" onClick={() => setEditing("new")}>
-                  <UserPlus size={15} />{t("customers.new")}
-                </Button>
+                <>
+                  <Button variant="ghost" onClick={() => setImporting(true)} title={t("importParties.customersTitle")}>
+                    <FileSpreadsheet size={15} />{t("importParties.button")}
+                  </Button>
+                  <Button variant="outline" onClick={() => setEditing("new")}>
+                    <UserPlus size={15} />{t("customers.new")}
+                  </Button>
+                </>
               )}
             </div>
           </div>

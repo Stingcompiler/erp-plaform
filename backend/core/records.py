@@ -18,8 +18,9 @@ from django.http import HttpResponse
 from core.models import ActivityLog
 
 
-def event(kind, label, date, ref="", amount=None, meta=""):
-    """One normalised timeline row."""
+def event(kind, label, date, ref="", amount=None, meta="", entity_id=None):
+    """One normalised timeline row. `entity_id` is the row behind it when a
+    printable document exists for it (invoice, payment, credit note…)."""
     return {
         "type": kind,
         "label": label,
@@ -28,6 +29,7 @@ def event(kind, label, date, ref="", amount=None, meta=""):
         "reference": str(ref or ""),
         "amount": str(amount) if amount is not None else None,
         "meta": meta or "",
+        "entity_id": entity_id,
     }
 
 

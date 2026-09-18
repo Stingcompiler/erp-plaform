@@ -218,6 +218,62 @@ class RefundTests(CorrectionBase):
         self.assertEqual(second.status_code, 400)
         self.assertIn("amount", second.data)
 
+    def test_credit_that_settled_an_unpaid_sale_cannot_be_refunded_in_cash(self):
+        # Sold on account (nothing tendered), goods come back: the note wipes
+        # the debt. There is no money to hand over — and the old cap let the
+        # till do exactly that, putting the debt straight back on the account.
+        invoice = Invoice.objects.get(pk=self._sell(paid=None).data["id"])
+        line = invoice.lines.get()
+        self._as(self.owner)
+        self.client.post(
+            reverse("salesreturn-list"),
+            {"invoice": invoice.pk, "lines": [
+                {"invoice_line": line.pk, "product": self.product.pk, "quantity": "2"}
+            ]},
+            format="json",
+        )
+        note = CreditNote.objects.get(invoice=invoice)
+        self.assertEqual(invoice.amount_due(), Decimal("0"))
+        self.assertEqual(note.remaining_refundable(), Decimal("0"))
+        shift = self._open_shift(self.owner)
+        response = self.client.post(
+            reverse("refund-list"),
+            {"credit_note": note.pk, "method": "cash", "amount": "50.00", "shift": shift.pk},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("amount", response.data)
+        self.assertEqual(invoice.amount_due(), Decimal("0"))
+
+    def test_partly_paid_sale_refunds_only_what_was_paid(self):
+        invoice = Invoice.objects.get(pk=self._sell(paid="50.00").data["id"])
+        line = invoice.lines.get()
+        self._as(self.owner)
+        self.client.post(
+            reverse("salesreturn-list"),
+            {"invoice": invoice.pk, "lines": [
+                {"invoice_line": line.pk, "product": self.product.pk, "quantity": "2"}
+            ]},
+            format="json",
+        )
+        note = CreditNote.objects.get(invoice=invoice)
+        # 200 credited against 200 owed, of which 50 had been paid.
+        self.assertEqual(note.remaining_refundable(), Decimal("50.00"))
+        shift = self._open_shift(self.owner)
+        too_much = self.client.post(
+            reverse("refund-list"),
+            {"credit_note": note.pk, "method": "cash", "amount": "60.00", "shift": shift.pk},
+            format="json",
+        )
+        self.assertEqual(too_much.status_code, 400)
+        exact = self.client.post(
+            reverse("refund-list"),
+            {"credit_note": note.pk, "method": "cash", "amount": "50.00", "shift": shift.pk},
+            format="json",
+        )
+        self.assertEqual(exact.status_code, 201, exact.data)
+        self.assertEqual(invoice.amount_due(), Decimal("0"))
+
     def test_cash_refund_needs_an_open_drawer_and_bank_refund_needs_an_account(self):
         _, note = self._returned_paid_sale()
         self._as(self.owner)

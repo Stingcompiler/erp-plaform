@@ -209,12 +209,18 @@ class QueuedRefundTests(SyncBase):
 
     def test_queued_cash_refund_applies_with_drawer_movement(self):
         from returns.models import CreditNote
-        from sales.models import CashShift, Customer, Invoice, Refund
+        from sales.models import CashShift, Customer, Invoice, Payment, Refund
 
         customer = Customer.objects.create(company=self.company, name="Buyer")
         invoice = Invoice.objects.create(
             company=self.company, branch=self.branch, warehouse=self.wh, customer=customer,
             number=1, subtotal=Decimal("40"), total=Decimal("40"),
+        )
+        # Paid in full, so the credit note below is money the customer can
+        # actually take back (an unpaid sale's note only settles the debt).
+        Payment.objects.create(
+            company=self.company, invoice=invoice, method="cash", amount=Decimal("40"),
+            recorded_by=self.user,
         )
         note = CreditNote.objects.create(
             company=self.company, customer=customer, invoice=invoice, amount=Decimal("15"),

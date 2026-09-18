@@ -222,10 +222,24 @@ class CreditNote(models.Model):
         return self.refunds.aggregate(t=Coalesce(Sum("amount"), Decimal("0")))["t"]
 
     def remaining_refundable(self):
-        """What may still be handed back against this note."""
+        """What may still be handed back in money against this note.
+
+        A note against an invoice first settles what the customer still owed
+        on it; only the part beyond that — money they had actually paid —
+        is theirs to take back. Capping at the note's own amount alone let a
+        till refund cash for goods on an unpaid credit sale, which put the
+        debt straight back on the account with the cash already gone.
+        """
         if self.is_void:
             return Decimal("0")
-        return self.amount - self.refunded_total()
+        remaining = self.amount - self.refunded_total()
+        if self.invoice_id:
+            # amount_due() already nets earlier refunds back in, so a
+            # negative balance is exactly the credit still sitting on the
+            # invoice.
+            credit_on_invoice = max(Decimal("0"), -self.invoice.amount_due())
+            remaining = min(remaining, credit_on_invoice)
+        return max(Decimal("0"), remaining)
 
     def __str__(self):
         return f"{self.number_display} {self.amount}"
