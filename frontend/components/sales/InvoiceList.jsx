@@ -2,24 +2,29 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Ban, Download, Printer } from "lucide-react";
+import { Ban, Download, Printer, HandCoins } from "lucide-react";
 
 import { sales } from "@/lib/api";
 import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import DocumentDrawer from "@/components/print/DocumentDrawer";
+import CollectPaymentDrawer from "@/components/sales/CollectPaymentDrawer";
 import VoidDrawer from "@/components/finance/VoidDrawer";
 import { Badge, Button, Card, Input } from "@/components/ui/kit";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const statusTone = { paid: "ok", partial: "warn", unpaid: "danger", void: "muted" };
+// Invoice.status on the server: issued / partially_paid / paid / void.
+const statusTone = { paid: "ok", partially_paid: "warn", issued: "danger", void: "muted" };
+const OPEN_STATUSES = new Set(["issued", "partially_paid"]);
 
 export default function InvoiceList({ refreshKey }) {
   const { t } = useI18n();
-  const { can } = useAuth();
+  const { can, canWrite } = useAuth();
   const canVoid = can("finance.approve");
+  const canCollect = canWrite("sales");
+  const [collecting, setCollecting] = useState(null);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState(null);
@@ -116,6 +121,19 @@ export default function InvoiceList({ refreshKey }) {
                     >
                       <Printer size={15} />
                     </button>
+                    {canCollect && OPEN_STATUSES.has(inv.status) && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCollecting(inv);
+                        }}
+                        title={t("debts.collect")}
+                        aria-label={t("debts.collect")}
+                        className="ms-1 rounded-control p-1.5 text-muted hover:bg-paper hover:text-accent"
+                      >
+                        <HandCoins size={15} />
+                      </button>
+                    )}
                     {canVoid && inv.status !== "void" && (
                       <button
                         onClick={(e) => {
@@ -146,6 +164,13 @@ export default function InvoiceList({ refreshKey }) {
         onClose={() => setOpenId(null)}
         fetcher={sales.invoiceDocument}
         title={t("sales.invoice")}
+      />
+      <CollectPaymentDrawer
+        open={Boolean(collecting)}
+        onClose={() => setCollecting(null)}
+        invoice={collecting}
+        customer={collecting ? { id: collecting.customer, name: collecting.customer_name } : null}
+        onDone={load}
       />
       <VoidDrawer
         open={Boolean(voiding)}

@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Lock, Search, UsersRound, Wallet } from "lucide-react";
+import { AlertTriangle, HandCoins, Lock, Search, UsersRound, Wallet } from "lucide-react";
 
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { sales } from "@/lib/api";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import PhoneLink from "@/components/ui/PhoneLink";
+import CollectPaymentDrawer from "@/components/sales/CollectPaymentDrawer";
 
 const STATUS_TONE = { overdue: "danger", owing: "warn", credit: "accent", settled: "ok" };
 
@@ -23,9 +24,11 @@ function date(value, language) {
 }
 
 export default function DebtsPage() {
-  const { canRead } = useAuth();
+  const { canRead, canWrite } = useAuth();
   const { t, language } = useI18n();
   const allowed = canRead("sales");
+  const canCollect = canWrite("sales");
+  const [collecting, setCollecting] = useState(false);
   const [filters, setFilters] = useState({ search: "", status: "" });
   const [rows, setRows] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -152,9 +155,20 @@ export default function DebtsPage() {
               <Card className="mb-4 p-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div><h2 className="font-display text-xl font-semibold">{selected.name}</h2><p className="mt-1 text-sm text-muted"><PhoneLink phone={selected.phone} /></p></div>
-                  <div className="text-end"><div className="text-xs text-muted">{t("debts.closingBalance")}</div><div className="tabular text-xl font-semibold">{amount(statement?.closing_balance, language)}</div></div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-end"><div className="text-xs text-muted">{t("debts.closingBalance")}</div><div className="tabular text-xl font-semibold">{amount(statement?.closing_balance, language)}</div></div>
+                    {canCollect && Number(statement?.closing_balance || selected.outstanding || 0) > 0 && (
+                      <Button onClick={() => setCollecting(true)}><HandCoins size={16} />{t("debts.collect")}</Button>
+                    )}
+                  </div>
                 </div>
               </Card>
+              <CollectPaymentDrawer
+                open={collecting}
+                onClose={() => setCollecting(false)}
+                customer={selected}
+                onDone={() => { loadStatement(); loadList(); }}
+              />
               <Card className="p-4">
                 <div className="mb-4 flex flex-wrap items-end justify-between gap-3"><h2 className="font-display text-lg font-semibold">{t("debts.statement")}</h2><div className="flex flex-wrap items-end gap-2"><Field label={t("debts.from")}><Input type="date" value={dates.start} onChange={(event) => setDates((current) => ({ ...current, start: event.target.value }))} /></Field><Field label={t("debts.to")}><Input type="date" value={dates.end} onChange={(event) => setDates((current) => ({ ...current, end: event.target.value }))} /></Field><Button onClick={loadStatement}>{t("debts.apply")}</Button><Button variant="ghost" onClick={() => setDates({ start: "", end: "" })}>{t("debts.clear")}</Button></div></div>
                 <div className="mb-3 grid grid-cols-2 gap-3"><div className="rounded-control bg-paper p-3"><div className="text-xs text-muted">{t("debts.openingBalance")}</div><div className="mt-1 tabular font-semibold">{amount(statement?.opening_balance, language)}</div></div><div className="rounded-control bg-paper p-3"><div className="text-xs text-muted">{t("debts.closingBalance")}</div><div className="mt-1 tabular font-semibold">{amount(statement?.closing_balance, language)}</div></div></div>

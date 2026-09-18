@@ -135,6 +135,8 @@ export const sales = {
   createRefund: (body) => api.post("/refunds/", body),
   refundDocument: (id) => api.get(`/refunds/${id}/document/`),
   payments: (params) => api.get("/payments/", { params }),
+  // A customer settling debt after the sale: one Payment per invoice.
+  createPayment: (body) => api.post("/payments/", body),
   paymentDocument: (id) => api.get(`/payments/${id}/document/`),
   customers: (params) => api.get("/customers/", { params }),
   // Every customer, for pickers: the POS must be able to name any account
