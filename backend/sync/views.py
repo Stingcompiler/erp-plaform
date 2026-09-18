@@ -227,8 +227,14 @@ def _pull_specs():
         StockMovementSerializer,
         WarehouseSerializer,
     )
-    from purchasing.models import Supplier
-    from purchasing.serializers import SupplierSerializer
+    from hr.models import Employee
+    from hr.serializers import EmployeeSerializer
+    from purchasing.models import Bill, PurchaseOrder, Supplier
+    from purchasing.serializers import (
+        BillSerializer,
+        PurchaseOrderSerializer,
+        SupplierSerializer,
+    )
     from sales.models import Customer, Invoice
     from sales.serializers import CustomerSerializer, InvoiceSerializer
 
@@ -249,7 +255,17 @@ def _pull_specs():
         ("customers", Customer, CustomerSerializer, "updated_at", "sales"),
         ("invoices", Invoice, InvoiceSerializer, "received_at", "sales"),
         ("suppliers", Supplier, SupplierSerializer, "updated_at", "purchasing"),
+        # Receiving against an order and paying a bill both happen on the
+        # floor with the connection down; the attendance register too.
+        ("purchase_orders", PurchaseOrder, PurchaseOrderSerializer, "updated_at", "purchasing"),
+        ("bills", Bill, BillSerializer, "updated_at", "purchasing"),
+        ("employees", Employee, EmployeeSerializer, "updated_at", "hr"),
     ]
+
+
+# A device's first pull mirrors the history it can use, not the whole ledger:
+# an old invoice is neither sold against nor collected on at the till.
+INVOICE_HISTORY_DAYS = 90
 
 
 class SyncPullView(APIView):
@@ -302,6 +318,10 @@ class SyncPullView(APIView):
             qs = model.objects.filter(company_id=company_id)
             if since is not None:
                 qs = qs.filter(**{f"{ts_field}__gt": since})
+            elif key == "invoices":
+                qs = qs.filter(
+                    received_at__gte=snapshot - timezone.timedelta(days=INVOICE_HISTORY_DAYS)
+                )
             qs = qs.filter(**{f"{ts_field}__lte": snapshot})
             marker = state.get(key)
             if marker:

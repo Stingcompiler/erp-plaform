@@ -1171,6 +1171,7 @@ const en = {
       status: { present: "Present", absent: "Absent", half_day: "Half day", leave: "On leave" },
       emptyMonth: "Nothing recorded for {month}.",
       saveError: "Could not save attendance.",
+      queued: "Offline — the mark is saved on this device and will upload when the connection returns.",
     },
     records: {
       reviews: "Reviews",
@@ -3465,6 +3466,7 @@ const ar = {
       status: { present: "حاضر", absent: "غائب", half_day: "نصف يوم", leave: "في إجازة" },
       emptyMonth: "لا تسجيلات في {month}.",
       saveError: "تعذر حفظ الحضور.",
+      queued: "بلا اتصال — حُفظ التسجيل على هذا الجهاز وسيُرفع عند عودة الاتصال.",
     },
     records: {
       reviews: "التقييمات",

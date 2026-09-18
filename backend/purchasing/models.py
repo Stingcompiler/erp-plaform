@@ -80,6 +80,9 @@ class PurchaseOrder(models.Model):
         related_name="purchase_orders",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # Drives the offline delta pull: a confirmed or received order must reach
+    # the other devices even though nothing else on the row changed.
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -206,6 +209,7 @@ class Bill(models.Model):
         related_name="bills",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     client_uuid = models.UUIDField(null=True, blank=True, unique=True)
 
     class Meta:

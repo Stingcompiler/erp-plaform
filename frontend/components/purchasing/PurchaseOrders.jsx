@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { PackageCheck, Plus, Send, Trash2, XCircle } from "lucide-react";
 
 import { inventory, purchasing } from "@/lib/api";
+import { offlineStore } from "@/lib/offlineStore";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
@@ -136,7 +137,11 @@ export default function PurchaseOrders({ suppliers, writable, onReceive, refresh
   const [busyId, setBusyId] = useState(null);
 
   const load = useCallback(() => {
-    purchasing.purchaseOrders({ page_size: 200 }).then((r) => setRows(r.data.results ?? r.data)).catch(() => setRows([]));
+    purchasing.purchaseOrders({ page_size: 200 })
+      .then((r) => setRows(r.data.results ?? r.data))
+      // Receiving against an order is floor work; the mirror keeps the open
+      // orders in reach while the connection is down.
+      .catch(() => offlineStore.getAll("purchase_orders").then(setRows).catch(() => setRows([])));
   }, []);
   useEffect(() => { load(); }, [load, refreshKey]);
 

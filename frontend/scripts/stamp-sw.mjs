@@ -27,15 +27,35 @@ export function listPrecacheAssets(root = out) {
   return files.map((f) => "/" + relative(root, f).split("\\").join("/")).sort();
 }
 
+// Every exported HTML page of the app itself: each is a small shell, and a
+// page that is not cached cannot be opened offline at all.
+const MARKETING = new Set(["en", "compare", "guides", "solutions", "product", "pricing", "register", "marketing", "404"]);
+export function listAppPages(root = out) {
+  const pages = [];
+  const walk = (dir, prefix) => {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name);
+      if (!statSync(full).isDirectory()) continue;
+      if (prefix === "" && (MARKETING.has(name) || name.startsWith("_") || name === "icons")) continue;
+      if (existsSync(join(full, "index.html"))) pages.push(`${prefix}/${name}/`);
+      walk(full, `${prefix}/${name}`);
+    }
+  };
+  walk(root, "");
+  return pages.sort();
+}
+
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if (isMain) {
   const path = join(out, "sw.js");
   if (!existsSync(path)) { console.error("out/sw.js missing — run next build first"); process.exit(1); }
   const assets = listPrecacheAssets();
+  const pages = listAppPages();
   const stamped = readFileSync(path, "utf8")
     .replace("__BUILD__", build)
+    .replace("__PRECACHE_APP_PAGES__", JSON.stringify(pages))
     .replace("__PRECACHE_ASSETS__", JSON.stringify(assets));
   writeFileSync(path, stamped);
   const bytes = assets.reduce((n, a) => n + statSync(join(out, a)).size, 0);
-  console.log(`sw.js stamped with build ${build}: ${assets.length} assets, ${(bytes / 1024).toFixed(0)} KB precached`);
+  console.log(`sw.js stamped with build ${build}: ${pages.length} pages, ${assets.length} assets, ${(bytes / 1024).toFixed(0)} KB precached`);
 }

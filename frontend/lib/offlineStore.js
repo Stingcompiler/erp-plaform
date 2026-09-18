@@ -1,6 +1,6 @@
 // Local mirror of the records a till needs while the server is unreachable:
-// products (barcode/sku/name/price), customers, suppliers and recent
-// invoices. Fed by /api/sync/pull/ (which already existed on the server but
+// products (barcode/sku/name/price), customers, suppliers, recent invoices,
+// purchase orders, bills and employees. Fed by /api/sync/pull/ (which already existed on the server but
 // nothing called it) and read by the POS when a request fails.
 //
 // IndexedDB rather than localStorage: a catalogue of a few thousand products
@@ -15,8 +15,10 @@
 
 import { localScope } from "./localIdentity.js";
 
-const VERSION = 1;
-const STORES = ["products", "warehouses", "customers", "suppliers", "invoices"];
+// v2 adds purchase orders, bills and employees (receiving, paying and the
+// attendance register all happen with the connection down).
+const VERSION = 2;
+const STORES = ["products", "warehouses", "customers", "suppliers", "invoices", "purchase_orders", "bills", "employees"];
 
 function dbName(scope) {
   return `vezano.offline.v${VERSION}:${scope}`;

@@ -22,6 +22,8 @@ from inventory.serializers import (
     StockMovementSerializer,
     StockTransferSerializer,
 )
+from hr.models import Attendance
+from hr.serializers import AttendanceSerializer
 from purchasing.models import GoodsReceipt, SupplierPayment
 from purchasing.serializers import (
     GoodsReceiptWriteSerializer,
@@ -72,6 +74,9 @@ OP_REGISTRY = {
         PurchaseReturnWriteSerializer, PurchaseReturn, "purchase_returns", PLAIN
     ),
     "credit_note": OpSpec(CreditNoteSerializer, CreditNote, "sales_returns", MODEL),
+    # One row per employee per day; the serializer upserts, so a day marked
+    # twice offline (present, then corrected to half day) lands as one row.
+    "attendance": OpSpec(AttendanceSerializer, Attendance, "hr", MODEL),
     "refund": OpSpec(RefundSerializer, Refund, "sales_returns", MODEL),
     "debit_note": OpSpec(DebitNoteSerializer, DebitNote, "purchase_returns", MODEL),
 }
@@ -97,7 +102,10 @@ def process_operation(request, op):
         return ERROR, "", "", "Your role does not permit this operation.", client_uuid
 
     # Idempotency: if this op's client_uuid already produced a record, skip it.
-    if client_uuid:
+    # Attendance carries no client_uuid; it is idempotent by nature (one row
+    # per employee and day, upserted by its serializer).
+    idempotent_by_uuid = any(f.name == "client_uuid" for f in spec.model._meta.get_fields())
+    if client_uuid and idempotent_by_uuid:
         existing = spec.model.objects.filter(
             company_id=company_id, client_uuid=client_uuid
         ).first()
@@ -127,7 +135,7 @@ def process_operation(request, op):
         # pre-check above missed it, the unique index caught it. That is a
         # duplicate, not a failure — report the row that won so the client
         # clears its queue instead of retrying forever.
-        if client_uuid:
+        if client_uuid and idempotent_by_uuid:
             existing = spec.model.objects.filter(
                 company_id=company_id, client_uuid=client_uuid
             ).first()

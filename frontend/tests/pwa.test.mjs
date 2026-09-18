@@ -72,3 +72,16 @@ test("every cache lookup in the worker ignores Vary (Django varies static respon
   assert.ok(lookups.length >= 3, "expected cache.match calls");
   for (const call of lookups) assert.ok(call.includes("MATCH"), `${call} does not pass ignoreVary`);
 });
+
+test("every app page is precached and the offline fallback never swaps pages", async () => {
+  const { listAppPages } = await import("../scripts/stamp-sw.mjs");
+  const { existsSync } = await import("node:fs");
+  const sw = (await import("node:fs")).readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
+  assert.ok(sw.includes("__PRECACHE_APP_PAGES__"), "sw.js must take the app page list at build time");
+  assert.ok(!/variants = \[[^\]]*"\/sales\/"/.test(sw), "fallback must not hand out the POS for another route");
+  if (existsSync(new URL("../out/hr/index.html", import.meta.url))) {
+    const pages = listAppPages();
+    for (const p of ["/hr/", "/debts/", "/reports/", "/org/", "/settings/"]) assert.ok(pages.includes(p), `${p} missing`);
+    assert.ok(!pages.includes("/en/"), "marketing pages are not app shell");
+  }
+});
