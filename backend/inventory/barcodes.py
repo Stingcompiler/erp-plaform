@@ -85,3 +85,24 @@ def next_internal_barcode(company_id):
             break
     seq.save(update_fields=["last_number"])
     return code
+
+
+def scan_candidates(code):
+    """The codes a scanned string may be stored under.
+
+    Scanners and catalogues disagree about leading zeros: a UPC-A label is
+    12 digits, the same article in an EAN-13 catalogue is the same 12 digits
+    with a leading 0, and some scanners strip the 0 when they read an EAN-13
+    that starts with one. Exact match first, then the other spelling — never
+    a fuzzy search, a scan must still resolve to one product.
+    """
+    code = str(code or "").strip()
+    if not code:
+        return []
+    candidates = [code]
+    if code.isdigit():
+        if len(code) == 12:
+            candidates.append("0" + code)
+        elif len(code) == 13 and code.startswith("0"):
+            candidates.append(code[1:])
+    return candidates
