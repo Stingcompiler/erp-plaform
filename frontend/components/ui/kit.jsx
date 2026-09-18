@@ -47,13 +47,19 @@ export const controlClass =
 
 // forwardRef so callers can focus the field programmatically — the barcode
 // scanner relies on refocusing after every scan.
+// A caller passing its own width (`w-20`, `w-28`) means it; controlClass's
+// `w-full` must yield to it instead of racing it in the stylesheet order.
+function sized(className) {
+  return /\bw-\S+/.test(className) ? controlClass.replace("w-full ", "") : controlClass;
+}
+
 export const Input = forwardRef(function Input({ className = "", ...props }, ref) {
-  return <input ref={ref} className={`${controlClass} ${className}`} {...props} />;
+  return <input ref={ref} className={`${sized(className)} ${className}`} {...props} />;
 });
 
 export function Select({ className = "", children, ...props }) {
   return (
-    <select className={`${controlClass} ${className}`} {...props}>
+    <select className={`${sized(className)} ${className}`} {...props}>
       {children}
     </select>
   );

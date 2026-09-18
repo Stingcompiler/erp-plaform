@@ -219,17 +219,23 @@ export default function NewReturnDrawer({ open, onClose, onCreated }) {
                               })}
                         </div>
                       </div>
-                      <Input
-                        type="number"
-                        min="0"
-                        max={String(max)}
-                        step="any"
-                        disabled={spent}
-                        placeholder="0"
-                        value={qty[l.id] ?? ""}
-                        onChange={(e) => setLineQty(l.id, e.target.value, max)}
-                        className="w-20"
-                      />
+                      {/* Input is w-full by design; size it through a wrapper
+                          so the label column keeps its room. */}
+                      <div className="w-20 shrink-0">
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          min="0"
+                          max={String(max)}
+                          step="any"
+                          disabled={spent}
+                          placeholder="0"
+                          value={qty[l.id] ?? ""}
+                          onChange={(e) => setLineQty(l.id, e.target.value, max)}
+                          aria-label={`${t("returns.quantity")} ${l.product_sku || ""}`}
+                          className="text-end"
+                        />
+                      </div>
                     </div>
                   );
                 })}
