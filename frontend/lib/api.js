@@ -1,5 +1,8 @@
 import axios from "axios";
 
+import { cacheKey, recall, remember } from "@/lib/responseCache";
+import { clearStale, markStale } from "@/lib/staleData";
+
 // One axios instance for the whole app. withCredentials sends the HttpOnly
 // auth cookie set by /api/auth/login/ on every request, and a 401 interceptor
 // lets the auth layer react to an expired session.
@@ -32,6 +35,32 @@ api.interceptors.response.use(null, async (error) => {
   await refreshInFlight; // a failed refresh rejects: the original 401 stands
   return api({ ...config, _retried: true });
 });
+
+// Last-known responses (lib/responseCache). A successful GET is remembered;
+// a GET that dies on the wire (no response at all — the server is
+// unreachable, not refusing) is answered from that memory, flagged
+// `stale` with the time it was fetched, and the banner says so. A real
+// server answer (4xx/5xx) is never masked: those mean something.
+api.interceptors.response.use(
+  (response) => {
+    const key = cacheKey(response.config);
+    if (key && response.status === 200) {
+      remember(key, response.data);
+      clearStale();
+    }
+    return response;
+  },
+  async (error) => {
+    const { config, response } = error;
+    if (response || !config) throw error;
+    const key = cacheKey(config);
+    if (!key) throw error;
+    const hit = await recall(key);
+    if (!hit) throw error;
+    markStale(hit.ts);
+    return { data: hit.data, status: 200, statusText: "OK (cached)", headers: {}, config, stale: true, cachedAt: hit.ts };
+  },
+);
 
 // Platform inboxes (subscriptions, payments, registrations) must show every
 // row, not the first page: a pending payment on page 2 is still pending. This
