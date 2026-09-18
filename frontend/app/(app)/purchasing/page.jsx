@@ -10,6 +10,7 @@ import { Badge, Button, Card, PageHeader } from "@/components/ui/kit";
 import PhoneLink from "@/components/ui/PhoneLink";
 import SupplierForm from "@/components/purchasing/SupplierForm";
 import ReceivingTerminal from "@/components/purchasing/ReceivingTerminal";
+import PurchaseOrders from "@/components/purchasing/PurchaseOrders";
 import BillList from "@/components/purchasing/BillList";
 import NewBillDrawer from "@/components/purchasing/NewBillDrawer";
 
@@ -91,6 +92,8 @@ export default function PurchasingPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [billOpen, setBillOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  // An order handed to the receiving screen ("receive against this order").
+  const [receivingOrder, setReceivingOrder] = useState(null);
 
   const loadSuppliers = useCallback(() => {
     setLoadingSuppliers(true);
@@ -121,6 +124,7 @@ export default function PurchasingPage() {
 
   const tabs = [
     { id: "suppliers", label: t("purchasing.suppliers") },
+    { id: "orders", label: t("purchasing.po.tab") },
     ...(writable ? [{ id: "receive", label: t("purchasing.receiveStock") }] : []),
     { id: "bills", label: t("purchasing.bills") },
   ];
@@ -164,11 +168,20 @@ export default function PurchasingPage() {
           onNew={() => setFormOpen(true)}
         />
       )}
+      {tab === "orders" && (
+        <PurchaseOrders
+          suppliers={suppliers}
+          writable={writable}
+          refreshKey={refreshKey}
+          onReceive={(order) => { setReceivingOrder(order); setTab("receive"); }}
+        />
+      )}
       {tab === "receive" && writable && (
         <ReceivingTerminal
           suppliers={suppliers}
           warehouses={warehouses}
-          onReceived={() => setRefreshKey((k) => k + 1)}
+          initialOrder={receivingOrder}
+          onReceived={() => { setReceivingOrder(null); setRefreshKey((k) => k + 1); }}
         />
       )}
       {tab === "bills" && (
