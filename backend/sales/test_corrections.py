@@ -283,6 +283,29 @@ class CreditNoteCapTests(CorrectionBase):
         self.assertEqual(Decimal(summary["revenue"]), Decimal("150.00"))
         self.assertEqual(invoice.amount_due(), Decimal("150.00"))
 
+    def test_price_correction_on_a_taxed_invoice_is_netted_of_tax(self):
+        # subtotal 100 / total 115 / note 23 -> the note carries 3 of tax and
+        # 20 of revenue. On SQLite a ratio of two whole-number columns used
+        # to be computed as integer division (115 / 100 = 1), which left the
+        # tax inside the adjustment and understated revenue by 3.
+        profile = self.company.tax_profile
+        profile.flat_tax_rate = Decimal("15")
+        profile.save()
+        invoice = Invoice.objects.get(pk=self._sell(qty="1").data["id"])
+        self.assertEqual(invoice.subtotal, Decimal("100.00"))
+        self.assertEqual(invoice.total, Decimal("115.00"))
+        self._as(self.owner)
+        ok = self.client.post(
+            reverse("creditnote-list"),
+            {"customer": self.customer.pk, "invoice": invoice.pk, "amount": "23.00",
+             "reason": "price correction"},
+            format="json",
+        )
+        self.assertEqual(ok.status_code, 201, ok.data)
+        summary = operating_summary(self.company.pk)
+        self.assertEqual(Decimal(summary["revenue"]), Decimal("80.00"))
+        self.assertEqual(invoice.amount_due(), Decimal("92.00"))
+
 
 class PaymentGuardTests(CorrectionBase):
     def test_payment_is_capped_by_the_locked_balance(self):
