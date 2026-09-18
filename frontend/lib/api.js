@@ -139,6 +139,8 @@ export const sales = {
   createPayment: (body) => api.post("/payments/", body),
   paymentDocument: (id) => api.get(`/payments/${id}/document/`),
   customers: (params) => api.get("/customers/", { params }),
+  createCustomer: (body) => api.post("/customers/", body),
+  updateCustomer: (id, body) => api.patch(`/customers/${id}/`, body),
   // Every customer, for pickers: the POS must be able to name any account
   // customer, not only the first page.
   allCustomers: (params) => listAll("/customers/", { page_size: 500, ...params }),

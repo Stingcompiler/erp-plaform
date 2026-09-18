@@ -79,6 +79,7 @@ class CompanyProfileView(APIView):
         "business_type",
         "payment_approval_threshold",
         "stock_adjustment_approval_threshold",
+        "default_payment_terms_days",
     ]
 
     def _company(self, request):
@@ -144,6 +145,13 @@ class CompanyProfileView(APIView):
                         return Response({field: "Must be a number."}, status=400)
                     if value < 0:
                         return Response({field: "Cannot be negative."}, status=400)
+                if field == "default_payment_terms_days":
+                    try:
+                        value = int(value)
+                    except (TypeError, ValueError):
+                        return Response({field: "Must be a whole number of days."}, status=400)
+                    if value < 0 or value > 365:
+                        return Response({field: "Must be between 0 and 365 days."}, status=400)
                 if field == "timezone" and not is_valid_timezone(value):
                     return Response(
                         {

@@ -113,6 +113,7 @@ export default function SettingsPage() {
         registration_number: company.registration_number,
         currency: company.currency,
         timezone: company.timezone,
+        default_payment_terms_days: company.default_payment_terms_days,
       });
       setCompany(r.data);
       setCompanyMsg(t("settings.companySaved"));
@@ -221,6 +222,15 @@ export default function SettingsPage() {
                 />
               </Field>
             </div>
+            <Field label={t("settings.defaultTerms")} hint={t("settings.defaultTermsHint")}>
+              <Input
+                type="number" inputMode="numeric" min="0" max="365"
+                value={company.default_payment_terms_days ?? ""}
+                onChange={setCo("default_payment_terms_days")}
+                disabled={!writable}
+                className="w-32"
+              />
+            </Field>
             <Field label={t("settings.address")}>
               <Input
                 value={company.address || ""}

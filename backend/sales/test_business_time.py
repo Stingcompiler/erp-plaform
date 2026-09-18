@@ -58,7 +58,11 @@ class BusinessTimeTests(APITestCase):
         for received in (invoice.received_at, movement.received_at, payment.received_at):
             self.assertLess(abs((received - timezone.now()).total_seconds()), 60)
         # Due date derives from the business date.
-        self.assertEqual(invoice.due_date, sold_at.date())
+        # Due date is anchored on the offline sale time, not the upload time,
+        # plus the terms the sale was given.
+        self.assertEqual(
+            invoice.due_date, sold_at.date() + timedelta(days=invoice.payment_terms_days)
+        )
 
     def test_online_sale_defaults_to_now(self):
         response = self._checkout()
