@@ -8,6 +8,7 @@ import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { PageHeader } from "@/components/ui/kit";
 import PosTerminal from "@/components/sales/PosTerminal";
+import QuotesOrders from "@/components/sales/QuotesOrders";
 import { offlineStore } from "@/lib/offlineStore";
 import InvoiceList from "@/components/sales/InvoiceList";
 import BankAccounts from "@/components/sales/BankAccounts";
@@ -26,6 +27,8 @@ export default function SalesPage() {
   const [customers, setCustomers] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  // A confirmed sales order handed to the till to be invoiced.
+  const [orderToInvoice, setOrderToInvoice] = useState(null);
   // The caller's open till session, lifted here so the POS can stamp every
   // sale with it and the till tab can show the running expectation.
   const [shift, setShift] = useState(null);
@@ -59,6 +62,7 @@ export default function SalesPage() {
   const tabs = [
     ...(writable ? [{ id: "pos", label: t("sales.pos") }] : []),
     ...(writable ? [{ id: "till", label: t("till.tab") }] : []),
+    { id: "quotes", label: t("quotes.tab") },
     { id: "invoices", label: t("sales.invoices"), attentionKey: "sales" },
     ...(writable ? [{ id: "banks", label: t("sales.bankAccounts") }] : []),
   ];
@@ -76,7 +80,16 @@ export default function SalesPage() {
           onCustomersChanged={() => sales.allCustomers().then((rows) => setCustomers(rows)).catch(() => {})}
           bankAccounts={accounts}
           shift={shift}
-          onSold={() => setRefreshKey((k) => k + 1)}
+          initialOrder={orderToInvoice}
+          onSold={() => { setOrderToInvoice(null); setRefreshKey((k) => k + 1); }}
+        />
+      )}
+      {tab === "quotes" && (
+        <QuotesOrders
+          customers={customers}
+          writable={writable}
+          refreshKey={refreshKey}
+          onInvoice={(order) => { setOrderToInvoice(order); setTab("pos"); }}
         />
       )}
       {/* Mounted on every tab so the shift is known before the till is opened —
