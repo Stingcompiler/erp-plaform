@@ -73,6 +73,17 @@ class CheckoutTermsTests(TermsBase):
         self.assertEqual(inv.due_date, inv.issued_at.date())
 
 
+class ZeroTenderTests(TermsBase):
+    def test_nothing_tendered_records_no_payment(self):
+        # The till sends the tendered amount; a customer paying nothing at the
+        # counter is a credit sale, not a receipt of 0.00.
+        inv = self._sell(payment={"method": "cash", "amount": "0"})
+        self.assertEqual(inv.payments.count(), 0)
+        self.assertEqual(inv.amount_due(), inv.total)
+        listed = self.client.get("/api/invoices/", {"page": 1}).data["results"][0]
+        self.assertEqual(listed["customer_name"], "Buyer")
+
+
 class ProfileAndCustomerFieldTests(TermsBase):
     def test_company_default_is_editable_within_bounds(self):
         ok = self.client.patch(

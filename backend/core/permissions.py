@@ -1,3 +1,4 @@
+from django.utils.translation import gettext_lazy as _
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 from core.rbac import (
@@ -129,7 +130,7 @@ class CanApproveSalaryAdvance(BasePermission):
     that approve high-value financial operations may therefore decide it.
     """
 
-    message = "Only the financial manager or an authorised executive may decide a salary advance."
+    message = _("Only a financial manager or an authorised executive may approve this.")
 
     def has_permission(self, request, view):
         user = request.user

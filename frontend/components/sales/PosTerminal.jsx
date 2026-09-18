@@ -293,11 +293,13 @@ export default function PosTerminal({
     // payment is capped at what is owed and the surplus is handed back as
     // change. Typing less than the bill still records a partial payment.
     const tendered = amount === "" ? grandTotal : Number(amount || 0);
-    const payment = {
+    // Nothing tendered is a credit sale: send no payment rather than a
+    // payment of zero, which would appear in the ledger as money received.
+    const payment = tendered > 0 ? {
       method,
       amount: String(Math.min(tendered, grandTotal)),
-    };
-    if (method === "bank_transfer") {
+    } : null;
+    if (payment && method === "bank_transfer") {
       payment.company_bank_account = Number(bankAccount);
       if (reference) payment.reference_last4 = reference;
     }

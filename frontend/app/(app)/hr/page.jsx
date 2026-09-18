@@ -418,7 +418,10 @@ export default function HrPage() {
   const { t, language } = useI18n();
   const toast = useToast();
   const writable = canWrite("hr");
-  const canViewPayroll = (user?.report_areas || []).some((area) => area === "hr" || area === "finance");
+  // Mirrors core.permissions.PayrollReportAccess: HR/finance oversight, but
+  // a branch manager sees staff, not salaries.
+  const canViewPayroll = user?.role_name !== "Branch Manager"
+    && (user?.report_areas || []).some((area) => area === "hr" || area === "finance");
   const canApproveAdvances = Boolean(
     user?.is_platform_admin || [
       "Chief Financial Officer",

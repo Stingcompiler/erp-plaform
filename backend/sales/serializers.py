@@ -324,11 +324,12 @@ class InvoiceSerializer(serializers.ModelSerializer):
     amount_due = serializers.SerializerMethodField()
     days_overdue = serializers.IntegerField(read_only=True)
     is_overdue = serializers.BooleanField(read_only=True)
+    customer_name = serializers.CharField(source="customer.name", read_only=True, default=None)
 
     class Meta:
         model = Invoice
         fields = [
-            "id", "company", "customer", "branch", "warehouse", "number",
+            "id", "company", "customer", "customer_name", "branch", "warehouse", "number",
             "number_display", "local_reference", "received_at", "currency", "exchange_rate",
             "tax_rate_snapshot",
             "subtotal", "discount_total", "tax_amount", "total", "is_void", "status",
@@ -953,6 +954,11 @@ class POSCheckoutSerializer(serializers.Serializer):
         invoice.save(update_fields=["subtotal", "discount_total", "tax_amount", "total"])
 
         pay = validated_data.get("payment")
+        # Nothing tendered is a credit sale, not a payment of zero: a 0.00
+        # row would sit in the verification worklist, the ledger and the
+        # customer's statement as money that never moved.
+        if pay and pay["amount"] <= 0:
+            pay = None
         paid_now = pay["amount"] if pay else Decimal("0")
         self._assert_credit_allowed(
             validated_data.get("customer"), invoice, invoice.total - paid_now, user

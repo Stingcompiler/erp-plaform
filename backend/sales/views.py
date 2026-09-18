@@ -255,6 +255,8 @@ class CompanyBankAccountViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet)
     queryset = CompanyBankAccount.objects.all()
     serializer_class = CompanyBankAccountSerializer
     activity_entity_type = "CompanyBankAccount"
+    # Supplier payments and the money ledger name the paying account.
+    rbac_read_modules = ("purchasing", "finance")
     # Exception to the archive default: a bank account is treasury, not
     # catalogue data. Anyone with sales write can record against it, but
     # retiring one is a manager's call.
@@ -948,6 +950,7 @@ class RefundViewSet(AppendOnlyScopedViewSet):
     ).all()
     serializer_class = RefundSerializer
     activity_entity_type = "Refund"
+    rbac_read_modules = ("finance",)
 
     def get_queryset(self):
         qs = super().get_queryset()
