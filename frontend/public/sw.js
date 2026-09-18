@@ -20,8 +20,11 @@
  */
 const BUILD = "__BUILD__";
 const CACHE = `vezano-shell-${BUILD}`;
-// Routes a cashier needs reachable with no network at all.
+// Every screen of the app, so the person lands on the page they asked for
+// with no network — never on a different one. Filled in at build time from
+// the export; the list below is the floor the PWA manifest relies on.
 const PRECACHE_PAGES = ["/", "/login/", "/dashboard/", "/sales/", "/inventory/", "/returns/"];
+const PRECACHE_APP_PAGES = __PRECACHE_APP_PAGES__;
 // Every hashed chunk, stylesheet and font of this build, plus the manifest
 // and icons — filled in at build time from the export.
 const PRECACHE_ASSETS = __PRECACHE_ASSETS__;
@@ -37,7 +40,7 @@ const MATCH = { ignoreVary: true };
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE).then((cache) =>
-      cache.addAll([...PRECACHE_PAGES, ...PRECACHE_ASSETS].map((url) => new Request(url, { cache: "reload" }))),
+      cache.addAll([...new Set([...PRECACHE_PAGES, ...PRECACHE_APP_PAGES]), ...PRECACHE_ASSETS].map((url) => new Request(url, { cache: "reload" }))),
     ),
   );
 });
@@ -99,10 +102,12 @@ async function networkFirst(request) {
     if (response.ok) cache.put(request, response.clone());
     return response;
   } catch {
-    // Exact page first, then the same page with/without trailing slash, then
-    // the POS as the most useful screen to land on with no network.
+    // The requested page only (with or without the trailing slash). Serving
+    // another page's HTML — the old fallback handed out the POS — rendered
+    // the wrong screen under the right address whenever a navigation was
+    // slow or offline; the app hydrates the page in the HTML, not the URL.
     const url = new URL(request.url);
-    const variants = [url.pathname, url.pathname.replace(/\/?$/, "/"), "/sales/", "/dashboard/"];
+    const variants = [url.pathname, url.pathname.replace(/\/?$/, "/")];
     for (const path of variants) {
       const hit = await cache.match(new Request(new URL(path, url.origin)), MATCH);
       if (hit) return hit;

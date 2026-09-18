@@ -246,3 +246,56 @@ class QueuedRefundTests(SyncBase):
         self.assertEqual(refund.recorded_by, self.user)
         self.assertEqual(shift.drawer_movements.count(), 1)
         self.assertEqual(shift.drawer_movements.get().amount, Decimal("-15.00"))
+
+
+class QueuedAttendanceTests(SyncBase):
+    def test_attendance_marked_twice_offline_lands_as_one_row(self):
+        from hr.models import Attendance, Employee
+
+        employee = Employee.objects.create(company=self.company, full_name="Sara", status="active")
+        ops = [
+            {"op_type": "attendance", "client_uuid": str(uuid.uuid4()),
+             "payload": {"employee": employee.id, "date": "2026-09-18", "status": "present"}},
+            {"op_type": "attendance", "client_uuid": str(uuid.uuid4()),
+             "payload": {"employee": employee.id, "date": "2026-09-18", "status": "half_day",
+                         "check_in": "08:30"}},
+        ]
+        response = self.push(ops)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["summary"]["applied"], 2, response.data)
+        rows = Attendance.objects.filter(employee=employee, date="2026-09-18")
+        self.assertEqual(rows.count(), 1)
+        self.assertEqual(rows.get().status, "half_day")
+        self.assertEqual(str(rows.get().check_in), "08:30:00")
+
+
+class PullWideningTests(SyncBase):
+    def test_pull_includes_orders_bills_employees_and_caps_old_invoices(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from hr.models import Employee
+        from purchasing.models import Bill, PurchaseOrder, Supplier
+        from sales.models import Invoice
+
+        supplier = Supplier.objects.create(company=self.company, name="Acme")
+        PurchaseOrder.objects.create(company=self.company, supplier=supplier)
+        Bill.objects.create(company=self.company, supplier=supplier, subtotal=1, total=1)
+        Employee.objects.create(company=self.company, full_name="Sara", status="active")
+        old = Invoice.objects.create(
+            company=self.company, branch=self.branch, warehouse=self.wh, number=1,
+            subtotal=1, total=1,
+        )
+        Invoice.objects.filter(pk=old.pk).update(received_at=timezone.now() - timedelta(days=200))
+        Invoice.objects.create(
+            company=self.company, branch=self.branch, warehouse=self.wh, number=2,
+            subtotal=1, total=1,
+        )
+        response = self.client.get(reverse("sync-pull"))
+        self.assertEqual(response.status_code, 200)
+        changes = response.data["changes"]
+        self.assertEqual(len(changes["purchase_orders"]), 1)
+        self.assertEqual(len(changes["bills"]), 1)
+        self.assertEqual(len(changes["employees"]), 1)
+        self.assertEqual([i["number"] for i in changes["invoices"]], [2])

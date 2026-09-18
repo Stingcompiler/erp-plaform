@@ -51,9 +51,9 @@ test("sales taken offline survive a reload and upload once when the network retu
   // after its first visit while online.
   await page.goto("/sales/");
   await expect.poll(() => page.evaluate(async () => Boolean((await navigator.serviceWorker.getRegistration())?.active))).toBe(true);
-  await expect.poll(() => page.evaluate(async () => (await indexedDB.databases()).some((d) => d.name.startsWith("vezano.offline.v1:"))), { timeout: 30_000 }).toBe(true);
+  await expect.poll(() => page.evaluate(async () => (await indexedDB.databases()).some((d) => d.name.startsWith("vezano.offline.v"))), { timeout: 30_000 }).toBe(true);
   await expect.poll(() => page.evaluate(async () => {
-    const name = (await indexedDB.databases()).map((d) => d.name).find((n) => n.startsWith("vezano.offline.v1:"));
+    const name = (await indexedDB.databases()).map((d) => d.name).find((n) => n.startsWith("vezano.offline.v"));
     const db = await new Promise((res) => { const r = indexedDB.open(name); r.onsuccess = () => res(r.result); });
     const n = await new Promise((res) => { const r = db.transaction("products").objectStore("products").count(); r.onsuccess = () => res(r.result); });
     db.close();

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { CalendarDays } from "lucide-react";
 
 import { hr } from "@/lib/api";
+import { offlineStore } from "@/lib/offlineStore";
+import { useOfflineMutation } from "@/components/sync/useOfflineMutation";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import TabBar from "@/components/ui/TabBar";
@@ -16,11 +18,18 @@ const today = () => new Date().toISOString().slice(0, 10);
 async function allEmployees() {
   const rows = [];
   let page = 1;
-  for (;;) {
-    const { data } = await hr.employees({ page, status: "active" });
-    rows.push(...data.results);
-    if (!data.next) return rows;
-    page += 1;
+  try {
+    for (;;) {
+      const { data } = await hr.employees({ page, status: "active" });
+      rows.push(...data.results);
+      if (!data.next) return rows;
+      page += 1;
+    }
+  } catch (err) {
+    if (err?.response || rows.length) throw err;
+    // Server unreachable: the mirrored staff list still lets the day be marked.
+    const local = await offlineStore.getAll("employees");
+    return local.filter((e) => e.status === "active");
   }
 }
 
@@ -34,6 +43,7 @@ async function allEmployees() {
 export default function AttendanceRegister({ writable }) {
   const { t, language } = useI18n();
   const toast = useToast();
+  const mutate = useOfflineMutation();
   const [view, setView] = useState("day");
   const [day, setDay] = useState(today);
   const [month, setMonth] = useState(() => today().slice(0, 7));
@@ -47,7 +57,7 @@ export default function AttendanceRegister({ writable }) {
   const loadDay = useCallback(() => {
     hr.attendance({ date: day, page_size: 500 })
       .then((r) => setRecords(Object.fromEntries((r.data.results ?? r.data).map((a) => [a.employee, a]))))
-      .catch(() => setRecords({}));
+      .catch((err) => { if (err?.response) setRecords({}); });
   }, [day]);
   useEffect(() => { if (view === "day") loadDay(); }, [view, loadDay]);
   useEffect(() => {
@@ -60,12 +70,26 @@ export default function AttendanceRegister({ writable }) {
     const existing = records[employee.id];
     setBusy(employee.id);
     try {
-      if (existing) {
+      if (existing?.id) {
         const r = await hr.updateAttendance(existing.id, patch);
         setRecords((m) => ({ ...m, [employee.id]: r.data }));
       } else {
-        const r = await hr.createAttendance({ employee: employee.id, date: day, status: "present", ...patch });
-        setRecords((m) => ({ ...m, [employee.id]: r.data }));
+        // One mark per employee and day; the server upserts, so a queued
+        // offline mark (or a correction to it) never collides on sync.
+        // A fresh id per mark: a queued record carries the id of the op that
+        // created it, and reusing it would make the queue keep the old mark.
+        const { id: _id, client_uuid: _cu, queued: _q, ...carried } = existing || {};
+        const body = {
+          employee: employee.id, date: day, status: "present", ...carried, ...patch,
+          client_uuid: crypto.randomUUID(),
+        };
+        const r = await mutate("attendance", (payload) => hr.createAttendance(payload), body);
+        if (r.queued) {
+          setRecords((m) => ({ ...m, [employee.id]: { ...body, queued: true } }));
+          toast.info(t("hr.attendance.queued"));
+        } else {
+          setRecords((m) => ({ ...m, [employee.id]: r.data }));
+        }
       }
     } catch (err) {
       const data = err?.response?.data;

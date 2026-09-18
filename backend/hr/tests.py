@@ -62,11 +62,19 @@ class EmployeeTests(HrBase):
 
 class AttendanceLeavePerfTests(HrBase):
     def test_attendance_unique_per_day(self):
+        # Marking a day twice corrects the one row rather than adding a second
+        # or refusing — the register (and an offline replay) rely on it.
         payload = {"employee": self.emp_a.id, "date": "2026-08-01", "status": "present"}
         first = self.client.post(reverse("attendance-list"), payload, format="json")
         self.assertEqual(first.status_code, 201, first.content)
-        second = self.client.post(reverse("attendance-list"), payload, format="json")
-        self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)
+        second = self.client.post(
+            reverse("attendance-list"), {**payload, "status": "half_day"}, format="json"
+        )
+        self.assertEqual(second.status_code, 201, second.content)
+        self.assertEqual(second.data["id"], first.data["id"])
+        rows = self.emp_a.attendance.filter(date="2026-08-01")
+        self.assertEqual(rows.count(), 1)
+        self.assertEqual(rows.get().status, "half_day")
 
     def test_leave_request_approve_action(self):
         today = date.today()

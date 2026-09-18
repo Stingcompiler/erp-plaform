@@ -155,6 +155,30 @@ class AttendanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["created_at"]
+        # The (employee, date) uniqueness is enforced by create() as an
+        # upsert rather than refused up front — see below.
+        validators = []
+
+    def create(self, validated_data):
+        """The register marks a day, it does not append to it: a second mark
+        for the same employee and day (a correction, or an offline device
+        replaying) updates the existing row instead of tripping the unique
+        constraint."""
+        company_id = validated_data.get("company_id") or getattr(
+            validated_data.get("company"), "pk", None
+        )
+        existing = Attendance.objects.filter(
+            company_id=company_id,
+            employee=validated_data["employee"],
+            date=validated_data["date"],
+        ).first()
+        if existing is None:
+            return super().create(validated_data)
+        for attr, value in validated_data.items():
+            if attr not in ("company", "company_id"):
+                setattr(existing, attr, value)
+        existing.save()
+        return existing
 
 
 # What a medical report may be. Anything else is refused on upload, and the
