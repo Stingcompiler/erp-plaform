@@ -138,6 +138,9 @@ export const sales = {
   // A customer settling debt after the sale: one Payment per invoice.
   createPayment: (body) => api.post("/payments/", body),
   paymentDocument: (id) => api.get(`/payments/${id}/document/`),
+  // Second-person confirmation of money received (segregation of duties;
+  // amounts at/above the company threshold need an approver role).
+  verifyPayment: (id) => api.post(`/payments/${id}/verify/`),
   customers: (params) => api.get("/customers/", { params }),
   createCustomer: (body) => api.post("/customers/", body),
   updateCustomer: (id, body) => api.patch(`/customers/${id}/`, body),

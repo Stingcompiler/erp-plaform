@@ -17,9 +17,10 @@ const TIMEZONES = [
 ];
 
 export default function SettingsPage() {
-  const { user, canRead, canWrite, refresh } = useAuth();
+  const { user, canRead, canWrite, refresh, can } = useAuth();
   const { t, language } = useI18n();
   const writable = canWrite("settings");
+  const canApprove = can("finance.approve");
   const [profile, setProfile] = useState(null);
   const [company, setCompany] = useState(null);
   const [handlers, setHandlers] = useState([]);
@@ -114,6 +115,10 @@ export default function SettingsPage() {
         currency: company.currency,
         timezone: company.timezone,
         default_payment_terms_days: company.default_payment_terms_days,
+        ...(canApprove ? {
+          payment_approval_threshold: company.payment_approval_threshold,
+          stock_adjustment_approval_threshold: company.stock_adjustment_approval_threshold,
+        } : {}),
       });
       setCompany(r.data);
       setCompanyMsg(t("settings.companySaved"));
@@ -231,6 +236,20 @@ export default function SettingsPage() {
                 className="w-32"
               />
             </Field>
+            {canApprove && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label={t("settings.paymentThreshold")} hint={t("settings.paymentThresholdHint")}>
+                  <Input type="number" inputMode="decimal" min="0" step="0.01"
+                    value={company.payment_approval_threshold ?? ""}
+                    onChange={setCo("payment_approval_threshold")} disabled={!writable} />
+                </Field>
+                <Field label={t("settings.adjustmentThreshold")} hint={t("settings.adjustmentThresholdHint")}>
+                  <Input type="number" inputMode="decimal" min="0" step="0.01"
+                    value={company.stock_adjustment_approval_threshold ?? ""}
+                    onChange={setCo("stock_adjustment_approval_threshold")} disabled={!writable} />
+                </Field>
+              </div>
+            )}
             <Field label={t("settings.address")}>
               <Input
                 value={company.address || ""}
