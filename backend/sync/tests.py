@@ -299,3 +299,20 @@ class PullWideningTests(SyncBase):
         self.assertEqual(len(changes["bills"]), 1)
         self.assertEqual(len(changes["employees"]), 1)
         self.assertEqual([i["number"] for i in changes["invoices"]], [2])
+
+
+class ErrorTextTests(SyncBase):
+    def test_validation_errors_read_as_sentences(self):
+        from sync.services import _stringify
+        from rest_framework.exceptions import ErrorDetail
+
+        detail = {
+            "employee": [
+                ErrorDetail('Invalid pk "2" - object does not exist.', code="does_not_exist")
+            ],
+            "non_field_errors": [ErrorDetail("Amount must be positive.", code="invalid")],
+        }
+        text = _stringify(detail)
+        self.assertEqual(text, 'Invalid pk "2" - object does not exist. · Amount must be positive.')
+        self.assertNotIn("ErrorDetail", text)
+        self.assertNotIn("employee", text)
