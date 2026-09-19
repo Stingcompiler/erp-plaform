@@ -27,6 +27,12 @@ ALL_MODULES = frozenset(
 )
 
 
+# Running the company at all — its people, branches, settings — is not a
+# feature a plan sells; it is how the plan's limits (users, branches) get
+# used. A plan that lists only "sales" still lets the owner add the cashier.
+CORE_MODULES = frozenset({"users", "org", "settings"})
+
+
 @dataclass(frozen=True)
 class EntitlementDecision:
     source: str
@@ -38,7 +44,9 @@ class EntitlementDecision:
     reason: str = ""
 
     def allows_module(self, module):
-        return not module or "*" in self.modules or module in self.modules
+        if not module or module in CORE_MODULES:
+            return True
+        return "*" in self.modules or module in self.modules
 
     def as_dict(self):
         data = asdict(self)
