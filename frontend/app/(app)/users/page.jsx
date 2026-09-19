@@ -36,18 +36,31 @@ export default function UsersPage() {
   const [roles, setRoles] = useState([]);
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Why the list could not be read — shown instead of "no users yet", which
+  // is what a swallowed 403 looked like on production.
+  const [loadError, setLoadError] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [presetRoleName, setPresetRoleName] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
+    setLoadError("");
     usersApi
       .list({ page: 1 })
       .then((r) => setRows(r.data.results))
-      .catch(() => setRows([]))
+      .catch((err) => {
+        setRows([]);
+        const data = err?.response?.data;
+        const status = err?.response?.status;
+        setLoadError(
+          data?.detail || data?.code
+            ? `${data.detail || data.code}${status ? ` (${status})` : ""}`
+            : status ? t("users.loadFailed", { status }) : t("users.loadOffline")
+        );
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   async function toggleActive(u) {
     if (u.is_active && !window.confirm(t("users.deactivateConfirm", { email: u.email }))) return;
@@ -121,9 +134,11 @@ export default function UsersPage() {
             <div>
               <h2 className="font-display font-semibold">{t("users.ownersTitle")}</h2>
               <p className="mt-1 text-sm text-muted">
-                {t("users.ownersSummary", {
-                  count: rows.filter((row) => row.role_name === "Business Owner" && row.is_active).length,
-                })}
+                {loading || loadError
+                  ? "—"
+                  : t("users.ownersSummary", {
+                    count: rows.filter((row) => row.role_name === "Business Owner" && row.is_active).length,
+                  })}
               </p>
               <p className="mt-1 text-xs text-muted">{t("users.ownersRule")}</p>
             </div>
@@ -152,7 +167,16 @@ export default function UsersPage() {
                   </td>
                 </tr>
               )}
-              {!loading && rows.length === 0 && (
+              {!loading && loadError && (
+                <tr>
+                  <td colSpan={writable ? 6 : 5} className="px-4 py-8 text-center">
+                    <div role="alert" className="mx-auto inline-block rounded-control border border-danger/25 bg-danger/10 px-4 py-3 text-sm text-danger">
+                      {t("users.loadErrorTitle")}: {loadError}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {!loading && !loadError && rows.length === 0 && (
                 <tr>
                   <td colSpan={writable ? 6 : 5} className="px-4 py-8 text-center text-muted">
                     {t("users.noUsers")}
