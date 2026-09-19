@@ -180,6 +180,9 @@ export const sales = {
   // Second-person confirmation of money received (segregation of duties;
   // amounts at/above the company threshold need an approver role).
   verifyPayment: (id) => api.post(`/payments/${id}/verify/`),
+  // Statement reconciliation: multipart {account, file, dry_run}.
+  reconcilePayments: (form) =>
+    api.post("/payments/reconcile/", form, { headers: { "Content-Type": "multipart/form-data" } }),
   customers: (params) => api.get("/customers/", { params }),
   createCustomer: (body) => api.post("/customers/", body),
   // Quote-to-cash: quotation → sales order → invoice (POS checkout with source_order).

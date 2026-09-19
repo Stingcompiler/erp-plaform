@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import Drawer from "@/components/ui/Drawer";
 import PaymentVerificationPanel from "@/components/finance/PaymentVerificationPanel";
+import StatementReconcilePanel from "@/components/finance/StatementReconcilePanel";
 import BudgetsPanel from "@/components/finance/BudgetsPanel";
 import MoneyLedger from "@/components/finance/MoneyLedger";
 
@@ -103,6 +104,7 @@ export default function FinancePage() {
     finance.categories().then((r) => setCategories(r.data)).catch(() => {});
   }, []);
   useEffect(() => { loadCategories(); }, [loadCategories]);
+  const [reconcileKey, setReconcileKey] = useState(0);
   const [summary, setSummary] = useState(null);
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -149,7 +151,8 @@ export default function FinancePage() {
       <Button variant="outline" onClick={() => { setPage(1); setFilters((f) => ({ ...f,start:"",end:"" })); }}>{t("improvements.allTime")}</Button>
     </Card>
     {invalidDates && <p role="alert" className="mb-4 text-danger">{t("improvements.invalidDates")}</p>}
-    {writable && <PaymentVerificationPanel />}
+    {writable && <PaymentVerificationPanel refreshKey={reconcileKey} />}
+    {writable && <StatementReconcilePanel onApplied={() => setReconcileKey((k) => k + 1)} />}
     {error && <Card className="mb-4 p-4"><p role="alert" className="mb-3 text-danger">{t("improvements.loadError")}</p><Button onClick={load}>{t("improvements.retry")}</Button></Card>}
     <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-busy={loading}>
       <StatTile label={t("finance.revenue")} value={money(summary?.revenue)} icon={ArrowUpRight} />
