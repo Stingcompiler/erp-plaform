@@ -49,7 +49,7 @@ function invoiceDefaultsForSubscription(subscription) {
   end.setDate(end.getDate() - 1);
   return {
     subscription: subscription ? String(subscription.id) : "",
-    amount: subscription?.plan?.price || "",
+    amount: subscription?.recurring_amount || subscription?.plan?.price || "",
     period_start: dateInputValue(start),
     period_end: dateInputValue(end),
     due_at: localDateTime(now),

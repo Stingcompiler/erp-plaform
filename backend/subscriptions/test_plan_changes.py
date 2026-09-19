@@ -94,7 +94,7 @@ class PlanChangeTests(TestCase):
         self.assertEqual(Decimal(approved.data["invoice_amount"]), Decimal("50000.00"))
         invoice = SubscriptionInvoice.objects.get(number=approved.data["invoice_number"])
         self.assertEqual(invoice.status, SubscriptionInvoice.ISSUED)
-        self.assertEqual(invoice.line_snapshot[0]["kind"], "plan_change")
+        self.assertEqual(invoice.line_snapshot[0]["kind"], "upgrade")
         # Not switched yet.
         self.subscription.refresh_from_db()
         self.assertEqual(self.subscription.plan_version_id, self.basic.pk)
@@ -194,3 +194,108 @@ class PlanChangeTests(TestCase):
         client.force_authenticate(clerk)
         self.assertEqual(client.get("/api/subscription/plan-changes/").status_code, 403)
         self.assertEqual(self.owner_client.get("/api/platform/plan-changes/").status_code, 403)
+
+
+@override_settings(SUBSCRIPTION_POLICY="enforce")
+class AddonTests(TestCase):
+    def setUp(self):
+        now = timezone.now()
+        self.now = now
+        self.admin = User.objects.create_superuser(
+            email="root@vezano.test", password="Root-passw0rd!"
+        )
+        owner_role = Role.objects.create(name="Business Owner", scope_level=Role.SCOPE_BUSINESS)
+        self.company = Company.objects.create(name="Alpha", business_type="enterprise")
+        self.owner = User.objects.create_user(
+            email="owner@alpha.test", password="Owner-passw0rd!x", company=self.company,
+            role=owner_role,
+        )
+        plan = Plan.objects.create(code="shop", name="Shop")
+        self.version = PlanVersion.objects.create(
+            plan=plan, version=1, modules=["*"], currency="SDG", price=Decimal("100000"),
+            limits={"devices": 2}, addon_prices={"devices": "20000"}, published_at=now,
+        )
+        self.subscription = Subscription.objects.create(
+            company=self.company, plan_version=self.version, status=Subscription.ACTIVE,
+            starts_at=now - timedelta(days=15), period_ends_at=now + timedelta(days=15),
+        )
+        self.owner_client = APIClient()
+        self.owner_client.force_authenticate(self.owner)
+        self.admin_client = APIClient()
+        self.admin_client.force_authenticate(self.admin)
+
+    def _login_device(self, device_id):
+        client = APIClient()
+        return client.post(
+            "/api/auth/login/",
+            {"email": "owner@alpha.test", "password": "Owner-passw0rd!x", "device_id": device_id},
+            format="json",
+        )
+
+    def test_buying_units_is_prorated_and_raises_the_limit_when_paid(self):
+        offer = self.owner_client.get("/api/subscription/plan-changes/").data["addons"]
+        self.assertEqual(offer[0]["resource"], "devices")
+        self.assertEqual(Decimal(offer[0]["unit_due_now"]), Decimal("10000.00"))  # 20000 × 0.5
+
+        asked = self.owner_client.post(
+            "/api/subscription/plan-changes/", {"extra_delta": {"devices": 2}}, format="json"
+        )
+        self.assertEqual(asked.status_code, 201, asked.data)
+        self.assertEqual(asked.data["kind"], "addon")
+        approved = self.admin_client.post(
+            f"/api/platform/plan-changes/{asked.data['id']}/approve/", format="json"
+        )
+        self.assertEqual(Decimal(approved.data["invoice_amount"]), Decimal("20000.00"))
+        # Still two devices until paid.
+        for d in ("A", "B"):
+            self.assertEqual(self._login_device(d).status_code, 200)
+        self.assertEqual(self._login_device("C").status_code, 403)
+
+        invoice = SubscriptionInvoice.objects.get(number=approved.data["invoice_number"])
+        payment = SubscriptionPayment.objects.create(
+            company=self.company, amount=Decimal("20000"), currency="SDG", method="cash",
+            recorded_by=self.owner,
+        )
+        verify_and_allocate_payment(
+            payment.pk, self.admin, [{"invoice_id": invoice.pk, "amount": Decimal("20000")}]
+        )
+        self.subscription.refresh_from_db()
+        self.assertEqual(self.subscription.extra_limits, {"devices": 2})
+        self.assertEqual(self._login_device("C").status_code, 200)
+        self.assertEqual(self._login_device("D").status_code, 200)
+        self.assertEqual(self._login_device("E").status_code, 403)
+        # The renewal now carries the add-on.
+        page = self.owner_client.get("/api/subscription/").data
+        self.assertEqual(page["subscription"]["recurring_amount"], "140000.00")
+        self.assertEqual(page["subscription"]["addon_lines"][0]["units"], 2)
+        self.assertEqual(page["usage"]["devices"]["limit"], 4)
+
+    def test_removing_units_waits_and_is_refused_while_in_use(self):
+        self.subscription.extra_limits = {"devices": 2}
+        self.subscription.save()
+        for i in range(4):
+            Device.objects.create(company=self.company, device_id=f"D{i}")
+        refused = self.owner_client.post(
+            "/api/subscription/plan-changes/", {"extra_delta": {"devices": -1}}, format="json"
+        )
+        self.assertEqual(refused.status_code, 400)
+        self.assertEqual(refused.data["code"], "usage_exceeds_target")
+        Device.objects.filter(device_id="D3").update(is_active=False)
+        asked = self.owner_client.post(
+            "/api/subscription/plan-changes/", {"extra_delta": {"devices": -1}}, format="json"
+        )
+        self.assertEqual(asked.status_code, 201, asked.data)
+        self.assertEqual(asked.data["kind"], "addon_remove")
+        approved = self.admin_client.post(
+            f"/api/platform/plan-changes/{asked.data['id']}/approve/", format="json"
+        )
+        self.assertIsNone(approved.data["invoice_number"])
+        self.assertEqual(apply_due_downgrades(self.now + timedelta(days=16)), 1)
+        self.subscription.refresh_from_db()
+        self.assertEqual(self.subscription.extra_limits, {"devices": 1})
+
+    def test_unpriced_resource_is_refused(self):
+        response = self.owner_client.post(
+            "/api/subscription/plan-changes/", {"extra_delta": {"users": 1}}, format="json"
+        )
+        self.assertEqual(response.status_code, 400)

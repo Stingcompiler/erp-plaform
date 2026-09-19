@@ -9,6 +9,11 @@ to end, and it is refused outright while the company's usage exceeds the
 target plan's limits (the owner must retire devices or users first, not
 discover on Monday that nothing can be created).
 
+ADD-ONS follow the same two shapes without leaving the plan: buying units
+(a third till on a two-till plan) is invoiced pro rata at the plan's unit
+price and applied when paid; giving units back waits for the period end
+and is refused while they are still in use.
+
 Both start as a request from the owner and need a platform decision; the
 platform may also change a plan directly (configure_subscription), which
 this module does not touch.
@@ -68,20 +73,87 @@ def usage_over_limits(company, version):
     return over
 
 
-def proration(subscription, from_version, to_version, now=None):
-    """Amount owed for the rest of the current period, and the fraction."""
+def period_fraction_left(subscription, version, now=None):
+    """Share of the current period still ahead, 0 when it is over."""
     now = now or timezone.now()
     end = subscription.period_ends_at
     if end is None or end <= now:
-        return Decimal("0.00"), Decimal(0)
-    days = 365 if from_version.billing_cycle == PlanVersion.YEARLY else 30
+        return Decimal(0)
+    days = 365 if version.billing_cycle == PlanVersion.YEARLY else 30
     start = max(subscription.starts_at, end - timedelta(days=days))
     total = (end - start).total_seconds()
     left = (end - now).total_seconds()
-    fraction = Decimal(left / total).quantize(Decimal("0.0001")) if total > 0 else Decimal(0)
+    return Decimal(left / total).quantize(Decimal("0.0001")) if total > 0 else Decimal(0)
+
+
+def proration(subscription, from_version, to_version, now=None):
+    """Amount owed for the rest of the current period, and the fraction."""
+    fraction = period_fraction_left(subscription, from_version, now)
     difference = Decimal(to_version.price or 0) - Decimal(from_version.price or 0)
     amount = (difference * fraction).quantize(TWOPLACES, rounding=ROUND_HALF_UP)
     return max(amount, Decimal("0.00")), fraction
+
+
+def addon_delta_price(version, delta):
+    """Full-cycle price of a units delta at the plan's add-on prices."""
+    prices = version.addon_prices or {}
+    total = Decimal(0)
+    for resource, units in delta.items():
+        total += Decimal(str(prices[resource])) * int(units)
+    return total
+
+
+def addon_proration(subscription, delta, now=None):
+    fraction = period_fraction_left(subscription, subscription.plan_version, now)
+    amount = (addon_delta_price(subscription.plan_version, delta) * fraction).quantize(
+        TWOPLACES, rounding=ROUND_HALF_UP
+    )
+    return max(amount, Decimal("0.00")), fraction
+
+
+def clean_delta(version, raw):
+    """Validate {"devices": 2, "users": -1}: known, priced, non-zero ints."""
+    prices = version.addon_prices or {}
+    delta = {}
+    for resource, units in (raw or {}).items():
+        if resource not in prices:
+            raise ValidationError({"extra_delta": f"{resource} cannot be added to this plan."})
+        try:
+            units = int(units)
+        except (TypeError, ValueError):
+            raise ValidationError({"extra_delta": "Units must be whole numbers."})
+        if units:
+            delta[resource] = units
+    if not delta:
+        raise ValidationError({"extra_delta": "Say how many units to add or remove."})
+    if any(u > 0 for u in delta.values()) and any(u < 0 for u in delta.values()):
+        raise ValidationError({"extra_delta": "Add or remove units in one request, not both."})
+    return delta
+
+
+def extra_after(subscription, delta):
+    extra = dict(subscription.extra_limits or {})
+    for resource, units in delta.items():
+        extra[resource] = int(extra.get(resource, 0)) + units
+        if extra[resource] < 0:
+            raise ValidationError(
+                {"extra_delta": f"The company has no {resource} add-on to remove."}
+            )
+    return {k: v for k, v in extra.items() if v}
+
+
+def usage_over_extra(company, version, extra):
+    """Resources used beyond plan limit + extra units."""
+    over = {}
+    for resource, maximum in (version.limits or {}).items():
+        resolver = LIMIT_RESOLVERS.get(resource)
+        if resolver is None or maximum is None:
+            continue
+        allowed = int(maximum) + int(extra.get(resource, 0))
+        used = resolver(company)
+        if used > allowed:
+            over[resource] = {"used": used, "limit": allowed}
+    return over
 
 
 def open_request(company):
@@ -123,6 +195,34 @@ def request_change(company, to_version, actor, note=""):
 
 
 @transaction.atomic
+def request_addon(company, raw_delta, actor, note=""):
+    subscription = Subscription.objects.select_for_update().filter(company=company).first()
+    if subscription is None:
+        raise ValidationError({"detail": "This company has no subscription to change."})
+    if open_request(company) is not None:
+        raise ValidationError({"detail": "A plan change is already waiting for a decision."})
+    version = subscription.plan_version
+    delta = clean_delta(version, raw_delta)
+    adding = all(u > 0 for u in delta.values())
+    target_extra = extra_after(subscription, delta)
+    if not adding:
+        over = usage_over_extra(company, version, target_extra)
+        if over:
+            raise UsageExceedsTarget(over)
+    request = PlanChangeRequest.objects.create(
+        company=company, subscription=subscription,
+        from_version=version, to_version=version,
+        kind=PlanChangeRequest.ADDON if adding else PlanChangeRequest.ADDON_REMOVE,
+        extra_delta=delta, note=note, requested_by=actor,
+    )
+    SubscriptionEvent.objects.create(
+        subscription=subscription, event_type="plan_change_requested", actor=actor,
+        metadata={"request": request.pk, "kind": request.kind, "extra_delta": delta},
+    )
+    return request
+
+
+@transaction.atomic
 def cancel_request(request, actor):
     if request.status not in (PlanChangeRequest.PENDING, PlanChangeRequest.APPROVED):
         raise ValidationError({"detail": "This request is already closed."})
@@ -150,8 +250,13 @@ def approve_request(request, actor, note=""):
     request.decided_by = actor
     request.decided_at = now
     request.decision_note = note
-    if request.kind == PlanChangeRequest.UPGRADE:
-        amount, fraction = proration(subscription, request.from_version, request.to_version, now)
+    if request.kind in (PlanChangeRequest.UPGRADE, PlanChangeRequest.ADDON):
+        if request.kind == PlanChangeRequest.ADDON:
+            amount, fraction = addon_proration(subscription, request.extra_delta, now)
+        else:
+            amount, fraction = proration(
+                subscription, request.from_version, request.to_version, now
+            )
         if amount > 0:
             period_end = (subscription.period_ends_at or now).date()
             invoice = SubscriptionInvoice.objects.create(
@@ -164,12 +269,16 @@ def approve_request(request, actor, note=""):
                 # not extend the term, so it is marked granted from the start.
                 entitlement_granted_at=now,
                 line_snapshot=[{
-                    "kind": "plan_change",
+                    "kind": request.kind,
                     "from_plan": request.from_version.plan.name,
                     "to_plan": request.to_version.plan.name,
+                    "extra_delta": request.extra_delta,
                     "fraction_of_period": str(fraction),
                     "difference": str(
-                        Decimal(request.to_version.price) - Decimal(request.from_version.price)
+                        addon_delta_price(request.to_version, request.extra_delta)
+                        if request.kind == PlanChangeRequest.ADDON
+                        else Decimal(request.to_version.price)
+                        - Decimal(request.from_version.price)
                     ),
                 }],
             )
@@ -220,9 +329,12 @@ def apply_request(request, actor=None):
         return request
     subscription = Subscription.objects.select_for_update().get(pk=request.subscription_id)
     previous = subscription.plan_version_id
-    subscription.plan_version = request.to_version
+    if request.kind in (PlanChangeRequest.ADDON, PlanChangeRequest.ADDON_REMOVE):
+        subscription.extra_limits = extra_after(subscription, request.extra_delta)
+    else:
+        subscription.plan_version = request.to_version
     subscription.revision += 1
-    subscription.save(update_fields=["plan_version", "revision", "updated_at"])
+    subscription.save(update_fields=["plan_version", "extra_limits", "revision", "updated_at"])
     now = timezone.now()
     request.status = PlanChangeRequest.APPLIED
     request.applied_at = now
@@ -232,6 +344,7 @@ def apply_request(request, actor=None):
         metadata={
             "request": request.pk, "kind": request.kind,
             "from_plan_version": previous, "to_plan_version": request.to_version_id,
+            "extra_delta": request.extra_delta, "extra_limits": subscription.extra_limits,
         },
     )
     return request
@@ -248,7 +361,9 @@ def apply_due_downgrades(now=None):
     """Daily: downgrades whose period has ended."""
     now = now or timezone.now()
     due = PlanChangeRequest.objects.filter(
-        status=PlanChangeRequest.APPROVED, kind=PlanChangeRequest.DOWNGRADE, apply_at__lte=now
+        status=PlanChangeRequest.APPROVED,
+        kind__in=[PlanChangeRequest.DOWNGRADE, PlanChangeRequest.ADDON_REMOVE],
+        apply_at__lte=now,
     )
     count = 0
     for request in due:

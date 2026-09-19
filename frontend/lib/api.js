@@ -551,6 +551,8 @@ export const subscription = {
   planChanges: () => api.get("/subscription/plan-changes/"),
   requestPlanChange: (to_version, note = "") =>
     api.post("/subscription/plan-changes/", { to_version, note }),
+  requestAddon: (extra_delta, note = "") =>
+    api.post("/subscription/plan-changes/", { extra_delta, note }),
   cancelPlanChange: (id) => api.post(`/subscription/plan-changes/${id}/cancel/`),
   company: () => api.get("/subscription/"),
   payments: () => api.get("/subscription/payments/"),

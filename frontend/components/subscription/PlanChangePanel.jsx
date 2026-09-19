@@ -15,6 +15,7 @@ export default function PlanChangePanel({ onChanged }) {
   const { t, language } = useI18n();
   const [data, setData] = useState(null);
   const [note, setNote] = useState("");
+  const [units, setUnits] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -37,6 +38,18 @@ export default function PlanChangePanel({ onChanged }) {
         : (d?.detail || d?.to_version || t("planChange.requestError")));
     } finally { setBusy(false); }
   };
+  const askAddon = async (addon, delta) => {
+    const total = Number(addon.unit_due_now) * delta;
+    if (!window.confirm(t(delta > 0 ? "planChange.confirmAddon" : "planChange.confirmAddonRemove", { n: Math.abs(delta), what: t(`usage.${addon.resource}`), amount: money(total, addon.currency) }))) return;
+    setBusy(true); setError("");
+    try { await api.requestAddon({ [addon.resource]: delta }, note); setNote(""); setUnits({}); await load(); onChanged?.(); }
+    catch (err) {
+      const d = err?.response?.data;
+      setError(d?.code === "usage_exceeds_target"
+        ? t("planChange.overUsage", { what: Object.entries(d.over).map(([k, v]) => `${t(`usage.${k}`)} ${v.used}/${v.limit}`).join("، ") })
+        : (d?.detail || d?.extra_delta || t("planChange.requestError")));
+    } finally { setBusy(false); }
+  };
   const cancel = async () => {
     setBusy(true); setError("");
     try { await api.cancelPlanChange(data.current.id); await load(); onChanged?.(); }
@@ -56,8 +69,10 @@ export default function PlanChangePanel({ onChanged }) {
         <div className="mt-4 rounded-control border border-line bg-paper p-4">
           <div className="flex flex-wrap items-center gap-2 font-medium">
             <Badge tone={STATUS_TONE[current.status]}>{t(`planChange.status.${current.status}`)}</Badge>
-            {current.from_plan} → {current.to_plan}
-            <Badge tone={current.kind === "upgrade" ? "ok" : "warn"}>{t(`planChange.kind.${current.kind}`)}</Badge>
+            {current.kind.startsWith("addon")
+              ? Object.entries(current.extra_delta || {}).map(([k, v]) => `${v > 0 ? "+" : ""}${v} ${t(`usage.${k}`)}`).join("، ")
+              : <>{current.from_plan} → {current.to_plan}</>}
+            <Badge tone={current.kind === "upgrade" || current.kind === "addon" ? "ok" : "warn"}>{t(`planChange.kind.${current.kind}`)}</Badge>
           </div>
           <p className="mt-2 text-sm text-muted">
             {current.status === "pending" && t("planChange.waitingDecision")}
@@ -94,7 +109,33 @@ export default function PlanChangePanel({ onChanged }) {
             })}
             {!data.options.length && <p className="text-sm text-muted md:col-span-2">{t("planChange.noOptions")}</p>}
           </div>
-          {data.options.length > 0 && <Input className="mt-3" placeholder={t("planChange.notePlaceholder")} value={note} onChange={(e) => setNote(e.target.value)} />}
+          {data.addons?.length > 0 && (
+            <div className="mt-5">
+              <h3 className="font-display font-semibold">{t("planChange.addonsTitle")}</h3>
+              <p className="mt-1 text-sm text-muted">{t("planChange.addonsHint")}</p>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                {data.addons.map((ad) => {
+                  const n = Number(units[ad.resource] ?? 1);
+                  return (
+                    <div key={ad.resource} className="rounded-control border border-line p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-display font-semibold">{t(`usage.${ad.resource}`)}</div>
+                        <span className="text-sm text-muted">{t("planChange.addonOwned", { plan: ad.plan_limit, extra: ad.owned })}</span>
+                      </div>
+                      <div className="mt-1 text-sm">{t("planChange.unitPrice", { amount: money(ad.unit_price, ad.currency), cycle: t(`platformPlans.${ad.billing_cycle}`) })}</div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <Input type="number" min="1" className="w-24" value={n} onChange={(e) => setUnits({ ...units, [ad.resource]: e.target.value })} />
+                        <Button disabled={busy || n < 1} onClick={() => askAddon(ad, n)}>{t("planChange.addUnits", { n })}</Button>
+                        {ad.owned > 0 && <Button variant="outline" disabled={busy || n < 1 || n > ad.owned} onClick={() => askAddon(ad, -n)}>{t("planChange.removeUnits", { n })}</Button>}
+                      </div>
+                      <div className="mt-2 text-xs text-muted">{t("planChange.addonDueNow", { amount: money(Number(ad.unit_due_now) * n, ad.currency) })}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {(data.options.length > 0 || data.addons?.length > 0) && <Input className="mt-3" placeholder={t("planChange.notePlaceholder")} value={note} onChange={(e) => setNote(e.target.value)} />}
         </>
       )}
 
@@ -105,7 +146,8 @@ export default function PlanChangePanel({ onChanged }) {
             {data.history.map((h) => (
               <li key={h.id} className="flex flex-wrap items-center gap-2 py-2">
                 <span className="text-muted">{fmt(h.created_at)}</span>
-                <span>{h.from_plan} → {h.to_plan}</span>
+                <span>{h.kind.startsWith("addon") ? Object.entries(h.extra_delta || {}).map(([k, v]) => `${v > 0 ? "+" : ""}${v} ${t(`usage.${k}`)}`).join("، ") : `${h.from_plan} → ${h.to_plan}`}</span>
+                <Badge tone="muted">{t(`planChange.kind.${h.kind}`)}</Badge>
                 <Badge tone={STATUS_TONE[h.status]}>{t(`planChange.status.${h.status}`)}</Badge>
                 {h.decision_note && <span className="text-muted">«{h.decision_note}»</span>}
               </li>
