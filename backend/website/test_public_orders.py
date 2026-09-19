@@ -102,8 +102,9 @@ class PublicOrderTests(TestCase):
         lines = {line.name: line for line in order.lines.all()}
         self.assertEqual(lines["Bread"].unit_price, Decimal("500"))
         self.assertIsNone(lines["Cake"].unit_price)
-        # Told: the branch manager, not the owner.
-        self.assertEqual([m.to for m in mail.outbox], [["north@bakery.test"]])
+        # Told: the branch manager, and the owner (the site's default).
+        told = sorted(m.to[0] for m in mail.outbox)
+        self.assertEqual(told, ["north@bakery.test", "owner@bakery.test"])
         self.assertIn(order.reference, mail.outbox[0].subject)
         self.assertIn("/web-orders/?ref=", mail.outbox[0].body)
 

@@ -208,6 +208,10 @@ class Website(models.Model):
     # the site's language: delivery areas, hours, "call before pickup".
     accept_orders = models.BooleanField(default=False)
     order_instructions = models.TextField(blank=True)
+    # Who is told about a new order besides the chosen branch's managers:
+    # the owners always, and any extra addresses (one per line).
+    order_notify_owners = models.BooleanField(default=True)
+    order_notify_emails = models.TextField(blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     # Landing-page fields. Uploaded images live under MEDIA_ROOT/public/ —
@@ -599,3 +603,30 @@ class PublicOrderLine(models.Model):
     quantity = models.DecimalField(max_digits=16, decimal_places=3)
     # The price the visitor saw; None when the owner chose not to show it.
     unit_price = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+
+
+class PushSubscription(models.Model):
+    """A browser that agreed to receive push notifications for a user.
+
+    One row per endpoint; the same person on two phones has two rows. The
+    payload is sent with the company's VAPID identity; a 404/410 from the
+    push service means the browser forgot us and the row is deleted.
+    """
+
+    user = models.ForeignKey(
+        "accounts.User", on_delete=models.CASCADE, related_name="push_subscriptions"
+    )
+    company = models.ForeignKey(
+        "org.Company", null=True, blank=True, on_delete=models.CASCADE,
+        related_name="push_subscriptions",
+    )
+    endpoint = models.URLField(max_length=1000, unique=True)
+    p256dh = models.CharField(max_length=255)
+    auth = models.CharField(max_length=255)
+    user_agent = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    failures = models.PositiveSmallIntegerField(default=0)
+
+    def __str__(self):
+        return f"push:{self.user_id}:{self.endpoint[-24:]}"

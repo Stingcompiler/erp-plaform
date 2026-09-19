@@ -13,6 +13,7 @@ import { whatsappUrl } from "@/lib/phone";
 import { Badge, Button, Card, Input, PageHeader } from "@/components/ui/kit";
 import PhoneLink from "@/components/ui/PhoneLink";
 import Drawer from "@/components/ui/Drawer";
+import PushPrompt from "@/components/orders/PushPrompt";
 
 const TABS = ["new", "confirmed", "rejected", "all"];
 const TONE = { new: "warn", confirmed: "ok", rejected: "danger", cancelled: "muted" };
@@ -81,6 +82,7 @@ function WebOrders() {
   return (
     <div>
       <PageHeader title={t("webOrders.title")} subtitle={t("webOrders.subtitle")} actions={<Link href="/website" className="text-sm text-accent hover:underline">{t("webOrders.settingsLink")}</Link>} />
+      <PushPrompt />
       <div className="mb-4 flex flex-wrap gap-2">
         {TABS.map((key) => <Button key={key} variant={tab === key ? "primary" : "outline"} onClick={() => setTab(key)}>{t(`webOrders.tab.${key}`)}</Button>)}
         <span className="ms-auto self-center text-sm text-muted">{t("webOrders.count", { n: counts })}</span>

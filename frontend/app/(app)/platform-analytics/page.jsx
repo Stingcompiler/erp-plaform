@@ -297,7 +297,10 @@ export default function PlatformAnalyticsPage() {
                   <div className="truncate font-medium">{row.name}</div>
                   <a href={`${row.path}/`} target="_blank" rel="noreferrer" className="text-xs text-accent hover:underline" dir="ltr">{row.path}</a>
                 </div>
-                <Badge tone="accent">{row.visits}</Badge>
+                <div className="flex items-center gap-2">
+                  {row.orders > 0 && <Badge tone="ok">{t("platformAnalytics.ordersFromPages", { n: row.orders })}</Badge>}
+                  <Badge tone="accent">{row.visits}</Badge>
+                </div>
               </div>
             ))}
           </div>

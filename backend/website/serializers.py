@@ -53,6 +53,7 @@ class WebsiteSerializer(serializers.ModelSerializer):
             "updated_at", "public_url",
             "category", "city", "opening_hours", "map_url", "services", "list_in_directory",
             "cover_image_url", "logo_image_url", "missing", "accept_orders", "order_instructions",
+            "order_notify_owners", "order_notify_emails",
         ]
         read_only_fields = ["company", "is_published", "published_at", "updated_at"]
 
