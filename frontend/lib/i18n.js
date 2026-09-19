@@ -905,6 +905,7 @@ const en = {
       supplier_payment: "Supplier payment",
       sales_return: "Sales return",
       purchase_return: "Purchase return",
+      attendance: "Attendance mark",
       refund: "Customer refund",
       credit_note: "Credit note",
       debit_note: "Debit note",
@@ -3203,6 +3204,10 @@ const ar = {
       supplier_payment: "دفعة مورد",
       sales_return: "مرتجع مبيعات",
       purchase_return: "مرتجع مشتريات",
+      refund: "استرداد لعميل",
+      credit_note: "إشعار دائن",
+      debit_note: "إشعار مدين",
+      attendance: "تسجيل حضور",
     },
   },
   update: {
