@@ -72,6 +72,15 @@ class Company(models.Model):
     # carries their own terms. Zero meant "due the day it was sold", which
     # turned every account sale overdue the next morning.
     default_payment_terms_days = models.PositiveIntegerField(default=30)
+    # Inflation pricing: catalogue prices may be kept in a stable reference
+    # currency (USD for Sudan) and re-derived in the company currency from
+    # the day's rate. The rate is denormalised here for cheap reads; every
+    # change is also a row in ExchangeRate so a reprice can be audited.
+    reference_currency = models.CharField(max_length=8, default="USD")
+    exchange_rate = models.DecimalField(
+        max_digits=16, decimal_places=4, null=True, blank=True
+    )
+    exchange_rate_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -274,3 +283,28 @@ class Device(models.Model):
 
     def __str__(self):
         return self.label or self.device_id
+
+
+class ExchangeRate(models.Model):
+    """One recorded rate: how many units of the company currency one unit of
+    the reference currency buys. Append-only; the latest row is mirrored to
+    Company.exchange_rate."""
+
+    company = models.ForeignKey(
+        Company, on_delete=models.CASCADE, related_name="exchange_rates"
+    )
+    currency = models.CharField(max_length=8)
+    rate = models.DecimalField(max_digits=16, decimal_places=4)
+    note = models.CharField(max_length=120, blank=True)
+    recorded_at = models.DateTimeField(auto_now_add=True)
+    recorded_by = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+
+    class Meta:
+        ordering = ["-recorded_at", "-id"]
+        indexes = [models.Index(fields=["company", "-recorded_at"])]
+
+    def __str__(self):
+        return f"{self.currency} {self.rate} @ {self.recorded_at:%Y-%m-%d}"

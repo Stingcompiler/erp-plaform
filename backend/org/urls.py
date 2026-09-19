@@ -7,6 +7,7 @@ from org.views import (
     CompanyProfileView,
     CompanyViewSet,
     DepartmentViewSet,
+    ExchangeRateViewSet,
     StoreModeSettingsView,
 )
 
@@ -14,6 +15,7 @@ router = DefaultRouter()
 router.register("companies", CompanyViewSet, basename="company")
 router.register("branches", BranchViewSet, basename="branch")
 router.register("departments", DepartmentViewSet, basename="department")
+router.register("exchange-rates", ExchangeRateViewSet, basename="exchangerate")
 router.register("subscription/devices", CompanyDeviceViewSet, basename="company-device")
 
 urlpatterns = [

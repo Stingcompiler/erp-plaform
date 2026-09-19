@@ -1,24 +1,26 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Archive, ArchiveRestore, Download, Lock, Pencil, Plus, Search } from "lucide-react";
+import { AlertTriangle, Archive, ArchiveRestore, Download, Lock, Pencil, Plus, RefreshCw, Search } from "lucide-react";
 
-import { inventory } from "@/lib/api";
+import { inventory, settings } from "@/lib/api";
 import { offlineStore } from "@/lib/offlineStore";
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, Input, PageHeader } from "@/components/ui/kit";
 import ProductForm from "@/components/inventory/ProductForm";
+import RepriceDrawer from "@/components/inventory/RepriceDrawer";
 import StockDrawer from "@/components/inventory/StockDrawer";
 import StockCountPanel from "@/components/inventory/StockCountPanel";
 
 const PAGE_SIZE = 50;
 
 export default function InventoryPage() {
-  const { canRead, canWrite } = useAuth();
+  const { canRead, canWrite, can } = useAuth();
   const { t } = useI18n();
   const writable = canWrite("inventory");
+  const canReprice = writable && can("finance.approve");
 
   const [rows, setRows] = useState([]);
   const [count, setCount] = useState(0);
@@ -45,6 +47,20 @@ export default function InventoryPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [stockFor, setStockFor] = useState(null);
+  const [repriceOpen, setRepriceOpen] = useState(false);
+  // The company's rate and currencies: drives the "today" hint per product
+  // and the reprice drawer's default. Missing when the role cannot read
+  // settings; the page then simply shows no hints.
+  const [pricing, setPricing] = useState({ exchange_rate: null, reference_currency: "USD", currency: "" });
+  useEffect(() => {
+    settings.companyProfile()
+      .then((r) => setPricing({
+        exchange_rate: r.data.exchange_rate,
+        reference_currency: r.data.reference_currency || "USD",
+        currency: r.data.currency || "",
+      }))
+      .catch(() => {});
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -139,6 +155,11 @@ export default function InventoryPage() {
             }), "_blank")}>
               <Download size={16} /> {t("common.export")}
             </Button>
+            {canReprice && (
+              <Button variant="outline" onClick={() => setRepriceOpen(true)}>
+                <RefreshCw size={16} /> {t("inventory.reprice")}
+              </Button>
+            )}
             {writable && (
               <Button
                 onClick={() => {
@@ -283,7 +304,12 @@ export default function InventoryPage() {
                     </td>
                     <td className="tabular px-4 py-3 text-end text-ink">{p.on_hand}</td>
                     <td className="tabular px-4 py-3 text-end text-muted">{p.reorder_level}</td>
-                    <td className="tabular px-4 py-3 text-end text-ink">{p.sale_price}</td>
+                    <td className="tabular px-4 py-3 text-end text-ink">
+                      {p.sale_price}
+                      {p.suggested_price != null && Number(p.suggested_price) !== Number(p.sale_price) && (
+                        <div className="text-xs text-warn">{t("inventory.suggested", { price: p.suggested_price })}</div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-end">
                       {isLow(p) ? <Badge tone="warn">{t("inventory.low")}</Badge> : <Badge tone="ok">{t("inventory.inStock")}</Badge>}
                     </td>
@@ -358,6 +384,20 @@ export default function InventoryPage() {
         onSaved={load}
         product={editing}
         categories={categories}
+        exchangeRate={pricing.exchange_rate}
+        referenceCurrency={pricing.reference_currency}
+      />
+      <RepriceDrawer
+        open={repriceOpen}
+        onClose={() => setRepriceOpen(false)}
+        categories={categories}
+        exchangeRate={pricing.exchange_rate}
+        referenceCurrency={pricing.reference_currency}
+        currency={pricing.currency}
+        onApplied={(result) => {
+          toast.success(t("inventory.repriceDone", { count: result.changed }));
+          load();
+        }}
       />
       <StockDrawer
         open={Boolean(stockFor)}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Database, Download, Lock, RotateCcw, Upload } from "lucide-react";
+import { Database, Download, Lock, RotateCcw, TrendingUp, Upload } from "lucide-react";
 
 import { settings, users } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
@@ -41,6 +41,33 @@ export default function SettingsPage() {
   const [savingMode, setSavingMode] = useState(false);
   const ownerControlsMode = Boolean(user?.can_manage_system_mode);
 
+  // Exchange rate: the company row carries the current rate; the list is the
+  // history. Recording goes through /exchange-rates/ so each change is kept.
+  const [rates, setRates] = useState([]);
+  const [newRate, setNewRate] = useState("");
+  const [rateMsg, setRateMsg] = useState("");
+  const [savingRate, setSavingRate] = useState(false);
+  const loadRates = () =>
+    settings.exchangeRates().then((r) => setRates((r.data.results || r.data).slice(0, 8))).catch(() => setRates([]));
+
+  async function recordRate() {
+    setRateMsg("");
+    setSavingRate(true);
+    try {
+      await settings.recordExchangeRate({ rate: newRate });
+      setNewRate("");
+      setRateMsg(t("settings.rateRecorded"));
+      const r = await settings.companyProfile();
+      setCompany(r.data);
+      loadRates();
+    } catch (err) {
+      const data = err?.response?.data;
+      setRateMsg(typeof data === "object" && data ? Object.values(data).flat().join(" ") : t("settings.saveFailed"));
+    } finally {
+      setSavingRate(false);
+    }
+  }
+
   const loadBackups = () =>
     settings.backups().then((r) => setBackups(r.data)).catch(() => setBackups([]));
 
@@ -50,6 +77,7 @@ export default function SettingsPage() {
     settings.taxHandlers().then((r) => setHandlers(r.data)).catch(() => setHandlers([]));
     settings.companyProfile().then((r) => setCompany(r.data)).catch(() => setCompany(null));
     loadBackups();
+    loadRates();
   }, [canRead]);
 
   useEffect(() => {
@@ -116,6 +144,7 @@ export default function SettingsPage() {
         registration_number: company.registration_number,
         currency: company.currency,
         timezone: company.timezone,
+        reference_currency: company.reference_currency,
         default_payment_terms_days: company.default_payment_terms_days,
         ...(canApprove ? {
           payment_approval_threshold: company.payment_approval_threshold,
@@ -337,6 +366,77 @@ export default function SettingsPage() {
           </div>
         )}
       </Card>
+
+      {company && (
+        <Card className="mb-6 p-6">
+          <h2 className="mb-1 flex items-center gap-2 font-display text-sm font-semibold uppercase tracking-wide text-muted">
+            <TrendingUp size={16} /> {t("settings.exchangeRate")}
+          </h2>
+          <p className="mb-4 text-sm text-muted">{t("settings.exchangeRateHint")}</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={t("settings.referenceCurrency")}>
+              <Input
+                value={company.reference_currency || ""}
+                onChange={setCo("reference_currency")}
+                disabled={!writable}
+                className="w-32 uppercase"
+                maxLength={8}
+              />
+            </Field>
+            <Field label={t("settings.currentRate")}>
+              <div className="min-h-10 py-2 text-sm">
+                {company.exchange_rate ? (
+                  <>
+                    <span className="tabular text-lg font-semibold text-ink">
+                      {Number(company.exchange_rate).toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                    </span>
+                    <span className="ms-2 text-muted">
+                      {company.currency} / 1 {company.reference_currency}
+                      {company.exchange_rate_at && (
+                        <> · {t("settings.rateRecordedAt", { when: new Date(company.exchange_rate_at).toLocaleString(language === "ar" ? "ar" : "en") })}</>
+                      )}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-muted">{t("settings.noRateYet")}</span>
+                )}
+              </div>
+            </Field>
+          </div>
+          {canApprove ? (
+            <div className="mt-4 flex flex-wrap items-end gap-3">
+              <Field label={t("settings.newRate", { local: company.currency, currency: company.reference_currency })}>
+                <Input
+                  type="number" inputMode="decimal" min="0" step="0.0001"
+                  value={newRate} onChange={(e) => setNewRate(e.target.value)} className="w-44"
+                />
+              </Field>
+              <Button onClick={recordRate} disabled={savingRate || !newRate}>
+                {savingRate ? t("common.saving") : t("settings.recordRate")}
+              </Button>
+              {rateMsg && <p className="text-sm text-muted">{rateMsg}</p>}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-muted">{t("settings.rateOnlyApprovers")}</p>
+          )}
+          {rates.length > 0 && (
+            <div className="mt-4">
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted">{t("settings.rateHistory")}</p>
+              <ul className="divide-y divide-line text-sm">
+                {rates.map((r) => (
+                  <li key={r.id} className="flex items-center justify-between py-1.5">
+                    <span className="tabular text-ink">{Number(r.rate).toLocaleString(undefined, { maximumFractionDigits: 4 })} <span className="text-muted">{r.currency}</span></span>
+                    <span className="text-muted">
+                      {new Date(r.recorded_at).toLocaleString(language === "ar" ? "ar" : "en")}
+                      {r.recorded_by_name ? ` · ${r.recorded_by_name}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Card>
+      )}
 
       {ownerControlsMode && (
         <Card className="mb-6 p-6">
