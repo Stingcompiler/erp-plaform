@@ -4,9 +4,11 @@ from datetime import timedelta
 
 from django.db import models
 from django.utils import timezone
+from django.db.models import Q
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -24,9 +26,11 @@ from website.images import (
 )
 from website.followups import CONTACT_CHANNELS
 from website.models import (
+    PublicOrder,
     FeaturedProduct, PlatformLead, RegistrationRequest, Section, Website, WebsiteImage,
 )
 from website.serializers import (
+    PublicOrderSerializer,
     FeaturedProductSerializer,
     OwnerInvitationAcceptSerializer,
     PlatformLeadSerializer,
@@ -711,3 +715,82 @@ class DemoRequestView(APIView):
                 },
             )
         return Response({"reference": reference, "status": "saved"}, status=201)
+
+
+class PublicOrderCreateView(APIView):
+    """POST /api/public/site/<slug>/orders/ — UNAUTHENTICATED. A visitor's
+    order from the company's page. Throttled per address; a filled honeypot
+    field (``website_url``) is silently accepted and dropped."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "public_order"
+
+    def post(self, request, slug):
+        from website.orders import place_order, whatsapp_number
+
+        try:
+            company = Company.objects.get(slug=slug, is_active=True)
+        except Company.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        site = getattr(company, "website", None)
+        if site is None or not site.is_published or not site.accept_orders:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        if str(request.data.get("website_url") or "").strip():
+            return Response({"reference": "W" + "0" * 6, "whatsapp": ""}, status=201)
+        order = place_order(site, request.data, request)
+        return Response(
+            {"reference": order.reference, "whatsapp": whatsapp_number(order),
+             "branch": order.branch.name if order.branch else ""},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class PublicOrderViewSet(
+    mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet
+):
+    """The company's external orders: read, confirm, reject. Sales staff
+    see their branch's; owners and managers see all."""
+
+    queryset = PublicOrder.objects.select_related(
+        "branch", "customer", "decided_by", "website"
+    ).prefetch_related("lines")
+    serializer_class = PublicOrderSerializer
+    rbac_module = "sales"
+    branch_field = "branch"
+
+    def get_queryset(self):
+        from core.attention import branch_scope
+
+        qs = self.queryset.filter(company_id=self.request.user.company_id)
+        branch_id = branch_scope(self.request.user)
+        if branch_id is not None:
+            qs = qs.filter(Q(branch_id=branch_id) | Q(branch__isnull=True))
+        state = self.request.query_params.get("status")
+        if state:
+            qs = qs.filter(status=state)
+        ref = self.request.query_params.get("ref")
+        if ref:
+            qs = qs.filter(reference__iexact=ref)
+        return qs
+
+    def _decide(self, request, fn, action_name):
+        order = fn(self.get_object(), request.user, str(request.data.get("note") or "")[:1000])
+        log_activity(
+            action=action_name, request=request, entity_type="PublicOrder",
+            entity_id=order.pk, metadata={"reference": order.reference},
+        )
+        return Response(self.get_serializer(order).data)
+
+    @action(detail=True, methods=["post"])
+    def confirm(self, request, pk=None):
+        from website.orders import confirm
+
+        return self._decide(request, confirm, "public_order_confirmed")
+
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        from website.orders import reject
+
+        return self._decide(request, reject, "public_order_rejected")

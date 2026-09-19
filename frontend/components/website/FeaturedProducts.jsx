@@ -16,6 +16,8 @@ function FeaturedForm({ open, onClose, onSaved, websiteId, item }) {
   const [product, setProduct] = useState(null); // {id, name}
   const [caption, setCaption] = useState("");
   const [order, setOrder] = useState(0);
+  const [showPrice, setShowPrice] = useState(true);
+  const [allowOrder, setAllowOrder] = useState(true);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [error, setError] = useState("");
@@ -26,6 +28,8 @@ function FeaturedForm({ open, onClose, onSaved, websiteId, item }) {
       setProduct({ id: item.product, name: item.product_name || `#${item.product}` });
       setCaption(item.caption || "");
       setOrder(item.order ?? 0);
+      setShowPrice(item.show_price !== false);
+      setAllowOrder(item.allow_order !== false);
     } else {
       setProduct(null);
       setCaption("");
@@ -55,7 +59,7 @@ function FeaturedForm({ open, onClose, onSaved, websiteId, item }) {
     if (!product) return setError(t("website.chooseProductErr"));
     setSaving(true);
     try {
-      const body = { product: product.id, caption, order: Number(order) || 0 };
+      const body = { product: product.id, caption, order: Number(order) || 0, show_price: showPrice, allow_order: allowOrder };
       if (editing) {
         await website.updateFeatured(item.id, body);
       } else {
@@ -135,6 +139,14 @@ function FeaturedForm({ open, onClose, onSaved, websiteId, item }) {
         <Field label={t("website.order")}>
           <Input type="number" value={order} onChange={(e) => setOrder(e.target.value)} />
         </Field>
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" checked={showPrice} onChange={(e) => setShowPrice(e.target.checked)} className="mt-1" />
+          <span><span className="font-medium">{t("website.showPrice")}</span><span className="block text-xs text-muted">{t("website.showPriceHint")}</span></span>
+        </label>
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" checked={allowOrder} onChange={(e) => setAllowOrder(e.target.checked)} className="mt-1" />
+          <span><span className="font-medium">{t("website.allowOrder")}</span><span className="block text-xs text-muted">{t("website.allowOrderHint")}</span></span>
+        </label>
         {error && <p className="text-sm text-danger">{error}</p>}
       </div>
     </Drawer>
@@ -245,6 +257,11 @@ export default function FeaturedProducts({ websiteId, writable, onChanged }) {
                 {item.caption && (
                   <div className="truncate text-xs text-muted">{item.caption}</div>
                 )}
+                <div className="text-xs text-muted">
+                  {item.show_price === false ? t("website.priceHidden") : t("website.priceShown")}
+                  {" · "}
+                  {item.allow_order === false ? t("website.notOrderable") : t("website.orderable")}
+                </div>
               </div>
               {writable && (
                 <div className="flex items-center gap-1">

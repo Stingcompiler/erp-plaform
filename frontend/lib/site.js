@@ -42,6 +42,7 @@ export const PRIVATE_PATH_PREFIXES = [
   "/subscription/",
   "/website/",
   "/customer-records/",
+  "/web-orders/",
   "/supplier-records/",
   "/platform/",
   "/platform-leads/",

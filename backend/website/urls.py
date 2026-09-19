@@ -15,6 +15,8 @@ from website.views import (
     PlatformRegistrationRequestViewSet,
     PublicPlanListView,
     PublicRegistrationRequestView,
+    PublicOrderCreateView,
+    PublicOrderViewSet,
     PublicSiteView,
     SectionViewSet,
     WebsitePublishView,
@@ -28,6 +30,7 @@ router.register(
     "website/featured-products", FeaturedProductViewSet, basename="featuredproduct"
 )
 router.register("platform/leads", PlatformLeadViewSet, basename="platform-lead")
+router.register("web-orders", PublicOrderViewSet, basename="web-order")
 router.register(
     "platform/registration-requests", PlatformRegistrationRequestViewSet,
     basename="platform-registration-request",
@@ -73,5 +76,9 @@ urlpatterns = [
     ),
     # Public, unauthenticated read-only site by company slug.
     path("public/site/<slug:slug>/", PublicSiteView.as_view(), name="public-site"),
+    path(
+        "public/site/<slug:slug>/orders/", PublicOrderCreateView.as_view(),
+        name="public-site-order",
+    ),
     path("", include(router.urls)),
 ]

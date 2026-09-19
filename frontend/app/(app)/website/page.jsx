@@ -68,6 +68,8 @@ export default function WebsitePage() {
         map_url: page.map_url || "",
         services: page.services || "",
         list_in_directory: page.list_in_directory !== false,
+        accept_orders: page.accept_orders === true,
+        order_instructions: page.order_instructions || "",
       });
       setPage(r.data);
       setMsg(t("website.saved"));
@@ -207,6 +209,18 @@ export default function WebsitePage() {
                 <span className="block text-xs text-muted">{t("website.listInDirectoryHint")}</span>
               </span>
             </label>
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" checked={page.accept_orders === true} onChange={set("accept_orders")} disabled={!writable} className="mt-1" />
+              <span>
+                <span className="font-medium">{t("website.acceptOrders")}</span>
+                <span className="block text-xs text-muted">{t("website.acceptOrdersHint")}</span>
+              </span>
+            </label>
+            {page.accept_orders && (
+              <Field label={t("website.orderInstructions")} hint={t("website.orderInstructionsHint")}>
+                <textarea value={page.order_instructions || ""} onChange={set("order_instructions")} disabled={!writable} rows={3} className="w-full rounded-control border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-accent" />
+              </Field>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <Field label={t("website.logoUrl")}>
                 <Input value={page.logo_url || ""} onChange={set("logo_url")} disabled={!writable} />

@@ -43,6 +43,11 @@ img{max-width:100%;display:block}
 @media (min-width:760px){.bar nav{display:flex}}
 .btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;text-decoration:none;padding:12px 20px;border-radius:12px;font-weight:700;border:0;white-space:nowrap}
 .btn.small{padding:9px 14px;font-size:.92rem}
+[hidden]{display:none!important}.card .avail{font-size:.8rem;margin-top:4px}.card .avail.in{color:#15803d}.card .avail.out{color:#b91c1c}.card .add{margin-top:10px;width:100%;justify-content:center}
+.order .cart{list-style:none;padding:0;margin:0 0 8px}.order .cart li{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #e5e7eb}.order .cart .n{flex:1}.order .cart .q{display:inline-flex;align-items:center;gap:8px}.order .cart .q button{width:30px;height:30px;border-radius:8px;border:1px solid #d1d5db;background:#fff;font-size:1.1rem;cursor:pointer}.order .cart .p{min-width:90px;text-align:end;font-weight:600}
+.order .total{font-weight:800;margin:6px 0 16px}.order form{display:grid;gap:12px;max-width:520px}.order label{display:grid;gap:6px;font-weight:600;font-size:.95rem}.order input,.order select,.order textarea{padding:11px 12px;border:1px solid #d1d5db;border-radius:10px;font:inherit}.order .mode{display:flex;gap:16px;border:0;padding:0;margin:0}.order .mode label{display:inline-flex;align-items:center;gap:6px;font-weight:500}
+.order .err{color:#b91c1c;font-weight:600}.order .done{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px}.order .done .btn.wa{background:#25d366;color:#fff;margin-top:8px}
+.fab.cart-fab{inset-inline-end:auto;inset-inline-start:16px;background:var(--accent)}
 .hero{position:relative;color:#fff;min-height:420px;display:flex;align-items:flex-end;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 85%,#000),color-mix(in srgb,var(--accent) 55%,#000))}
 .hero.has-cover{background:#111}
 .hero .cover{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55}
@@ -94,7 +99,7 @@ footer.site{margin-top:24px;padding-block:24px 96px;border-top:1px solid var(--l
 footer.site .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
 footer.site a{color:var(--muted)}
 .fab{position:fixed;bottom:16px;inset-inline-end:16px;z-index:20;background:#25d366;color:#fff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.25);display:inline-flex;align-items:center;gap:8px}
-@media (min-width:760px){.fab{display:none}footer.site{padding-bottom:32px}}
+@media (min-width:760px){.fab{display:none}.fab.cart-fab{display:inline-flex}footer.site{padding-bottom:32px}}
 </style>
 </head>
 <body>
@@ -155,17 +160,46 @@ footer.site a{color:var(--muted)}
     {% if products_section.content.text %}<p class="sub">{{ products_section.content.text }}</p>{% endif %}
     <div class="grid">
       {% for product in products %}
-      <div class="card">
+      <div class="card" data-product="{{ product.product }}" data-name="{{ product.name }}" data-price="{{ product.price|default_if_none:'' }}">
         {% if product.image_url %}<img src="{{ product.image_url }}" alt="{{ product.name }}" loading="lazy">{% else %}<div class="ph">{{ product.name|slice:":1" }}</div>{% endif %}
         <div class="body">
           <h3>{{ product.name }}</h3>
           {% if product.caption %}<p class="cap">{{ product.caption }}</p>{% endif %}
-          <div class="price">{{ product.price }} {{ currency }}</div>
+          <div class="price">{% if product.price is not None %}{{ product.price }} {{ currency }}{% elif language == 'ar' %}اطلب السعر{% else %}Ask for the price{% endif %}</div>
+          <div class="avail {% if product.in_stock %}in{% else %}out{% endif %}">{% if product.in_stock %}{% if language == 'ar' %}متوفر{% else %}In stock{% endif %}{% else %}{% if language == 'ar' %}غير متوفر حاليًا{% else %}Out of stock{% endif %}{% endif %}</div>
+          {% if accept_orders and product.orderable and product.in_stock %}<button type="button" class="btn small add" data-add="{{ product.product }}">{% if language == 'ar' %}أضف إلى الطلب{% else %}Add to order{% endif %}</button>{% endif %}
         </div>
       </div>
       {% endfor %}
     </div>
   </section>
+  {% endif %}
+
+  {% if accept_orders %}
+  <section class="block order" id="order" hidden>
+    <h2>{% if language == 'ar' %}طلبك{% else %}Your order{% endif %}</h2>
+    {% for line in order_instructions %}<p class="sub">{{ line }}</p>{% endfor %}
+    <ul class="cart" id="cart"></ul>
+    <div class="total" id="cart-total"></div>
+    <form id="order-form" autocomplete="on">
+      <input type="text" name="website_url" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
+      <label>{% if language == 'ar' %}الاسم{% else %}Name{% endif %}<input name="contact_name" required maxlength="120"></label>
+      <label>{% if language == 'ar' %}رقم الهاتف (واتساب){% else %}Phone (WhatsApp){% endif %}<input name="phone" type="tel" required inputmode="tel" maxlength="32"></label>
+      {% if branches|length > 1 %}<label>{% if language == 'ar' %}الفرع{% else %}Branch{% endif %}<select name="branch" required>{% for b in branches %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}</select></label>{% endif %}
+      <fieldset class="mode"><label><input type="radio" name="delivery_mode" value="pickup" checked> {% if language == 'ar' %}استلام من المحل{% else %}Pickup{% endif %}</label><label><input type="radio" name="delivery_mode" value="delivery"> {% if language == 'ar' %}توصيل{% else %}Delivery{% endif %}</label></fieldset>
+      <label id="address-field" hidden>{% if language == 'ar' %}عنوان التوصيل{% else %}Delivery address{% endif %}<input name="address" maxlength="255"></label>
+      <label>{% if language == 'ar' %}ملاحظة{% else %}Note{% endif %}<textarea name="note" rows="2" maxlength="2000"></textarea></label>
+      <p class="err" id="order-error" hidden></p>
+      <button type="submit" class="btn">{% if language == 'ar' %}أرسل الطلب{% else %}Send order{% endif %}</button>
+    </form>
+    <div class="done" id="order-done" hidden>
+      <h3>{% if language == 'ar' %}وصل طلبك ✅{% else %}Order received ✅{% endif %}</h3>
+      <p>{% if language == 'ar' %}رقم الطلب{% else %}Reference{% endif %}: <strong id="order-ref"></strong></p>
+      <p>{% if language == 'ar' %}سيتواصل معك المحل للتأكيد. للاستعجال راسلهم على واتساب:{% else %}The shop will contact you to confirm. To speed it up, message them on WhatsApp:{% endif %}</p>
+      <a class="btn wa" id="order-wa" rel="noopener" hidden>💬 {% if language == 'ar' %}راسل المحل عن طلبي{% else %}Message the shop about my order{% endif %}</a>
+    </div>
+  </section>
+  <a class="fab cart-fab" id="cart-fab" href="#order" hidden>🛒 <span id="cart-count">0</span></a>
   {% endif %}
 
   {% if about_text %}
@@ -225,5 +259,72 @@ footer.site a{color:var(--muted)}
   </div>
 </footer>
 {% if whatsapp %}<a class="fab" href="https://wa.me/{{ whatsapp }}" rel="noopener">💬 {% if language == 'ar' %}واتساب{% else %}WhatsApp{% endif %}</a>{% endif %}
+{% if accept_orders %}
+<script>
+(function () {
+  var api = "{{ order_api }}", lang = "{{ language }}", currency = "{{ currency }}";
+  var cart = {}, names = {}, prices = {};
+  var section = document.getElementById("order"), list = document.getElementById("cart"),
+      totalEl = document.getElementById("cart-total"), fab = document.getElementById("cart-fab"),
+      count = document.getElementById("cart-count"), form = document.getElementById("order-form"),
+      err = document.getElementById("order-error"), done = document.getElementById("order-done");
+  function money(n) { return n.toLocaleString("en", { maximumFractionDigits: 2 }) + " " + currency; }
+  function render() {
+    var ids = Object.keys(cart), total = 0, priced = true, qty = 0;
+    list.innerHTML = "";
+    ids.forEach(function (id) {
+      var q = cart[id]; qty += q;
+      if (prices[id] === "") priced = false; else total += Number(prices[id]) * q;
+      var li = document.createElement("li");
+      li.innerHTML = '<span class="n"></span><span class="q"><button type="button" data-dec="' + id + '">−</button><b>' + q + '</b><button type="button" data-inc="' + id + '">+</button></span><span class="p"></span>';
+      li.querySelector(".n").textContent = names[id];
+      li.querySelector(".p").textContent = prices[id] === "" ? (lang === "ar" ? "اطلب السعر" : "ask") : money(Number(prices[id]) * q);
+      list.appendChild(li);
+    });
+    totalEl.textContent = ids.length ? ((lang === "ar" ? "الإجمالي: " : "Total: ") + (priced ? money(total) : (lang === "ar" ? "يؤكده المحل" : "confirmed by the shop"))) : "";
+    section.hidden = !ids.length; fab.hidden = !ids.length; count.textContent = qty;
+  }
+  document.querySelectorAll("[data-add]").forEach(function (b) {
+    var card = b.closest(".card"), id = b.getAttribute("data-add");
+    names[id] = card.getAttribute("data-name"); prices[id] = card.getAttribute("data-price");
+    b.addEventListener("click", function () { cart[id] = (cart[id] || 0) + 1; render(); if (Object.keys(cart).length === 1 && cart[id] === 1) fab.focus(); });
+  });
+  list.addEventListener("click", function (e) {
+    var inc = e.target.getAttribute("data-inc"), dec = e.target.getAttribute("data-dec");
+    if (inc) cart[inc] += 1;
+    if (dec) { cart[dec] -= 1; if (cart[dec] <= 0) delete cart[dec]; }
+    if (inc || dec) render();
+  });
+  form.addEventListener("change", function () {
+    document.getElementById("address-field").hidden = form.delivery_mode.value !== "delivery";
+  });
+  form.addEventListener("submit", function (e) {
+    e.preventDefault(); err.hidden = true;
+    var body = {
+      contact_name: form.contact_name.value, phone: form.phone.value,
+      delivery_mode: form.delivery_mode.value, address: form.address.value, note: form.note.value,
+      branch: form.branch ? form.branch.value : null, language: lang, website_url: form.website_url.value,
+      lines: Object.keys(cart).map(function (id) { return { product: Number(id), quantity: cart[id] }; })
+    };
+    var btn = form.querySelector("button[type=submit]"); btn.disabled = true;
+    fetch(api, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok) { var first = Object.values(res.j || {})[0]; err.textContent = Array.isArray(first) ? first[0] : (first || (lang === "ar" ? "تعذّر إرسال الطلب" : "Could not send the order")); err.hidden = false; btn.disabled = false; return; }
+        form.hidden = true; list.hidden = true; totalEl.hidden = true; done.hidden = false;
+        document.getElementById("order-ref").textContent = res.j.reference;
+        var wa = document.getElementById("order-wa");
+        if (res.j.whatsapp) {
+          var text = lang === "ar" ? ("مرحباً، أرسلت طلبًا من موقعكم رقم " + res.j.reference + " باسم " + form.contact_name.value) : ("Hello, I sent order " + res.j.reference + " from your page, name " + form.contact_name.value);
+          wa.href = "https://wa.me/" + res.j.whatsapp + "?text=" + encodeURIComponent(text); wa.hidden = false;
+        }
+        cart = {}; count.textContent = "0"; fab.hidden = true;
+        section.scrollIntoView({ behavior: "smooth" });
+      })
+      .catch(function () { err.textContent = lang === "ar" ? "تعذّر الاتصال، حاول مجددًا" : "Connection failed, try again"; err.hidden = false; btn.disabled = false; });
+  });
+})();
+</script>
+{% endif %}
 </body>
 </html>

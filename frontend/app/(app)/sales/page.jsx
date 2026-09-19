@@ -22,7 +22,7 @@ export default function SalesPage() {
   const writable = canWrite("sales");
   const [tab, setTab] = useState(writable ? "pos" : "invoices");
   useEffect(() => { const requested = new URLSearchParams(window.location.search).get("tab");
-    if (['pos', 'till', 'invoices', 'banks'].includes(requested)) setTab(requested);
+    if (['pos', 'till', 'invoices', 'banks', 'quotes'].includes(requested)) setTab(requested);
   }, []);
   const [warehouses, setWarehouses] = useState([]);
   const [customers, setCustomers] = useState([]);

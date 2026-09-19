@@ -561,6 +561,12 @@ export const subscription = {
   importLicense: (body) => api.post("/license/", body),
 };
 
+export const webOrders = {
+  list: (params) => api.get("/web-orders/", { params }),
+  confirm: (id, note = "") => api.post(`/web-orders/${id}/confirm/`, { note }),
+  reject: (id, note = "") => api.post(`/web-orders/${id}/reject/`, { note }),
+};
+
 export const platformPlanChanges = {
   list: (status) => api.get("/platform/plan-changes/", { params: status ? { status } : {} }),
   approve: (id, note = "") => api.post(`/platform/plan-changes/${id}/approve/`, { note }),

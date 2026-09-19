@@ -312,6 +312,12 @@ def render_site(request, site, *, preview=False):
         **_layout(data),
         "products": data["featured_products"],
         "services": data["services"],
+        "accept_orders": bool(data.get("accept_orders")) and not preview,
+        "order_instructions": _lines(data.get("order_instructions") or ""),
+        "branches": list(
+            site.company.branches.filter(is_active=True).values("id", "name", "phone")
+        ) if data.get("accept_orders") else [],
+        "order_api": f"/api/public/site/{slug}/orders/",
         "platform_url": site_url("/"),
         "directory_url": site_url("/s/"),
         "preview": preview,
