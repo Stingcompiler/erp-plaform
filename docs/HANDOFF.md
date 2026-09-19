@@ -1,8 +1,132 @@
-# Handoff — where the work stands (2026-09-17, review fix stack #56–#63 merged)
+# Handoff — where the work stands (2026-09-20, PRs #64–#131 merged)
 
 Read this first in a new session. It is the human-readable copy of the
 session memory (`~/.claude/projects/.../memory/`), which the assistant loads
 automatically; this file is the copy that lives with the code.
+
+## Product direction (decided 2026-09-19): Sudan first
+
+Market research on 2026-09-19 (pound above 8,400/USD on the parallel market,
+~90% of Omdurman wholesale shops closed over pricing; payments through bank
+apps — Bankak, Fawri, O-Cash; internet shutdowns and grid damage; 17% VAT but
+traders exempted from zakat/taxes for 2023–2025; no e-invoicing mandate;
+zakat on trade goods 2.5% by law) fixed the target: **multi-branch
+wholesalers/distributors, pharmacies and barcode retail in Sudan**. Companies
+with a formal accounting department are not the target yet (no general
+ledger, bank reconciliation or fixed assets — deliberately deferred; the
+market does not ask for them now).
+
+The five Sudan priorities and what shipped, one PR per phase, merged on
+green after a live check on local dev servers:
+
+| # | Priority | PR | What it is |
+|---|---|---|---|
+| 1 | Pricing under inflation | #127 | `Product.reference_price` (USD, 4 dp); `Company.reference_currency/exchange_rate/exchange_rate_at` fed by append-only `org.ExchangeRate` (`/api/exchange-rates/`, manager/owner records; Settings "Exchange rate" card); `POST /api/products/reprice/` by rate or percent, sale/cost/both, category filter, rounding step 0.01…1000 half-up, `dry_run` preview; `suggested_price` and a "today: …" drift hint on the inventory list; "Reprice" drawer; reference field on the product form |
+| 2 | Bank-app payments | #128 | `CompanyBankAccount.channel` (bank/bankak/fawri/ocash/wallet); `Payment.transfer_reference` (the app's full id, normalised; `reference_last4` derived; same id on the same account refused); POS and collect-payment drawer take sender + reference (**the POS never sent `sender_bank_name`, so POS bank transfers were failing before this**); `POST /api/payments/reconcile/` matches a Bankak/Fawri/O-Cash `.xlsx/.csv` export (Arabic or English headers) by reference then last-4 + amount, `dry_run` preview, apply verifies matched transfers except self-recorded / already verified / amount mismatch; Finance page "Match a bank-app statement" panel |
+| 3 | Zakat on trade goods | #129 | `core/hijri.py` tabular Islamic calendar (astronomical epoch, within a day of Umm al-Qura, no dependency); `GET /api/reports/zakat/` (finance report area) = stock at sale\|cost + open-till cash + bank/app balances + receivables (optional `exclude_doubtful=1` for >90 days overdue) − payables, ×2.5%, `hawl_month/hawl_day` → `next_hawl`, CSV; reports page card with pickers kept per device |
+| 4 | Thermal receipts | #130 | `Company.receipt_paper` (a4/80mm/58mm) + `receipt_footer` (Settings → Receipt printing), carried in the document `issuer` block (paper omitted when A4); invoice document lists `payments` (method, amount, channel, reference); `ReceiptView` (72 mm / 48 mm, dashed rules, large totals); paper toggle in `DocumentDrawer` remembered in `localStorage` `print.paper`; `PrintSheet` emits `@page { size: 80mm auto }` |
+| 5 | Standalone acceptance on Ubuntu | — | **Deferred by the owner on 2026-09-20** ("ناجل لاحقا ترخيص المستقل"): no VPS, and a local VM (Lima) was declined. Do not raise the standalone/licensed track until the owner does |
+
+Also on 2026-09-19/20: #126 `/api/health/` reports `commit` (from
+`RENDER_GIT_COMMIT` or `GIT_COMMIT`) so a merge can be proven live; #131 the
+Subscription page's "Recent changes" are sentences with `dd/mm/yyyy` dates
+instead of event codes and bidi-scrambled dates.
+
+Next Sudan-specific candidates if asked (not started): takings by channel on
+shift close; zakat hawl date stored on the company; USD reference on cost;
+Bankak QR on the receipt; the subscription renewal form still asks for the
+last 4 reference digits rather than the full transfer id.
+
+## Company review and its execution (2026-09-18) — PRs #88–#107
+
+A department-by-department review (method: routes and API helpers never
+called from the app, model fields never rendered, status machines with no
+UI transition, two screens computing one number differently) found
+customers with no CRUD, credit sales with no payment terms, thresholds not
+in Settings, dashboard revenue ≠ P&L revenue, AP summed in document
+currency, and a long list of API-only features. Executed in order:
+
+- P0 data correctness: #88 customers + terms, #89 verification worklist +
+  editable thresholds, #90 one revenue for dashboard and income statement,
+  #91 payables in company currency, #94/#102 SQLite integer-division fixes
+  in the revenue terms (`RealOnSQLite` in `finance/metrics.py`).
+- P1 promised-but-hidden: #93 purchase orders + AP reports, #95 quotations
+  and sales orders, #96 budgets + shared expense categories + expense
+  threshold, #97 till sign-off history / money ledger / user deactivation /
+  cash-flow forecast, #98 attendance register + employee reviews and
+  documents.
+- P2 operations: #99 password reset + restore from the screen, #100 opening
+  balances as documents, #101 refunds through the offline queue.
+- Follow-ups: #103 API language follows the screen cookie; #104 role sweep
+  (all 11 roles signed in locally; `rbac_read_modules` cross-department
+  reference data; POS zero-tender records no payment); #105 barcode scanner
+  focus/UPC-A widening/duplicates; #106 refund cap at money actually paid,
+  printable documents from party records, Excel/CSV party import
+  (`core/party_import.py`); #107 store credit (`Payment.STORE_CREDIT`);
+  #108 labelled document party lines.
+
+Production smoke test on the company «إبتكار» passed after #103/#104.
+
+## Offline, email, plans, public orders (2026-09-18/19) — PRs #109–#125
+
+- Offline tiers: #109 every read screen keeps its last-known response
+  (IndexedDB `vezano.responses.v1`, `StaleDataBanner`); #110 pull widened
+  (orders, bills, employees), attendance offline, service worker precaches
+  every app page (the "/org/ shows the POS" bug); #111 sync panel usable.
+- Email: #112 bilingual messages (`core/mailer.py::send_bilingual`).
+  Production relay is **Brevo SMTP** (Render `EMAIL_HOST_PASSWORD`), sender
+  `Vezano <musab@vezano.app>`; Brevo "Authorized IPs" must stay off.
+- Security/plans: #113 admin-set passwords audited + `must_change_password`;
+  #114 `org.Device` + plan `devices` limit at sign-in + `/platform-companies/`;
+  #115 `/platform-finance/`; #116 plan-change requests (prorated upgrades,
+  period-end downgrades); #118 add-ons; #119/#124 entitlements bundled with
+  every plan; #120/#121 error states on Users and Subscription pages.
+  Plan limits are enforced only with `SUBSCRIPTION_POLICY=enforce` on Render.
+- Public orders from `/s/<slug>/`: #122 order + branch notification +
+  confirm into a sales order; #123 Web Push (off until `VAPID_*` keys are
+  set on Render) + notify preferences; #125 bank-transfer payment claims
+  with a pay page, confirmation rings the sale through the POS serializer.
+
+## Earlier in the same stretch — PRs #64–#87
+
+#65–#67 PWA install guidance and Render build hygiene; #68 wide tables on
+phones; #69 branch-visibility policy registry (`core/branch_policy.py`,
+system check `vezano.E002`); #70 transactional email; #72 nightly
+ActivityLog archival; #73–#77 first-party visit analytics, funnel, tenant
+visit counter, error monitor (`/platform-errors/`); #78 RSC payload
+redirect; #79/#80 backups downloadable and stored in the DB when no S3;
+#82 collect a debt from the ledger; #83/#84 payroll and advances post to
+Expenses; #85 refusals in the user's language; #86/#87 expiry warnings and
+batch-tracked receiving.
+
+## Owner actions still pending (unchanged)
+
+Render: `VAPID_PRIVATE_KEY`/`VAPID_PUBLIC_KEY` for push; confirm
+`SUBSCRIPTION_POLICY`; optional `BACKUP_S3_*` (R2); Sentry/uptime monitor;
+delete the exposed Zoho app password. Code side: Postgres RLS remains an
+open decision; standalone track deferred (above).
+
+## Working conventions learned since 2026-09-17
+
+- One feature branch + PR per phase; merge on green with
+  `gh pr merge N --merge --delete-branch`; verify live before opening the PR
+  and put the proof (numbers) in the PR body.
+- `frontend/out` (the committed static export) conflicts on every merge:
+  take main's copy, rebuild, commit the export. i18n conflicts are pure
+  additions. Placeholders are `{name}` (single braces).
+- Arabic-locale dates inside an LTR span get bidi-scrambled ("192026/9/"):
+  format digits by hand on receipts and event rows.
+- `force_authenticate` caches `user.company`; views that need today's
+  company row must read it fresh.
+- A worktree needs `backend/.venv` symlinked to the main checkout's venv
+  (excluded via `.git/info/exclude`) and a dev `.env` with `DEBUG=True`.
+- Local full runs: `DEBUG=1 DJANGO_SECRET_KEY=test-only DATABASE_URL= python
+  manage.py test` (SQLite) and `DATABASE_URL=postgres://macbookairm1@localhost:5432/postgres`
+  (local Postgres 16); both are the CI legs.
+
+---
+
+# Previous handoff (2026-09-17, review fix stack #56–#63 merged)
 
 ## Architecture review fixes (2026-09-17) — PRs #56–#62
 
