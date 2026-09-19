@@ -16,6 +16,7 @@ from reports.views import (
     PurchasesSummaryReport,
     SalesByProductReport,
     SalesSummaryReport,
+    ZakatReport,
 )
 
 urlpatterns = [
@@ -60,6 +61,7 @@ urlpatterns = [
         PayablesDueReport.as_view(), name="report-payables-due",
     ),
     path("reports/cfo-kpis/", CfoKpiReport.as_view(), name="report-cfo-kpis"),
+    path("reports/zakat/", ZakatReport.as_view(), name="report-zakat"),
     path(
         "reports/cash-flow-forecast/",
         CashFlowForecastReport.as_view(), name="report-cash-flow-forecast",

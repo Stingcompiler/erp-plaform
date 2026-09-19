@@ -237,6 +237,7 @@ export const reports = {
   receivablesDue: (params) => api.get("/reports/receivables-due/", { params }),
   payablesDue: (params) => api.get("/reports/payables-due/", { params }),
   cfoKpis: (params) => api.get("/reports/cfo-kpis/", { params }),
+  zakat: (params) => api.get("/reports/zakat/", { params }),
   salesSummary: (params) => api.get("/reports/sales-summary/", { params }),
   salesByProduct: (params) => api.get("/reports/sales-by-product/", { params }),
   inventoryValuation: (params) => api.get("/reports/inventory-valuation/", { params }),
