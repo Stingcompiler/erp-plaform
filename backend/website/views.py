@@ -27,6 +27,7 @@ from website.images import (
 from website.followups import CONTACT_CHANNELS
 from website.models import (
     PublicOrder,
+    PushSubscription,
     FeaturedProduct, PlatformLead, RegistrationRequest, Section, Website, WebsiteImage,
 )
 from website.serializers import (
@@ -794,3 +795,46 @@ class PublicOrderViewSet(
         from website.orders import reject
 
         return self._decide(request, reject, "public_order_rejected")
+
+
+class PushSubscriptionView(APIView):
+    """The signed-in person's browser registering (or dropping) itself for
+    push. GET hands out the public VAPID key so the browser can subscribe."""
+
+    permission_classes = [IsAuthenticated]
+    entitlement_exempt = True
+
+    def get(self, request):
+        from core.push import push_is_enabled
+        from django.conf import settings
+
+        return Response({
+            "enabled": push_is_enabled(),
+            "public_key": settings.VAPID_PUBLIC_KEY if push_is_enabled() else "",
+            "subscriptions": PushSubscription.objects.filter(user=request.user).count(),
+        })
+
+    def post(self, request):
+        from core.push import push_is_enabled
+
+        if not push_is_enabled():
+            return Response({"detail": "Push is not configured."}, status=503)
+        endpoint = str(request.data.get("endpoint") or "")[:1000]
+        keys = request.data.get("keys") or {}
+        if not endpoint.startswith("https://") or not keys.get("p256dh") or not keys.get("auth"):
+            return Response({"detail": "A push subscription is required."}, status=400)
+        sub, _ = PushSubscription.objects.update_or_create(
+            endpoint=endpoint,
+            defaults={
+                "user": request.user, "company_id": request.user.company_id,
+                "p256dh": str(keys["p256dh"])[:255], "auth": str(keys["auth"])[:255],
+                "user_agent": str(request.META.get("HTTP_USER_AGENT", ""))[:255],
+                "failures": 0,
+            },
+        )
+        return Response({"id": sub.pk}, status=201)
+
+    def delete(self, request):
+        endpoint = str(request.data.get("endpoint") or "")
+        PushSubscription.objects.filter(user=request.user, endpoint=endpoint).delete()
+        return Response(status=204)

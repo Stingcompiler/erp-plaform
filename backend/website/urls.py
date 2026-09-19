@@ -16,6 +16,7 @@ from website.views import (
     PublicPlanListView,
     PublicRegistrationRequestView,
     PublicOrderCreateView,
+    PushSubscriptionView,
     PublicOrderViewSet,
     PublicSiteView,
     SectionViewSet,
@@ -41,6 +42,7 @@ router.register(
 
 urlpatterns = [
     path("platform/overview/", PlatformOverviewView.as_view(), name="platform-overview"),
+    path("push/subscription/", PushSubscriptionView.as_view(), name="push-subscription"),
     path(
         "platform/analytics/overview/", PlatformAnalyticsOverview.as_view(),
         name="platform-analytics-overview",

@@ -42,6 +42,11 @@ export default function VisitsCard() {
           <div className="text-xs text-muted">
             {t("website.visitsVisitors", { count: data.visitors })}
           </div>
+          {typeof data.orders === "number" && (
+            <div className="mt-1 text-xs text-muted">
+              {t("website.visitsOrders", { orders: data.orders, confirmed: data.orders_confirmed, rate: data.order_rate })}
+            </div>
+          )}
         </div>
       </div>
       <svg viewBox="0 0 100 36" className="mt-3 h-12 w-full text-accent" preserveAspectRatio="none" aria-hidden dir="ltr">

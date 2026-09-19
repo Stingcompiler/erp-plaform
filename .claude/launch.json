@@ -52,7 +52,9 @@
       "cwd": "backend",
       "port": 8000,
       "env": {
-        "SUBSCRIPTION_POLICY": "enforce"
+        "SUBSCRIPTION_POLICY": "enforce",
+        "VAPID_PRIVATE_KEY": "rK72OUX1oJzmiL2btaulRk7v5r2PCT_GSmy8sHwCI1c",
+        "VAPID_PUBLIC_KEY": "BPY_g71iYaL9tJPthCaf2rh6_4H10gOI91SdU-EvEqZYx-qp8a2jTGiVPTGM9ifFoLE2_q-yu-SuhxhWbHb5u6Q"
       }
     }
   ]

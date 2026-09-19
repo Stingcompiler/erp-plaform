@@ -106,6 +106,14 @@ class PlatformAnalyticsOverview(APIView):
                 Company.objects.filter(pk__in=company_ids).values_list("pk", "name")
             )
 
+        from django.db.models import Count as _Count
+        from website.models import PublicOrder
+
+        orders_by_company = dict(
+            PublicOrder.objects.filter(created_at__date__gte=start)
+            .values_list("company_id").annotate(n=_Count("id")).values_list("company_id", "n")
+        )
+
         bot_visits = (
             (stats.aggregate(b=Sum("bot_visits"))["b"] or 0)
             + PageVisit.objects.filter(created_at__date=today, is_bot=True).count()
@@ -145,9 +153,11 @@ class PlatformAnalyticsOverview(APIView):
                     "name": company_names.get(company_id, path),
                     "path": path,
                     "visits": count,
+                    "orders": orders_by_company.get(company_id, 0),
                 }
                 for (company_id, path), count in company_pages.most_common(5)
             ],
+            "public_orders": sum(orders_by_company.values()),
         })
 
 
@@ -265,9 +275,18 @@ class CompanyVisitsView(APIView):
                 row = rows.get(day)
                 visits, visitors = (row["v"], row["u"]) if row else (0, 0)
             series.append({"date": day.isoformat(), "visits": visits, "visitors": visitors})
+        from website.models import PublicOrder
+
+        orders = PublicOrder.objects.filter(company_id=company_id, created_at__date__gte=start)
+        visits_total = sum(point["visits"] for point in series)
+        orders_total = orders.count()
         return Response({
             "days": 30,
-            "visits": sum(point["visits"] for point in series),
+            "visits": visits_total,
             "visitors": sum(point["visitors"] for point in series),
             "series": series,
+            # The page's job, in one number: how many visits became an order.
+            "orders": orders_total,
+            "orders_confirmed": orders.filter(status=PublicOrder.CONFIRMED).count(),
+            "order_rate": round(orders_total * 100 / visits_total, 1) if visits_total else 0,
         })

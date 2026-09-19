@@ -505,3 +505,11 @@ if FORCE_HTTPS:
     SECURE_HSTS_PRELOAD = _IS_SAAS
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
+# Web Push (VAPID). Generate once with `python -m py_vapid --gen` (or
+# `manage.py vapid_keys`), keep the private key secret; the public key is
+# handed to browsers. Without a private key push is simply off.
+VAPID_PRIVATE_KEY = env("VAPID_PRIVATE_KEY", default="")
+VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY", default="")
+VAPID_CLAIMS_EMAIL = env("VAPID_CLAIMS_EMAIL", default="mailto:musab@vezano.app")
+WEB_PUSH_ENABLED = bool(VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY)

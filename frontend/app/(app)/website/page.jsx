@@ -70,6 +70,8 @@ export default function WebsitePage() {
         list_in_directory: page.list_in_directory !== false,
         accept_orders: page.accept_orders === true,
         order_instructions: page.order_instructions || "",
+        order_notify_owners: page.order_notify_owners !== false,
+        order_notify_emails: page.order_notify_emails || "",
       });
       setPage(r.data);
       setMsg(t("website.saved"));
@@ -217,9 +219,21 @@ export default function WebsitePage() {
               </span>
             </label>
             {page.accept_orders && (
-              <Field label={t("website.orderInstructions")} hint={t("website.orderInstructionsHint")}>
-                <textarea value={page.order_instructions || ""} onChange={set("order_instructions")} disabled={!writable} rows={3} className="w-full rounded-control border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-accent" />
-              </Field>
+              <>
+                <Field label={t("website.orderInstructions")} hint={t("website.orderInstructionsHint")}>
+                  <textarea value={page.order_instructions || ""} onChange={set("order_instructions")} disabled={!writable} rows={3} className="w-full rounded-control border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-accent" />
+                </Field>
+                <label className="flex items-start gap-2 text-sm">
+                  <input type="checkbox" checked={page.order_notify_owners !== false} onChange={set("order_notify_owners")} disabled={!writable} className="mt-1" />
+                  <span>
+                    <span className="font-medium">{t("website.notifyOwners")}</span>
+                    <span className="block text-xs text-muted">{t("website.notifyOwnersHint")}</span>
+                  </span>
+                </label>
+                <Field label={t("website.notifyEmails")} hint={t("website.notifyEmailsHint")}>
+                  <textarea value={page.order_notify_emails || ""} onChange={set("order_notify_emails")} disabled={!writable} rows={2} className="w-full rounded-control border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-accent" placeholder="orders@example.com" />
+                </Field>
+              </>
             )}
             <div className="grid grid-cols-2 gap-3">
               <Field label={t("website.logoUrl")}>

@@ -161,40 +161,65 @@ def whatsapp_number(order):
 
 
 def recipients(order):
-    """Who is told: the chosen branch's managers, else the owners."""
+    """Who is told: the chosen branch's managers; the owners too when the
+    site says so (or when there is no manager to tell)."""
     from accounts.models import User
 
     users = User.objects.filter(company=order.company, is_active=True)
+    told = []
     if order.branch_id:
-        managers = users.filter(branch_id=order.branch_id, role__name="Branch Manager")
-        if managers.exists():
-            return list(managers)
-    return list(users.filter(role__name="Business Owner"))
+        told = list(users.filter(branch_id=order.branch_id, role__name="Branch Manager"))
+    if not told or order.website.order_notify_owners:
+        for owner in users.filter(role__name="Business Owner"):
+            if owner not in told:
+                told.append(owner)
+    return told
+
+
+def extra_emails(order):
+    return [
+        line.strip() for line in (order.website.order_notify_emails or "").splitlines()
+        if "@" in line.strip()
+    ]
 
 
 def notify_branch(order):
+    from core import push
+
     lines = ", ".join(f"{line.name} × {line.quantity:g}" for line in order.lines.all())
     where = order.branch.name if order.branch else order.company.name
     origin = getattr(settings, "PUBLIC_APP_ORIGIN", "") or ""
-    link = f"{origin.rstrip('/')}/web-orders/?ref={order.reference}" if origin else None
-    for user in recipients(order):
+    path = f"/web-orders/?ref={order.reference}"
+    link = f"{origin.rstrip('/')}{path}" if origin else None
+    people = recipients(order)
+    for user in people:
+        push.send_to_user(
+            user,
+            title=f"طلب جديد {order.reference} · New order",
+            body=f"{order.contact_name} · {lines}"[:180],
+            url=path,
+            tag=f"web-order-{order.reference}",
+        )
+    for recipient in [u.email for u in people] + extra_emails(order):
+        user = next((u for u in people if u.email == recipient), None)
+        greeting = (user.full_name or "") if user else ""
         mailer.send_bilingual(
             subject_ar=f"طلب جديد من الموقع {order.reference}",
             subject_en=f"New order from your page {order.reference}",
             ar=[
-                f"مرحباً {user.full_name or ''}،",
+                f"مرحباً {greeting}،",
                 f"وصل طلب جديد إلى {where} من {order.contact_name} ({order.phone}).",
                 f"المنتجات: {lines}.",
                 "أكّده أو ارفضه من صفحة «الطلبات الخارجية».",
             ],
             en=[
-                f"Hello {user.full_name or ''},",
+                f"Hello {greeting},",
                 f"A new order reached {where} from {order.contact_name} ({order.phone}).",
                 f"Items: {lines}.",
                 "Confirm or reject it from the “External orders” page.",
             ],
             link=link,
-            recipient=user.email,
+            recipient=recipient,
         )
 
 
