@@ -452,3 +452,25 @@ def public_sites_sitemap(request):
     xml.endElement("urlset")
     xml.endDocument()
     return response
+
+
+@require_GET
+def public_pay_page(request, slug):
+    """/s/<slug>/pay/?ref=… — where a visitor declares a bank transfer for
+    an order. Never cached, never indexed: it is one person's order."""
+    site = _site_or_404(slug)
+    data = PublicSiteSerializer(site).data
+    language = _language(site, data)
+    colour = data["primary_color"] if HEX_COLOUR.match(data["primary_color"] or "") else "#111827"
+    logo = absolute(data["logo_image_url"], request) or (
+        data["logo_url"] if (data["logo_url"] or "").startswith(("http://", "https://")) else ""
+    )
+    response = render(request, "website/public_pay.html", {
+        "name": _display_name(site), "language": language,
+        "dir": "rtl" if language == "ar" else "ltr", "colour": colour, "logo": logo,
+        "site_path": public_site_path(slug),
+        "api_base": f"/api/public/site/{slug}/orders/",
+    })
+    response["Cache-Control"] = "no-store"
+    response["X-Robots-Tag"] = "noindex"
+    return response

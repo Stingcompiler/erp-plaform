@@ -79,6 +79,9 @@ def place_order(site, payload, request=None):
     if not name:
         raise ValidationError({"contact_name": "Tell us who to ask for."})
     phone = clean_phone(payload.get("phone"))
+    email = str(payload.get("email") or "").strip()[:254]
+    if email and "@" not in email:
+        raise ValidationError({"email": "That email address does not look right."})
     mode = payload.get("delivery_mode") or PublicOrder.PICKUP
     if mode not in (PublicOrder.PICKUP, PublicOrder.DELIVERY):
         raise ValidationError({"delivery_mode": "Choose pickup or delivery."})
@@ -130,9 +133,13 @@ def place_order(site, payload, request=None):
         from website.analytics import _visitor_hash
 
         visitor = _visitor_hash(request, timezone.localdate())
+    from website.order_payments import is_blocked
+
+    if is_blocked(company, phone, visitor):
+        raise ValidationError({"detail": "This page cannot take your order."})
     order = PublicOrder.objects.create(
         company=company, website=site, branch=branch, reference=_new_reference(),
-        contact_name=name, phone=phone, delivery_mode=mode, address=address,
+        contact_name=name, phone=phone, email=email, delivery_mode=mode, address=address,
         note=str(payload.get("note") or "").strip()[:2000], language=language,
         currency=company.currency, total=total.quantize(Decimal("0.01")) if priced else None,
         visitor_hash=visitor,
@@ -148,7 +155,50 @@ def place_order(site, payload, request=None):
         metadata={"reference": order.reference, "branch": branch.pk if branch else None},
     )
     transaction.on_commit(lambda: notify_branch(order))
+    if email:
+        transaction.on_commit(lambda: email_customer(order))
     return order
+
+
+def pay_url(order):
+    """Absolute link to the public payment page for this order."""
+    from website.public_pages import site_url
+
+    return site_url(f"/s/{order.company.slug}/pay/?ref={order.reference}")
+
+
+def email_customer(order):
+    """The visitor's copy: what they ordered, what to pay, where, and the
+    link to declare the transfer."""
+    from website.order_payments import public_bank_accounts
+
+    lines = [f"{line.name} × {line.quantity:g}" for line in order.lines.all()]
+    total = f"{order.total} {order.currency}" if order.total is not None else None
+    accounts = public_bank_accounts(order.company)
+    shop = order.company.name
+    ar = [f"مرحباً {order.contact_name}،", f"وصل طلبك رقم {order.reference} إلى {shop}."]
+    en = [f"Hello {order.contact_name},", f"Your order {order.reference} reached {shop}."]
+    ar.append("المنتجات: " + "، ".join(lines) + ".")
+    en.append("Items: " + ", ".join(lines) + ".")
+    if total:
+        ar.append(f"الإجمالي: {total}.")
+        en.append(f"Total: {total}.")
+    else:
+        ar.append("سيؤكد المحل المبلغ عند مراجعة الطلب.")
+        en.append("The shop will confirm the amount when it reviews the order.")
+    if accounts:
+        ar.append("حسابات التحويل: " + " · ".join(
+            f"{a.bank_name} — {a.account_name} {a.account_number}".strip() for a in accounts) + ".")
+        en.append("Bank accounts: " + " · ".join(
+            f"{a.bank_name} — {a.account_name} {a.account_number}".strip() for a in accounts) + ".")
+        ar.append("بعد التحويل سجّله من الرابط أدناه (البنك وآخر 4 أرقام من رقم العملية).")
+        en.append("After transferring, declare it with the link below (bank and last 4 digits).")
+    mailer.send_bilingual(
+        subject_ar=f"طلبك {order.reference} — {order.company.name}",
+        subject_en=f"Your order {order.reference} — {order.company.name}",
+        ar=ar, en=en, link=pay_url(order) if accounts else None, recipient=order.email,
+        primary="ar" if (order.language or "ar").startswith("ar") else "en",
+    )
 
 
 def whatsapp_number(order):

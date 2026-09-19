@@ -563,6 +563,8 @@ class PublicOrder(models.Model):
     status = models.CharField(max_length=12, choices=STATES, default=NEW)
     contact_name = models.CharField(max_length=120)
     phone = models.CharField(max_length=32)
+    # Optional: where the order summary, bank details and payment link go.
+    email = models.EmailField(blank=True)
     delivery_mode = models.CharField(max_length=12, choices=DELIVERY_CHOICES, default=PICKUP)
     address = models.CharField(max_length=255, blank=True)
     note = models.TextField(blank=True)
@@ -630,3 +632,89 @@ class PushSubscription(models.Model):
 
     def __str__(self):
         return f"push:{self.user_id}:{self.endpoint[-24:]}"
+
+
+class PublicOrderPayment(models.Model):
+    """A visitor saying "I transferred": which of the company's accounts,
+    from which bank, the transfer's last four digits, the amount, maybe a
+    receipt photo.
+
+    It is a claim until a person at the company checks the bank and says
+    CONFIRMED — which invoices the order, deducts stock and records the
+    verified bank-transfer payment, because at that point the sale is done.
+    REJECTED keeps the order open (money never arrived, details wrong);
+    FRAUD is a deliberate false claim: it blocks the phone and the visitor
+    from ordering again through the page.
+    """
+
+    VERIFYING = "verifying"
+    CONFIRMED = "confirmed"
+    REJECTED = "rejected"
+    FRAUD = "fraud"
+    STATES = [
+        (VERIFYING, "Verifying"), (CONFIRMED, "Confirmed"),
+        (REJECTED, "Rejected"), (FRAUD, "Fraud"),
+    ]
+
+    order = models.ForeignKey(PublicOrder, on_delete=models.CASCADE, related_name="payments")
+    company = models.ForeignKey(
+        "org.Company", on_delete=models.CASCADE, related_name="public_order_payments"
+    )
+    bank_account = models.ForeignKey(
+        "sales.CompanyBankAccount", null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    sender_bank_name = models.CharField(max_length=120)
+    reference_last4 = models.CharField(max_length=4)
+    amount = models.DecimalField(max_digits=16, decimal_places=2)
+    proof = models.ImageField(upload_to="order-proofs/%Y/%m/", blank=True)
+    status = models.CharField(max_length=12, choices=STATES, default=VERIFYING)
+    decided_by = models.ForeignKey(
+        "accounts.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_note = models.TextField(blank=True)
+    payment = models.OneToOneField(
+        "sales.Payment", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="public_claim",
+    )
+    invoice = models.ForeignKey(
+        "sales.Invoice", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    visitor_hash = models.CharField(max_length=32, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["order", "reference_last4"], name="one_claim_per_order_reference"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.order.reference} · {self.reference_last4}"
+
+
+class BlockedContact(models.Model):
+    """Who may no longer order through a company's page: a phone and the
+    browser fingerprint behind a fraudulent payment claim."""
+
+    company = models.ForeignKey(
+        "org.Company", on_delete=models.CASCADE, related_name="blocked_contacts"
+    )
+    phone = models.CharField(max_length=32, blank=True)
+    visitor_hash = models.CharField(max_length=32, blank=True)
+    reason = models.CharField(max_length=255, blank=True)
+    source = models.ForeignKey(
+        PublicOrderPayment, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_by = models.ForeignKey(
+        "accounts.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["company", "phone"]),
+            models.Index(fields=["company", "visitor_hash"]),
+        ]

@@ -146,7 +146,7 @@ class CompanyBankAccountSerializer(serializers.ModelSerializer):
         model = CompanyBankAccount
         fields = [
             "id", "company", "bank_name", "account_name",
-            "account_number", "opening_balance", "is_active",
+            "account_number", "opening_balance", "is_active", "show_to_customers",
             "balance", "received_total", "paid_total",
         ]
         read_only_fields = ["company"]

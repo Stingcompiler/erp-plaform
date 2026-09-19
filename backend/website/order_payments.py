@@ -1,0 +1,299 @@
+"""Payment claims on public orders: what the visitor declares, what the
+company decides, and what a decision does.
+
+CONFIRMED is the only decision with consequences beyond the claim itself:
+it rings the order up through the same checkout the till uses — invoice,
+sale-out stock movements, a bank-transfer payment — and marks the payment
+verified by the person who checked the bank. The person who confirms is
+therefore the second pair of eyes the money rule asks for (the visitor is
+the first); above the company's approval threshold it must be an approver.
+FRAUD blocks the phone and the browser behind the claim from the page.
+"""
+
+import re
+from decimal import Decimal
+
+from django.db import transaction
+from django.utils import timezone
+from rest_framework.exceptions import ValidationError
+
+from core.activity import log_activity
+from website.models import BlockedContact, PublicOrder, PublicOrderPayment
+
+
+def public_bank_accounts(company):
+    from sales.models import CompanyBankAccount
+
+    return list(
+        CompanyBankAccount.objects.filter(
+            company=company, is_active=True, show_to_customers=True
+        ).order_by("bank_name")
+    )
+
+
+def is_blocked(company, phone="", visitor_hash=""):
+    qs = BlockedContact.objects.filter(company=company)
+    if phone and qs.filter(phone=phone).exists():
+        return True
+    return bool(visitor_hash and qs.filter(visitor_hash=visitor_hash).exists())
+
+
+def order_for_visitor(site, reference):
+    """The public view of one order: no phone, no internal ids."""
+    order = PublicOrder.objects.filter(
+        website=site, reference__iexact=str(reference or "").strip()
+    ).prefetch_related("lines", "payments").first()
+    return order
+
+
+def claim_payload(claim):
+    return {
+        "id": claim.pk,
+        "status": (
+            PublicOrderPayment.REJECTED if claim.status == PublicOrderPayment.FRAUD
+            else claim.status
+        ),
+        "sender_bank_name": claim.sender_bank_name,
+        "reference_last4": claim.reference_last4,
+        "amount": str(claim.amount),
+        "created_at": claim.created_at,
+        "decision_note": claim.decision_note if claim.status == PublicOrderPayment.REJECTED else "",
+    }
+
+
+def paid_so_far(order):
+    return sum(
+        (c.amount for c in order.payments.all() if c.status == PublicOrderPayment.CONFIRMED),
+        Decimal("0"),
+    )
+
+
+def public_order_payload(order):
+    accounts = public_bank_accounts(order.company)
+    return {
+        "reference": order.reference,
+        "status": order.status,
+        "contact_name": order.contact_name,
+        "currency": order.currency,
+        "total": str(order.total) if order.total is not None else None,
+        "priced": order.total is not None,
+        "lines": [
+            {"name": line.name, "quantity": str(line.quantity),
+             "unit_price": str(line.unit_price) if line.unit_price is not None else None}
+            for line in order.lines.all()
+        ],
+        "branch": order.branch.name if order.branch else "",
+        "bank_accounts": [
+            {"id": a.pk, "bank_name": a.bank_name, "account_name": a.account_name,
+             "account_number": a.account_number}
+            for a in accounts
+        ],
+        "can_pay": (
+            order.status in (PublicOrder.NEW, PublicOrder.CONFIRMED)
+            and order.total is not None and bool(accounts)
+            and paid_so_far(order) < order.total
+        ),
+        "paid": str(paid_so_far(order)),
+        "payments": [claim_payload(c) for c in order.payments.all()],
+    }
+
+
+@transaction.atomic
+def declare_payment(order, payload, files=None, request=None):
+    if order.status not in (PublicOrder.NEW, PublicOrder.CONFIRMED):
+        raise ValidationError({"detail": "This order is closed."})
+    if order.total is None:
+        raise ValidationError({"detail": "The shop has not confirmed the amount yet."})
+    accounts = {a.pk: a for a in public_bank_accounts(order.company)}
+    try:
+        account = accounts[int(payload.get("bank_account"))]
+    except (TypeError, ValueError, KeyError):
+        raise ValidationError({"bank_account": "Choose the account you transferred to."})
+    sender = str(payload.get("sender_bank_name") or "").strip()[:120]
+    if not sender:
+        raise ValidationError({"sender_bank_name": "Which bank did you transfer from?"})
+    ref = re.sub(r"\D", "", str(payload.get("reference_last4") or ""))
+    if len(ref) != 4:
+        raise ValidationError({"reference_last4": "Enter the last four digits of the transfer."})
+    try:
+        amount = Decimal(str(payload.get("amount"))).quantize(Decimal("0.01"))
+    except Exception:  # noqa: BLE001
+        raise ValidationError({"amount": "Enter the amount you transferred."})
+    if amount <= 0:
+        raise ValidationError({"amount": "Enter the amount you transferred."})
+    if order.payments.filter(reference_last4=ref).exists():
+        raise ValidationError({"reference_last4": "This transfer was already declared."})
+    visitor = ""
+    if request is not None:
+        from website.analytics import _visitor_hash
+
+        visitor = _visitor_hash(request, timezone.localdate())
+    if is_blocked(order.company, order.phone, visitor):
+        raise ValidationError({"detail": "This order is closed."})
+    proof = (files or {}).get("proof")
+    if proof is not None:
+        if proof.size > 5 * 1024 * 1024:
+            raise ValidationError({"proof": "The receipt image must be under 5 MB."})
+        if not str(proof.content_type or "").startswith("image/"):
+            raise ValidationError({"proof": "The receipt must be an image."})
+    claim = PublicOrderPayment.objects.create(
+        order=order, company=order.company, bank_account=account, sender_bank_name=sender,
+        reference_last4=ref, amount=amount, proof=proof, visitor_hash=visitor,
+    )
+    log_activity(
+        action="public_payment_declared", company=order.company,
+        entity_type="PublicOrderPayment", entity_id=claim.pk,
+        metadata={"reference": order.reference, "amount": str(amount), "last4": ref},
+    )
+    transaction.on_commit(lambda: _notify_claim(claim))
+    return claim
+
+
+def _notify_claim(claim):
+    from core import push
+    from website.orders import recipients
+
+    order = claim.order
+    for user in recipients(order):
+        push.send_to_user(
+            user,
+            title=f"تحويل بانتظار التحقق {order.reference} · Transfer to verify",
+            body=(
+                f"{order.contact_name} · {claim.amount} {order.currency} · "
+                f"****{claim.reference_last4}"
+            ),
+            url=f"/web-orders/?ref={order.reference}",
+            tag=f"web-order-pay-{claim.pk}",
+        )
+
+
+def _closed(claim):
+    if claim.status != PublicOrderPayment.VERIFYING:
+        raise ValidationError({"detail": "This claim was already answered."})
+
+
+def _decide(claim, actor, status, note):
+    claim.status = status
+    claim.decided_by = actor
+    claim.decided_at = timezone.now()
+    claim.decision_note = note
+    claim.save()
+
+
+@transaction.atomic
+def confirm_payment(claim, actor, request, warehouse=None, note=""):
+    """The money is in the bank: invoice the order, deduct stock, record the
+    verified bank transfer. Returns the claim with ``invoice`` set."""
+    from core.rbac import can_approve_high_value
+    from inventory.models import Warehouse
+    from sales.models import Payment
+    from sales.serializers import POSCheckoutSerializer
+    from website.orders import confirm as confirm_order
+
+    claim = PublicOrderPayment.objects.select_for_update().get(pk=claim.pk)
+    _closed(claim)
+    order = claim.order
+    if order.status == PublicOrder.NEW:
+        order = confirm_order(order, actor, note)
+    if order.status != PublicOrder.CONFIRMED or order.sales_order is None:
+        raise ValidationError({"detail": "Only a confirmed order can be paid."})
+    threshold = getattr(order.company, "payment_approval_threshold", 0) or 0
+    if threshold and claim.amount >= threshold and not can_approve_high_value(actor):
+        raise ValidationError({
+            "code": "approval_required",
+            "detail": "Confirming a transfer of this size needs an approver (owner, GM or CFO).",
+        })
+    sales_order = order.sales_order
+    if warehouse is None:
+        candidates = Warehouse.objects.filter(company=order.company, is_active=True)
+        warehouse = (
+            candidates.filter(branch_id=order.branch_id).first() if order.branch_id else None
+        ) or candidates.first()
+        if warehouse is None:
+            raise ValidationError({"warehouse": "Create a warehouse to sell from first."})
+    if sales_order.status == sales_order.CONFIRMED:
+        amount = min(claim.amount, sales_order.total)
+        serializer = POSCheckoutSerializer(
+            data={
+                "customer": sales_order.customer_id,
+                "branch": order.branch_id,
+                "warehouse": warehouse.pk,
+                "source_order": sales_order.pk,
+                "lines": [
+                    {"product": line.product_id, "quantity": str(line.quantity),
+                     "unit_price": str(line.unit_price)}
+                    for line in sales_order.lines.all()
+                ],
+                "payment": {
+                    "method": Payment.BANK_TRANSFER,
+                    "company_bank_account": claim.bank_account_id,
+                    "sender_bank_name": claim.sender_bank_name,
+                    "reference_last4": claim.reference_last4,
+                    "amount": str(amount),
+                },
+            },
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        invoice = serializer.save()
+        payment = invoice.payments.filter(method=Payment.BANK_TRANSFER).order_by("-pk").first()
+    else:
+        # Already invoiced (a second transfer on the same order): record the
+        # payment on that invoice.
+        invoice = sales_order.invoices.order_by("-pk").first()
+        if invoice is None:
+            raise ValidationError({"detail": "This order was fulfilled without an invoice."})
+        payment = Payment.objects.create(
+            company=order.company, invoice=invoice, method=Payment.BANK_TRANSFER,
+            company_bank_account=claim.bank_account, sender_bank_name=claim.sender_bank_name,
+            reference_last4=claim.reference_last4, amount=claim.amount, recorded_by=actor,
+        )
+    if payment is not None and payment.verified_at is None:
+        payment.verified_at = timezone.now()
+        payment.verified_by = actor
+        payment.save(update_fields=["verified_at", "verified_by"])
+    claim.payment = payment
+    claim.invoice = invoice
+    _decide(claim, actor, PublicOrderPayment.CONFIRMED, note)
+    log_activity(
+        action="public_payment_confirmed", request=request, entity_type="PublicOrderPayment",
+        entity_id=claim.pk, metadata={"reference": order.reference, "invoice": invoice.pk},
+    )
+    return claim
+
+
+@transaction.atomic
+def reject_payment(claim, actor, request, note=""):
+    claim = PublicOrderPayment.objects.select_for_update().get(pk=claim.pk)
+    _closed(claim)
+    _decide(claim, actor, PublicOrderPayment.REJECTED, note)
+    log_activity(
+        action="public_payment_rejected", request=request, entity_type="PublicOrderPayment",
+        entity_id=claim.pk, metadata={"reference": claim.order.reference},
+    )
+    return claim
+
+
+@transaction.atomic
+def flag_fraud(claim, actor, request, note=""):
+    claim = PublicOrderPayment.objects.select_for_update().get(pk=claim.pk)
+    _closed(claim)
+    _decide(claim, actor, PublicOrderPayment.FRAUD, note)
+    order = claim.order
+    BlockedContact.objects.create(
+        company=order.company, phone=order.phone,
+        visitor_hash=claim.visitor_hash or order.visitor_hash,
+        reason=note or f"fraudulent payment claim on {order.reference}", source=claim,
+        created_by=actor,
+    )
+    if order.status == PublicOrder.NEW:
+        order.status = PublicOrder.REJECTED
+        order.decided_by = actor
+        order.decided_at = timezone.now()
+        order.decision_note = note or "fraud"
+        order.save()
+    log_activity(
+        action="public_payment_fraud", request=request, entity_type="PublicOrderPayment",
+        entity_id=claim.pk, metadata={"reference": order.reference, "phone": order.phone},
+    )
+    return claim

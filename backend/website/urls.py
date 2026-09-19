@@ -16,6 +16,7 @@ from website.views import (
     PublicPlanListView,
     PublicRegistrationRequestView,
     PublicOrderCreateView,
+    PublicOrderStatusView,
     PushSubscriptionView,
     PublicOrderViewSet,
     PublicSiteView,
@@ -81,6 +82,10 @@ urlpatterns = [
     path(
         "public/site/<slug:slug>/orders/", PublicOrderCreateView.as_view(),
         name="public-site-order",
+    ),
+    path(
+        "public/site/<slug:slug>/orders/<str:reference>/", PublicOrderStatusView.as_view(),
+        name="public-site-order-status",
     ),
     path("", include(router.urls)),
 ]

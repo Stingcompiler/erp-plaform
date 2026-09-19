@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="{{ language }}" dir="{{ dir }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% if language == 'ar' %}تسجيل التحويل — {{ name }}{% else %}Declare your transfer — {{ name }}{% endif %}</title>
+<meta name="robots" content="noindex, nofollow">
+{% if logo %}<link rel="icon" href="{{ logo }}">{% endif %}
+<meta name="theme-color" content="{{ colour }}">
+{% if language == 'ar' %}<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">{% endif %}
+<style>
+:root{--accent:{{ colour }};--ink:#14202c;--muted:#5f6d78;--paper:#f6f8f7;--surface:#fff;--line:#e2e8e8}
+@media (prefers-color-scheme: dark){:root{--ink:#eef2f3;--muted:#9aa8b1;--paper:#0f1a22;--surface:#16232c;--line:#25343f}}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;font-family:{% if language == 'ar' %}Cairo,{% endif %}system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--paper);color:var(--ink);line-height:1.6}
+.wrap{max-width:640px;margin:0 auto;padding:24px 16px 60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.1rem;margin-bottom:20px}.brand img{width:36px;height:36px;border-radius:10px;object-fit:cover}.brand .ph{width:36px;height:36px;border-radius:10px;background:var(--accent);color:#fff;display:grid;place-items:center}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+h1{font-size:1.4rem;margin:0 0 6px}h2{font-size:1.05rem;margin:0 0 10px}.muted{color:var(--muted)}
+ul.lines{list-style:none;padding:0;margin:0}ul.lines li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}ul.lines li:last-child{border:0}
+.total{font-weight:800;font-size:1.1rem;margin-top:8px}
+.acct{padding:10px 12px;border:1px dashed var(--line);border-radius:10px;margin-bottom:8px}.acct b{display:block}.acct code{font-size:1.05rem;user-select:all}
+form{display:grid;gap:12px}label{display:grid;gap:6px;font-weight:600;font-size:.95rem}input,select{padding:11px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--surface);color:var(--ink)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--accent);color:#fff;text-decoration:none;padding:12px 20px;border-radius:12px;font-weight:700;border:0;cursor:pointer;font:inherit}.btn[disabled]{opacity:.6}
+.err{color:#b91c1c;font-weight:600}.ok{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px}
+.state{display:inline-block;padding:3px 10px;border-radius:999px;font-size:.85rem;font-weight:700}.state.verifying{background:#fef3c7;color:#92400e}.state.confirmed{background:#dcfce7;color:#166534}.state.rejected{background:#fee2e2;color:#991b1b}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="brand" href="{{ site_path }}">{% if logo %}<img src="{{ logo }}" alt="">{% else %}<span class="ph">{{ name|slice:":1" }}</span>{% endif %}{{ name }}</a>
+  <div class="card" id="loading">{% if language == 'ar' %}جارٍ تحميل الطلب…{% else %}Loading your order…{% endif %}</div>
+  <div class="card" id="missing" hidden>
+    <h1>{% if language == 'ar' %}لم نجد هذا الطلب{% else %}Order not found{% endif %}</h1>
+    <p class="muted">{% if language == 'ar' %}تأكد من رقم الطلب في الرابط أو الرسالة.{% else %}Check the order reference in your link or message.{% endif %}</p>
+    <form id="ref-form"><label>{% if language == 'ar' %}رقم الطلب{% else %}Order reference{% endif %}<input name="ref" required maxlength="16"></label><button class="btn" type="submit">{% if language == 'ar' %}بحث{% else %}Find{% endif %}</button></form>
+  </div>
+  <div id="order" hidden>
+    <div class="card">
+      <h1>{% if language == 'ar' %}طلبك{% else %}Your order{% endif %} <span id="ref"></span></h1>
+      <p class="muted" id="who"></p>
+      <ul class="lines" id="lines"></ul>
+      <div class="total" id="total"></div>
+    </div>
+    <div class="card" id="accounts-card" hidden>
+      <h2>{% if language == 'ar' %}حوّل إلى أحد الحسابات{% else %}Transfer to one of these accounts{% endif %}</h2>
+      <div id="accounts"></div>
+    </div>
+    <div class="card" id="claims-card" hidden>
+      <h2>{% if language == 'ar' %}تحويلاتك المسجّلة{% else %}Your declared transfers{% endif %}</h2>
+      <ul class="lines" id="claims"></ul>
+    </div>
+    <div class="card" id="pay-card" hidden>
+      <h2>{% if language == 'ar' %}سجّل تحويلك{% else %}Declare your transfer{% endif %}</h2>
+      <p class="muted">{% if language == 'ar' %}بعد التحويل أدخل بياناته ليتحقق المحل منه ويؤكد طلبك.{% else %}After transferring, enter its details so the shop can verify it and confirm your order.{% endif %}</p>
+      <form id="pay-form" enctype="multipart/form-data">
+        <label>{% if language == 'ar' %}الحساب الذي حوّلت إليه{% else %}Account you transferred to{% endif %}<select name="bank_account" id="bank_account" required></select></label>
+        <label>{% if language == 'ar' %}البنك الذي حوّلت منه{% else %}Bank you transferred from{% endif %}<input name="sender_bank_name" required maxlength="120"></label>
+        <label>{% if language == 'ar' %}آخر 4 أرقام من رقم العملية{% else %}Last 4 digits of the transaction{% endif %}<input name="reference_last4" required inputmode="numeric" pattern="[0-9]{4}" maxlength="4"></label>
+        <label>{% if language == 'ar' %}المبلغ{% else %}Amount{% endif %}<input name="amount" type="number" step="0.01" min="0.01" required></label>
+        <label>{% if language == 'ar' %}صورة الإيصال (اختياري){% else %}Receipt photo (optional){% endif %}<input name="proof" type="file" accept="image/*"></label>
+        <p class="err" id="pay-error" hidden></p>
+        <button class="btn" type="submit">{% if language == 'ar' %}إرسال{% else %}Send{% endif %}</button>
+      </form>
+    </div>
+    <div class="ok" id="pay-done" hidden>
+      <b>{% if language == 'ar' %}تم تسجيل التحويل ✅{% else %}Transfer declared ✅{% endif %}</b>
+      <p>{% if language == 'ar' %}سيتحقق المحل منه ويؤكد طلبك. تستطيع العودة لهذه الصفحة لمعرفة الحالة.{% else %}The shop will verify it and confirm your order. Come back to this page to see the status.{% endif %}</p>
+    </div>
+    <p class="muted" id="closed" hidden>{% if language == 'ar' %}هذا الطلب مغلق.{% else %}This order is closed.{% endif %}</p>
+    <p class="muted" id="unpriced" hidden>{% if language == 'ar' %}بانتظار تأكيد المحل للمبلغ — عُد لهذه الصفحة بعد التأكيد لتسجيل التحويل.{% else %}Waiting for the shop to confirm the amount — come back after that to declare your transfer.{% endif %}</p>
+  </div>
+</div>
+<script>
+(function () {
+  var base = "{{ api_base }}", lang = "{{ language }}", params = new URLSearchParams(location.search);
+  var ref = (params.get("ref") || "").trim();
+  var L = function (ar, en) { return lang === "ar" ? ar : en; };
+  var states = { verifying: L("جاري التحقق", "Verifying"), confirmed: L("مؤكد", "Confirmed"), rejected: L("مرفوض", "Rejected") };
+  var order = null;
+  function money(v, c) { return Number(v).toLocaleString("en", { maximumFractionDigits: 2 }) + " " + c; }
+  function show(id, on) { document.getElementById(id).hidden = !on; }
+  function render(o) {
+    order = o; show("loading", false); show("missing", false); show("order", true);
+    document.getElementById("ref").textContent = o.reference;
+    document.getElementById("who").textContent = o.contact_name + (o.branch ? " · " + o.branch : "");
+    var lines = document.getElementById("lines"); lines.innerHTML = "";
+    o.lines.forEach(function (l) { var li = document.createElement("li"); li.innerHTML = "<span></span><span></span>"; li.children[0].textContent = l.name + " × " + Number(l.quantity); li.children[1].textContent = l.unit_price == null ? L("يؤكده المحل", "confirmed by the shop") : money(Number(l.unit_price) * Number(l.quantity), o.currency); lines.appendChild(li); });
+    document.getElementById("total").textContent = L("الإجمالي: ", "Total: ") + (o.priced ? money(o.total, o.currency) : L("يؤكده المحل", "confirmed by the shop"));
+    var acc = document.getElementById("accounts"); acc.innerHTML = ""; var sel = document.getElementById("bank_account"); sel.innerHTML = "";
+    o.bank_accounts.forEach(function (a) { var d = document.createElement("div"); d.className = "acct"; d.innerHTML = "<b></b><span class='muted'></span> <code></code>"; d.children[0].textContent = a.bank_name; d.children[1].textContent = a.account_name; d.children[2].textContent = a.account_number; acc.appendChild(d); var op = document.createElement("option"); op.value = a.id; op.textContent = a.bank_name + " — " + a.account_number; sel.appendChild(op); });
+    show("accounts-card", o.bank_accounts.length > 0);
+    var claims = document.getElementById("claims"); claims.innerHTML = "";
+    o.payments.forEach(function (p) { var li = document.createElement("li"); li.innerHTML = "<span></span><span class='state'></span>"; li.children[0].textContent = p.sender_bank_name + " · ****" + p.reference_last4 + " · " + money(p.amount, o.currency) + (p.decision_note ? " — " + p.decision_note : ""); li.children[1].textContent = states[p.status] || p.status; li.children[1].className = "state " + p.status; claims.appendChild(li); });
+    show("claims-card", o.payments.length > 0);
+    var closed = o.status === "rejected" || o.status === "cancelled";
+    show("closed", closed); show("unpriced", !closed && !o.priced);
+    show("pay-card", o.can_pay);
+  }
+  function load(r) {
+    if (!r) { show("loading", false); show("missing", true); return; }
+    fetch(base + encodeURIComponent(r) + "/").then(function (res) { return res.ok ? res.json() : null; }).then(function (o) { if (o) { history.replaceState({}, "", "?ref=" + encodeURIComponent(o.reference)); render(o); } else { show("loading", false); show("missing", true); } }).catch(function () { show("loading", false); show("missing", true); });
+  }
+  document.getElementById("ref-form").addEventListener("submit", function (e) { e.preventDefault(); load(e.target.ref.value.trim()); });
+  document.getElementById("pay-form").addEventListener("submit", function (e) {
+    e.preventDefault(); var f = e.target, err = document.getElementById("pay-error"); err.hidden = true; f.querySelector("button").disabled = true;
+    fetch(base + encodeURIComponent(order.reference) + "/", { method: "POST", body: new FormData(f) })
+      .then(function (res) { return res.json().then(function (j) { return { ok: res.ok, j: j }; }); })
+      .then(function (r) { if (!r.ok) { var first = Object.values(r.j || {})[0]; err.textContent = Array.isArray(first) ? first[0] : (first || L("تعذّر الإرسال", "Could not send")); err.hidden = false; f.querySelector("button").disabled = false; return; } show("pay-card", false); show("pay-done", true); load(order.reference); })
+      .catch(function () { err.textContent = L("تعذّر الاتصال", "Connection failed"); err.hidden = false; f.querySelector("button").disabled = false; });
+  });
+  load(ref);
+})();
+</script>
+</body>
+</html>

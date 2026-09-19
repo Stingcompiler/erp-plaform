@@ -5,6 +5,7 @@ from datetime import timedelta
 from django.db import models
 from django.utils import timezone
 from django.db.models import Q
+from django.http import FileResponse, Http404
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -741,11 +742,55 @@ class PublicOrderCreateView(APIView):
         if str(request.data.get("website_url") or "").strip():
             return Response({"reference": "W" + "0" * 6, "whatsapp": ""}, status=201)
         order = place_order(site, request.data, request)
-        return Response(
-            {"reference": order.reference, "whatsapp": whatsapp_number(order),
-             "branch": order.branch.name if order.branch else ""},
-            status=status.HTTP_201_CREATED,
-        )
+        from website.order_payments import public_order_payload
+        from website.orders import pay_url
+
+        payload = public_order_payload(order)
+        payload.update({
+            "whatsapp": whatsapp_number(order),
+            "pay_url": pay_url(order) if payload["bank_accounts"] else "",
+        })
+        return Response(payload, status=status.HTTP_201_CREATED)
+
+
+class PublicOrderStatusView(APIView):
+    """GET/POST /api/public/site/<slug>/orders/<ref>/ — UNAUTHENTICATED.
+    The visitor's own order by its reference (no phone, no ids), and the
+    place to declare a bank transfer against it."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "public_order"
+
+    def _order(self, slug, reference):
+        from website.order_payments import order_for_visitor
+
+        try:
+            company = Company.objects.get(slug=slug, is_active=True)
+        except Company.DoesNotExist:
+            return None
+        site = getattr(company, "website", None)
+        if site is None or not site.is_published:
+            return None
+        return order_for_visitor(site, reference)
+
+    def get(self, request, slug, reference):
+        from website.order_payments import public_order_payload
+
+        order = self._order(slug, reference)
+        if order is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(public_order_payload(order))
+
+    def post(self, request, slug, reference):
+        from website.order_payments import claim_payload, declare_payment
+
+        order = self._order(slug, reference)
+        if order is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        claim = declare_payment(order, request.data, request.FILES, request)
+        return Response(claim_payload(claim), status=status.HTTP_201_CREATED)
 
 
 class PublicOrderViewSet(
@@ -756,7 +801,7 @@ class PublicOrderViewSet(
 
     queryset = PublicOrder.objects.select_related(
         "branch", "customer", "decided_by", "website"
-    ).prefetch_related("lines")
+    ).prefetch_related("lines", "payments__bank_account", "payments__decided_by")
     serializer_class = PublicOrderSerializer
     rbac_module = "sales"
     branch_field = "branch"
@@ -795,6 +840,53 @@ class PublicOrderViewSet(
         from website.orders import reject
 
         return self._decide(request, reject, "public_order_rejected")
+
+    def _claim(self, pk, claim_pk):
+        order = self.get_object()
+        return order.payments.get(pk=claim_pk)
+
+    @action(detail=True, methods=["get"], url_path=r"payments/(?P<claim_pk>\d+)/proof")
+    def payment_proof(self, request, pk=None, claim_pk=None):
+        claim = self._claim(pk, claim_pk)
+        if not claim.proof:
+            raise Http404
+        return FileResponse(claim.proof.open("rb"))
+
+    @action(detail=True, methods=["post"], url_path=r"payments/(?P<claim_pk>\d+)/confirm")
+    def confirm_payment(self, request, pk=None, claim_pk=None):
+        from inventory.models import Warehouse
+        from website.order_payments import confirm_payment
+
+        warehouse = None
+        if request.data.get("warehouse"):
+            warehouse = Warehouse.objects.filter(
+                company_id=request.user.company_id, pk=request.data["warehouse"]
+            ).first()
+        confirm_payment(
+            self._claim(pk, claim_pk), request.user, request, warehouse=warehouse,
+            note=str(request.data.get("note") or "")[:1000],
+        )
+        return Response(self.get_serializer(self.get_object()).data)
+
+    @action(detail=True, methods=["post"], url_path=r"payments/(?P<claim_pk>\d+)/reject")
+    def reject_payment(self, request, pk=None, claim_pk=None):
+        from website.order_payments import reject_payment
+
+        reject_payment(
+            self._claim(pk, claim_pk), request.user, request,
+            note=str(request.data.get("note") or "")[:1000],
+        )
+        return Response(self.get_serializer(self.get_object()).data)
+
+    @action(detail=True, methods=["post"], url_path=r"payments/(?P<claim_pk>\d+)/fraud")
+    def fraud_payment(self, request, pk=None, claim_pk=None):
+        from website.order_payments import flag_fraud
+
+        flag_fraud(
+            self._claim(pk, claim_pk), request.user, request,
+            note=str(request.data.get("note") or "")[:1000],
+        )
+        return Response(self.get_serializer(self.get_object()).data)
 
 
 class PushSubscriptionView(APIView):

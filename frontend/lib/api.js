@@ -565,6 +565,10 @@ export const webOrders = {
   list: (params) => api.get("/web-orders/", { params }),
   confirm: (id, note = "") => api.post(`/web-orders/${id}/confirm/`, { note }),
   reject: (id, note = "") => api.post(`/web-orders/${id}/reject/`, { note }),
+  confirmPayment: (id, claimId, body = {}) => api.post(`/web-orders/${id}/payments/${claimId}/confirm/`, body),
+  rejectPayment: (id, claimId, note = "") => api.post(`/web-orders/${id}/payments/${claimId}/reject/`, { note }),
+  fraudPayment: (id, claimId, note = "") => api.post(`/web-orders/${id}/payments/${claimId}/fraud/`, { note }),
+  proofUrl: (id, claimId) => `${api.defaults.baseURL}/web-orders/${id}/payments/${claimId}/proof/`,
 };
 
 export const platformPlanChanges = {
