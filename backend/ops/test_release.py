@@ -18,6 +18,16 @@ class VersionAndHashingTests(TestCase):
             release.application_version(root=Path("/nonexistent")), "0.0.0-unknown"
         )
 
+    def test_deployed_commit_prefers_render_then_generic_then_none(self):
+        self.assertEqual(
+            release.deployed_commit({"RENDER_GIT_COMMIT": "9c0313ef1234567890"}), "9c0313ef"
+        )
+        self.assertEqual(
+            release.deployed_commit({"RENDER_GIT_COMMIT": " ", "GIT_COMMIT": "abcdef01ff"}),
+            "abcdef01",
+        )
+        self.assertIsNone(release.deployed_commit({}))
+
     def test_sha256_file_matches_a_known_digest(self):
         payload = b"vezano"
         target = Path(tempfile.gettempdir()) / "vezano-hash-probe.bin"
