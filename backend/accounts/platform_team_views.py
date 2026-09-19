@@ -196,16 +196,22 @@ class PlatformTeamViewSet(
         link = mailer.activation_link(token, kind="platform")
         if not link:
             return False
-        body = (
-            f"مرحباً {user.full_name or user.email}،\n\n"
-            "تمت دعوتك للانضمام إلى فريق منصة فيزانو.\n"
-            f"فعّل حسابك من هذا الرابط (صالح لمرة واحدة):\n{link}\n\n"
-            "— Vezano\n\n"
-            f"You have been invited to the Vezano platform team. "
-            f"Activate your account with this one-time link: {link}"
-        )
-        return mailer.send_transactional(
-            "دعوة فريق منصة فيزانو | Vezano platform team invitation", body, user.email
+        name = user.full_name or user.email
+        return mailer.send_bilingual(
+            subject_ar="دعوة فريق منصة فيزانو",
+            subject_en="Vezano platform team invitation",
+            ar=[
+                f"مرحباً {name}،",
+                "تمت دعوتك للانضمام إلى فريق منصة فيزانو.",
+                "فعّل حسابك من الرابط أدناه (صالح لمرة واحدة).",
+            ],
+            en=[
+                f"Hello {name},",
+                "You have been invited to the Vezano platform team.",
+                "Activate your account with the one-time link below.",
+            ],
+            link=link,
+            recipient=user.email,
         )
 
     def create(self, request):

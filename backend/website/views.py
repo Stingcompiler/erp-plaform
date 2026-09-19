@@ -265,19 +265,23 @@ def _email_owner_invitation(registration, token):
     link = mailer.activation_link(token)
     if not link:
         return False
-    body = (
-        f"مرحباً {registration.contact_name}،\n\n"
-        f"تمت الموافقة على تسجيل «{registration.company_name}» في فيزانو.\n"
-        f"فعّل حساب المالك من هذا الرابط (صالح لمرة واحدة):\n{link}\n\n"
-        "إن لم تكن طلبت هذا التسجيل فتجاهل الرسالة.\n\n"
-        "— Vezano\n\n"
-        f"Your Vezano workspace for “{registration.company_name}” is ready. "
-        f"Activate the owner account with this one-time link: {link}"
-    )
-    return mailer.send_transactional(
-        "تفعيل حساب مالك فيزانو | Vezano owner activation",
-        body,
-        registration.email,
+    return mailer.send_bilingual(
+        subject_ar="تفعيل حساب مالك فيزانو",
+        subject_en="Activate your Vezano owner account",
+        ar=[
+            f"مرحباً {registration.contact_name}،",
+            f"تمت الموافقة على تسجيل «{registration.company_name}» في فيزانو.",
+            "فعّل حساب المالك من الرابط أدناه (صالح لمرة واحدة).",
+            "إن لم تكن طلبت هذا التسجيل فتجاهل الرسالة.",
+        ],
+        en=[
+            f"Hello {registration.contact_name},",
+            f"Your Vezano workspace for “{registration.company_name}” is ready.",
+            "Activate the owner account with the one-time link below.",
+            "If you did not request this, ignore this email.",
+        ],
+        link=link,
+        recipient=registration.email,
     )
 
 

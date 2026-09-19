@@ -93,3 +93,58 @@ class PlatformInvitationEmailTests(TestCase):
         self.assertFalse(response.data["invitation_email_sent"])
         self.assertIn("invitation_token", response.data)
         self.assertEqual(len(mail.outbox), 0)
+
+
+@override_settings(
+    EMAIL_ENABLED=True, EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend"
+)
+class BilingualEmailTests(SimpleTestCase):
+    def _send(self, **overrides):
+        kwargs = dict(
+            subject_ar="عنوان", subject_en="Subject",
+            ar=["مرحباً", "نص عربي"], en=["Hello", "English text"],
+            link="https://vezano.app/reset-password/?uid=1&token=abc",
+            recipient="to@example.com",
+        )
+        kwargs.update(overrides)
+        return mailer.send_bilingual(**kwargs)
+
+    def test_both_languages_in_text_and_html_with_directions(self):
+        self.assertTrue(self._send())
+        message = mail.outbox[0]
+        self.assertIn("نص عربي", message.body)
+        self.assertIn("English text", message.body)
+        self.assertIn("https://vezano.app/reset-password/?uid=1&token=abc", message.body)
+        html, mimetype = message.alternatives[0]
+        self.assertEqual(mimetype, "text/html")
+        self.assertIn('dir="rtl" lang="ar"', html)
+        self.assertIn('dir="ltr" lang="en"', html)
+        self.assertIn("uid=1&amp;token=abc", html)
+
+    def test_screen_language_decides_the_order(self):
+        from django.utils import translation
+
+        with translation.override("en"):
+            self._send()
+        with translation.override("ar"):
+            self._send()
+        english_first, arabic_first = mail.outbox
+        self.assertEqual(english_first.subject, "Subject | عنوان")
+        self.assertLess(english_first.body.index("Hello"), english_first.body.index("مرحباً"))
+        self.assertEqual(arabic_first.subject, "عنوان | Subject")
+        self.assertLess(arabic_first.body.index("مرحباً"), arabic_first.body.index("Hello"))
+
+    def test_explicit_primary_wins(self):
+        self._send(primary="en")
+        self.assertTrue(mail.outbox[0].subject.startswith("Subject"))
+
+    @override_settings(EMAIL_ENABLED=False)
+    def test_disabled_reports_not_sent(self):
+        self.assertFalse(self._send())
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_html_escapes_names(self):
+        self._send(ar=["<b>x</b>"], en=["<i>y</i>"])
+        html = mail.outbox[0].alternatives[0][0]
+        self.assertIn("&lt;b&gt;x&lt;/b&gt;", html)
+        self.assertNotIn("<b>x</b>", html)
