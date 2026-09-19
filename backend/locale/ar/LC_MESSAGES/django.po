@@ -475,3 +475,6 @@ msgstr "الإشعار الدائن يُذكر فقط في الدفع من ال�
 
 msgid "Credit plus payment exceed the invoice total."
 msgstr "الرصيد المستخدم مع الدفعة يتجاوزان إجمالي الفاتورة."
+
+msgid "This module is not included in the current plan or licence."
+msgstr "هذه الوحدة ليست ضمن الباقة أو الترخيص الحالي."

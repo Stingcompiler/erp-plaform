@@ -48,7 +48,7 @@ class EntitlementAccess(BasePermission):
             raise PermissionDenied(
                 {
                     "code": "module_not_in_plan",
-                    "detail": "This module is not included in the current plan or licence.",
+                    "detail": _("This module is not included in the current plan or licence."),
                 }
             )
         if request.method not in SAFE_METHODS and not decision.allow_writes:
