@@ -548,11 +548,21 @@ export const subscription = {
   labelDevice: (id, label) => api.patch(`/subscription/devices/${id}/`, { label }),
   revokeDevice: (id) => api.post(`/subscription/devices/${id}/revoke/`),
   reactivateDevice: (id) => api.post(`/subscription/devices/${id}/reactivate/`),
+  planChanges: () => api.get("/subscription/plan-changes/"),
+  requestPlanChange: (to_version, note = "") =>
+    api.post("/subscription/plan-changes/", { to_version, note }),
+  cancelPlanChange: (id) => api.post(`/subscription/plan-changes/${id}/cancel/`),
   company: () => api.get("/subscription/"),
   payments: () => api.get("/subscription/payments/"),
   submitPayment: (body) => api.post("/subscription/payments/", body),
   license: () => api.get("/license/"),
   importLicense: (body) => api.post("/license/", body),
+};
+
+export const platformPlanChanges = {
+  list: (status) => api.get("/platform/plan-changes/", { params: status ? { status } : {} }),
+  approve: (id, note = "") => api.post(`/platform/plan-changes/${id}/approve/`, { note }),
+  reject: (id, note = "") => api.post(`/platform/plan-changes/${id}/reject/`, { note }),
 };
 
 export const platformFinance = {

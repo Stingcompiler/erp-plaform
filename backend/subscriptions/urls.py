@@ -4,6 +4,8 @@ from rest_framework.routers import DefaultRouter
 from subscriptions.platform_companies import PlatformCompanyViewSet
 from subscriptions.platform_finance import PlatformFinanceView
 from subscriptions.views import (
+    CompanyPlanChangeViewSet,
+    PlatformPlanChangeViewSet,
     CompanySubscriptionPaymentViewSet,
     CompanySubscriptionView,
     DeploymentInfoView,
@@ -22,6 +24,12 @@ router.register(
 )
 router.register("platform/plans", PlatformPlanViewSet, basename="platform-plan")
 router.register("platform/companies", PlatformCompanyViewSet, basename="platform-company")
+router.register(
+    "platform/plan-changes", PlatformPlanChangeViewSet, basename="platform-plan-change"
+)
+router.register(
+    "subscription/plan-changes", CompanyPlanChangeViewSet, basename="company-plan-change"
+)
 router.register(
     "platform/plan-versions",
     PlatformPlanVersionViewSet,

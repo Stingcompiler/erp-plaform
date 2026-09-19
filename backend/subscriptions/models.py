@@ -324,3 +324,74 @@ class EntitlementOverride(models.Model):
                 name="override_end_after_start",
             )
         ]
+
+
+class PlanChangeRequest(models.Model):
+    """An owner asking to move to another plan.
+
+    The commercial rules live in subscriptions.plan_changes: an upgrade is
+    invoiced for the rest of the current period and switches when that
+    invoice is paid; a downgrade waits for the period to end and is refused
+    while the company uses more than the target plan allows. The row keeps
+    who asked, who decided and what came of it.
+    """
+
+    UPGRADE = "upgrade"
+    DOWNGRADE = "downgrade"
+    KINDS = [(UPGRADE, "Upgrade"), (DOWNGRADE, "Downgrade")]
+
+    PENDING = "pending"
+    APPROVED = "approved"   # waiting: for payment (upgrade) or period end (downgrade)
+    APPLIED = "applied"
+    REJECTED = "rejected"
+    CANCELLED = "cancelled"
+    STATES = [
+        (PENDING, "Pending"), (APPROVED, "Approved"), (APPLIED, "Applied"),
+        (REJECTED, "Rejected"), (CANCELLED, "Cancelled"),
+    ]
+
+    company = models.ForeignKey(
+        "org.Company", on_delete=models.CASCADE, related_name="plan_change_requests"
+    )
+    subscription = models.ForeignKey(
+        Subscription, on_delete=models.CASCADE, related_name="change_requests"
+    )
+    from_version = models.ForeignKey(
+        PlanVersion, on_delete=models.PROTECT, related_name="+"
+    )
+    to_version = models.ForeignKey(
+        PlanVersion, on_delete=models.PROTECT, related_name="+"
+    )
+    kind = models.CharField(max_length=12, choices=KINDS)
+    status = models.CharField(max_length=12, choices=STATES, default=PENDING)
+    note = models.TextField(blank=True)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="+",
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_note = models.TextField(blank=True)
+    # Upgrade: the prorated difference to pay before the switch.
+    invoice = models.OneToOneField(
+        SubscriptionInvoice, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="plan_change",
+    )
+    # Downgrade: when the switch is due (the current period's end).
+    apply_at = models.DateTimeField(null=True, blank=True)
+    applied_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            # One open request per company: the answer to "what did they ask
+            # for" must never be two rows.
+            models.UniqueConstraint(
+                fields=["company"],
+                condition=Q(status__in=["pending", "approved"]),
+                name="one_open_plan_change_per_company",
+            )
+        ]

@@ -235,4 +235,7 @@ def verify_and_allocate_payment(payment_id, actor, allocations):
             invoice.status = SubscriptionInvoice.PAID
             invoice.save(update_fields=["status"])
             grant_paid_invoice_period(invoice, actor)
+            from subscriptions.plan_changes import apply_on_invoice_paid
+
+            apply_on_invoice_paid(invoice, actor)
     return payment
