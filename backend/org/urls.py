@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from org.views import (
     BranchViewSet,
+    CompanyDeviceViewSet,
     CompanyProfileView,
     CompanyViewSet,
     DepartmentViewSet,
@@ -13,6 +14,7 @@ router = DefaultRouter()
 router.register("companies", CompanyViewSet, basename="company")
 router.register("branches", BranchViewSet, basename="branch")
 router.register("departments", DepartmentViewSet, basename="department")
+router.register("subscription/devices", CompanyDeviceViewSet, basename="company-device")
 
 urlpatterns = [
     path(

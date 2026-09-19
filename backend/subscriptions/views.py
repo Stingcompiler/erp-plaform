@@ -35,6 +35,7 @@ from subscriptions.services import (
     configure_subscription,
     reject_payment,
     transition_subscription,
+    usage_for,
     verify_and_allocate_payment,
 )
 
@@ -55,6 +56,7 @@ class CompanySubscriptionView(APIView):
             {
                 "deployment_mode": get_deployment_config().mode,
                 "entitlements": decision.as_dict(),
+                "usage": usage_for(company, decision.limits),
                 "subscription": (
                     SubscriptionSerializer(subscription).data if subscription else None
                 ),

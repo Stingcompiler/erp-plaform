@@ -9,6 +9,7 @@ from rest_framework.exceptions import ValidationError
 from core.entitlements import resolve_entitlements
 from config.deployment import get_deployment_config
 from subscriptions.models import (
+    LIMIT_KEYS,
     PaymentAllocation,
     Subscription,
     SubscriptionEvent,
@@ -21,8 +22,25 @@ LIMIT_RESOLVERS = {
     "users": lambda company: company.users.filter(is_active=True).count(),
     "branches": lambda company: company.branches.filter(is_active=True).count(),
     "warehouses": lambda company: company.warehouses.filter(is_active=True).count(),
+    "devices": lambda company: company.devices.filter(is_active=True).count(),
 }
+assert set(LIMIT_RESOLVERS) == set(LIMIT_KEYS) - {"storage_mb"}
 logger = logging.getLogger(__name__)
+
+
+def usage_for(company, limits=None):
+    """Each counted resource as {"used", "limit"}; limit None when the plan
+    does not cap it. One place, so the owner's page and the platform's
+    company list can never disagree."""
+    if limits is None:
+        limits = resolve_entitlements(company, apply_policy=False).limits
+    return {
+        resource: {
+            "used": resolver(company),
+            "limit": int(limits[resource]) if limits.get(resource) is not None else None,
+        }
+        for resource, resolver in LIMIT_RESOLVERS.items()
+    }
 
 
 def assert_capacity(company, resource, increment=1):

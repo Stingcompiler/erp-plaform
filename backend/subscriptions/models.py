@@ -5,6 +5,10 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 
+# What a plan may cap. The counted ones have a resolver in
+# subscriptions.services.LIMIT_RESOLVERS; storage_mb is priced, not counted.
+LIMIT_KEYS = ("users", "branches", "warehouses", "devices", "storage_mb")
+
 
 class Plan(models.Model):
     code = models.SlugField(max_length=64, unique=True)
@@ -96,7 +100,7 @@ class PlanVersion(models.Model):
                         {"modules": f"{module} also requires {names}."}
                     )
         for name, value in (self.limits or {}).items():
-            if name not in {"users", "branches", "warehouses", "storage_mb"}:
+            if name not in LIMIT_KEYS:
                 raise ValidationError({"limits": f"Unknown limit: {name}"})
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
                 raise ValidationError(

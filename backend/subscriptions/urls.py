@@ -1,6 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from subscriptions.platform_companies import PlatformCompanyViewSet
 from subscriptions.views import (
     CompanySubscriptionPaymentViewSet,
     CompanySubscriptionView,
@@ -19,6 +20,7 @@ router.register(
     basename="subscription-payment",
 )
 router.register("platform/plans", PlatformPlanViewSet, basename="platform-plan")
+router.register("platform/companies", PlatformCompanyViewSet, basename="platform-company")
 router.register(
     "platform/plan-versions",
     PlatformPlanVersionViewSet,

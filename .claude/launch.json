@@ -41,6 +41,19 @@
         "../../mobileOne/numberOnePlatform/frontend"
       ],
       "port": 5173
+    },
+    {
+      "name": "e2e-enforce",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "scripts/e2e_server.js",
+        "8000"
+      ],
+      "cwd": "backend",
+      "port": 8000,
+      "env": {
+        "SUBSCRIPTION_POLICY": "enforce"
+      }
     }
   ]
 }
