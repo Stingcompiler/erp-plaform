@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Database, Download, Lock, RotateCcw, TrendingUp, Upload } from "lucide-react";
+import { Database, Download, Lock, Printer, RotateCcw, TrendingUp, Upload } from "lucide-react";
 
 import { settings, users } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
@@ -145,6 +145,8 @@ export default function SettingsPage() {
         currency: company.currency,
         timezone: company.timezone,
         reference_currency: company.reference_currency,
+        receipt_paper: company.receipt_paper,
+        receipt_footer: company.receipt_footer,
         default_payment_terms_days: company.default_payment_terms_days,
         ...(canApprove ? {
           payment_approval_threshold: company.payment_approval_threshold,
@@ -366,6 +368,32 @@ export default function SettingsPage() {
           </div>
         )}
       </Card>
+
+      {company && (
+        <Card className="mb-6 p-6">
+          <h2 className="mb-1 flex items-center gap-2 font-display text-sm font-semibold uppercase tracking-wide text-muted">
+            <Printer size={16} /> {t("settings.receiptPrinting")}
+          </h2>
+          <p className="mb-4 text-sm text-muted">{t("settings.receiptPrintingHint")}</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={t("settings.receiptPaper")}>
+              <Select value={company.receipt_paper || "a4"} onChange={setCo("receipt_paper")} disabled={!writable}>
+                <option value="a4">{t("settings.receiptPaperA4")}</option>
+                <option value="80mm">{t("settings.receiptPaper80")}</option>
+                <option value="58mm">{t("settings.receiptPaper58")}</option>
+              </Select>
+            </Field>
+            <Field label={t("settings.receiptFooter")} hint={t("settings.receiptFooterHint")}>
+              <Input value={company.receipt_footer || ""} onChange={setCo("receipt_footer")} disabled={!writable} maxLength={240} />
+            </Field>
+          </div>
+          {writable && (
+            <Button className="mt-4" onClick={saveCompany} disabled={savingCompany}>
+              {savingCompany ? t("common.saving") : t("common.save")}
+            </Button>
+          )}
+        </Card>
+      )}
 
       {company && (
         <Card className="mb-6 p-6">

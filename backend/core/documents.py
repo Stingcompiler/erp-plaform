@@ -43,6 +43,13 @@ def issuer_block(company):
             "email": company.email,
             "tax_number": company.tax_number,
             "registration_number": company.registration_number,
+            # How the shop prints: the drawer picks the receipt layout from
+            # this and a device may override it. A4 is the default and is
+            # left out like any other unset field.
+            "receipt_paper": (
+                company.receipt_paper if company.receipt_paper != company.PAPER_A4 else ""
+            ),
+            "receipt_footer": company.receipt_footer,
         }
     )
 
