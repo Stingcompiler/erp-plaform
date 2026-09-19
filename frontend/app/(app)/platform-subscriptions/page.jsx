@@ -244,7 +244,7 @@ export default function PlatformSubscriptionsPage() {
       {error && <div className="mb-4 rounded-control bg-danger/10 p-3 text-danger">{error}</div>}
       {success && <div className="mb-4 rounded-control bg-ok/10 p-3 text-ok">{success}</div>}
       <PlanChangeRequests canManage={canManageSubs} onChanged={load} />
-      {canBill && <Card className="mb-6 p-5">
+      {canBill && <Card id="renewal-invoice" className="mb-6 p-5">
         <h2 className="font-display text-xl font-semibold">{t("subscription.createInvoice")}</h2>
         {rows.length === 0 ? (
           <p className="mt-2 text-sm text-muted">{t("subscription.noSubscriptionsToInvoice")}</p>
@@ -363,6 +363,14 @@ export default function PlatformSubscriptionsPage() {
             const availableInvoices = invoices.filter(
               (invoice) => invoice.company === payment.company && invoice.status === "issued",
             );
+            const subscription = rows.find((row) => row.company === payment.company);
+            const planCurrency = subscription?.plan?.currency;
+            const wrongCurrency = planCurrency && planCurrency !== payment.currency;
+            const issueForCompany = () => {
+              if (!subscription) return;
+              setInvoiceDraft(invoiceDefaultsForSubscription(subscription));
+              document.getElementById("renewal-invoice")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            };
             return (
               <Card key={payment.id} className="p-5">
                 <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end">
@@ -404,6 +412,15 @@ export default function PlatformSubscriptionsPage() {
                         </option>
                       ))}
                     </Select>
+                    {!availableInvoices.length && (
+                      <p className="mt-1 text-xs text-warn">
+                        {t("subscription.noOpenInvoice")}
+                        {canBill && subscription && <> <button type="button" className="font-semibold underline" onClick={issueForCompany}>{t("subscription.issueForCompany")}</button></>}
+                      </p>
+                    )}
+                    {wrongCurrency && (
+                      <p className="mt-1 text-xs text-danger">{t("subscription.currencyMismatch", { paid: payment.currency, billed: planCurrency })}</p>
+                    )}
                   </Field>
                   <Field label={t("subscription.allocationAmount")}>
                     <Input

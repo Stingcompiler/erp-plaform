@@ -2,9 +2,11 @@ from django.http import FileResponse, Http404
 from django.db import IntegrityError
 from decimal import Decimal
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from uuid import uuid4
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -112,9 +114,20 @@ class CompanySubscriptionPaymentViewSet(
             raise
 
     def perform_create(self, serializer):
-        payment = serializer.save(
-            company=self.request.user.company, recorded_by=self.request.user
-        )
+        company = self.request.user.company
+        # Money in the wrong currency can never be applied to an invoice
+        # (verify_and_allocate_payment refuses it), so refuse it here where
+        # the owner can still fix it, instead of parking it for review.
+        subscription = Subscription.objects.select_related("plan_version").filter(
+            company=company
+        ).first()
+        currency = serializer.validated_data.get("currency")
+        if subscription is not None and currency != subscription.plan_version.currency:
+            raise ValidationError({
+                "currency": _("Your subscription is billed in %(currency)s; pay in that currency.")
+                % {"currency": subscription.plan_version.currency},
+            })
+        payment = serializer.save(company=company, recorded_by=self.request.user)
         log_activity(
             action="create",
             request=self.request,
@@ -180,8 +193,6 @@ class PlatformPlanVersionViewSet(_PlatformAuditMixin, viewsets.ModelViewSet):
             serializer.instance.published_at
             or serializer.instance.subscriptions.exists()
         ):
-            from rest_framework.exceptions import ValidationError
-
             raise ValidationError(
                 "A plan version in use is immutable; create a new version."
             )
