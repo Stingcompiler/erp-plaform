@@ -8,6 +8,7 @@ import { subscription as subscriptionApi } from "@/lib/api";
 import { Badge, Button, Card, Input, PageHeader, Select } from "@/components/ui/kit";
 import UsageMeter from "@/components/subscription/UsageMeter";
 import DeviceList from "@/components/subscription/DeviceList";
+import PlanChangePanel from "@/components/subscription/PlanChangePanel";
 
 const showDate = (value, language) => value ? new Date(value).toLocaleDateString(language === "ar" ? "ar" : "en") : "—";
 
@@ -120,6 +121,7 @@ export default function SubscriptionPage() {
         <Card className="p-5"><h2 className="font-display font-semibold">{t("subscription.modules")}</h2><div className="mt-3 flex flex-wrap gap-2">{(entitlements.modules || []).map((item) => <Badge key={item} tone="accent">{item}</Badge>)}</div></Card>
         <Card className="p-5"><h2 className="font-display font-semibold">{t("subscription.limits")}</h2><p className="mt-1 text-sm text-muted">{t("usage.hint")}</p><div className="mt-4"><UsageMeter usage={data.usage} /></div></Card>
       </div>
+      {!standalone && <PlanChangePanel onChanged={load} />}
       {!standalone && <Card className="mt-5 p-5">
         <h2 className="font-display font-semibold">{t("devices.title")}</h2>
         <p className="mt-1 text-sm text-muted">{t("devices.hint")}</p>

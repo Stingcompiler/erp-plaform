@@ -8,6 +8,7 @@ import { useI18n } from "../../providers/I18nProvider";
 import { platformSubscriptions as api } from "@/lib/api";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import PhoneLink from "@/components/ui/PhoneLink";
+import PlanChangeRequests from "@/components/subscription/PlanChangeRequests";
 
 const STATES = ["trialing", "active", "grace", "read_only", "suspended", "cancelled"];
 
@@ -242,6 +243,7 @@ export default function PlatformSubscriptionsPage() {
       />
       {error && <div className="mb-4 rounded-control bg-danger/10 p-3 text-danger">{error}</div>}
       {success && <div className="mb-4 rounded-control bg-ok/10 p-3 text-ok">{success}</div>}
+      <PlanChangeRequests canManage={canManageSubs} onChanged={load} />
       {canBill && <Card className="mb-6 p-5">
         <h2 className="font-display text-xl font-semibold">{t("subscription.createInvoice")}</h2>
         {rows.length === 0 ? (

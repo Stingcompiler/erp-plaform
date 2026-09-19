@@ -14,6 +14,7 @@ from core.entitlements import resolve_entitlements
 from core import platform_roles
 from core.permissions import IsPlatformAdmin
 from subscriptions.models import (
+    PlanChangeRequest,
     Plan,
     PlanVersion,
     Subscription,
@@ -23,6 +24,7 @@ from subscriptions.models import (
 )
 from subscriptions.permissions import IsBusinessOwner
 from subscriptions.serializers import (
+    PlanChangeRequestSerializer,
     PlanSerializer,
     PlanVersionSerializer,
     SubscriptionEventSerializer,
@@ -367,3 +369,135 @@ class DeploymentInfoView(APIView):
     def get(self, request):
         config = get_deployment_config()
         return Response({"mode": config.mode, "policy": config.entitlement_policy})
+
+
+class CompanyPlanChangeViewSet(viewsets.GenericViewSet):
+    """The owner's side of a plan change: what can be moved to, what it
+    would cost for the rest of this period, asking, and withdrawing."""
+
+    permission_classes = [IsAuthenticated, IsBusinessOwner]
+    entitlement_exempt = True
+    serializer_class = PlanChangeRequestSerializer
+
+    def get_queryset(self):
+        return PlanChangeRequest.objects.filter(
+            company_id=self.request.user.company_id
+        ).select_related("from_version__plan", "to_version__plan", "invoice", "requested_by")
+
+    def list(self, request):
+        from subscriptions.plan_changes import (
+            classify, open_request, proration, usage_over_limits,
+        )
+
+        company = request.user.company
+        subscription = Subscription.objects.select_related("plan_version").filter(
+            company=company
+        ).first()
+        options = []
+        if subscription is not None:
+            current = subscription.plan_version
+            latest = {}
+            for version in PlanVersion.objects.select_related("plan").filter(
+                plan__is_active=True, plan__is_public=True, published_at__isnull=False,
+                currency=current.currency,
+            ).order_by("plan__sort_order", "plan__name", "-version"):
+                latest.setdefault(version.plan_id, version)
+            for version in latest.values():
+                if version.pk == current.pk:
+                    continue
+                kind = classify(current, version)
+                amount, _ = proration(subscription, current, version)
+                options.append({
+                    "version": version.pk, "plan": version.plan.name, "code": version.plan.code,
+                    "price": str(version.price), "currency": version.currency,
+                    "billing_cycle": version.billing_cycle, "limits": version.limits,
+                    "modules": version.modules, "kind": kind,
+                    "due_now": str(amount) if kind == "upgrade" else "0.00",
+                    "blocked_by": (
+                        usage_over_limits(company, version) if kind == "downgrade" else {}
+                    ),
+                })
+        current = open_request(company)
+        return Response({
+            "current": self.get_serializer(current).data if current else None,
+            "options": options,
+            "history": self.get_serializer(self.get_queryset()[:20], many=True).data,
+        })
+
+    def create(self, request):
+        from subscriptions.plan_changes import UsageExceedsTarget, request_change
+
+        try:
+            version = PlanVersion.objects.select_related("plan").get(
+                pk=request.data.get("to_version")
+            )
+        except (PlanVersion.DoesNotExist, ValueError, TypeError):
+            return Response({"to_version": "Choose a plan."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            change = request_change(
+                request.user.company, version, request.user,
+                str(request.data.get("note") or "")[:1000],
+            )
+        except UsageExceedsTarget as exc:
+            return Response(
+                {
+                    "code": "usage_exceeds_target",
+                    "detail": "Reduce usage to fit the new plan first.",
+                    "over": exc.over,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        log_activity(
+            action="plan_change_requested", request=request,
+            entity_type="PlanChangeRequest", entity_id=change.pk,
+            metadata={"kind": change.kind, "to_plan": version.plan.name},
+        )
+        return Response(self.get_serializer(change).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        from subscriptions.plan_changes import cancel_request
+
+        change = cancel_request(self.get_object(), request.user)
+        log_activity(
+            action="plan_change_cancelled", request=request,
+            entity_type="PlanChangeRequest", entity_id=change.pk,
+        )
+        return Response(self.get_serializer(change).data)
+
+
+class PlatformPlanChangeViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    platform_capability = platform_roles.SUBSCRIPTIONS_MANAGE
+    platform_view_capability = platform_roles.SUBSCRIPTIONS_VIEW
+    entitlement_exempt = True
+    serializer_class = PlanChangeRequestSerializer
+    queryset = PlanChangeRequest.objects.select_related(
+        "company", "from_version__plan", "to_version__plan", "invoice", "requested_by"
+    )
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        state = self.request.query_params.get("status")
+        return qs.filter(status=state) if state else qs
+
+    def _decide(self, request, fn, action_name):
+        change = fn(self.get_object(), request.user, str(request.data.get("note") or "")[:1000])
+        log_activity(
+            action=action_name, request=request, company=change.company,
+            entity_type="PlanChangeRequest", entity_id=change.pk,
+            metadata={"kind": change.kind, "status": change.status},
+        )
+        return Response(self.get_serializer(change).data)
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        from subscriptions.plan_changes import approve_request
+
+        return self._decide(request, approve_request, "plan_change_approved")
+
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        from subscriptions.plan_changes import reject_request
+
+        return self._decide(request, reject_request, "plan_change_rejected")

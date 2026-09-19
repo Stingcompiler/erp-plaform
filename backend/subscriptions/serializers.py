@@ -3,6 +3,7 @@ from rest_framework import serializers
 from subscriptions.models import (
     LIMIT_KEYS,
     Plan,
+    PlanChangeRequest,
     PlanVersion,
     Subscription,
     SubscriptionEvent,
@@ -331,3 +332,39 @@ class PaymentVerificationSerializer(serializers.Serializer):
             invoice_ids.add(invoice_id)
             cleaned.append({"invoice_id": invoice_id, "amount": amount})
         return cleaned
+
+
+class PlanChangeRequestSerializer(serializers.ModelSerializer):
+    company_name = serializers.CharField(source="company.name", read_only=True)
+    from_plan = serializers.CharField(source="from_version.plan.name", read_only=True)
+    to_plan = serializers.CharField(source="to_version.plan.name", read_only=True)
+    from_price = serializers.DecimalField(
+        source="from_version.price", max_digits=14, decimal_places=2, read_only=True
+    )
+    to_price = serializers.DecimalField(
+        source="to_version.price", max_digits=14, decimal_places=2, read_only=True
+    )
+    to_cycle = serializers.CharField(source="to_version.billing_cycle", read_only=True)
+    to_limits = serializers.JSONField(source="to_version.limits", read_only=True)
+    currency = serializers.CharField(source="to_version.currency", read_only=True)
+    requested_by_name = serializers.SerializerMethodField()
+    invoice_number = serializers.CharField(source="invoice.number", read_only=True, default=None)
+    invoice_amount = serializers.DecimalField(
+        source="invoice.amount", max_digits=14, decimal_places=2, read_only=True, default=None
+    )
+    invoice_status = serializers.CharField(source="invoice.status", read_only=True, default=None)
+
+    class Meta:
+        model = PlanChangeRequest
+        fields = [
+            "id", "company", "company_name", "kind", "status", "note", "decision_note",
+            "from_version", "from_plan", "from_price", "to_version", "to_plan", "to_price",
+            "to_cycle", "to_limits", "currency", "requested_by_name", "invoice_number",
+            "invoice_amount", "invoice_status", "apply_at", "applied_at", "decided_at",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_requested_by_name(self, obj):
+        user = obj.requested_by
+        return user.full_name or user.email

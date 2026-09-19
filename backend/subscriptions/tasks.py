@@ -31,7 +31,10 @@ def scan_subscription_expiries():
     grace_closing = Subscription.objects.filter(
         status=Subscription.GRACE, grace_ends_at__gte=now, grace_ends_at__lte=soon
     ).count()
+    from subscriptions.plan_changes import apply_due_downgrades
+
     payload = {
+        "downgrades_applied": apply_due_downgrades(now),
         "trials_ending_7d": trials_ending,
         "trials_lapsed": trials_lapsed,
         "periods_lapsed": periods_lapsed,

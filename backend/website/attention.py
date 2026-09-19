@@ -45,6 +45,12 @@ def new_demo_requests(user, since):
 def subscription_payments_to_verify(user, since):
     from subscriptions.models import SubscriptionPayment
 
-    return SubscriptionPayment.objects.filter(
+    from subscriptions.models import PlanChangeRequest
+
+    payments = SubscriptionPayment.objects.filter(
         status=SubscriptionPayment.PENDING, created_at__gt=since
     ).count()
+    changes = PlanChangeRequest.objects.filter(
+        status=PlanChangeRequest.PENDING, created_at__gt=since
+    ).count()
+    return payments + changes
