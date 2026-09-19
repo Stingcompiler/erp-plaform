@@ -925,3 +925,47 @@ class CashFlowReport(ReportView):
 def default_range():
     end = timezone.localdate()
     return end - timedelta(days=30), end
+
+
+class ZakatReport(ReportView):
+    """Zakat on trade goods for the hawl day: stock, cash, bank, receivables
+    less payables, at 2.5%. `valuation=sale|cost`, `exclude_doubtful=1` drops
+    receivables more than 90 days overdue. The Hijri date is tabular."""
+
+    report_area = "finance"
+
+    def get(self, request):
+        from core.hijri import format_hijri, next_occurrence, to_hijri
+        from reports.zakat import zakat_base
+
+        cid = self.company_id(request)
+        valuation = request.query_params.get("valuation", "sale")
+        exclude_doubtful = request.query_params.get("exclude_doubtful") in ("1", "true")
+        data = zakat_base(cid, valuation=valuation, exclude_doubtful=exclude_doubtful)
+        today = timezone.localdate()
+        year, month, day = to_hijri(today)
+        data.update({
+            "as_of": today.isoformat(),
+            "hijri": {"year": year, "month": month, "day": day},
+            "hijri_ar": format_hijri(today, "ar"),
+            "hijri_en": format_hijri(today, "en"),
+        })
+        # Optional hawl anniversary (Hijri month/day) → next Gregorian date.
+        try:
+            hm, hd = int(request.query_params.get("hawl_month", 0)), int(
+                request.query_params.get("hawl_day", 0)
+            )
+        except (TypeError, ValueError):
+            hm = hd = 0
+        if 1 <= hm <= 12 and 1 <= hd <= 30:
+            data["next_hawl"] = next_occurrence(today, hm, hd).isoformat()
+        if self.wants_csv(request):
+            keys = [
+                "stock_at_sale", "stock_at_cost", "stock", "cash_in_tills", "bank",
+                "receivables", "doubtful_receivables", "counted_receivables", "payables",
+                "base", "zakat",
+            ]
+            return self.csv_response(
+                "zakat.csv", ["line", "amount"], [[k, str(data[k])] for k in keys]
+            )
+        return Response({k: (str(v) if isinstance(v, Decimal) else v) for k, v in data.items()})

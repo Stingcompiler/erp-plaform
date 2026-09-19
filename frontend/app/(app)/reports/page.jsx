@@ -8,6 +8,7 @@ import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import BarList from "@/components/reports/BarList";
+import ZakatCard from "@/components/reports/ZakatCard";
 
 function Kpi({ label, value, tone = "ink" }) {
   const toneClass = tone === "accent" ? "text-accent" : tone === "ok" ? "text-ok" : "text-ink";
@@ -476,6 +477,8 @@ export default function ReportsPage() {
               </div>
             </SectionCard>
           )}
+
+          {financeReports && <ZakatCard />}
 
           {/* Cash-flow forecast (committed documents, by week) */}
           {financeReports && forecast && (
