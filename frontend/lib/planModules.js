@@ -10,7 +10,7 @@ export const PLAN_MODULES = [
 // Never plan-gated (core.entitlements.CORE_MODULES): running the company —
 // its people, branches and settings — comes with every plan; the limits
 // decide how many. Shown as included, never as a choice.
-export const CORE_MODULES = ["users", "org", "settings"];
+export const CORE_MODULES = ["users", "org", "settings", "website"];
 
 export const MODULE_DEPENDENCIES = {
   sales_returns: ["sales", "inventory"],

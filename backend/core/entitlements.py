@@ -30,7 +30,9 @@ ALL_MODULES = frozenset(
 # Running the company at all — its people, branches, settings — is not a
 # feature a plan sells; it is how the plan's limits (users, branches) get
 # used. A plan that lists only "sales" still lets the owner add the cashier.
-CORE_MODULES = frozenset({"users", "org", "settings"})
+# The public page is Vezano's own shop window (directory, "runs on Vezano",
+# orders that land in the till), so every company has one.
+CORE_MODULES = frozenset({"users", "org", "settings", "website"})
 
 
 @dataclass(frozen=True)
