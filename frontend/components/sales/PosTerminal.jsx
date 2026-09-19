@@ -11,6 +11,7 @@ import { useSync } from "@/components/sync/SyncProvider";
 import { useAuth } from "../../app/providers/AuthProvider";
 import DocumentDrawer from "@/components/print/DocumentDrawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
+import { accountLabel } from "@/lib/bankChannels";
 import BarcodeScanInput from "@/components/inventory/BarcodeScanInput";
 import { heldCarts } from "@/lib/syncQueue";
 import { cacheProducts, searchProductsOffline } from "@/lib/productCache";
@@ -61,6 +62,7 @@ export default function PosTerminal({
   const [amount, setAmount] = useState("");
   const [bankAccount, setBankAccount] = useState("");
   const [reference, setReference] = useState("");
+  const [sender, setSender] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [receipt, setReceipt] = useState(null);
   const [ticketDiscount, setTicketDiscount] = useState("");
@@ -289,7 +291,7 @@ export default function PosTerminal({
     saleUuid.current = null;
     localRef.current = null;
     setTicketDiscount("");
-    setBankAccount(""); setReference(""); setMethod("cash");
+    setBankAccount(""); setReference(""); setSender(""); setMethod("cash");
   }
 
   async function checkout() {
@@ -298,8 +300,10 @@ export default function PosTerminal({
     if (!warehouse) return setError(t("sales.selectWarehouseErr"));
     if (cart.length === 0) return setError(t("sales.addProductErr"));
     if (!saleUuid.current) saleUuid.current = crypto.randomUUID();
-    if (method === "bank_transfer" && !bankAccount) {
-      return setError(t("sales.chooseBankErr"));
+    if (method === "bank_transfer") {
+      if (!bankAccount) return setError(t("sales.chooseBankErr"));
+      if (!sender.trim()) return setError(t("sales.senderRequired"));
+      if (!reference.trim()) return setError(t("sales.referenceRequired"));
     }
 
     // Built once, before the try, so the offline fallback in `catch` queues
@@ -320,7 +324,8 @@ export default function PosTerminal({
     } : null;
     if (payment && method === "bank_transfer") {
       payment.company_bank_account = Number(bankAccount);
-      if (reference) payment.reference_last4 = reference;
+      payment.sender_bank_name = sender.trim();
+      payment.transfer_reference = reference.trim();
     }
     // Printed on the receipt immediately; the server keeps it next to the
     // invoice number it assigns, so an offline receipt stays traceable.
@@ -833,22 +838,25 @@ export default function PosTerminal({
 
           {method === "bank_transfer" && (
             <div className="grid grid-cols-2 gap-3">
-              <Field label={t("sales.bankName")}>
+              <Field label={t("sales.receivingAccount")}>
                 <Select value={bankAccount} onChange={(e) => setBankAccount(e.target.value)}>
                   <option value="">{t("common.select")}</option>
                   {bankAccounts.map((a) => (
                     <option key={a.id} value={a.id}>
-                      {a.bank_name}
+                      {accountLabel(t, a)}
                     </option>
                   ))}
                 </Select>
               </Field>
-              <Field label={t("sales.refLast4")}>
+              <Field label={t("sales.senderName")}>
+                <Input value={sender} onChange={(e) => setSender(e.target.value)} />
+              </Field>
+              <Field label={t("sales.transferReference")} hint={t("sales.transferReferenceHint")}>
                 <Input
                   value={reference}
-                  onChange={(e) => setReference(e.target.value.slice(0, 4))}
-                  maxLength={4}
-                  placeholder="1234"
+                  onChange={(e) => setReference(e.target.value.slice(0, 64))}
+                  maxLength={64}
+                  dir="ltr"
                 />
               </Field>
             </div>

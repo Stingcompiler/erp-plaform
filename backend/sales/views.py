@@ -6,7 +6,7 @@ from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -877,9 +877,38 @@ class PaymentViewSet(AppendOnlyScopedViewSet):
     def get_permissions(self):
         # Verification is a treasury action — see CanVerifyPayment. Recording a
         # payment still requires sales write via the normal module gate.
-        if getattr(self, "action", None) == "verify":
+        if getattr(self, "action", None) in ("verify", "reconcile"):
             return [IsAuthenticated(), CanVerifyPayment()]
         return super().get_permissions()
+
+    @action(detail=False, methods=["post"],
+            parser_classes=[MultiPartParser, FormParser, JSONParser])
+    def reconcile(self, request):
+        """Match a bank-app statement (.xlsx/.csv) against this account's
+        recorded transfers. `dry_run=1` previews; otherwise every matched,
+        unverified transfer not recorded by the caller is marked verified."""
+        from sales.reconcile import reconcile
+
+        account_id = request.data.get("account")
+        account = CompanyBankAccount.objects.filter(
+            pk=account_id or 0, company_id=request.user.company_id,
+        ).first()
+        if account is None:
+            return Response({"account": ["Choose a receiving account."]}, status=400)
+        uploaded = request.FILES.get("file")
+        if uploaded is None:
+            return Response({"file": ["Upload the statement export."]}, status=400)
+        dry_run = str(request.data.get("dry_run", "")).lower() in ("1", "true", "yes")
+        result = reconcile(
+            request.user.company, account, uploaded, request.user, dry_run=dry_run,
+        )
+        if not dry_run and result["applied"]:
+            log_activity(
+                action="update", request=request, entity_type="Payment", entity_id="bulk",
+                metadata={"reconciled": result["applied"], "account": account.pk,
+                          "rows": result["rows"]},
+            )
+        return Response(result)
 
     @action(detail=True, methods=["post"])
     def verify(self, request, pk=None):

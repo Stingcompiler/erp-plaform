@@ -7,6 +7,7 @@ import { sales } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card } from "@/components/ui/kit";
+import { channelLabel } from "@/lib/bankChannels";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -72,8 +73,11 @@ export default function PaymentVerificationPanel({ refreshKey }) {
                 <div className="mt-0.5 text-xs text-muted">
                   {p.recorded_by_name && t("finance.recordedByName", { name: p.recorded_by_name })}
                   {" · "}{fmt(p.recorded_at)}
-                  {p.method === "bank_transfer" && p.reference_last4 && (
-                    <span dir="ltr"> · {p.bank_account_name} · {p.sender_bank_name} · #{p.reference_last4}</span>
+                  {p.method === "bank_transfer" && (
+                    <span dir="ltr">
+                      {" · "}{p.bank_channel && p.bank_channel !== "bank" ? `${channelLabel(t, p.bank_channel)} · ` : ""}
+                      {p.bank_account_name} · {p.sender_bank_name} · {p.transfer_reference || `#${p.reference_last4}`}
+                    </span>
                   )}
                 </div>
               </div>

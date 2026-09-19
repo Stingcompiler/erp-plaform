@@ -6,9 +6,10 @@ import { Plus } from "lucide-react";
 import { bankAccounts as api } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import Drawer from "@/components/ui/Drawer";
-import { Badge, Button, Card, Field, Input } from "@/components/ui/kit";
+import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
+import { BANK_CHANNELS, channelLabel } from "@/lib/bankChannels";
 
-const EMPTY = { bank_name: "", account_name: "", account_number: "" };
+const EMPTY = { channel: "bank", bank_name: "", account_name: "", account_number: "" };
 
 function AccountForm({ open, onClose, onSaved }) {
   const { t } = useI18n();
@@ -53,6 +54,11 @@ function AccountForm({ open, onClose, onSaved }) {
       }
     >
       <div className="space-y-4">
+        <Field label={t("sales.channel")} hint={t("sales.channelHint")}>
+          <Select value={form.channel} onChange={set("channel")}>
+            {BANK_CHANNELS.map((c) => <option key={c} value={c}>{channelLabel(t, c)}</option>)}
+          </Select>
+        </Field>
         <Field label={t("sales.bankName")}>
           <Input value={form.bank_name} onChange={set("bank_name")} />
         </Field>
@@ -125,7 +131,12 @@ export default function BankAccounts({ writable, onChanged }) {
               {!loading &&
                 rows.map((a) => (
                   <tr key={a.id} className="border-b border-line last:border-0">
-                    <td className="px-4 py-3 text-ink">{a.bank_name}</td>
+                    <td className="px-4 py-3 text-ink">
+                      {a.bank_name}
+                      {a.channel && a.channel !== "bank" && (
+                        <Badge tone="accent">{channelLabel(t, a.channel)}</Badge>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-muted">{a.account_name}</td>
                     <td className="tabular px-4 py-3 text-muted">{a.account_number || "—"}</td>
                     <td className="px-4 py-3 text-end">
