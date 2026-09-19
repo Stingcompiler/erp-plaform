@@ -13,6 +13,7 @@ must be installable and upgradeable offline from a hand-carried archive.
 
 import hashlib
 import json
+import os
 import platform
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,6 +40,23 @@ def application_version(root=None):
     if not version_file.is_file():
         return "0.0.0-unknown"
     return version_file.read_text(encoding="utf-8").strip() or "0.0.0-unknown"
+
+
+# Render exports the deployed commit on every service; a self-hosted
+# operator can set GIT_COMMIT from their deploy script. Nothing shells out
+# to git: a standalone install is unpacked from an archive with no .git.
+COMMIT_ENV_VARS = ("RENDER_GIT_COMMIT", "GIT_COMMIT")
+SHORT_COMMIT_LENGTH = 8
+
+
+def deployed_commit(environ=None):
+    """The short git commit this process was deployed from, or None."""
+    environ = os.environ if environ is None else environ
+    for name in COMMIT_ENV_VARS:
+        value = (environ.get(name) or "").strip()
+        if value:
+            return value[:SHORT_COMMIT_LENGTH]
+    return None
 
 
 def sha256_file(path, chunk_size=HASH_CHUNK_BYTES):
