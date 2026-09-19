@@ -3,12 +3,12 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Globe, Lock, MessageCircle, Truck, Store } from "lucide-react";
+import { Globe, Lock, MessageCircle, Truck, Store, Landmark, FileText, ShieldAlert } from "lucide-react";
 
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { useAttention } from "@/components/attention/AttentionProvider";
-import { webOrders as api } from "@/lib/api";
+import { webOrders as api, inventory as inventoryApi } from "@/lib/api";
 import { whatsappUrl } from "@/lib/phone";
 import { Badge, Button, Card, Input, PageHeader } from "@/components/ui/kit";
 import PhoneLink from "@/components/ui/PhoneLink";
@@ -17,6 +17,11 @@ import PushPrompt from "@/components/orders/PushPrompt";
 
 const TABS = ["new", "confirmed", "rejected", "all"];
 const TONE = { new: "warn", confirmed: "ok", rejected: "danger", cancelled: "muted" };
+const PAY_TONE = { verifying: "warn", confirmed: "ok", rejected: "danger", fraud: "danger" };
+const payState = (r) => (r.payments || []).reduce((best, p) => {
+  const rank = { confirmed: 3, verifying: 2, fraud: 1, rejected: 0 };
+  return best == null || rank[p.status] > rank[best] ? p.status : best;
+}, null);
 
 function money(v, c) {
   return `${Number(v || 0).toLocaleString("en", { maximumFractionDigits: 2 })} ${c}`;
@@ -34,6 +39,9 @@ function WebOrders() {
   const [open, setOpen] = useState(null);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [warehouses, setWarehouses] = useState([]);
+  const [warehouse, setWarehouse] = useState("");
+  const [payNote, setPayNote] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -47,6 +55,7 @@ function WebOrders() {
   }, [tab, t]);
   useEffect(() => { if (canRead("sales")) load(); }, [canRead, load]);
   useEffect(() => { markSeen?.("web-orders"); }, [markSeen]);
+  useEffect(() => { inventoryApi.warehouses().then((r) => setWarehouses((r.data.results || r.data).filter((w) => w.is_active !== false))).catch(() => {}); }, []);
 
   // Arriving from the notification email: open that order.
   useEffect(() => {
@@ -65,13 +74,32 @@ function WebOrders() {
     catch (err) { setError(err?.response?.data?.detail || t("webOrders.decideError")); }
     finally { setBusy(false); }
   };
+  const decidePayment = async (claim, kind) => {
+    const labels = { confirm: "webOrders.pay.confirmAsk", reject: "webOrders.pay.rejectAsk", fraud: "webOrders.pay.fraudAsk" };
+    if (!window.confirm(t(labels[kind], { amount: money(claim.amount, open.currency), last4: claim.reference_last4 }))) return;
+    setBusy(true); setError("");
+    try {
+      const res = kind === "confirm"
+        ? await api.confirmPayment(open.id, claim.id, { note: payNote, warehouse: warehouse || undefined })
+        : kind === "reject" ? await api.rejectPayment(open.id, claim.id, payNote) : await api.fraudPayment(open.id, claim.id, payNote);
+      setOpen(res.data); setPayNote(""); await load();
+    } catch (err) {
+      const d = err?.response?.data;
+      setError(d?.code === "approval_required" ? t("webOrders.pay.approvalRequired") : (d?.detail || (d && Object.values(d).flat()[0]) || t("webOrders.decideError")));
+    } finally { setBusy(false); }
+  };
   const customerMessage = (order, kind) => {
     const name = order.contact_name;
     const map = {
       confirmed: language === "ar" ? `مرحباً ${name}، تأكّد طلبك رقم ${order.reference} وسنجهّزه.` : `Hello ${name}, your order ${order.reference} is confirmed and being prepared.`,
       rejected: language === "ar" ? `مرحباً ${name}، نعتذر، لم نتمكن من تنفيذ طلبك رقم ${order.reference}.${order.decision_note ? ` السبب: ${order.decision_note}` : ""}` : `Hello ${name}, sorry, we could not fulfil order ${order.reference}.${order.decision_note ? ` Reason: ${order.decision_note}` : ""}`,
       new: language === "ar" ? `مرحباً ${name}، بخصوص طلبك رقم ${order.reference} من موقعنا:` : `Hello ${name}, about your order ${order.reference} from our page:`,
+      paid: language === "ar" ? `مرحباً ${name}، وصل تحويلك لطلب ${order.reference} وسنجهّزه للتسليم.` : `Hello ${name}, your transfer for order ${order.reference} arrived; we are preparing it.`,
+      payRejected: language === "ar" ? `مرحباً ${name}، لم نجد التحويل المسجّل لطلب ${order.reference}. راجع البيانات وسجّله مجددًا.` : `Hello ${name}, we could not find the transfer declared for order ${order.reference}. Please check and declare it again.`,
     };
+    const pay = payState(order);
+    if (pay === "confirmed") return map.paid;
+    if (pay === "rejected") return map.payRejected;
     return map[kind] || map.new;
   };
 
@@ -104,7 +132,7 @@ function WebOrders() {
                 <td className="px-3 py-3 text-muted">{r.lines.map((l) => `${l.name} ×${Number(l.quantity)}`).join("، ")}</td>
                 <td className="px-3 py-3 text-end tabular">{r.total == null ? <span className="text-muted">{t("webOrders.askPrice")}</span> : money(r.total, r.currency)}</td>
                 <td className="px-3 py-3 text-muted">{fmt(r.created_at)}</td>
-                <td className="px-3 py-3"><Badge tone={TONE[r.status]}>{t(`webOrders.status.${r.status}`)}</Badge> {r.delivery_mode === "delivery" ? <Truck size={14} className="inline text-muted" /> : <Store size={14} className="inline text-muted" />}</td>
+                <td className="px-3 py-3"><Badge tone={TONE[r.status]}>{t(`webOrders.status.${r.status}`)}</Badge> {payState(r) && <Badge tone={PAY_TONE[payState(r)]}>{t(`webOrders.pay.status.${payState(r)}`)}</Badge>} {r.delivery_mode === "delivery" ? <Truck size={14} className="inline text-muted" /> : <Store size={14} className="inline text-muted" />}</td>
               </tr>
             ))}
           </tbody>
@@ -125,6 +153,46 @@ function WebOrders() {
               {open.lines.map((l) => <li key={l.id} className="flex justify-between gap-3 px-3 py-2"><span>{l.name} <span className="text-muted">×{Number(l.quantity)}</span></span><span className="tabular">{l.unit_price == null ? <span className="text-muted">{t("webOrders.askPrice")}</span> : money(Number(l.unit_price) * Number(l.quantity), open.currency)}</span></li>)}
               <li className="flex justify-between px-3 py-2 font-semibold"><span>{t("webOrders.total")}</span><span className="tabular">{open.total == null ? t("webOrders.confirmPrices") : money(open.total, open.currency)}</span></li>
             </ul>
+            {open.payments?.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="flex items-center gap-2 font-display font-semibold"><Landmark size={16} className="text-accent" />{t("webOrders.pay.title")}</h3>
+                {open.payments.map((c) => (
+                  <div key={c.id} className="rounded-control border border-line p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone={PAY_TONE[c.status]}>{t(`webOrders.pay.status.${c.status}`)}</Badge>
+                      <span className="font-semibold tabular">{money(c.amount, open.currency)}</span>
+                      <span className="text-muted">{c.sender_bank_name} → {c.bank_name || "—"} · ****{c.reference_last4}</span>
+                      <span className="text-xs text-muted">{fmt(c.created_at)}</span>
+                    </div>
+                    {c.proof_available && <a href={api.proofUrl(open.id, c.id)} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-sm text-accent hover:underline"><FileText size={14} />{t("webOrders.pay.viewProof")}</a>}
+                    {c.status === "verifying" && writable && (
+                      <div className="mt-3 space-y-2 rounded-control bg-paper p-3">
+                        <p className="text-xs text-muted">{t("webOrders.pay.confirmHint")}</p>
+                        {warehouses.length > 1 ? (
+                          <select value={warehouse} onChange={(e) => setWarehouse(e.target.value)} className="w-full rounded-control border border-line bg-surface px-3 py-2 text-sm">
+                            <option value="">{t("webOrders.pay.warehouseAuto")}</option>
+                            {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                          </select>
+                        ) : null}
+                        <Input placeholder={t("webOrders.pay.notePlaceholder")} value={payNote} onChange={(e) => setPayNote(e.target.value)} />
+                        <div className="flex flex-wrap gap-2">
+                          <Button disabled={busy} onClick={() => decidePayment(c, "confirm")}>{t("webOrders.pay.confirm")}</Button>
+                          <Button variant="outline" disabled={busy} onClick={() => decidePayment(c, "reject")}>{t("webOrders.pay.reject")}</Button>
+                          <Button variant="outline" className="text-danger" disabled={busy} onClick={() => decidePayment(c, "fraud")}><ShieldAlert size={14} />{t("webOrders.pay.fraud")}</Button>
+                        </div>
+                      </div>
+                    )}
+                    {c.status !== "verifying" && (
+                      <div className="mt-1 text-xs text-muted">
+                        {t("webOrders.decidedBy", { name: c.decided_by_name || "—", date: fmt(c.decided_at) })}
+                        {c.decision_note && <> · «{c.decision_note}»</>}
+                        {c.invoice_number && <> · {t("webOrders.pay.invoice", { n: c.invoice_number })}</>}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
             <a href={whatsappUrl(open.phone) + `?text=${encodeURIComponent(customerMessage(open, open.status))}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-control border border-line px-3 py-2 text-sm font-medium hover:bg-paper"><MessageCircle size={16} className="text-ok" />{t("webOrders.whatsappCustomer")}</a>
             {open.status === "new" && writable && (
               <div className="space-y-2 rounded-control bg-paper p-3">

@@ -129,6 +129,11 @@ export default function BankAccounts({ writable, onChanged }) {
                     <td className="px-4 py-3 text-muted">{a.account_name}</td>
                     <td className="tabular px-4 py-3 text-muted">{a.account_number || "—"}</td>
                     <td className="px-4 py-3 text-end">
+                      <label className="me-3 inline-flex items-center gap-1 text-xs text-muted" title={t("sales.showToCustomersHint")}>
+                        <input type="checkbox" checked={Boolean(a.show_to_customers)} disabled={!writable}
+                          onChange={async (e) => { try { await api.update(a.id, { show_to_customers: e.target.checked }); load(); } catch { /* keep */ } }} />
+                        {t("sales.showToCustomers")}
+                      </label>
                       {a.is_active ? <Badge tone="ok">{t("common.active")}</Badge> : <Badge tone="muted">{t("common.inactive")}</Badge>}
                     </td>
                   </tr>

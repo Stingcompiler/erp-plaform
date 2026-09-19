@@ -41,6 +41,7 @@ urlpatterns = [
 # by Django (website.public_pages), so they sit outside the export too.
 from website.public_pages import (  # noqa: E402
     public_site_directory,
+    public_pay_page,
     public_site_page,
     public_sites_sitemap,
 )
@@ -52,6 +53,7 @@ urlpatterns += [
     path("media/public/<path:path>", serve_public_media, name="public-media"),
     path("s/", public_site_directory, name="public-site-directory"),
     path("s/<slug:slug>/", public_site_page, name="public-site-page"),
+    path("s/<slug:slug>/pay/", public_pay_page, name="public-pay-page"),
     path("sitemap-sites.xml", public_sites_sitemap, name="public-sites-sitemap"),
 ]
 

@@ -69,6 +69,9 @@ class CompanyBankAccount(models.Model):
         max_digits=16, decimal_places=2, default=Decimal("0")
     )
     is_active = models.BooleanField(default=True)
+    # Shown to a visitor who ordered from the public page, as the account
+    # to transfer to. Off by default: an account is public only on purpose.
+    show_to_customers = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["bank_name"]

@@ -5,6 +5,7 @@ from core.public_media import stored_public_url
 from website.models import (
     PublicOrder,
     PublicOrderLine,
+    PublicOrderPayment,
     FeaturedProduct, PlatformLead, RegistrationRequest, Section, Website, WebsiteImage,
     service_lines,
 )
@@ -401,8 +402,32 @@ class PublicOrderLineSerializer(serializers.ModelSerializer):
         fields = ["id", "product", "name", "quantity", "unit_price"]
 
 
+class PublicOrderPaymentSerializer(serializers.ModelSerializer):
+    bank_name = serializers.CharField(source="bank_account.bank_name", read_only=True, default=None)
+    decided_by_name = serializers.SerializerMethodField()
+    proof_available = serializers.SerializerMethodField()
+    invoice_number = serializers.IntegerField(source="invoice.number", read_only=True, default=None)
+
+    class Meta:
+        model = PublicOrderPayment
+        fields = [
+            "id", "status", "bank_account", "bank_name", "sender_bank_name", "reference_last4",
+            "amount", "proof_available", "decided_by_name", "decided_at", "decision_note",
+            "payment", "invoice", "invoice_number", "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_decided_by_name(self, obj):
+        user = obj.decided_by
+        return (user.full_name or user.email) if user else None
+
+    def get_proof_available(self, obj):
+        return bool(obj.proof)
+
+
 class PublicOrderSerializer(serializers.ModelSerializer):
     lines = PublicOrderLineSerializer(many=True, read_only=True)
+    payments = PublicOrderPaymentSerializer(many=True, read_only=True)
     branch_name = serializers.CharField(source="branch.name", read_only=True, default=None)
     customer_name = serializers.CharField(source="customer.name", read_only=True, default=None)
     decided_by_name = serializers.SerializerMethodField()
@@ -414,7 +439,7 @@ class PublicOrderSerializer(serializers.ModelSerializer):
             "id", "reference", "status", "contact_name", "phone", "delivery_mode", "address",
             "note", "language", "currency", "total", "branch", "branch_name", "customer",
             "customer_name", "sales_order", "decided_by_name", "decided_at", "decision_note",
-            "whatsapp", "created_at", "lines",
+            "whatsapp", "created_at", "lines", "payments", "email",
         ]
         read_only_fields = fields
 

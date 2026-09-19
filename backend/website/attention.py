@@ -64,7 +64,12 @@ def new_public_orders(user, since):
     company_id = getattr(user, "company_id", None)
     if company_id is None:
         return 0
+    from website.models import PublicOrderPayment
+
     qs = PublicOrder.objects.filter(
         company_id=company_id, status=PublicOrder.NEW, created_at__gt=since
     )
-    return scope_branch(qs, user).count()
+    claims = PublicOrderPayment.objects.filter(
+        company_id=company_id, status=PublicOrderPayment.VERIFYING, created_at__gt=since
+    )
+    return scope_branch(qs, user).count() + scope_branch(claims, user, "order__branch").count()
