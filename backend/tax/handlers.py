@@ -84,6 +84,20 @@ class SimpleTaxHandler(TaxHandler):
                 if invoice.created_by_id
                 else None
             ),
+            # How it was paid, for the receipt: "cash 30,000 · Bankak 5,700".
+            "payments": [
+                {
+                    "method": payment.method,
+                    "amount": money(payment.amount),
+                    "channel": (
+                        payment.company_bank_account.channel
+                        if payment.company_bank_account_id else ""
+                    ),
+                    "reference": payment.transfer_reference or payment.reference_last4,
+                }
+                for payment in invoice.payments.select_related("company_bank_account")
+                .order_by("recorded_at", "pk")
+            ],
             "lines": [
                 {
                     "description": line.description or line.product.name,
