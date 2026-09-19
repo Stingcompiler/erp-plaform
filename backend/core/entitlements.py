@@ -104,11 +104,17 @@ def _saas_decision(company, now):
         # the legacy plan carries an explicit wildcard entitlement.
         modules = frozenset(subscription.plan_version.modules or [])
         allow_writes = state in {subscription.TRIALING, subscription.ACTIVE, subscription.GRACE}
+        limits = dict(subscription.plan_version.limits or {})
+        # Units bought on top of the plan raise its limits; a resource the
+        # plan does not cap stays uncapped.
+        for resource, extra in (subscription.extra_limits or {}).items():
+            if resource in limits and limits[resource] is not None:
+                limits[resource] = int(limits[resource]) + int(extra)
         decision = EntitlementDecision(
             "saas",
             state,
             modules,
-            dict(subscription.plan_version.limits or {}),
+            limits,
             allow_writes,
             # Whichever boundary applies to the current state: a trial ends at
             # trial_ends_at, a paid period at period_ends_at, and grace extends

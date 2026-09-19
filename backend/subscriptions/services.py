@@ -1,4 +1,5 @@
 from datetime import datetime, time
+from decimal import Decimal
 import logging
 
 from django.db import transaction
@@ -26,6 +27,32 @@ LIMIT_RESOLVERS = {
 }
 assert set(LIMIT_RESOLVERS) == set(LIMIT_KEYS) - {"storage_mb"}
 logger = logging.getLogger(__name__)
+
+
+def addon_lines(subscription):
+    """One line per add-on the company pays for: resource, units, unit price,
+    amount — per billing cycle, in the plan's currency."""
+    version = subscription.plan_version
+    prices = version.addon_prices or {}
+    lines = []
+    for resource, units in (subscription.extra_limits or {}).items():
+        units = int(units or 0)
+        if units <= 0 or resource not in prices:
+            continue
+        unit_price = Decimal(str(prices[resource]))
+        lines.append({
+            "resource": resource, "units": units, "unit_price": str(unit_price),
+            "amount": str((unit_price * units).quantize(Decimal("0.01"))),
+        })
+    return lines
+
+
+def recurring_price(subscription):
+    """What a renewal costs: the plan plus every add-on, per billing cycle."""
+    total = Decimal(subscription.plan_version.price or 0)
+    for line in addon_lines(subscription):
+        total += Decimal(line["amount"])
+    return total.quantize(Decimal("0.01"))
 
 
 def usage_for(company, limits=None):

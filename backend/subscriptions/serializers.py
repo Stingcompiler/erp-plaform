@@ -27,6 +27,7 @@ class PlanVersionSerializer(serializers.ModelSerializer):
             "billing_cycle",
             "modules",
             "limits",
+            "addon_prices",
             "is_legacy",
             "published_at",
             "created_at",
@@ -68,6 +69,20 @@ class PlanVersionSerializer(serializers.ModelSerializer):
                     )
         return value
 
+    def validate_addon_prices(self, value):
+        from decimal import Decimal, InvalidOperation
+
+        allowed = set(LIMIT_KEYS) - {"storage_mb"}
+        if set(value) - allowed:
+            raise serializers.ValidationError("One or more add-ons are unknown.")
+        for item in value.values():
+            try:
+                if Decimal(str(item)) < 0:
+                    raise ValueError
+            except (InvalidOperation, ValueError):
+                raise serializers.ValidationError("Add-on prices must be non-negative amounts.")
+        return {key: str(Decimal(str(item))) for key, item in value.items()}
+
     def validate_limits(self, value):
         allowed = set(LIMIT_KEYS)
         if set(value) - allowed:
@@ -108,6 +123,8 @@ class PlanSerializer(serializers.ModelSerializer):
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):
+    addon_lines = serializers.SerializerMethodField()
+    recurring_amount = serializers.SerializerMethodField()
     company_name = serializers.CharField(source="company.name", read_only=True)
     # The company's own contact number, so the platform team can call or
     # WhatsApp a customer from the subscription row.
@@ -130,11 +147,26 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             "grace_ends_at",
             "cancel_at_period_end",
             "suspended_reason",
+            "extra_limits",
+            "addon_lines",
+            "recurring_amount",
             "revision",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["revision", "created_at", "updated_at"]
+        read_only_fields = [
+            "revision", "created_at", "updated_at", "addon_lines", "recurring_amount",
+        ]
+
+    def get_addon_lines(self, obj):
+        from subscriptions.services import addon_lines
+
+        return addon_lines(obj)
+
+    def get_recurring_amount(self, obj):
+        from subscriptions.services import recurring_price
+
+        return str(recurring_price(obj))
 
     def validate(self, attrs):
         status_value = attrs.get("status", getattr(self.instance, "status", None))
@@ -357,7 +389,8 @@ class PlanChangeRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlanChangeRequest
         fields = [
-            "id", "company", "company_name", "kind", "status", "note", "decision_note",
+            "id", "company", "company_name", "kind", "status", "extra_delta", "note",
+            "decision_note",
             "from_version", "from_plan", "from_price", "to_version", "to_plan", "to_price",
             "to_cycle", "to_limits", "currency", "requested_by_name", "invoice_number",
             "invoice_amount", "invoice_status", "apply_at", "applied_at", "decided_at",

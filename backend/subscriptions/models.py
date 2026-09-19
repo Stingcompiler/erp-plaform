@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -49,6 +50,10 @@ class PlanVersion(models.Model):
     )
     modules = models.JSONField(default=list, blank=True)
     limits = models.JSONField(default=dict, blank=True)
+    # Price of ONE extra unit per billing cycle, keyed like limits — e.g.
+    # {"devices": "20000"}. A resource priced here can be bought on top of
+    # the plan's limit (Subscription.extra_limits) instead of changing plan.
+    addon_prices = models.JSONField(default=dict, blank=True)
     is_legacy = models.BooleanField(default=False)
     published_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -106,6 +111,16 @@ class PlanVersion(models.Model):
                 raise ValidationError(
                     {"limits": f"{name} must be a non-negative integer."}
                 )
+        for name, value in (self.addon_prices or {}).items():
+            if name not in LIMIT_KEYS or name == "storage_mb":
+                raise ValidationError({"addon_prices": f"Unknown add-on: {name}"})
+            try:
+                if Decimal(str(value)) < 0:
+                    raise ValueError
+            except (InvalidOperation, ValueError):
+                raise ValidationError(
+                    {"addon_prices": f"{name} must be a non-negative amount."}
+                )
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -159,6 +174,9 @@ class Subscription(models.Model):
     grace_ends_at = models.DateTimeField(null=True, blank=True)
     cancel_at_period_end = models.BooleanField(default=False)
     suspended_reason = models.TextField(blank=True)
+    # Units bought on top of the plan's limits, e.g. {"devices": 2}; priced
+    # by PlanVersion.addon_prices and billed with every renewal.
+    extra_limits = models.JSONField(default=dict, blank=True)
     revision = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -338,7 +356,12 @@ class PlanChangeRequest(models.Model):
 
     UPGRADE = "upgrade"
     DOWNGRADE = "downgrade"
-    KINDS = [(UPGRADE, "Upgrade"), (DOWNGRADE, "Downgrade")]
+    ADDON = "addon"          # more units on the same plan: billed pro rata
+    ADDON_REMOVE = "addon_remove"  # fewer units: applied at period end
+    KINDS = [
+        (UPGRADE, "Upgrade"), (DOWNGRADE, "Downgrade"),
+        (ADDON, "Add units"), (ADDON_REMOVE, "Remove units"),
+    ]
 
     PENDING = "pending"
     APPROVED = "approved"   # waiting: for payment (upgrade) or period end (downgrade)
@@ -362,8 +385,10 @@ class PlanChangeRequest(models.Model):
     to_version = models.ForeignKey(
         PlanVersion, on_delete=models.PROTECT, related_name="+"
     )
-    kind = models.CharField(max_length=12, choices=KINDS)
+    kind = models.CharField(max_length=16, choices=KINDS)
     status = models.CharField(max_length=12, choices=STATES, default=PENDING)
+    # For add-on kinds: the change in units, e.g. {"devices": 2} or {"devices": -1}.
+    extra_delta = models.JSONField(default=dict, blank=True)
     note = models.TextField(blank=True)
     requested_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"

@@ -1,5 +1,6 @@
 from django.http import FileResponse, Http404
 from django.db import IntegrityError
+from decimal import Decimal
 from django.utils import timezone
 from uuid import uuid4
 from rest_framework import mixins, status, viewsets
@@ -417,27 +418,56 @@ class CompanyPlanChangeViewSet(viewsets.GenericViewSet):
                         usage_over_limits(company, version) if kind == "downgrade" else {}
                     ),
                 })
+        addons = []
+        if subscription is not None:
+            from subscriptions.plan_changes import period_fraction_left
+
+            version = subscription.plan_version
+            fraction = period_fraction_left(subscription, version)
+            for resource, unit_price in (version.addon_prices or {}).items():
+                if resource not in (version.limits or {}):
+                    continue
+                addons.append({
+                    "resource": resource,
+                    "unit_price": str(unit_price),
+                    "currency": version.currency,
+                    "billing_cycle": version.billing_cycle,
+                    "owned": int((subscription.extra_limits or {}).get(resource, 0)),
+                    "plan_limit": int(version.limits[resource]),
+                    # What one more unit costs for the rest of this period.
+                    "unit_due_now": str(
+                        (Decimal(str(unit_price)) * fraction).quantize(Decimal("0.01"))
+                    ),
+                })
         current = open_request(company)
         return Response({
             "current": self.get_serializer(current).data if current else None,
             "options": options,
+            "addons": addons,
             "history": self.get_serializer(self.get_queryset()[:20], many=True).data,
         })
 
     def create(self, request):
-        from subscriptions.plan_changes import UsageExceedsTarget, request_change
+        from subscriptions.plan_changes import (
+            UsageExceedsTarget, request_addon, request_change,
+        )
 
+        note = str(request.data.get("note") or "")[:1000]
         try:
-            version = PlanVersion.objects.select_related("plan").get(
-                pk=request.data.get("to_version")
-            )
-        except (PlanVersion.DoesNotExist, ValueError, TypeError):
-            return Response({"to_version": "Choose a plan."}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            change = request_change(
-                request.user.company, version, request.user,
-                str(request.data.get("note") or "")[:1000],
-            )
+            if request.data.get("extra_delta"):
+                change = request_addon(
+                    request.user.company, request.data.get("extra_delta"), request.user, note
+                )
+            else:
+                try:
+                    version = PlanVersion.objects.select_related("plan").get(
+                        pk=request.data.get("to_version")
+                    )
+                except (PlanVersion.DoesNotExist, ValueError, TypeError):
+                    return Response(
+                        {"to_version": "Choose a plan."}, status=status.HTTP_400_BAD_REQUEST
+                    )
+                change = request_change(request.user.company, version, request.user, note)
         except UsageExceedsTarget as exc:
             return Response(
                 {
@@ -450,7 +480,10 @@ class CompanyPlanChangeViewSet(viewsets.GenericViewSet):
         log_activity(
             action="plan_change_requested", request=request,
             entity_type="PlanChangeRequest", entity_id=change.pk,
-            metadata={"kind": change.kind, "to_plan": version.plan.name},
+            metadata={
+                "kind": change.kind, "to_plan": change.to_version.plan.name,
+                "extra_delta": change.extra_delta,
+            },
         )
         return Response(self.get_serializer(change).data, status=status.HTTP_201_CREATED)
 
