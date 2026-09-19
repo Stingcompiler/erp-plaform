@@ -46,4 +46,6 @@ class Command(BaseCommand):
         )
         if not sent:
             raise CommandError("The SMTP server refused the message; see the log above.")
-        self.stdout.write(self.style.SUCCESS(f"Sent to {options['email']} via {settings.EMAIL_HOST}"))
+        self.stdout.write(
+            self.style.SUCCESS(f"Sent to {options['email']} via {settings.EMAIL_HOST}")
+        )

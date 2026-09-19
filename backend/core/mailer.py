@@ -89,8 +89,10 @@ def send_bilingual(*, subject_ar, subject_en, ar, en, recipient, link=None, prim
     text = "\n\n".join(text_parts)
 
     html_blocks = {
-        "ar": f'<div dir="rtl" lang="ar" style="text-align:right">{_paragraphs(blocks["ar"])}</div>',
-        "en": f'<div dir="ltr" lang="en" style="text-align:left">{_paragraphs(blocks["en"])}</div>',
+        "ar": '<div dir="rtl" lang="ar" style="text-align:right">'
+              f'{_paragraphs(blocks["ar"])}</div>',
+        "en": '<div dir="ltr" lang="en" style="text-align:left">'
+              f'{_paragraphs(blocks["en"])}</div>',
     }
     labels = {"ar": "فتح الرابط", "en": "Open the link"}
     button = (
