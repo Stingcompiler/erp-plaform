@@ -7,6 +7,11 @@ export const PLAN_MODULES = [
   "crm", "hr", "finance", "reports", "website", "org", "users", "settings",
 ];
 
+// Never plan-gated (core.entitlements.CORE_MODULES): running the company —
+// its people, branches and settings — comes with every plan; the limits
+// decide how many. Shown as included, never as a choice.
+export const CORE_MODULES = ["users", "org", "settings"];
+
 export const MODULE_DEPENDENCIES = {
   sales_returns: ["sales", "inventory"],
   purchase_returns: ["purchasing", "inventory"],

@@ -4,7 +4,7 @@
 // with an "all modules" switch. Dependencies are kept consistent as the
 // user clicks (returns need sales/purchasing + inventory).
 import { useI18n } from "@/app/providers/I18nProvider";
-import { ALL_MODULES, MODULE_DEPENDENCIES, PLAN_MODULES, moduleLabel, toggleModule } from "@/lib/planModules";
+import { ALL_MODULES, CORE_MODULES, MODULE_DEPENDENCIES, PLAN_MODULES, moduleLabel, toggleModule } from "@/lib/planModules";
 
 export { moduleLabel };
 
@@ -25,7 +25,7 @@ export default function ModulePicker({ value, onChange, disabled = false }) {
         {t("platformPlans.allModules")}
       </label>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {PLAN_MODULES.map((code) => {
+        {PLAN_MODULES.filter((code) => !CORE_MODULES.includes(code)).map((code) => {
           const needs = MODULE_DEPENDENCIES[code];
           return (
             <label key={code} className={`flex cursor-pointer items-start gap-2 text-sm ${all ? "opacity-60" : ""}`}>
@@ -44,7 +44,8 @@ export default function ModulePicker({ value, onChange, disabled = false }) {
           );
         })}
       </div>
-      {!all && selected.length === 0 && <p className="mt-2 text-xs text-danger">{t("platformPlans.modulesRequired")}</p>}
+      <p className="mt-3 text-xs text-muted">{t("platformPlans.coreIncluded", { modules: CORE_MODULES.map((code) => moduleLabel(code, t)).join("، ") })}</p>
+      {!all && selected.filter((code) => !CORE_MODULES.includes(code)).length === 0 && <p className="mt-2 text-xs text-danger">{t("platformPlans.modulesRequired")}</p>}
     </div>
   );
 }
