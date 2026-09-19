@@ -2,6 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from subscriptions.platform_companies import PlatformCompanyViewSet
+from subscriptions.platform_finance import PlatformFinanceView
 from subscriptions.views import (
     CompanySubscriptionPaymentViewSet,
     CompanySubscriptionView,
@@ -47,5 +48,6 @@ urlpatterns = [
         "subscription/", CompanySubscriptionView.as_view(), name="company-subscription"
     ),
     path("deployment/", DeploymentInfoView.as_view(), name="deployment-info"),
+    path("platform/finance/", PlatformFinanceView.as_view(), name="platform-finance"),
     path("", include(router.urls)),
 ]

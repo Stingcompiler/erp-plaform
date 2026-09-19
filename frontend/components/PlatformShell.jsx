@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { ChartColumn, CreditCard, FileCheck2, Inbox, Languages, LayoutDashboard, LogOut, MoonStar, ScrollText, SearchCheck, ShieldAlert, SlidersHorizontal, Sun, SunMoon, UsersRound, Building2 } from "lucide-react";
+import { ChartColumn, CreditCard, FileCheck2, Inbox, Languages, LayoutDashboard, LogOut, MoonStar, ScrollText, SearchCheck, ShieldAlert, SlidersHorizontal, Sun, SunMoon, UsersRound, Building2, Banknote } from "lucide-react";
 
 import VezanoMark from "@/components/brand/VezanoMark";
 import AttentionBadge, { badgeFor } from "@/components/attention/AttentionBadge";
@@ -21,6 +21,7 @@ const PLATFORM_NAV = [
   { href: "/platform-leads", label: "nav.platformLeads", icon: Inbox, attentionKey: "platform-leads", capability: "platform.leads.view" },
   { href: "/platform-subscriptions", label: "nav.platformSubscriptions", icon: CreditCard, attentionKey: "platform-subscriptions", capability: "platform.subscriptions.view" },
   { href: "/platform-companies", label: "nav.platformCompanies", icon: Building2, capability: "platform.subscriptions.view" },
+  { href: "/platform-finance", label: "nav.platformFinance", icon: Banknote, capability: "platform.billing.view" },
   { href: "/platform-analytics", label: "nav.platformAnalytics", icon: ChartColumn, capability: "platform.seo.view" },
   { href: "/platform-seo", label: "nav.platformSeo", icon: SearchCheck, capability: "platform.seo.view" },
   { href: "/platform-team", label: "nav.platformTeam", icon: UsersRound, capability: "platform.team.view" },
