@@ -204,6 +204,10 @@ class Website(models.Model):
     social_links = models.JSONField(default=dict, blank=True)
     is_published = models.BooleanField(default=False)
     published_at = models.DateTimeField(null=True, blank=True)
+    # Visitors may send orders from the page. What they see on the form, in
+    # the site's language: delivery areas, hours, "call before pickup".
+    accept_orders = models.BooleanField(default=False)
+    order_instructions = models.TextField(blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     # Landing-page fields. Uploaded images live under MEDIA_ROOT/public/ —
@@ -309,6 +313,11 @@ class FeaturedProduct(models.Model):
     )
     caption = models.CharField(max_length=255, blank=True)
     order = models.PositiveIntegerField(default=0)
+    # The owner's two public choices per product: show the price, and let a
+    # visitor put it in an order. Availability is never a number — only
+    # "in stock" or not, read live from the catalog.
+    show_price = models.BooleanField(default=True)
+    allow_order = models.BooleanField(default=True)
 
     class Meta:
         ordering = ["order", "id"]
@@ -511,3 +520,82 @@ class DailyPageStat(models.Model):
 
     def __str__(self):
         return f"DailyPageStat<{self.path} {self.date} v={self.visits}>"
+
+
+class PublicOrder(models.Model):
+    """An order a visitor sent from the company's public page.
+
+    It is a request, not a sale: nothing is reserved, no invoice exists and
+    prices are what the page showed at the time. The company confirms it —
+    which creates the customer (by phone) and a confirmed sales order — or
+    rejects it with a reason the visitor can read. The row keeps the
+    visitor's words and the branch they chose, because that branch is who
+    gets told.
+    """
+
+    NEW = "new"
+    CONFIRMED = "confirmed"
+    REJECTED = "rejected"
+    CANCELLED = "cancelled"
+    STATES = [
+        (NEW, "New"), (CONFIRMED, "Confirmed"), (REJECTED, "Rejected"),
+        (CANCELLED, "Cancelled"),
+    ]
+    PICKUP = "pickup"
+    DELIVERY = "delivery"
+    DELIVERY_CHOICES = [(PICKUP, "Pickup"), (DELIVERY, "Delivery")]
+
+    company = models.ForeignKey(
+        "org.Company", on_delete=models.CASCADE, related_name="public_orders"
+    )
+    website = models.ForeignKey(
+        Website, on_delete=models.CASCADE, related_name="public_orders"
+    )
+    branch = models.ForeignKey(
+        "org.Branch", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="public_orders",
+    )
+    reference = models.CharField(max_length=16, unique=True)
+    status = models.CharField(max_length=12, choices=STATES, default=NEW)
+    contact_name = models.CharField(max_length=120)
+    phone = models.CharField(max_length=32)
+    delivery_mode = models.CharField(max_length=12, choices=DELIVERY_CHOICES, default=PICKUP)
+    address = models.CharField(max_length=255, blank=True)
+    note = models.TextField(blank=True)
+    language = models.CharField(max_length=8, blank=True)
+    currency = models.CharField(max_length=8)
+    # Sum of the lines whose price was shown; None when any line hides it.
+    total = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+    customer = models.ForeignKey(
+        "sales.Customer", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="public_orders",
+    )
+    sales_order = models.OneToOneField(
+        "sales.SalesOrder", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="public_order",
+    )
+    decided_by = models.ForeignKey(
+        "accounts.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_note = models.TextField(blank=True)
+    visitor_hash = models.CharField(max_length=32, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["company", "status", "created_at"])]
+
+    def __str__(self):
+        return self.reference
+
+
+class PublicOrderLine(models.Model):
+    order = models.ForeignKey(PublicOrder, on_delete=models.CASCADE, related_name="lines")
+    product = models.ForeignKey(
+        "inventory.Product", null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    name = models.CharField(max_length=255)
+    quantity = models.DecimalField(max_digits=16, decimal_places=3)
+    # The price the visitor saw; None when the owner chose not to show it.
+    unit_price = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)

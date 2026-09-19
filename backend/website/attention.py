@@ -54,3 +54,17 @@ def subscription_payments_to_verify(user, since):
         status=PlanChangeRequest.PENDING, created_at__gt=since
     ).count()
     return payments + changes
+
+
+@register("web-orders", "sales", TONE_INFO)
+def new_public_orders(user, since):
+    from core.attention import scope_branch
+    from website.models import PublicOrder
+
+    company_id = getattr(user, "company_id", None)
+    if company_id is None:
+        return 0
+    qs = PublicOrder.objects.filter(
+        company_id=company_id, status=PublicOrder.NEW, created_at__gt=since
+    )
+    return scope_branch(qs, user).count()

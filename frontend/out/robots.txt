@@ -23,6 +23,7 @@ Disallow: /settings/
 Disallow: /subscription/
 Disallow: /website/
 Disallow: /customer-records/
+Disallow: /web-orders/
 Disallow: /supplier-records/
 Disallow: /platform/
 Disallow: /platform-leads/

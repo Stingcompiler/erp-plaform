@@ -3,6 +3,8 @@ from rest_framework import serializers
 from subscriptions.models import PlanVersion
 from core.public_media import stored_public_url
 from website.models import (
+    PublicOrder,
+    PublicOrderLine,
     FeaturedProduct, PlatformLead, RegistrationRequest, Section, Website, WebsiteImage,
     service_lines,
 )
@@ -50,7 +52,7 @@ class WebsiteSerializer(serializers.ModelSerializer):
             "address", "social_links", "is_published", "published_at",
             "updated_at", "public_url",
             "category", "city", "opening_hours", "map_url", "services", "list_in_directory",
-            "cover_image_url", "logo_image_url", "missing",
+            "cover_image_url", "logo_image_url", "missing", "accept_orders", "order_instructions",
         ]
         read_only_fields = ["company", "is_published", "published_at", "updated_at"]
 
@@ -108,7 +110,10 @@ class SectionSerializer(serializers.ModelSerializer):
 class FeaturedProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = FeaturedProduct
-        fields = ["id", "company", "website", "product", "caption", "order"]
+        fields = [
+            "id", "company", "website", "product", "caption", "order",
+            "show_price", "allow_order",
+        ]
         read_only_fields = ["company"]
 
     def validate(self, attrs):
@@ -134,14 +139,23 @@ class PublicSectionSerializer(serializers.ModelSerializer):
 
 
 class PublicFeaturedProductSerializer(serializers.Serializer):
+    product = serializers.IntegerField(source="product_id")
     name = serializers.CharField(source="product.name")
     sku = serializers.CharField(source="product.sku")
-    price = serializers.DecimalField(
-        source="product.sale_price", max_digits=14, decimal_places=2
-    )
+    price = serializers.SerializerMethodField()
+    orderable = serializers.BooleanField(source="allow_order")
+    in_stock = serializers.SerializerMethodField()
     caption = serializers.CharField()
     order = serializers.IntegerField()
     image_url = serializers.SerializerMethodField()
+
+    def get_price(self, obj):
+        return str(obj.product.sale_price) if obj.show_price else None
+
+    def get_in_stock(self, obj):
+        from website.orders import in_stock
+
+        return in_stock(obj.product)
 
     def get_image_url(self, obj):
         image = obj.product.image
@@ -166,7 +180,7 @@ class PublicSiteSerializer(serializers.ModelSerializer):
             "primary_color", "contact_email", "contact_phone", "address",
             "social_links", "published_at", "sections", "featured_products",
             "category", "city", "opening_hours", "map_url", "services",
-            "cover_image_url", "logo_image_url", "gallery",
+            "cover_image_url", "logo_image_url", "gallery", "accept_orders", "order_instructions",
         ]
 
     def get_services(self, obj):
@@ -378,3 +392,37 @@ class OwnerInvitationAcceptSerializer(serializers.Serializer):
         except DjangoValidationError as exc:
             raise serializers.ValidationError(list(exc.messages))
         return value
+
+
+class PublicOrderLineSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PublicOrderLine
+        fields = ["id", "product", "name", "quantity", "unit_price"]
+
+
+class PublicOrderSerializer(serializers.ModelSerializer):
+    lines = PublicOrderLineSerializer(many=True, read_only=True)
+    branch_name = serializers.CharField(source="branch.name", read_only=True, default=None)
+    customer_name = serializers.CharField(source="customer.name", read_only=True, default=None)
+    decided_by_name = serializers.SerializerMethodField()
+    whatsapp = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PublicOrder
+        fields = [
+            "id", "reference", "status", "contact_name", "phone", "delivery_mode", "address",
+            "note", "language", "currency", "total", "branch", "branch_name", "customer",
+            "customer_name", "sales_order", "decided_by_name", "decided_at", "decision_note",
+            "whatsapp", "created_at", "lines",
+        ]
+        read_only_fields = fields
+
+    def get_decided_by_name(self, obj):
+        user = obj.decided_by
+        return (user.full_name or user.email) if user else None
+
+    def get_whatsapp(self, obj):
+        import re
+
+        digits = re.sub(r"\D", "", obj.phone or "")
+        return digits if len(digits) >= 8 else ""

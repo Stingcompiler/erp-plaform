@@ -54,6 +54,7 @@ export const NAV = [
     children: [
       { labelKey: "nav.sales", href: "/sales", module: "sales", icon: ShoppingCart, attentionKey: "sales" },
       { labelKey: "nav.debts", href: "/debts", module: "sales", icon: Wallet, attentionKey: "debts" },
+      { labelKey: "nav.webOrders", href: "/web-orders", module: "sales", icon: Globe, attentionKey: "web-orders" },
       {
         labelKey: "nav.customerRecords",
         href: "/customer-records",

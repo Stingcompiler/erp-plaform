@@ -314,6 +314,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "login": "10000/min" if "test" in sys.argv else "10/min",
         "password_reset": "10000/min" if "test" in sys.argv else "5/hour",
+        "public_order": "10000/min" if "test" in sys.argv else "20/hour",
     },
     # Reports export CSV via `?format=csv`, handled manually in the report views
     # (ReportView.wants_csv). Disable DRF's built-in `format` query-param
