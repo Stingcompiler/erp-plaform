@@ -111,6 +111,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Last authenticated request, throttled (accounts.presence); `last_login`
     # is the last sign-in. Both null for an account that never signed in.
     last_seen_at = models.DateTimeField(null=True, blank=True)
+    # Set when an administrator sets this person's password for them: the
+    # administrator then knows a credential that is not theirs, so the next
+    # sign-in may do nothing but replace it (accounts.authentication).
+    must_change_password = models.BooleanField(default=False)
     # is_staff controls Django admin access only, not app permissions.
     is_staff = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.cache import cache
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -14,13 +15,16 @@ from accounts.cookies import clear_auth_cookies, set_auth_cookies
 from accounts.models import Permission, Role, User
 from accounts.presence import record_login
 from accounts.serializers import (
+    ChangePasswordSerializer,
     LoginSerializer,
     MeSerializer,
     PermissionSerializer,
     RoleSerializer,
     UserSerializer,
     UserDetailSerializer,
+    invalidate_sessions,
 )
+from core import mailer
 from core.activity import log_activity
 from core.deletion import ArchiveOnDeleteMixin
 from core.rbac import RoleModuleAccess, tenant_scope_error
@@ -185,6 +189,30 @@ class MeView(APIView):
         return Response(MeSerializer(request.user).data)
 
 
+class ChangePasswordView(APIView):
+    """Replace one's own password. Ends every other session and hands this
+    one fresh cookies, so the person who just proved they hold both the old
+    and the new secret is the only one still signed in."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        user.set_password(serializer.validated_data["new_password"])
+        user.must_change_password = False
+        user.save(update_fields=["password", "must_change_password"])
+        invalidate_sessions(user)
+        refresh = RefreshToken.for_user(user)
+        response = Response(MeSerializer(user).data)
+        set_auth_cookies(response, str(refresh.access_token), str(refresh))
+        log_activity(
+            action="password_changed", request=request, entity_type="User", entity_id=user.pk,
+        )
+        return response
+
+
 class UserViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     """
     User administration, company-scoped like everything else: a company's
@@ -239,7 +267,48 @@ class UserViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
                 raise ValidationError(
                     {"role": "The company must retain at least one active owner."}
                 )
-        super().perform_update(serializer)
+        password_set = bool(serializer.validated_data.get("password"))
+        by_someone_else = password_set and target.pk != self.request.user.pk
+        if set(serializer.validated_data) == {"password"} and by_someone_else:
+            # Nothing but the password changed: one clear audit row, not an
+            # "update" that names no field because the field is a secret.
+            serializer.save()
+        else:
+            super().perform_update(serializer)
+        if by_someone_else:
+            self._record_admin_password_reset(target)
+
+    def _record_admin_password_reset(self, target):
+        """Rule #8 for the one change the audit trail otherwise cannot show:
+        the value is secret, so the event itself must say what happened and
+        who did it. The person is told the same by email, so a reset they
+        did not ask for cannot pass unnoticed."""
+        actor = self.request.user
+        log_activity(
+            action="password_reset_by_admin", request=self.request,
+            entity_type="User", entity_id=target.pk,
+            metadata={"target_email": target.email, "target_name": target.full_name},
+        )
+        actor_name = actor.full_name or actor.email
+        when = timezone.localtime().strftime("%Y-%m-%d %H:%M")
+        mailer.send_bilingual(
+            subject_ar="تم تغيير كلمة مرور حسابك",
+            subject_en="Your Vezano password was changed",
+            ar=[
+                f"مرحباً {target.full_name or target.email}،",
+                f"قام {actor_name} بتعيين كلمة مرور جديدة لحسابك في فيزانو بتاريخ {when}.",
+                "عند تسجيل دخولك التالي سيُطلب منك اختيار كلمة مرور خاصة بك قبل متابعة العمل.",
+                "إن لم تكن على علم بهذا التغيير فتواصل مع مالك الشركة فورًا.",
+            ],
+            en=[
+                f"Hello {target.full_name or target.email},",
+                f"{actor_name} set a new password for your Vezano account on {when}.",
+                "At your next sign-in you will be asked to choose your own password "
+                "before continuing.",
+                "If you were not expecting this, contact your business owner right away.",
+            ],
+            recipient=target.email,
+        )
 
     def destroy(self, request, *args, **kwargs):
         # Deactivating yourself would lock you out of the account that has the

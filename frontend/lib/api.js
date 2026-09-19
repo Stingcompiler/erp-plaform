@@ -84,6 +84,8 @@ export const auth = {
   login: (email, password) => api.post("/auth/login/", { email, password }),
   logout: () => api.post("/auth/logout/"),
   me: () => api.get("/auth/me/"),
+  changePassword: (current_password, new_password) =>
+    api.post("/auth/change-password/", { current_password, new_password }),
   requestPasswordReset: (email) => api.post("/auth/password-reset/", { email }),
   confirmPasswordReset: (uid, token, password) =>
     api.post("/auth/password-reset/confirm/", { uid, token, password }),
