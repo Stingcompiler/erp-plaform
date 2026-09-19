@@ -37,6 +37,7 @@ class CoreModulesAlwaysIncludedTests(TestCase):
         self.assertEqual(self.client.get("/api/users/").status_code, 200)
         self.assertEqual(self.client.get("/api/branches/").status_code, 200)
         self.assertEqual(self.client.get("/api/company/profile/").status_code, 200)
+        self.assertEqual(self.client.get("/api/website/page/").status_code, 200)
         hr = self.client.get("/api/employees/")
         self.assertEqual(hr.status_code, 403)
         self.assertEqual(hr.data["code"], "module_not_in_plan")

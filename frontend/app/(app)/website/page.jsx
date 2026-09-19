@@ -20,6 +20,8 @@ export default function WebsitePage() {
   const { t } = useI18n();
   const writable = canWrite("website");
   const [page, setPage] = useState(null);
+  // Why the page could not be read — shown instead of spinning forever.
+  const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [preview, setPreview] = useState(false);
@@ -29,9 +31,17 @@ export default function WebsitePage() {
 
   useEffect(() => {
     if (canRead("website")) {
-      website.page().then((r) => setPage(r.data)).catch(() => setPage(null));
+      setLoadError("");
+      website.page().then((r) => setPage(r.data)).catch((err) => {
+        setPage(null);
+        const data = err?.response?.data;
+        const status = err?.response?.status;
+        setLoadError(data?.detail || data?.code
+          ? `${data.detail || data.code}${status ? ` (${status})` : ""}`
+          : status ? t("website.loadFailed", { status }) : t("website.loadOffline"));
+      });
     }
-  }, [canRead]);
+  }, [canRead, t]);
 
   if (!canRead("website")) {
     return (
@@ -135,7 +145,9 @@ export default function WebsitePage() {
         </Card>
       )}
 
-      {!page ? (
+      {!page && loadError ? (
+        <div role="alert" className="rounded-control border border-danger/25 bg-danger/10 p-4 text-sm text-danger">{t("website.loadErrorTitle")}: {loadError}</div>
+      ) : !page ? (
         <div className="text-muted">{t("common.loading")}</div>
       ) : (
         <Card className="p-6">
