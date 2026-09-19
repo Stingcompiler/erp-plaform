@@ -555,6 +555,12 @@ export const subscription = {
   importLicense: (body) => api.post("/license/", body),
 };
 
+export const platformFinance = {
+  report: (months = 12) => api.get("/platform/finance/", { params: { months } }),
+  // A plain link: the browser downloads with the session cookie, no blob dance.
+  csvUrl: () => `${api.defaults.baseURL}/platform/finance/?format=csv`,
+};
+
 export const platformCompanies = {
   list: () => api.get("/platform/companies/"),
   devices: (id) => api.get(`/platform/companies/${id}/devices/`),
