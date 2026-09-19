@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { Button } from "./kit";
@@ -54,7 +55,11 @@ export default function Drawer({ open, onClose, title, children, footer, wide, p
     else if (open) ref.current?.focus();
   }, [confirm, open]);
   if (!open) return null;
-  return <div className="fixed inset-0 z-40">
+  // Rendered at the document body, not where the drawer is used: the topbar
+  // is sticky with a backdrop blur, and a backdrop-filter ancestor becomes
+  // the containing block for position: fixed — the sync panel opened from
+  // there was sized to the 64px header and spilled over the page.
+  return createPortal(<div className="fixed inset-0 z-40">
     <div className="absolute inset-0 bg-black/45" onClick={requestClose} aria-hidden="true" />
     <div ref={ref} tabIndex={-1} data-erp-dialog role="dialog" aria-modal="true" aria-labelledby={titleId}
       className={`absolute inset-y-0 end-0 flex w-full flex-col bg-surface shadow-xl ${wide ? "max-w-3xl" : "max-w-md"}`}
@@ -81,5 +86,5 @@ export default function Drawer({ open, onClose, title, children, footer, wide, p
           }
         }}>{footer}</div>}
     </div>
-  </div>;
+  </div>, document.body);
 }

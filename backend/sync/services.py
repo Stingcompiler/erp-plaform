@@ -149,6 +149,22 @@ def process_operation(request, op):
 
 
 def _stringify(detail):
-    if isinstance(detail, (list, dict)):
-        return str(detail)
-    return str(detail)
+    """A validation error as a sentence a cashier can read, not the
+    serializer's Python repr. Field keys are dropped — the messages already
+    say what is wrong — and several problems are joined on one line."""
+    messages = []
+
+    def walk(node):
+        if isinstance(node, dict):
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, (list, tuple)):
+            for value in node:
+                walk(value)
+        elif node is not None:
+            text = str(node).strip()
+            if text and text not in messages:
+                messages.append(text)
+
+    walk(detail)
+    return " · ".join(messages) if messages else str(detail)

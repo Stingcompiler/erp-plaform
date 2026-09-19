@@ -8,12 +8,31 @@ import Drawer from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/kit";
 import AttentionBadge from "@/components/attention/AttentionBadge";
 
+const money = (v) => Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// One line a person recognises the operation by: how much, how many items,
+// which day — never ids.
+function summarise(op, t, language) {
+  const p = op.payload || {};
+  const parts = [];
+  const amount = p.amount ?? p.payment?.amount;
+  if (amount !== undefined && amount !== null && amount !== "") parts.push(money(amount));
+  if (Array.isArray(p.lines) && p.lines.length) parts.push(t("improvements.syncItems", { count: p.lines.length }));
+  const day = p.date || p.occurred_at || p.recorded_at;
+  if (day) {
+    const d = new Date(day);
+    if (!Number.isNaN(d.getTime())) parts.push(d.toLocaleDateString(language === "ar" ? "ar" : "en", { dateStyle: "medium" }));
+  }
+  if (p.status && op.op_type === "attendance") parts.push(t(`hr.attendance.status.${p.status}`));
+  return parts.join(" · ");
+}
+
 export default function SyncStatus() {
   const { online, pending, flushing, flush, discard, operations, error, legacy, persisted, storageLow } = useSync();
   const [discarding, setDiscarding] = useState(null);
   const [reason, setReason] = useState("");
   const { installed, canPrompt, prompt } = useInstallPrompt();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [open, setOpen] = useState(false);
   const failedCount = operations.filter((op) => op.error).length;
   const failed = failedCount > 0;
@@ -63,11 +82,29 @@ export default function SyncStatus() {
       )}
       {legacy && <p role="alert" className="mb-3 rounded-control bg-warn/10 p-3 text-sm text-warn">{t("improvements.syncLegacy")}</p>}
       {!pending && !error && <p>{t("improvements.syncEmpty")}</p>}
-      <ul className="space-y-3">{operations.map((op) => <li key={op.client_uuid} className="rounded-card border border-line p-3 text-sm">
-        <div className="font-medium">{t(`sync.ops.${op.op_type}`).startsWith("sync.ops.") ? op.op_type : t(`sync.ops.${op.op_type}`)}</div>
-        <div className="mt-1 break-all font-mono text-xs text-muted">{op.client_uuid}</div>
-        <div className={op.error ? "mt-2 text-danger" : "mt-2 text-muted"}>{t(op.error ? "improvements.syncFailed" : "improvements.syncPending")}</div>
-        {op.error && <p className="mt-1 break-words text-danger">{op.error}</p>}
+      <ul className="space-y-3">{operations.map((op) => <li key={op.client_uuid} className={`rounded-card border p-3 text-sm ${op.error ? "border-danger/40 bg-danger/5" : "border-line"}`}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="font-medium">{t(`sync.ops.${op.op_type}`).startsWith("sync.ops.") ? op.op_type : t(`sync.ops.${op.op_type}`)}</div>
+            <div className="mt-0.5 text-xs text-muted">{summarise(op, t, language)}</div>
+          </div>
+          <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${op.error ? "bg-danger/10 text-danger" : "bg-paper text-muted"}`}>
+            {t(op.error ? "improvements.syncFailed" : "improvements.syncPending")}
+          </span>
+        </div>
+        {op.error ? (
+          <div className="mt-2 rounded-control bg-surface p-2">
+            <p className="break-words text-ink">{op.error}</p>
+            <p className="mt-1 text-xs text-muted">{t("improvements.syncFailedHint")}</p>
+          </div>
+        ) : (
+          <p className="mt-2 text-xs text-muted">{t(online ? "improvements.syncPendingHint" : "improvements.syncOfflineHint")}</p>
+        )}
+        <details className="mt-2 text-xs text-muted">
+          <summary className="cursor-pointer select-none">{t("improvements.technicalDetails")}</summary>
+          <div className="mt-1 break-all font-mono">{op.client_uuid}</div>
+          {op.queued_at && <div className="mt-0.5">{new Date(op.queued_at).toLocaleString(language === "ar" ? "ar" : "en")}</div>}
+        </details>
         {op.error && online && (
           discarding === op.client_uuid ? (
             <div className="mt-2 space-y-2">
@@ -84,7 +121,7 @@ export default function SyncStatus() {
             </div>
           ) : (
             <button type="button" onClick={() => setDiscarding(op.client_uuid)}
-              className="mt-2 text-sm text-danger hover:underline">{t("improvements.discard")}</button>
+              className="mt-2 text-sm text-danger hover:underline">{t("improvements.syncDiscard")}</button>
           )
         )}
       </li>)}</ul>
