@@ -10,7 +10,41 @@ import UsageMeter from "@/components/subscription/UsageMeter";
 import DeviceList from "@/components/subscription/DeviceList";
 import PlanChangePanel from "@/components/subscription/PlanChangePanel";
 
-const showDate = (value, language) => value ? new Date(value).toLocaleDateString(language === "ar" ? "ar" : "en") : "—";
+// Digits in day/month/year order, Latin numerals: an Arabic-locale date
+// inside an LTR span was bidi-reordered to "202026/9/".
+const showDate = (value) => {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
+// A subscription event as a sentence, not the code the server stores.
+// Status codes and invoice numbers are the details a user can act on.
+function EventRow({ row, t }) {
+  const label = t(`subscription.eventTypes.${row.event_type}`);
+  const details = [];
+  if (row.from_status && row.to_status && row.from_status !== row.to_status) {
+    details.push(<span key="status" dir="ltr">{row.from_status} → {row.to_status}</span>);
+  }
+  if (row.metadata?.invoice_number) details.push(t("subscription.eventInvoice", { number: row.metadata.invoice_number }));
+  if (row.actor_name) details.push(t("subscription.eventBy", { name: row.actor_name }));
+  if (row.reason) details.push(row.reason);
+  return (
+    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3 text-sm">
+      <div>
+        <span className="text-ink">{label.startsWith("subscription.") ? row.event_type.replace(/_/g, " ") : label}</span>
+        {details.length > 0 && (
+          <span className="ms-2 text-muted">
+            {details.map((d, i) => <span key={i}>· {d} </span>)}
+          </span>
+        )}
+      </div>
+      <span className="tabular shrink-0 text-muted" dir="ltr">{showDate(row.created_at)}</span>
+    </div>
+  );
+}
 
 export default function SubscriptionPage() {
   const { user } = useAuth();
@@ -99,11 +133,11 @@ export default function SubscriptionPage() {
           <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
               ["licenceKind", t(`subscription.kind.${record.kind}`)],
-              ["licenceUsableUntil", record.usable_until ? showDate(record.usable_until, language) : t("subscription.perpetualNoEnd")],
-              ["licenceGraceUntil", record.grace_until ? showDate(record.grace_until, language) : "—"],
-              ["licenceMaintenanceUntil", record.maintenance_until ? showDate(record.maintenance_until, language) : "—"],
+              ["licenceUsableUntil", record.usable_until ? showDate(record.usable_until) : t("subscription.perpetualNoEnd")],
+              ["licenceGraceUntil", record.grace_until ? showDate(record.grace_until) : "—"],
+              ["licenceMaintenanceUntil", record.maintenance_until ? showDate(record.maintenance_until) : "—"],
               ["licenceMaxVersion", record.max_application_version || t("subscription.anyVersion")],
-              ["licenceActivatedAt", showDate(record.activated_at, language)],
+              ["licenceActivatedAt", showDate(record.activated_at)],
               ["licenceId", record.license_id],
               ["licenceKeyId", record.key_id],
             ].map(([key, value]) => <div key={key}><div className="text-xs text-muted">{t(`subscription.${key}`)}</div><div className="mt-1 break-all text-sm">{value}</div></div>)}
@@ -116,7 +150,7 @@ export default function SubscriptionPage() {
           {data.installation.application_version && <div className="mt-1">{t("subscription.appVersion")}: {data.installation.application_version}</div>}
         </div>}
       </Card>}
-      {!standalone && record && <Card className="mt-5 p-5"><div className="grid gap-4 sm:grid-cols-3">{[["periodEnd", record.period_ends_at], ["trialEnd", record.trial_ends_at], ["graceEnd", record.grace_ends_at]].map(([key, value]) => <div key={key}><div className="text-xs text-muted">{t(`subscription.${key}`)}</div><div className="mt-1">{showDate(value, language)}</div></div>)}</div></Card>}
+      {!standalone && record && <Card className="mt-5 p-5"><div className="grid gap-4 sm:grid-cols-3">{[["periodEnd", record.period_ends_at], ["trialEnd", record.trial_ends_at], ["graceEnd", record.grace_ends_at]].map(([key, value]) => <div key={key}><div className="text-xs text-muted">{t(`subscription.${key}`)}</div><div className="mt-1">{showDate(value)}</div></div>)}</div></Card>}
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
         <Card className="p-5"><h2 className="font-display font-semibold">{t("subscription.modules")}</h2><div className="mt-3 flex flex-wrap gap-2">{(entitlements.modules || []).map((item) => <Badge key={item} tone="accent">{item}</Badge>)}</div></Card>
         <Card className="p-5"><h2 className="font-display font-semibold">{t("subscription.limits")}</h2><p className="mt-1 text-sm text-muted">{t("usage.hint")}</p><div className="mt-4"><UsageMeter usage={data.usage} /></div></Card>
@@ -138,7 +172,7 @@ export default function SubscriptionPage() {
       {standalone ? <Card className="mt-5 p-5"><h2 className="font-display font-semibold">{t("subscription.importLicense")}</h2><label className="mt-3 block text-sm text-muted">{t("subscription.licenceUpload")}<Input className="mt-1" type="file" accept=".json,application/json" onChange={(event) => readLicenseFile(event.target.files?.[0])}/></label><textarea className="mt-3 min-h-40 w-full rounded-control border border-line bg-surface p-3 font-mono text-xs" value={licenseText} onChange={(event) => setLicenseText(event.target.value)} placeholder={t("subscription.licenseFile")}/><Button className="mt-3" onClick={importLicense} disabled={!licenseText.trim()}>{t("subscription.importLicense")}</Button></Card> : <>
         <Card className="mt-5 p-5"><h2 className="font-display font-semibold">{t("subscription.invoices")}</h2>{data.invoices?.length ? <div className="mt-3 divide-y divide-line">{data.invoices.map((row) => <div key={row.id} className="flex flex-wrap justify-between gap-3 py-3"><span>{row.number}</span><span className="tabular">{row.amount} {row.currency}</span><Badge>{row.status}</Badge></div>)}</div> : <p className="mt-3 text-sm text-muted">{t("subscription.noInvoices")}</p>}</Card>
         <Card className="mt-5 p-5"><h2 className="font-display font-semibold">{t("subscription.payments")}</h2><form onSubmit={submitPayment} className="mt-3 grid gap-3 sm:grid-cols-4"><Input required type="number" min="0.01" step="0.01" placeholder={t("subscription.amount")} value={payment.amount} onChange={(event) => setPayment({...payment, amount: event.target.value})}/><Input required placeholder={t("subscription.currency")} value={record?.plan?.currency || payment.currency} disabled={Boolean(record?.plan?.currency)} onChange={(event) => setPayment({...payment, currency: event.target.value.toUpperCase()})}/><Select value={payment.method} onChange={(event) => setPayment({...payment, method: event.target.value})}><option value="bank_transfer">{t("common.bankTransfer")}</option><option value="cash">{t("common.cash")}</option></Select><Input required={payment.method === "bank_transfer"} maxLength={4} placeholder={t("subscription.reference")} value={payment.reference_last4} onChange={(event) => setPayment({...payment, reference_last4: event.target.value})}/><label className="sm:col-span-4 text-sm text-muted">{t("subscription.proof")}<Input className="mt-1" type="file" accept="image/*,.pdf" onChange={(event) => setPayment({...payment, proof: event.target.files?.[0] || null})}/></label><Button type="submit" className="sm:col-span-4 sm:justify-self-start">{t("subscription.submitPayment")}</Button></form>{data.payments?.length > 0 && <div className="mt-4 divide-y divide-line">{data.payments.map((row) => <div key={row.id} className="flex justify-between py-2 text-sm"><span>{row.amount} {row.currency}</span><Badge>{row.status}</Badge></div>)}</div>}</Card>
-        <Card className="mt-5 p-5"><h2 className="font-display font-semibold">{t("subscription.events")}</h2>{data.events?.length ? <div className="mt-3 divide-y divide-line">{data.events.map((row) => <div key={row.id} className="py-3 text-sm"><span>{row.event_type}</span><span className="ms-3 text-muted">{showDate(row.created_at, language)}</span></div>)}</div> : <p className="mt-3 text-sm text-muted">{t("subscription.noEvents")}</p>}</Card>
+        <Card className="mt-5 p-5"><h2 className="font-display font-semibold">{t("subscription.events")}</h2>{data.events?.length ? <div className="mt-3 divide-y divide-line">{data.events.map((row) => <EventRow key={row.id} row={row} t={t} />)}</div> : <p className="mt-3 text-sm text-muted">{t("subscription.noEvents")}</p>}</Card>
       </>}
     </>}
   </div>;
