@@ -46,6 +46,12 @@ export default function LoginPage() {
       if (data?.code === "store_mode_restricted") {
         setError(t("auth.storeModeRestricted"));
         setOwnerContact(data.owner_contact || "");
+      } else if (data?.code === "device_limit_reached") {
+        setError(t("auth.deviceLimitReached", { limit: data.limit ?? "" }));
+        setOwnerContact(data.owner_contact || "");
+      } else if (data?.code === "device_revoked") {
+        setError(t("auth.deviceRevoked"));
+        setOwnerContact(data.owner_contact || "");
       } else {
         setError(t("auth.invalid"));
       }

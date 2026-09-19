@@ -25,6 +25,7 @@ from core.activity import log_activity
 from core.deletion import ArchiveOnDeleteMixin
 from core.rbac import RoleModuleAccess, tenant_scope_error
 from core.scoping import CompanyScopedModelViewSet
+from org.devices import DeviceRefused, is_revoked, register_device
 from org.store_mode import is_store_mode_allowed
 from org.models import Company
 from subscriptions.services import assert_capacity
@@ -109,14 +110,48 @@ class LoginView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        device_id = str(request.data.get("device_id") or "").strip()
+        try:
+            device = register_device(user.company, device_id, user, request)
+        except DeviceRefused as refused:
+            owner = User.objects.filter(
+                company_id=user.company_id, role__name="Business Owner", is_active=True
+            ).first()
+            log_activity(
+                action="login_blocked", user=user, request=request,
+                metadata={"reason": refused.code, "device_id": device_id[:64]},
+            )
+            detail = {
+                "device_limit_reached": "This company's plan has no room for another device.",
+                "device_revoked": (
+                    "This device was removed by the company. Ask the owner to allow it again."
+                ),
+            }[refused.code]
+            return Response(
+                {
+                    "code": refused.code,
+                    "detail": detail,
+                    "limit": refused.limit,
+                    "owner_contact": owner.email if owner else "",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         refresh = RefreshToken.for_user(user)
+        if device is not None:
+            # Carried by every token this session mints, so revoking the
+            # device ends the session (accounts.authentication).
+            refresh["device"] = device.device_id
         access = refresh.access_token
 
         response = Response(MeSerializer(user).data, status=status.HTTP_200_OK)
         set_auth_cookies(response, str(access), str(refresh))
 
         # Rule #8: login is a state-changing event and must be audited.
-        log_activity(action="login", user=user, request=request)
+        log_activity(
+            action="login", user=user, request=request,
+            metadata={"device_id": device.device_id} if device is not None else None,
+        )
         record_login(user)
         return response
 
@@ -167,7 +202,17 @@ class RefreshView(APIView):
             clear_auth_cookies(response)
             return response
 
+        device_id = refresh.get("device")
+        if device_id and is_revoked(user.company_id, device_id):
+            response = Response(
+                {"code": "device_revoked", "detail": "This device was removed by the company."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+            clear_auth_cookies(response)
+            return response
         rotated = RefreshToken.for_user(user)
+        if device_id:
+            rotated["device"] = device_id
         try:
             refresh.blacklist()
         except (TokenError, AttributeError):

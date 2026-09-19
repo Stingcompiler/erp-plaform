@@ -231,3 +231,46 @@ class Department(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.company.name})"
+
+
+class Device(models.Model):
+    """One browser profile that has signed in to a company.
+
+    The client mints ``device_id`` once per browser profile (the same id it
+    stamps on offline receipts) and sends it with every sign-in. A plan that
+    sets a ``devices`` limit is therefore a limit on tills and desks, not on
+    people: the third phone at a two-device shop is refused at sign-in until
+    the owner revokes one here. Revoking keeps the row — the company's
+    history of where it was used — and ends the sessions that device holds.
+    """
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="devices")
+    device_id = models.CharField(max_length=64)
+    label = models.CharField(max_length=80, blank=True)
+    user_agent = models.CharField(max_length=255, blank=True)
+    branch = models.ForeignKey(
+        Branch, null=True, blank=True, on_delete=models.SET_NULL, related_name="devices"
+    )
+    last_user = models.ForeignKey(
+        "accounts.User", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="devices_last_used",
+    )
+    first_seen_at = models.DateTimeField(auto_now_add=True)
+    last_seen_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    revoked_by = models.ForeignKey(
+        "accounts.User", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="devices_revoked",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "device_id"], name="device_unique_per_company"
+            )
+        ]
+        ordering = ["-last_seen_at"]
+
+    def __str__(self):
+        return self.label or self.device_id

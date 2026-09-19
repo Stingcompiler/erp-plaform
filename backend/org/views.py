@@ -10,19 +10,23 @@ from core.scoping import (
     ActivityLoggingMixin,
     CompanyScopedModelViewSet,
 )
-from org.models import Branch, Company, Department, StoreModeAccessException
+from org.models import Branch, Company, Department, Device, StoreModeAccessException
 from org.store_mode import STORE_DEFAULT_ROLE_NAMES, is_system_mode_owner
 from org.serializers import (
     BranchSerializer,
     CompanySerializer,
     DepartmentSerializer,
+    DeviceSerializer,
 )
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from django.db import transaction
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from subscriptions.services import assert_capacity
+from org.devices import reactivate_device, revoke_device
+from subscriptions.permissions import IsBusinessOwner
+from subscriptions.services import assert_capacity, usage_for
 
 
 class CompanyViewSet(ActivityLoggingMixin, viewsets.ModelViewSet):
@@ -306,3 +310,44 @@ class DepartmentViewSet(CompanyScopedModelViewSet):
     # Departments are maintained by HR; this lets an HR manager organise the
     # workforce without granting access to company-wide settings.
     rbac_module = "hr"
+
+
+class CompanyDeviceViewSet(viewsets.GenericViewSet):
+    """The owner's list of devices that have signed in, with the plan's
+    device limit enforced at sign-in (org.devices). Label, revoke, allow
+    again — nothing is deleted, so the record of where the company's data
+    was handled stays."""
+
+    permission_classes = [IsAuthenticated, IsBusinessOwner]
+    entitlement_exempt = True
+    serializer_class = DeviceSerializer
+
+    def get_queryset(self):
+        return Device.objects.filter(company_id=self.request.user.company_id).select_related(
+            "branch", "last_user"
+        )
+
+    def list(self, request):
+        data = self.get_serializer(self.get_queryset(), many=True).data
+        return Response({"devices": data, "usage": usage_for(request.user.company)})
+
+    def partial_update(self, request, pk=None):
+        device = self.get_object()
+        serializer = self.get_serializer(device, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        log_activity(
+            action="update", request=request, entity_type="Device", entity_id=device.pk,
+            metadata={"changes": {"label": {"after": device.label}}},
+        )
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def revoke(self, request, pk=None):
+        device = revoke_device(self.get_object(), request.user, request)
+        return Response(self.get_serializer(device).data)
+
+    @action(detail=True, methods=["post"])
+    def reactivate(self, request, pk=None):
+        device = reactivate_device(self.get_object(), request.user, request)
+        return Response(self.get_serializer(device).data)

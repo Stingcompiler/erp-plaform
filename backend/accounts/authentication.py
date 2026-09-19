@@ -3,6 +3,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
 
 from accounts.presence import touch_last_seen
+from org.devices import is_revoked
 from org.store_mode import is_store_mode_allowed
 
 
@@ -22,6 +23,11 @@ class CookieJWTAuthentication(JWTAuthentication):
             return None
         validated_token = self.get_validated_token(raw_token)
         user = self.get_user(validated_token)
+        device_id = validated_token.get("device")
+        if device_id and is_revoked(user.company_id, device_id):
+            raise AuthenticationFailed(
+                "This device was removed by the company.", code="device_revoked"
+            )
         if not is_store_mode_allowed(user):
             raise AuthenticationFailed(
                 "The system is currently operating in shop mode.",

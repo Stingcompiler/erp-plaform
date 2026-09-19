@@ -80,8 +80,13 @@ export async function listAll(path, params = {}, { maxPages = 40 } = {}) {
 }
 
 // Endpoint helpers — named by what the user does, not by transport details.
+// The device id is minted once per browser profile (localReference.js) and
+// is what a plan's "devices" limit counts; the server registers it at sign-in.
 export const auth = {
-  login: (email, password) => api.post("/auth/login/", { email, password }),
+  login: (email, password) =>
+    import("./localReference.js").then(({ deviceId }) =>
+      api.post("/auth/login/", { email, password, device_id: deviceId() })
+    ),
   logout: () => api.post("/auth/logout/"),
   me: () => api.get("/auth/me/"),
   requestPasswordReset: (email) => api.post("/auth/password-reset/", { email }),
@@ -537,11 +542,23 @@ export const platformLeads = {
 
 export const subscription = {
   deployment: () => api.get("/deployment/"),
+  devices: () => api.get("/subscription/devices/"),
+  labelDevice: (id, label) => api.patch(`/subscription/devices/${id}/`, { label }),
+  revokeDevice: (id) => api.post(`/subscription/devices/${id}/revoke/`),
+  reactivateDevice: (id) => api.post(`/subscription/devices/${id}/reactivate/`),
   company: () => api.get("/subscription/"),
   payments: () => api.get("/subscription/payments/"),
   submitPayment: (body) => api.post("/subscription/payments/", body),
   license: () => api.get("/license/"),
   importLicense: (body) => api.post("/license/", body),
+};
+
+export const platformCompanies = {
+  list: () => api.get("/platform/companies/"),
+  devices: (id) => api.get(`/platform/companies/${id}/devices/`),
+  revokeDevice: (id, deviceId) => api.post(`/platform/companies/${id}/devices/${deviceId}/revoke/`),
+  reactivateDevice: (id, deviceId) =>
+    api.post(`/platform/companies/${id}/devices/${deviceId}/reactivate/`),
 };
 
 export const platformSubscriptions = {

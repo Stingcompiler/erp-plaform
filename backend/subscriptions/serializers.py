@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from subscriptions.models import (
+    LIMIT_KEYS,
     Plan,
     PlanVersion,
     Subscription,
@@ -67,7 +68,7 @@ class PlanVersionSerializer(serializers.ModelSerializer):
         return value
 
     def validate_limits(self, value):
-        allowed = {"users", "branches", "warehouses", "storage_mb"}
+        allowed = set(LIMIT_KEYS)
         if set(value) - allowed:
             raise serializers.ValidationError("One or more usage limits are unknown.")
         if any(
