@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Printer } from "lucide-react";
 
 import { bankAccounts as bankAccountsApi, sales } from "@/lib/api";
+import { accountLabel } from "@/lib/bankChannels";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { useOfflineMutation } from "@/components/sync/useOfflineMutation";
 import DocumentDrawer from "@/components/print/DocumentDrawer";
@@ -106,7 +107,7 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
     if (method === "bank_transfer") {
       if (!account) return setError(t("sales.chooseBankErr"));
       if (!senderBank.trim()) return setError(t("debts.senderBankRequired"));
-      if (!/^\d{1,4}$/.test(reference)) return setError(t("debts.referenceRequired"));
+      if (!reference.trim()) return setError(t("debts.referenceRequired"));
     }
     if (method === "credit") {
       const note = credit?.notes.find((n) => String(n.id) === creditNote);
@@ -128,7 +129,7 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
         if (method === "bank_transfer") {
           body.company_bank_account = Number(account);
           body.sender_bank_name = senderBank.trim();
-          body.reference_last4 = reference;
+          body.transfer_reference = reference.trim();
         }
         if (method === "credit") body.credit_note = Number(creditNote);
         const res = await mutate("payment", (payload) => sales.createPayment(payload), body);
@@ -256,16 +257,16 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
                 <Select value={account} onChange={(e) => setAccount(e.target.value)}>
                   <option value="">{t("common.select")}</option>
                   {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>{a.bank_name}{a.account_label ? ` · ${a.account_label}` : ""}</option>
+                    <option key={a.id} value={a.id}>{accountLabel(t, a)}</option>
                   ))}
                 </Select>
               </Field>
-              <Field label={t("sales.senderBank")}>
+              <Field label={t("sales.senderName")}>
                 <Input value={senderBank} onChange={(e) => setSenderBank(e.target.value)} />
               </Field>
-              <Field label={t("sales.refLast4")}>
-                <Input value={reference} inputMode="numeric" maxLength={4}
-                  onChange={(e) => setReference(e.target.value.replace(/\D/g, "").slice(0, 4))} />
+              <Field label={t("sales.transferReference")}>
+                <Input value={reference} maxLength={64} dir="ltr"
+                  onChange={(e) => setReference(e.target.value.slice(0, 64))} />
               </Field>
             </div>
           )}

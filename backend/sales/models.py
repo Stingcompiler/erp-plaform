@@ -57,9 +57,27 @@ class Customer(models.Model):
 class CompanyBankAccount(models.Model):
     """The company's own receiving account, referenced by bank-transfer payments."""
 
+    # Where the money actually lands. In Sudan most customer transfers
+    # arrive through a bank's app (Bankak, Fawri, O-Cash) rather than a
+    # branch account; the channel tells the till which app to look at and
+    # lets takings be reported per app.
+    CHANNEL_BANK = "bank"
+    CHANNEL_BANKAK = "bankak"
+    CHANNEL_FAWRI = "fawri"
+    CHANNEL_OCASH = "ocash"
+    CHANNEL_WALLET = "wallet"
+    CHANNEL_CHOICES = [
+        (CHANNEL_BANK, "Bank account"),
+        (CHANNEL_BANKAK, "Bankak"),
+        (CHANNEL_FAWRI, "Fawri"),
+        (CHANNEL_OCASH, "O-Cash"),
+        (CHANNEL_WALLET, "Other mobile wallet"),
+    ]
+
     company = models.ForeignKey(
         "org.Company", on_delete=models.CASCADE, related_name="bank_accounts"
     )
+    channel = models.CharField(max_length=16, choices=CHANNEL_CHOICES, default=CHANNEL_BANK)
     bank_name = models.CharField(max_length=255)
     account_name = models.CharField(max_length=255)
     account_number = models.CharField(max_length=64, blank=True)
@@ -649,6 +667,10 @@ class Payment(models.Model):
     )
     sender_bank_name = models.CharField(max_length=255, blank=True)
     reference_last4 = models.CharField(max_length=4, blank=True)
+    # The app's own transaction id, as the customer's screenshot shows it.
+    # Stored in full so a statement export can be matched against it and so
+    # the same screenshot cannot be presented twice (see PaymentSerializer).
+    transfer_reference = models.CharField(max_length=64, blank=True)
     amount = models.DecimalField(max_digits=16, decimal_places=2)
     # Snapshot per transaction (PROJECT_RULES: currency + rate, no more). A
     # payment inherits its invoice's currency; the rate is the day's.
@@ -683,6 +705,10 @@ class Payment(models.Model):
         ordering = ["-recorded_at"]
         indexes = [
             models.Index(fields=["company", "-recorded_at"], name="payment_co_recorded_idx"),
+            models.Index(
+                fields=["company_bank_account", "transfer_reference"],
+                name="payment_acct_ref_idx",
+            ),
         ]
 
     def __str__(self):

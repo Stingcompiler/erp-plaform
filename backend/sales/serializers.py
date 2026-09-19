@@ -1,4 +1,5 @@
 from datetime import timedelta
+import re
 from decimal import Decimal
 
 from django.db import transaction
@@ -136,16 +137,58 @@ class CustomerSerializer(serializers.ModelSerializer):
         return attrs
 
 
+def normalise_reference(value):
+    """A transfer reference as the app printed it, minus spaces and dashes."""
+    return re.sub(r"[^0-9A-Za-z]", "", str(value or "")).upper()
+
+
+def transfer_details(attrs, bank_account):
+    """Validate a bank-transfer's reference fields and return reference_last4.
+
+    Accepts the app's full transaction id (`transfer_reference`), the last 4
+    digits (`reference_last4`), or both. The full id is what a statement is
+    matched on and what stops the same screenshot being presented twice on
+    the same receiving account; the last 4 stays for the receipt.
+    """
+    ref = str(attrs.get("reference_last4") or "").strip()
+    full = normalise_reference(attrs.get("transfer_reference"))
+    attrs["transfer_reference"] = full
+    if full:
+        digits = re.sub(r"\D", "", full)
+        if not ref:
+            ref = digits[-4:] if digits else full[-4:]
+            attrs["reference_last4"] = ref
+        duplicate = Payment.objects.filter(
+            company_bank_account=bank_account, transfer_reference=full,
+        ).select_related("invoice").first()
+        if duplicate is not None:
+            raise serializers.ValidationError({
+                "transfer_reference": _(
+                    "Reference %(ref)s was already recorded on %(when)s "
+                    "for invoice INV-%(number)06d."
+                ) % {
+                    "ref": full, "when": duplicate.recorded_at.date().isoformat(),
+                    "number": duplicate.invoice.number,
+                }
+            })
+    if not ref or not ref.isdigit() or len(ref) > 4:
+        raise serializers.ValidationError(
+            _("Enter the transfer reference (or its last 4 digits).")
+        )
+    return ref
+
+
 class CompanyBankAccountSerializer(serializers.ModelSerializer):
     # Derived, never stored — see CompanyBankAccount.balance().
     balance = serializers.SerializerMethodField()
+    channel_display = serializers.CharField(source="get_channel_display", read_only=True)
     received_total = serializers.SerializerMethodField()
     paid_total = serializers.SerializerMethodField()
 
     class Meta:
         model = CompanyBankAccount
         fields = [
-            "id", "company", "bank_name", "account_name",
+            "id", "company", "channel", "channel_display", "bank_name", "account_name",
             "account_number", "opening_balance", "is_active", "show_to_customers",
             "balance", "received_total", "paid_total",
         ]
@@ -395,14 +438,18 @@ class PaymentSerializer(serializers.ModelSerializer):
     bank_account_name = serializers.CharField(
         source="company_bank_account.bank_name", read_only=True, default=""
     )
+    bank_channel = serializers.CharField(
+        source="company_bank_account.channel", read_only=True, default=""
+    )
 
     class Meta:
         model = Payment
         fields = [
             "id", "company", "invoice", "invoice_number", "customer_name",
-            "method", "company_bank_account", "bank_account_name",
+            "method", "company_bank_account", "bank_account_name", "bank_channel",
             "credit_note", "credit_note_number",
-            "sender_bank_name", "reference_last4", "amount", "currency", "exchange_rate",
+            "sender_bank_name", "reference_last4", "transfer_reference", "amount",
+            "currency", "exchange_rate",
             "shift", "recorded_by", "recorded_by_name",
             "recorded_at", "received_at", "verified_at", "verified_by", "verified_by_name",
             "client_uuid",
@@ -424,6 +471,7 @@ class PaymentSerializer(serializers.ModelSerializer):
         bank_account = attrs.get("company_bank_account")
         sender = attrs.get("sender_bank_name", "")
         ref = attrs.get("reference_last4", "")
+        transfer_reference = attrs.get("transfer_reference", "")
 
         if method == Payment.BANK_TRANSFER:
             if bank_account is None:
@@ -434,12 +482,9 @@ class PaymentSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     _("Bank transfer requires the sender's bank name.")
                 )
-            if not ref or not ref.isdigit() or len(ref) > 4:
-                raise serializers.ValidationError(
-                    _("reference_last4 must be up to 4 digits.")
-                )
+            ref = transfer_details(attrs, bank_account)
         elif method == Payment.CASH:
-            if bank_account or sender or ref:
+            if bank_account or sender or ref or transfer_reference:
                 raise serializers.ValidationError(
                     _("Cash payments must not carry bank/reference details.")
                 )
@@ -583,6 +628,9 @@ class POSPaymentSerializer(serializers.Serializer):
     )
     sender_bank_name = serializers.CharField(required=False, allow_blank=True)
     reference_last4 = serializers.CharField(required=False, allow_blank=True)
+    transfer_reference = serializers.CharField(
+        required=False, allow_blank=True, max_length=64
+    )
     amount = serializers.DecimalField(max_digits=16, decimal_places=2)
 
 
@@ -1128,21 +1176,24 @@ class POSCheckoutSerializer(serializers.Serializer):
         ba = pay.get("company_bank_account")
         sender = pay.get("sender_bank_name", "")
         ref = pay.get("reference_last4", "")
+        transfer_reference = pay.get("transfer_reference", "")
         if method == Payment.BANK_TRANSFER:
-            if ba is None or not sender or not ref or not ref.isdigit() or len(ref) > 4:
+            if ba is None or not sender:
                 raise serializers.ValidationError(
                     _("Bank transfer needs receiving account, sender bank, and "
-                      "up-to-4-digit reference.")
+                      "the transfer reference.")
                 )
             self._assert_company(ba, company_id, "company_bank_account")
-        elif method == Payment.CASH and (ba or sender or ref):
+            ref = transfer_details(pay, ba)
+        elif method == Payment.CASH and (ba or sender or ref or transfer_reference):
             raise serializers.ValidationError(
                 _("Cash payment must not carry bank/reference details.")
             )
         return Payment.objects.create(
             company_id=company_id, invoice=invoice, method=method,
             company_bank_account=ba, sender_bank_name=sender,
-            reference_last4=ref, amount=pay["amount"],
+            reference_last4=ref, transfer_reference=pay.get("transfer_reference", ""),
+            amount=pay["amount"],
             currency=invoice.currency, exchange_rate=invoice.exchange_rate,
             shift=shift,
             recorded_by=user if user.is_authenticated else None,
