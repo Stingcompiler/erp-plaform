@@ -19,6 +19,7 @@ const EMPTY = {
   barcode: "",
   cost_price: "0",
   sale_price: "0",
+  reference_price: "",
   reorder_level: "0",
   track_batches: false,
   is_stock_tracked: true,
@@ -83,7 +84,7 @@ function PickerWithAdd({ label, addLabel, placeholder, options, value, onChange,
   );
 }
 
-export default function ProductForm({ open, onClose, onSaved, product }) {
+export default function ProductForm({ open, onClose, onSaved, product, exchangeRate, referenceCurrency }) {
   const { t } = useI18n();
   const [form, setForm] = useState(EMPTY);
   const [categories, setCategories] = useState([]);
@@ -133,6 +134,7 @@ export default function ProductForm({ open, onClose, onSaved, product }) {
         barcode: product.barcode || "",
         cost_price: String(product.cost_price ?? "0"),
         sale_price: String(product.sale_price ?? "0"),
+        reference_price: product.reference_price == null ? "" : String(product.reference_price),
         reorder_level: String(product.reorder_level ?? "0"),
         track_batches: Boolean(product.track_batches),
         is_stock_tracked: product.is_stock_tracked !== false,
@@ -158,6 +160,7 @@ export default function ProductForm({ open, onClose, onSaved, product }) {
       category: form.category || null,
       brand: form.brand || null,
       unit: form.unit || null,
+      reference_price: form.reference_price === "" ? null : form.reference_price,
     };
     try {
       if (editing) await inventory.updateProduct(product.id, body);
@@ -274,6 +277,38 @@ export default function ProductForm({ open, onClose, onSaved, product }) {
             <Input type="number" value={form.sale_price} onChange={set("sale_price")} />
           </Field>
         </div>
+        <Field
+          label={t("inventory.referencePrice", { currency: referenceCurrency || "USD" })}
+          hint={
+            form.reference_price !== "" && Number(exchangeRate) > 0
+              ? t("inventory.referencePriceHint", {
+                  price: (Number(form.reference_price) * Number(exchangeRate)).toLocaleString(
+                    undefined, { maximumFractionDigits: 2 },
+                  ),
+                })
+              : t("inventory.referencePriceEmptyHint")
+          }
+        >
+          <div className="flex items-center gap-2">
+            <Input
+              type="number" inputMode="decimal" min="0" step="0.0001"
+              value={form.reference_price} onChange={set("reference_price")} className="w-40"
+            />
+            {form.reference_price !== "" && Number(exchangeRate) > 0 && (
+              <Button
+                type="button" variant="ghost"
+                onClick={() =>
+                  setForm((f) => ({
+                    ...f,
+                    sale_price: String(Math.round(Number(f.reference_price) * Number(exchangeRate) * 100) / 100),
+                  }))
+                }
+              >
+                {t("inventory.applyReferencePrice")}
+              </Button>
+            )}
+          </div>
+        </Field>
         <label className="flex items-center gap-2 text-sm text-ink">
           <input type="checkbox" checked={form.track_batches} onChange={set("track_batches")} />
           {t("inventory.trackBatches")}

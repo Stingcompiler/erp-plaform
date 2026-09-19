@@ -9,16 +9,20 @@ from core.rbac import RoleModuleAccess
 from core.scoping import (
     ActivityLoggingMixin,
     CompanyScopedModelViewSet,
+    CompanyScopedQuerySetMixin,
 )
-from org.models import Branch, Company, Department, Device, StoreModeAccessException
+from org.models import (
+    Branch, Company, Department, Device, ExchangeRate, StoreModeAccessException,
+)
 from org.store_mode import STORE_DEFAULT_ROLE_NAMES, is_system_mode_owner
 from org.serializers import (
+    ExchangeRateSerializer,
     BranchSerializer,
     CompanySerializer,
     DepartmentSerializer,
     DeviceSerializer,
 )
-from rest_framework import status, viewsets
+from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from django.db import transaction
 from rest_framework.permissions import IsAuthenticated
@@ -84,6 +88,7 @@ class CompanyProfileView(APIView):
         "payment_approval_threshold",
         "stock_adjustment_approval_threshold",
         "default_payment_terms_days",
+        "reference_currency",
     ]
 
     def _company(self, request):
@@ -98,6 +103,10 @@ class CompanyProfileView(APIView):
         # Read-only: set implicitly by choosing a type, never posted directly,
         # so a client cannot dismiss the question without answering it.
         data["business_type_chosen"] = company.business_type_chosen
+        # Read-only here: a rate is recorded through /exchange-rates/ so that
+        # every change leaves a row behind.
+        data["exchange_rate"] = company.exchange_rate
+        data["exchange_rate_at"] = company.exchange_rate_at
         return data
 
     def get(self, request):
@@ -156,6 +165,12 @@ class CompanyProfileView(APIView):
                         return Response({field: "Must be a whole number of days."}, status=400)
                     if value < 0 or value > 365:
                         return Response({field: "Must be between 0 and 365 days."}, status=400)
+                if field == "reference_currency":
+                    value = str(value).strip().upper()
+                    if not (2 <= len(value) <= 8):
+                        return Response(
+                            {field: "Use a currency code such as USD."}, status=400
+                        )
                 if field == "timezone" and not is_valid_timezone(value):
                     return Response(
                         {
@@ -351,3 +366,40 @@ class CompanyDeviceViewSet(viewsets.GenericViewSet):
     def reactivate(self, request, pk=None):
         device = reactivate_device(self.get_object(), request.user, request)
         return Response(self.get_serializer(device).data)
+
+
+class ExchangeRateViewSet(
+    mixins.ListModelMixin, mixins.CreateModelMixin, CompanyScopedQuerySetMixin,
+    viewsets.GenericViewSet,
+):
+    """The day's rate, recorded by a manager or owner. Append-only: an
+    entered-wrong rate is corrected by recording the right one."""
+
+    permission_classes = [IsAuthenticated, RoleModuleAccess]
+    rbac_module = "settings"
+    queryset = ExchangeRate.objects.select_related("recorded_by").all()
+    serializer_class = ExchangeRateSerializer
+
+    def create(self, request, *args, **kwargs):
+        if not can_approve_high_value(request.user):
+            return Response(
+                {"detail": "Only a manager or owner may record the exchange rate."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().create(request, *args, **kwargs)
+
+    @transaction.atomic
+    def perform_create(self, serializer):
+        company = Company.objects.select_for_update().get(pk=self.request.user.company_id)
+        entry = serializer.save(
+            company=company, currency=company.reference_currency,
+            recorded_by=self.request.user,
+        )
+        company.exchange_rate = entry.rate
+        company.exchange_rate_at = entry.recorded_at
+        company.save(update_fields=["exchange_rate", "exchange_rate_at"])
+        log_activity(
+            action="create", request=self.request, entity_type="ExchangeRate",
+            entity_id=entry.pk,
+            metadata={"currency": entry.currency, "rate": str(entry.rate)},
+        )

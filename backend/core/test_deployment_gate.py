@@ -1,3 +1,6 @@
+import os
+from unittest import mock
+
 from django.test import TestCase, override_settings
 
 from accounts.models import Role, User
@@ -63,3 +66,9 @@ class StandaloneSurfaceGateTests(TestCase):
         self.assertEqual(data["licence"]["state"], "unlicensed")
         self.assertFalse(data["licence"]["allow_writes"])
         self.assertIn("version", data)
+
+    def test_health_reports_the_deployed_commit_when_the_host_exports_it(self):
+        with mock.patch.dict(os.environ, {"RENDER_GIT_COMMIT": "9c0313ef1234567890"}):
+            self.assertEqual(self.client.get("/api/health/").json()["commit"], "9c0313ef")
+        with mock.patch.dict(os.environ, {}, clear=True):
+            self.assertIsNone(self.client.get("/api/health/").json()["commit"])

@@ -85,7 +85,7 @@ def health_check(request):
         db_ok = False
 
     from config.deployment import get_deployment_config
-    from ops.release import application_version
+    from ops.release import application_version, deployed_commit
 
     from core.public_media import media_health
 
@@ -96,6 +96,8 @@ def health_check(request):
         "database": "ok" if db_ok else "unreachable",
         "deployment_mode": config.mode,
         "version": application_version(),
+        # Which build is actually serving: proves a merge reached production.
+        "commit": deployed_commit(),
         # Uploads: on ephemeral storage every deploy wipes them; a picture a
         # merchant uploaded then 404s. The first thing to check.
         "media": media_health(),
