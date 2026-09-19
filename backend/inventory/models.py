@@ -127,6 +127,13 @@ class Product(models.Model):
     qr_code = models.CharField(max_length=255, blank=True)
     cost_price = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     sale_price = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    # Optional selling price in the company's reference currency (USD). With
+    # the company's exchange rate it yields the price the catalogue should be
+    # at today; a bulk reprice writes that into sale_price. Four decimals so
+    # a $0.0375 item (a single sweet) survives.
+    reference_price = models.DecimalField(
+        max_digits=14, decimal_places=4, null=True, blank=True
+    )
     # Low-stock threshold; on-hand <= this flags the product (see low_stock).
     reorder_level = models.DecimalField(max_digits=14, decimal_places=3, default=0)
     track_batches = models.BooleanField(default=False)

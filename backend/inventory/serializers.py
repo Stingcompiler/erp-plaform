@@ -111,12 +111,17 @@ class ProductSerializer(serializers.ModelSerializer):
     unit_name = serializers.CharField(
         source="unit.name", read_only=True, default=None
     )
+    # reference_price × the company's current rate, rounded to cents: what
+    # the shelf price should be today. Only when the view supplies the rate
+    # in context (the sync pull does not; the till has no use for it).
+    suggested_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = [
             "id", "company", "sku", "name", "category", "brand", "unit",
-            "barcode", "qr_code", "cost_price", "sale_price", "reorder_level",
+            "barcode", "qr_code", "cost_price", "sale_price", "reference_price",
+            "suggested_price", "reorder_level",
             "track_batches", "is_stock_tracked", "is_active", "on_hand",
             "expiry_status", "next_expiry",
             "unit_name", "packs",
@@ -130,6 +135,17 @@ class ProductSerializer(serializers.ModelSerializer):
         from core.public_media import stored_public_url
 
         return stored_public_url(obj.image)
+
+    def get_suggested_price(self, obj):
+        rate = self.context.get("exchange_rate")
+        if not rate or obj.reference_price is None:
+            return None
+        return (obj.reference_price * rate).quantize(Decimal("0.01"))
+
+    def validate_reference_price(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Cannot be negative.")
+        return value
 
     def create(self, validated_data):
         """Fill in a SKU when the caller left it blank.

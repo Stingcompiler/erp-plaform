@@ -96,6 +96,16 @@ class StockBatchViewSet(CompanyScopedModelViewSet):
     activity_entity_type = "StockBatch"
 
 
+def _current_rate(user):
+    company_id = getattr(user, "company_id", None)
+    if company_id is None:
+        return None
+    return (
+        Company.objects.filter(pk=company_id)
+        .values_list("exchange_rate", flat=True).first()
+    )
+
+
 class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     serializer_class = ProductSerializer
     # The public-website editor picks featured products from the catalogue.
@@ -123,6 +133,40 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
             metadata={"image": "removed" if request.method == "DELETE" else "set"},
         )
         return Response(self.get_serializer(product).data)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        # Read from the row, not request.user.company: that relation may be
+        # a cached instance from before today's rate was recorded.
+        context["exchange_rate"] = _current_rate(self.request.user)
+        return context
+
+    @action(detail=False, methods=["post"])
+    def reprice(self, request):
+        """Bulk reprice the active catalogue by exchange rate or by percent.
+        `dry_run=1` previews the effect without writing. Manager or owner
+        only: this rewrites every shelf price in one request."""
+        from core.rbac import can_approve_high_value
+        from inventory.pricing import reprice
+
+        if not can_approve_high_value(request.user):
+            return Response(
+                {"detail": "Only a manager or owner may reprice the catalogue."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        company = Company.objects.get(pk=request.user.company_id)
+        result = reprice(company, request.data)
+        if not result["dry_run"] and result["changed"]:
+            log_activity(
+                action="update", request=request, entity_type="Product", entity_id="bulk",
+                metadata={
+                    "reprice": {
+                        k: (str(v) if v is not None else None)
+                        for k, v in result.items() if k != "sample"
+                    }
+                },
+            )
+        return Response(result)
 
     def get_queryset(self):
         # on-hand is ALWAYS derived from the movement ledger — annotated here so

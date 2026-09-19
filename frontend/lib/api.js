@@ -147,6 +147,9 @@ export const inventory = {
   // Exact-match scan lookup — resolves to one product or 404 (never fuzzy).
   byBarcode: (code) => api.get("/products/by-barcode/", { params: { code } }),
   generateBarcode: (id) => api.post(`/products/${id}/generate-barcode/`),
+  // Bulk reprice: by the day's rate (reference prices) or by percent.
+  // dry_run previews counts and a sample without writing.
+  reprice: (body) => api.post("/products/reprice/", body),
   movements: (productId) => api.get("/stock-movements/", { params: { product: productId } }),
   warehouses: () => api.get("/warehouses/"),
   createWarehouse: (body) => api.post("/warehouses/", body),
@@ -429,6 +432,8 @@ export const settings = {
   // caller's own company server-side — no id is passed or trusted.
   companyProfile: () => api.get("/company/profile/"),
   updateCompanyProfile: (body) => api.patch("/company/profile/", body),
+  exchangeRates: () => api.get("/exchange-rates/"),
+  recordExchangeRate: (body) => api.post("/exchange-rates/", body),
   storeMode: () => api.get("/company/store-mode/"),
   updateStoreMode: (body) => api.patch("/company/store-mode/", body),
   taxHandlers: () => api.get("/tax/handlers/"),

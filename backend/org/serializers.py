@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from org.models import Branch, Company, Department, Device, TaxProfile
+from org.models import Branch, Company, Department, Device, ExchangeRate, TaxProfile
 
 
 class TaxProfileSerializer(serializers.ModelSerializer):
@@ -102,3 +102,19 @@ class DeviceSerializer(serializers.ModelSerializer):
     def get_last_user_name(self, obj):
         user = obj.last_user
         return (user.full_name or user.email) if user else None
+
+
+class ExchangeRateSerializer(serializers.ModelSerializer):
+    recorded_by_name = serializers.CharField(
+        source="recorded_by.full_name", read_only=True, default=""
+    )
+
+    class Meta:
+        model = ExchangeRate
+        fields = ["id", "currency", "rate", "note", "recorded_at", "recorded_by_name"]
+        read_only_fields = ["id", "currency", "recorded_at", "recorded_by_name"]
+
+    def validate_rate(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("The rate must be greater than zero.")
+        return value
