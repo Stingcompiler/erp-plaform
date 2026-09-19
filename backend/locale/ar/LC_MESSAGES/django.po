@@ -478,3 +478,7 @@ msgstr "الرصيد المستخدم مع الدفعة يتجاوزان إجم�
 
 msgid "This module is not included in the current plan or licence."
 msgstr "هذه الوحدة ليست ضمن الباقة أو الترخيص الحالي."
+
+#, python-format
+msgid "Your subscription is billed in %(currency)s; pay in that currency."
+msgstr "اشتراكك مُفوتَر بعملة %(currency)s؛ ادفع بالعملة نفسها."

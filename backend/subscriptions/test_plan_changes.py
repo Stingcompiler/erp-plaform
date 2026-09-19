@@ -299,3 +299,36 @@ class AddonTests(TestCase):
             "/api/subscription/plan-changes/", {"extra_delta": {"users": 1}}, format="json"
         )
         self.assertEqual(response.status_code, 400)
+
+
+@override_settings(SUBSCRIPTION_POLICY="enforce")
+class PaymentCurrencyTests(TestCase):
+    def test_owner_cannot_pay_in_another_currency(self):
+        now = timezone.now()
+        owner_role = Role.objects.create(name="Business Owner", scope_level=Role.SCOPE_BUSINESS)
+        company = Company.objects.create(name="Alpha")
+        owner = User.objects.create_user(
+            email="owner@alpha.test", password="Owner-passw0rd!x", company=company, role=owner_role
+        )
+        plan = Plan.objects.create(code="shop", name="Shop")
+        version = PlanVersion.objects.create(
+            plan=plan, version=1, modules=["*"], currency="SDG", price=Decimal("100000"),
+            published_at=now,
+        )
+        Subscription.objects.create(
+            company=company, plan_version=version, status=Subscription.ACTIVE,
+            starts_at=now, period_ends_at=now + timedelta(days=30),
+        )
+        client = APIClient()
+        client.force_authenticate(owner)
+        wrong = client.post(
+            "/api/subscription/payments/",
+            {"amount": "100", "currency": "USD", "method": "cash"},
+        )
+        self.assertEqual(wrong.status_code, 400, wrong.data)
+        self.assertIn("SDG", str(wrong.data["currency"]))
+        right = client.post(
+            "/api/subscription/payments/",
+            {"amount": "100000", "currency": "SDG", "method": "cash"},
+        )
+        self.assertEqual(right.status_code, 201, right.data)
