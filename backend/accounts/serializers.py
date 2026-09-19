@@ -1,6 +1,7 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils.translation import gettext as _
 from rest_framework import serializers
 
 from accounts.models import Permission, Role, User
@@ -213,6 +214,12 @@ class UserSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         if password:
             instance.set_password(password)
+            # Someone else chose this password: it is provisional until the
+            # person replaces it with one only they know.
+            actor = getattr(self.context.get("request"), "user", None)
+            instance.must_change_password = (
+                actor is None or getattr(actor, "pk", None) != instance.pk
+            )
         instance.save()
         if password:
             invalidate_sessions(instance)
@@ -276,6 +283,7 @@ class UserDetailSerializer(UserSerializer):
 
 class MeSerializer(serializers.ModelSerializer):
     role_name = serializers.SerializerMethodField()
+    must_change_password = serializers.BooleanField(read_only=True)
     company_name = serializers.SerializerMethodField()
     is_platform_admin = serializers.BooleanField(read_only=True)
     report_areas = serializers.SerializerMethodField()
@@ -386,7 +394,29 @@ class MeSerializer(serializers.ModelSerializer):
             "is_platform_admin",
             "report_areas",
             "capabilities",
+            "must_change_password",
         ]
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    """A signed-in person replacing their own password. The current one is
+    required so a walked-away session cannot be turned into a lockout."""
+
+    current_password = serializers.CharField(write_only=True, style={"input_type": "password"})
+    new_password = serializers.CharField(write_only=True, style={"input_type": "password"})
+
+    def validate_current_password(self, value):
+        user = self.context["request"].user
+        if not user.check_password(value):
+            raise serializers.ValidationError(_("The current password is incorrect."))
+        return value
+
+    def validate_new_password(self, value):
+        try:
+            validate_password(value, self.context["request"].user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(list(exc.messages))
+        return value
 
 
 class LoginSerializer(serializers.Serializer):

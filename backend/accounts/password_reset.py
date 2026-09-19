@@ -116,7 +116,10 @@ class PasswordResetConfirmView(APIView):
         except DjangoValidationError as exc:
             return Response({"password": list(exc.messages)}, status=status.HTTP_400_BAD_REQUEST)
         user.set_password(password)
-        user.save(update_fields=["password"])
+        # Chosen by the person themself: any administrator-set password it
+        # replaces is no longer provisional.
+        user.must_change_password = False
+        user.save(update_fields=["password", "must_change_password"])
         invalidate_sessions(user)
         log_activity(
             action="password_reset", request=request, user=user,

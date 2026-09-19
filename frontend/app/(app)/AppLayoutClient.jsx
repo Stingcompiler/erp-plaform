@@ -8,6 +8,7 @@ import PlatformShell, { isPlatformPath } from "@/components/PlatformShell";
 import { ToastProvider } from "@/components/ui/Toast";
 import { SyncProvider } from "@/components/sync/SyncProvider";
 import { AttentionProvider } from "@/components/attention/AttentionProvider";
+import ForcedPasswordChange from "@/components/auth/ForcedPasswordChange";
 import { useAuth } from "../providers/AuthProvider";
 import { useI18n } from "../providers/I18nProvider";
 
@@ -38,6 +39,12 @@ export default function AppLayoutClient({ children }) {
         <div className="animate-pulse font-display">{t("common.loading")}</div>
       </div>
     );
+  }
+
+  // A password an administrator handed out opens nothing but this screen;
+  // the server enforces the same (accounts.authentication).
+  if (user.must_change_password) {
+    return <ForcedPasswordChange />;
   }
 
   if (platformOperator) {
