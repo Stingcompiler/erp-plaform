@@ -43,18 +43,24 @@ def reset_link(user):
 
 
 def _send_reset_email(user, link):
-    body = (
-        f"مرحباً {user.full_name or ''}،\n\n"
-        "طُلبت إعادة تعيين كلمة مرور حسابك في فيزانو. "
-        f"اختر كلمة مرور جديدة من هذا الرابط (صالح لمرة واحدة):\n{link}\n\n"
-        "إن لم تكن أنت من طلب ذلك فتجاهل هذه الرسالة؛ كلمة مرورك لم تتغير.\n\n"
-        "— Vezano\n\n"
-        f"A password reset was requested for your Vezano account. "
-        f"Choose a new password with this one-time link: {link}\n"
-        "If you did not ask for this, ignore this email; nothing has changed."
-    )
-    return mailer.send_transactional(
-        "إعادة تعيين كلمة المرور | Vezano password reset", body, user.email
+    name = user.full_name or ""
+    return mailer.send_bilingual(
+        subject_ar="إعادة تعيين كلمة المرور",
+        subject_en="Reset your Vezano password",
+        ar=[
+            f"مرحباً {name}،".replace(" ،", "،"),
+            "طُلبت إعادة تعيين كلمة مرور حسابك في فيزانو. "
+            "اختر كلمة مرور جديدة من الرابط أدناه (صالح لمرة واحدة).",
+            "إن لم تكن أنت من طلب ذلك فتجاهل هذه الرسالة؛ كلمة مرورك لم تتغير.",
+        ],
+        en=[
+            f"Hello {name},".replace(" ,", ","),
+            "A password reset was requested for your Vezano account. "
+            "Choose a new password with the one-time link below.",
+            "If you did not ask for this, ignore this email; nothing has changed.",
+        ],
+        link=link,
+        recipient=user.email,
     )
 
 
