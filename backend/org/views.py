@@ -89,6 +89,8 @@ class CompanyProfileView(APIView):
         "stock_adjustment_approval_threshold",
         "default_payment_terms_days",
         "reference_currency",
+        "receipt_paper",
+        "receipt_footer",
     ]
 
     def _company(self, request):
@@ -165,6 +167,10 @@ class CompanyProfileView(APIView):
                         return Response({field: "Must be a whole number of days."}, status=400)
                     if value < 0 or value > 365:
                         return Response({field: "Must be between 0 and 365 days."}, status=400)
+                if field == "receipt_paper" and value not in dict(Company.PAPER_CHOICES):
+                    return Response({field: "Choose a4, 80mm or 58mm."}, status=400)
+                if field == "receipt_footer":
+                    value = str(value or "").strip()[:240]
                 if field == "reference_currency":
                     value = str(value).strip().upper()
                     if not (2 <= len(value) <= 8):

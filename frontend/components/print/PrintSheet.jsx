@@ -16,7 +16,15 @@ import { createPortal } from "react-dom";
  * its own way (/labels does). Scoping them to this component means the rules
  * simply do not exist unless a document is open.
  */
-export default function PrintSheet({ children }) {
+// Roll printers have no page to fit to: the sheet is the roll's printable
+// width and as long as the receipt. Margins stay tiny so nothing is cut.
+const PAGE_RULES = {
+  a4: "@page { margin: 14mm; }",
+  "80mm": "@page { size: 80mm auto; margin: 3mm 4mm; }",
+  "58mm": "@page { size: 58mm auto; margin: 2mm 3mm; }",
+};
+
+export default function PrintSheet({ children, paper = "a4" }) {
   const [mounted, setMounted] = useState(false);
 
   // Portals need a real DOM node, which the static export does not have during
@@ -46,9 +54,7 @@ export default function PrintSheet({ children }) {
             page-break-inside: avoid;
           }
         }
-        @page {
-          margin: 14mm;
-        }
+        ${PAGE_RULES[paper] || PAGE_RULES.a4}
       `}</style>
     </>,
     document.body,
