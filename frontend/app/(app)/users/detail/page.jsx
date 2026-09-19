@@ -47,6 +47,8 @@ function describeHistory(row, t) {
   if (row.action === "create") return t("users.detail.events.created");
   if (row.action === "archive") return t("users.detail.events.deactivated");
   if (row.action === "unarchive") return t("users.detail.events.reactivated");
+  if (row.action === "password_reset_by_admin") return t("users.detail.events.passwordResetByAdmin");
+  if (row.action === "password_changed") return t("users.detail.events.passwordChanged");
   const changes = m.changes && typeof m.changes === "object" ? m.changes : {};
   const active = changes.is_active?.after;
   if (active === "True" || active === true) return t("users.detail.events.reactivated");
@@ -208,7 +210,7 @@ function UserDetail() {
             <ul className="divide-y divide-line text-sm">
               {person.history.map((row) => (
                 <li key={row.id} className="py-2">
-                  <div>{describeHistory(row, t)}</div>
+                  <div className={row.action === "password_reset_by_admin" ? "font-medium text-warn" : ""}>{describeHistory(row, t)}</div>
                   <div className="mt-0.5 text-xs text-muted">
                     {fmt(row.created_at)}
                     {row.user && <> · {t("users.detail.by", { name: row.user.full_name || row.user.email })}</>}

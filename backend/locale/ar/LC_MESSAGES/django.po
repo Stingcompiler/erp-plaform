@@ -388,6 +388,12 @@ msgstr "الشركة الهدف لديها منتجات بالفعل؛ الاس�
 msgid "This reset link is invalid or has already been used."
 msgstr "رابط إعادة التعيين غير صالح أو استُخدم من قبل."
 
+msgid "The current password is incorrect."
+msgstr "كلمة المرور الحالية غير صحيحة."
+
+msgid "Choose your own password before continuing."
+msgstr "اختر كلمة مرور خاصة بك قبل المتابعة."
+
 msgid "Only a financial manager or an authorised executive may approve this."
 msgstr "المدير المالي أو مسؤول تنفيذي مخوَّل فقط يمكنه اعتماد هذا."
 

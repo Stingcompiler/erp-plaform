@@ -11,6 +11,7 @@ from core.error_views import ErrorEventViewSet
 from accounts.views import (
     LoginView,
     LogoutView,
+    ChangePasswordView,
     MeView,
     PermissionViewSet,
     RefreshView,
@@ -31,6 +32,7 @@ urlpatterns = [
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
     path("auth/refresh/", RefreshView.as_view(), name="auth-refresh"),
     path("auth/me/", MeView.as_view(), name="auth-me"),
+    path("auth/change-password/", ChangePasswordView.as_view(), name="auth-change-password"),
     path(
         "auth/password-reset/",
         PasswordResetRequestView.as_view(), name="auth-password-reset",
