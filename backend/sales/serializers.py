@@ -192,13 +192,14 @@ class CompanyBankAccountSerializer(serializers.ModelSerializer):
     channel_display = serializers.CharField(source="get_channel_display", read_only=True)
     received_total = serializers.SerializerMethodField()
     paid_total = serializers.SerializerMethodField()
+    refunded_total = serializers.SerializerMethodField()
 
     class Meta:
         model = CompanyBankAccount
         fields = [
             "id", "company", "channel", "channel_display", "bank_name", "account_name",
             "account_number", "opening_balance", "is_active", "show_to_customers",
-            "balance", "received_total", "paid_total",
+            "balance", "received_total", "paid_total", "refunded_total",
         ]
         read_only_fields = ["company"]
 
@@ -210,6 +211,9 @@ class CompanyBankAccountSerializer(serializers.ModelSerializer):
 
     def get_paid_total(self, obj):
         return str(obj.paid_total())
+
+    def get_refunded_total(self, obj):
+        return str(obj.refunded_total())
 
 
 # ---------- Quotation ----------

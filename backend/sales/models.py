@@ -112,15 +112,24 @@ class CompanyBankAccount(models.Model):
             t=Coalesce(Sum("amount"), Decimal("0"))
         )["t"]
 
+    def refunded_total(self):
+        """Money handed back to customers by transfer from this account."""
+        return self.refunds.aggregate(t=Coalesce(Sum("amount"), Decimal("0")))["t"]
+
     def balance(self):
         """
-        Current balance, DERIVED — opening + money in − money out.
+        Current balance, DERIVED — opening + money in − money out, where money
+        out is supplier payments and customer refunds (review F02: refunds
+        used to be missing, so the balance and the zakat base ran high).
 
         This tracks only what the system recorded; it is not a bank feed and
         makes no external calls (PROJECT_RULES Rule #3). A difference against
         the real statement is a reconciliation matter, not a bug here.
         """
-        return self.opening_balance + self.received_total() - self.paid_total()
+        return (
+            self.opening_balance + self.received_total()
+            - self.paid_total() - self.refunded_total()
+        )
 
 
 class InvoiceSequence(models.Model):
