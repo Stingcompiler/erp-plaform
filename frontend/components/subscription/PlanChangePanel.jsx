@@ -28,7 +28,8 @@ export default function PlanChangePanel({ onChanged }) {
   const fmt = (v) => v ? new Date(v).toLocaleDateString(language === "ar" ? "ar" : "en") : "—";
 
   const ask = async (option) => {
-    if (!window.confirm(t(option.kind === "upgrade" ? "planChange.confirmUpgrade" : "planChange.confirmDowngrade", { plan: option.plan, amount: money(option.due_now, option.currency) }))) return;
+    const confirmKey = option.kind === "switch" ? "planChange.confirmSwitch" : option.kind === "upgrade" ? "planChange.confirmUpgrade" : "planChange.confirmDowngrade";
+    if (!window.confirm(t(confirmKey, { plan: option.plan, amount: money(option.due_now, option.currency), currency: option.currency }))) return;
     setBusy(true); setError("");
     try { await api.requestPlanChange(option.version, note); setNote(""); await load(); onChanged?.(); }
     catch (err) {
@@ -90,20 +91,22 @@ export default function PlanChangePanel({ onChanged }) {
                 <div key={o.version} className={`rounded-control border p-4 ${blocked ? "border-line opacity-70" : "border-line"}`}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="font-display font-semibold">{o.plan}</div>
-                    <Badge tone={o.kind === "upgrade" ? "ok" : "warn"}>{t(`planChange.kind.${o.kind}`)}</Badge>
+                    <Badge tone={o.kind === "upgrade" ? "ok" : o.kind === "switch" ? "accent" : "warn"}>{t(`planChange.kind.${o.kind}`)}</Badge>
                   </div>
                   <div className="mt-1 text-sm">{money(o.price, o.currency)} / {t(`platformPlans.${o.billing_cycle}`)}</div>
                   <div className="mt-1 text-xs text-muted">
                     {Object.entries(o.limits || {}).map(([k, v]) => `${t(`usage.${k}`)}: ${v}`).join(" · ") || t("platformPlans.noLimits")}
                   </div>
                   <div className="mt-2 text-sm">
-                    {o.kind === "upgrade"
-                      ? t("planChange.dueNow", { amount: money(o.due_now, o.currency) })
-                      : blocked
-                        ? <span className="text-danger">{t("planChange.overUsage", { what: Object.entries(o.blocked_by).map(([k, v]) => `${t(`usage.${k}`)} ${v.used}/${v.limit}`).join("، ") })}</span>
-                        : t("planChange.atPeriodEnd")}
+                    {blocked
+                      ? <span className="text-danger">{t("planChange.overUsage", { what: Object.entries(o.blocked_by).map(([k, v]) => `${t(`usage.${k}`)} ${v.used}/${v.limit}`).join("، ") })}</span>
+                      : o.kind === "upgrade"
+                        ? t("planChange.dueNow", { amount: money(o.due_now, o.currency) })
+                        : o.kind === "switch"
+                          ? t("planChange.switchDue", { currency: o.currency, cycle: t(`platformPlans.${o.billing_cycle}`), amount: money(o.due_now, o.currency) })
+                          : t("planChange.atPeriodEnd")}
                   </div>
-                  <Button className="mt-3" disabled={busy || blocked} onClick={() => ask(o)}>{t(o.kind === "upgrade" ? "planChange.askUpgrade" : "planChange.askDowngrade")}</Button>
+                  <Button className="mt-3" disabled={busy || blocked} onClick={() => ask(o)}>{t(o.kind === "upgrade" ? "planChange.askUpgrade" : o.kind === "switch" ? "planChange.askSwitch" : "planChange.askDowngrade")}</Button>
                 </div>
               );
             })}

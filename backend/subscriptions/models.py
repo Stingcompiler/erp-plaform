@@ -123,6 +123,9 @@ class PlanVersion(models.Model):
                 )
 
     def save(self, *args, **kwargs):
+        # "sd", " SDG " and "SDG" must be one currency, or two plans that
+        # are really priced alike never show up as alternatives.
+        self.currency = (self.currency or "").strip().upper()
         self.full_clean()
         if self.pk:
             previous = PlanVersion.objects.filter(pk=self.pk).first()
@@ -358,9 +361,14 @@ class PlanChangeRequest(models.Model):
     DOWNGRADE = "downgrade"
     ADDON = "addon"          # more units on the same plan: billed pro rata
     ADDON_REMOVE = "addon_remove"  # fewer units: applied at period end
+    # A plan priced in another currency: prices cannot be compared or
+    # prorated across currencies, so the new plan is invoiced in full for a
+    # fresh period and switches when that invoice is paid.
+    SWITCH = "switch"
     KINDS = [
         (UPGRADE, "Upgrade"), (DOWNGRADE, "Downgrade"),
         (ADDON, "Add units"), (ADDON_REMOVE, "Remove units"),
+        (SWITCH, "Change of currency"),
     ]
 
     PENDING = "pending"
