@@ -717,6 +717,17 @@ class Payment(models.Model):
                 name="payment_acct_ref_idx",
             ),
         ]
+        constraints = [
+            # The same transfer id can never settle the same invoice twice,
+            # whatever two requests raced through validation (review F13).
+            # Cross-invoice reuse is legitimate only inside a receipt group
+            # and is serialised by the account lock in sales.payments.
+            models.UniqueConstraint(
+                fields=["company_bank_account", "transfer_reference", "invoice"],
+                condition=~models.Q(transfer_reference=""),
+                name="uniq_payment_reference_per_invoice",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.method} {self.amount} (INV-{self.invoice.number:06d})"

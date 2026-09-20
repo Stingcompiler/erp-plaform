@@ -177,7 +177,9 @@ def transfer_details(attrs, bank_account):
                     "number": duplicate.invoice.number,
                 }
             })
-    if not ref or not ref.isdigit() or len(ref) > 4:
+    # Typed by hand the last-4 must be digits; derived from a full id it may
+    # be letters when the app's id has no digits at all.
+    if not ref or len(ref) > 4 or (not full and not ref.isdigit()):
         raise serializers.ValidationError(
             _("Enter the transfer reference (or its last 4 digits).")
         )
@@ -467,6 +469,11 @@ class PaymentSerializer(serializers.ModelSerializer):
             "currency", "exchange_rate",
         ]
         extra_kwargs = {"recorded_at": {"required": False}}
+        # The (account, reference, invoice) constraint is enforced by the
+        # database and answered by sales.payments with a field error; DRF's
+        # auto-generated unique-together validator would instead make the
+        # reference a required field and report a non-field error.
+        validators = []
 
     def validate_recorded_at(self, value):
         return validate_business_time(value)
