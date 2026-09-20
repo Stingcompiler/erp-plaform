@@ -38,7 +38,7 @@ class BaseTenantSetup(APITestCase):
 
     def login(self, email, password="passw0rd123"):
         url = reverse("auth-login")
-        resp = self.client.post(url, {"email": email, "password": password})
+        resp = self.client.post(url, {"email": email, "password": password, "device_id": "TEST"})
         assert resp.status_code == 200, resp.content
         # APIClient stores Set-Cookie responses, so subsequent requests are
         # authenticated via the HttpOnly cookie automatically.
@@ -65,7 +65,8 @@ class CookieAuthTests(BaseTenantSetup):
 
     def test_bad_credentials_rejected(self):
         resp = self.client.post(
-            reverse("auth-login"), {"email": "a@alpha.test", "password": "wrong"}
+            reverse("auth-login"), {"email": "a@alpha.test", "password": "wrong",
+                                    "device_id": "TEST"}
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 

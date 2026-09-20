@@ -456,7 +456,8 @@ class PlatformActivityTests(APITestCase):
         anon = self.client_class()
         signed = anon.post(
             reverse("auth-login"),
-            {"email": "mkt@vezano.test", "password": "a-sufficiently-secure-password"},
+            {"email": "mkt@vezano.test", "password": "a-sufficiently-secure-password",
+                "device_id": "TEST"},
         )
         self.assertEqual(signed.status_code, 200, signed.data)
         from org.models import Branch, Company
@@ -469,7 +470,8 @@ class PlatformActivityTests(APITestCase):
         )
         tenant = anon.post(
             reverse("auth-login"),
-            {"email": "owner@tenant.test", "password": "a-sufficiently-secure-password"},
+            {"email": "owner@tenant.test", "password": "a-sufficiently-secure-password",
+                "device_id": "TEST"},
         )
         self.assertEqual(tenant.status_code, 200, tenant.data)
         logins = [r for r in self._rows(action="login")]

@@ -45,7 +45,8 @@ class PasswordResetTests(TestCase):
 
     def test_link_sets_a_new_password_once_and_ends_old_sessions(self):
         login = self.client.post(
-            "/api/auth/login/", {"email": "owner@alpha.test", "password": "Old-passw0rd!x"},
+            "/api/auth/login/", {"email": "owner@alpha.test", "password": "Old-passw0rd!x",
+                                 "device_id": "TEST"},
             format="json",
         )
         self.assertEqual(login.status_code, 200)

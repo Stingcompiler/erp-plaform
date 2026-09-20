@@ -21,7 +21,8 @@ class PresenceTests(APITestCase):
         self.root = User.objects.create_superuser("root@vezano.test", "secure-password")
 
     def _login(self, email, password):
-        return self.client.post(reverse("auth-login"), {"email": email, "password": password})
+        return self.client.post(reverse("auth-login"), {"email": email, "password": password,
+                                                        "device_id": "TEST"})
 
     def test_login_records_last_login_and_last_seen(self):
         self.assertIsNone(self.root.last_login)

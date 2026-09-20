@@ -38,7 +38,11 @@ class TaxBase(APITestCase):
             line_total=Decimal("115"),
         )
         r = self.client.post(
-            reverse("auth-login"), {"email": "owner@alpha.test", "password": "passw0rd123"}
+            reverse("auth-login"), {
+                "email": "owner@alpha.test",
+                "password": "passw0rd123",
+                "device_id": "TEST",
+            }
         )
         assert r.status_code == 200, r.content
 
@@ -104,7 +108,11 @@ class TaxRBACAndScopingTests(TaxBase):
             company=self.company, role=sales, branch=branch,
         )
         c = self.client_class()
-        c.post(reverse("auth-login"), {"email": "sales@alpha.test", "password": "passw0rd123"})
+        c.post(reverse("auth-login"), {
+            "email": "sales@alpha.test",
+            "password": "passw0rd123",
+            "device_id": "TEST",
+        })
         self.assertEqual(
             c.get(reverse("tax-profile")).status_code, status.HTTP_403_FORBIDDEN
         )

@@ -37,7 +37,11 @@ class BranchVisibilityBase(APITestCase):
             company=company or self.company, role=role, branch=branch,
         )
         c = self.client_class()
-        r = c.post(reverse("auth-login"), {"email": email, "password": "passw0rd123"})
+        r = c.post(reverse("auth-login"), {
+            "email": email,
+            "password": "passw0rd123",
+            "device_id": "TEST",
+        })
         assert r.status_code == 200, r.content
         return c
 
@@ -66,7 +70,7 @@ class BranchScopingTests(BranchVisibilityBase):
         )
         response = self.client.post(
             reverse("auth-login"),
-            {"email": "nobranch@alpha.test", "password": "passw0rd123"},
+            {"email": "nobranch@alpha.test", "password": "passw0rd123", "device_id": "TEST"},
         )
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.data["code"], "branch_assignment_required")

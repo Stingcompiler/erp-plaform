@@ -41,7 +41,7 @@ class RBACBase(APITestCase):
         )
         client = self.client_class()
         r = client.post(
-            reverse("auth-login"), {"email": email, "password": "passw0rd123"}
+            reverse("auth-login"), {"email": email, "password": "passw0rd123", "device_id": "TEST"}
         )
         assert r.status_code == 200, r.content
         return client

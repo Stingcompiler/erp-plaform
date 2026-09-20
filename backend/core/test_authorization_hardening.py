@@ -24,7 +24,7 @@ class AuthorizationHardeningTests(APITestCase):
         )
         response = self.client.post(
             reverse("auth-login"),
-            {"email": "roleless@alpha.test", "password": "passw0rd123"},
+            {"email": "roleless@alpha.test", "password": "passw0rd123", "device_id": "TEST"},
         )
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.data["code"], "role_assignment_required")

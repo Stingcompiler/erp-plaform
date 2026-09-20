@@ -28,7 +28,11 @@ class OpsBase(APITestCase):
             cost_price=Decimal("6"), sale_price=Decimal("10"),
         )
         r = self.client.post(
-            reverse("auth-login"), {"email": "owner@alpha.test", "password": "passw0rd123"}
+            reverse("auth-login"), {
+                "email": "owner@alpha.test",
+                "password": "passw0rd123",
+                "device_id": "TEST",
+            }
         )
         assert r.status_code == 200, r.content
 
@@ -59,7 +63,11 @@ class BackupRestoreTests(OpsBase):
             company=target, role=self.owner,
         )
         c = self.client_class()
-        c.post(reverse("auth-login"), {"email": "owner2@restored.test", "password": "passw0rd123"})
+        c.post(reverse("auth-login"), {
+            "email": "owner2@restored.test",
+            "password": "passw0rd123",
+            "device_id": "TEST",
+        })
         resp = c.post(reverse("ops-restore"), {"data": dump}, format="json")
         self.assertEqual(resp.status_code, 200, resp.content)
         self.assertTrue(Product.objects.filter(company=target, sku="SKU1").exists())
@@ -85,7 +93,11 @@ class BackupRestoreTests(OpsBase):
             company=self.company, branch=branch, role=sales,
         )
         c = self.client_class()
-        c.post(reverse("auth-login"), {"email": "sales@alpha.test", "password": "passw0rd123"})
+        c.post(reverse("auth-login"), {
+            "email": "sales@alpha.test",
+            "password": "passw0rd123",
+            "device_id": "TEST",
+        })
         self.assertEqual(
             c.post(reverse("ops-backups")).status_code, status.HTTP_403_FORBIDDEN
         )

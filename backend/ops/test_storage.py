@@ -101,7 +101,11 @@ class BackupStorageIntegrationTests(APITestCase):
             company=self.company, sku="SKU1", name="Widget", sale_price=Decimal("10")
         )
         r = self.client.post(
-            reverse("auth-login"), {"email": "owner@alpha.test", "password": "passw0rd123"}
+            reverse("auth-login"), {
+                "email": "owner@alpha.test",
+                "password": "passw0rd123",
+                "device_id": "TEST",
+            }
         )
         assert r.status_code == 200, r.content
 
@@ -151,7 +155,7 @@ class BackupStorageIntegrationTests(APITestCase):
                 tclient = self.client_class()
                 tclient.post(
                     reverse("auth-login"),
-                    {"email": "owner@target.test", "password": "passw0rd123"},
+                    {"email": "owner@target.test", "password": "passw0rd123", "device_id": "TEST"},
                 )
                 foreign = tclient.post(
                     reverse("ops-restore"), {"storage_key": key}, format="json"

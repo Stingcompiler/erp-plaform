@@ -36,7 +36,8 @@ class AdminPasswordResetTests(TestCase):
     def _login(self, email, password):
         client = APIClient()
         response = client.post(
-            "/api/auth/login/", {"email": email, "password": password}, format="json"
+            "/api/auth/login/", {"email": email, "password": password,
+                                 "device_id": "TEST"}, format="json"
         )
         self.assertEqual(response.status_code, 200, response.data)
         return client
