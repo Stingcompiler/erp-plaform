@@ -674,6 +674,10 @@ class Payment(models.Model):
     # Stored in full so a statement export can be matched against it and so
     # the same screenshot cannot be presented twice (see PaymentSerializer).
     transfer_reference = models.CharField(max_length=64, blank=True)
+    # One bank transfer settling several invoices: the collect drawer records
+    # one Payment per invoice and stamps them all with the same group, so the
+    # same transfer reference may repeat inside the group and nowhere else.
+    receipt_group = models.UUIDField(null=True, blank=True, db_index=True)
     amount = models.DecimalField(max_digits=16, decimal_places=2)
     # Snapshot per transaction (PROJECT_RULES: currency + rate, no more). A
     # payment inherits its invoice's currency; the rate is the day's.
