@@ -465,9 +465,10 @@ export default function ReportsPage() {
                 </a>
               }
             >
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
                 <Kpi label={t("reports.cashIn")} tone="ok" value={money(cash.inflows)} />
                 <Kpi label={t("reports.cashOutSuppliers")} value={money(cash.supplier_payments)} />
+                <Kpi label={t("reports.cashOutRefunds")} value={money(cash.customer_refunds)} />
                 <Kpi label={t("reports.cashOutExpenses")} value={money(cash.expenses)} />
                 <Kpi
                   label={t("reports.netCashFlow")}

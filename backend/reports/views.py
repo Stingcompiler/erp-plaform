@@ -718,7 +718,7 @@ class CfoKpiReport(ReportView):
 
     def get(self, request):
         from purchasing.models import Bill, SupplierPayment
-        from sales.models import Invoice, Payment
+        from sales.models import Invoice, Payment, Refund
 
         cid = self.company_id(request)
         start, end = self.date_range(request)
@@ -749,6 +749,9 @@ class CfoKpiReport(ReportView):
         cash_out = (
             self.apply_range(
                 SupplierPayment.objects.filter(company_id=cid), "recorded_at", start, end
+            ).aggregate(t=Coalesce(Sum("amount"), ZERO, output_field=MONEY))["t"]
+            + self.apply_range(
+                Refund.objects.filter(company_id=cid), "recorded_at", start, end
             ).aggregate(t=Coalesce(Sum("amount"), ZERO, output_field=MONEY))["t"]
             + opex
         )
@@ -863,7 +866,7 @@ class CashFlowReport(ReportView):
     def get(self, request):
         from finance.models import Expense
         from purchasing.models import SupplierPayment
-        from sales.models import Payment
+        from sales.models import Payment, Refund
 
         cid = self.company_id(request)
         start, end = self.date_range(request)
@@ -875,6 +878,11 @@ class CashFlowReport(ReportView):
         )
         outflow_pay_qs = self.apply_range(
             SupplierPayment.objects.filter(company_id=cid), "recorded_at", start, end
+        )
+        # Money handed back to customers leaves the drawer or the bank just
+        # like a supplier payment does (review F03).
+        refund_qs = self.apply_range(
+            Refund.objects.filter(company_id=cid), "recorded_at", start, end
         )
         expense_qs = Expense.objects.filter(company_id=cid)
         if start:
@@ -897,13 +905,15 @@ class CashFlowReport(ReportView):
 
         inflows = total(inflow_qs)
         supplier_out = total(outflow_pay_qs)
+        refund_out = total(refund_qs)
         expense_out = total(expense_qs)
-        outflows = supplier_out + expense_out
+        outflows = supplier_out + refund_out + expense_out
 
         if self.wants_csv(request):
             rows = [
                 ["Cash in — customer payments", str(inflows)],
                 ["Cash out — supplier payments", str(supplier_out)],
+                ["Cash out — customer refunds", str(refund_out)],
                 ["Cash out — expenses", str(expense_out)],
                 ["Net cash flow", str(inflows - outflows)],
             ]
@@ -914,6 +924,8 @@ class CashFlowReport(ReportView):
                 "inflows": str(inflows),
                 "inflows_by_method": by_method(inflow_qs),
                 "supplier_payments": str(supplier_out),
+                "customer_refunds": str(refund_out),
+                "refunds_by_method": by_method(refund_qs),
                 "expenses": str(expense_out),
                 "outflows": str(outflows),
                 "net_cash_flow": str(inflows - outflows),
