@@ -21,6 +21,29 @@ def assert_user_branch(user, obj, field_name):
         )
 
 
+def branch_scope_for(user, branch_field):
+    """The branch id a branch-scoped user is confined to, else None."""
+    if not branch_field:
+        return None
+    role = getattr(user, "role", None)
+    if not (role and role.scope_level == "branch"):
+        return None
+    return getattr(user, "branch_id", None)
+
+
+def apply_branch_scope(qs, user, branch_field, include_unassigned=True):
+    """Narrow ``qs`` to the user's branch exactly as the normal endpoint
+    does. Shared by the viewsets and by sync/pull, so a mirror handed to an
+    offline device can never show more than the screen would."""
+    branch_id = branch_scope_for(user, branch_field)
+    if branch_id is None:
+        return qs
+    own_branch = Q(**{f"{branch_field}_id": branch_id})
+    if include_unassigned:
+        return qs.filter(own_branch | Q(**{f"{branch_field}__isnull": True}))
+    return qs.filter(own_branch)
+
+
 class CompanyScopedQuerySetMixin:
     """
     Enforces PROJECT_RULES Rule #1: no endpoint returns cross-company data.
@@ -53,13 +76,7 @@ class CompanyScopedQuerySetMixin:
 
     def _branch_scope(self):
         """Return the branch id to scope to, or None if no branch scoping applies."""
-        if not self.branch_field:
-            return None
-        user = self.request.user
-        role = getattr(user, "role", None)
-        if not (role and role.scope_level == "branch"):
-            return None
-        return getattr(user, "branch_id", None)
+        return branch_scope_for(self.request.user, self.branch_field)
 
     def is_platform_user(self):
         """Super Administrators are platform-level and not company-scoped."""
@@ -75,16 +92,9 @@ class CompanyScopedQuerySetMixin:
             # Authenticated but company-less non-platform user sees nothing.
             return qs.none()
         qs = qs.filter(**{f"{self.company_field}_id": company_id})
-        branch_id = self._branch_scope()
-        if branch_id is not None:
-            own_branch = Q(**{f"{self.branch_field}_id": branch_id})
-            if self.include_unassigned_branch_rows:
-                qs = qs.filter(
-                    own_branch | Q(**{f"{self.branch_field}__isnull": True})
-                )
-            else:
-                qs = qs.filter(own_branch)
-        return qs
+        return apply_branch_scope(
+            qs, self.request.user, self.branch_field, self.include_unassigned_branch_rows
+        )
 
     def perform_create(self, serializer):
         if self.is_platform_user():
