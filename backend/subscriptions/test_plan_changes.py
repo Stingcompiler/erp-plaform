@@ -414,3 +414,59 @@ class CrossCurrencySwitchTests(PlanChangeTests):
             "/api/subscription/plan-changes/", {"to_version": self.usd_pro.pk}, format="json"
         )
         self.assertEqual(asked.status_code, 400, asked.data)
+
+
+@override_settings(SUBSCRIPTION_POLICY="enforce")
+class PaymentTransferReferenceTests(TestCase):
+    """The renewal form takes the app's full transaction id like the till
+    does: normalised, last 4 derived for display, duplicates refused."""
+
+    def setUp(self):
+        now = timezone.now()
+        owner_role = Role.objects.create(name="Business Owner", scope_level=Role.SCOPE_BUSINESS)
+        self.company = Company.objects.create(name="Alpha")
+        owner = User.objects.create_user(
+            email="owner@alpha.test", password="Owner-passw0rd!x", company=self.company,
+            role=owner_role,
+        )
+        plan = Plan.objects.create(code="shop", name="Shop")
+        version = PlanVersion.objects.create(
+            plan=plan, version=1, modules=["*"], currency="SDG", price=Decimal("100000"),
+            published_at=now,
+        )
+        Subscription.objects.create(
+            company=self.company, plan_version=version, status=Subscription.ACTIVE,
+            starts_at=now, period_ends_at=now + timedelta(days=30),
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(owner)
+
+    def _pay(self, **extra):
+        body = {"amount": "100000", "currency": "SDG", "method": "bank_transfer", **extra}
+        return self.client.post("/api/subscription/payments/", body)
+
+    def test_full_reference_is_normalised_and_last4_derived(self):
+        r = self._pay(transfer_reference="bk-2026 0920 7788", sender_bank_name="Bankak")
+        self.assertEqual(r.status_code, 201, r.data)
+        payment = SubscriptionPayment.objects.get(pk=r.data["id"])
+        self.assertEqual(payment.transfer_reference, "BK202609207788")
+        self.assertEqual(payment.reference_last4, "7788")
+
+    def test_duplicate_reference_is_refused_unless_the_first_was_rejected(self):
+        first = self._pay(transfer_reference="778899")
+        self.assertEqual(first.status_code, 201, first.data)
+        dup = self._pay(transfer_reference="778899")
+        self.assertEqual(dup.status_code, 400)
+        self.assertIn("transfer_reference", dup.data)
+        SubscriptionPayment.objects.filter(pk=first.data["id"]).update(
+            status=SubscriptionPayment.REJECTED
+        )
+        self.assertEqual(self._pay(transfer_reference="778899").status_code, 201)
+
+    def test_last4_alone_still_accepted_and_nothing_refused(self):
+        self.assertEqual(self._pay(reference_last4="4321").status_code, 201)
+        missing = self._pay()
+        self.assertEqual(missing.status_code, 400)
+        self.assertIn("transfer_reference", missing.data)
+        # Cash needs no reference at all.
+        self.assertEqual(self._pay(method="cash").status_code, 201)

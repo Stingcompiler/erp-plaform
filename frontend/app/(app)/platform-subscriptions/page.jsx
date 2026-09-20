@@ -382,7 +382,9 @@ export default function PlatformSubscriptionsPage() {
                     <div className="text-xs text-muted">
                       {t("subscription.submittedBy")}: {payment.recorded_by_name || "—"}
                       {payment.sender_bank_name && <> · {payment.sender_bank_name}</>}
-                      {payment.reference_last4 && <> · ****{payment.reference_last4}</>}
+                      {(payment.transfer_reference || payment.reference_last4) && (
+                        <> · <span dir="ltr">{payment.transfer_reference || `****${payment.reference_last4}`}</span></>
+                      )}
                     </div>
                     {payment.proof_available ? (
                       <a

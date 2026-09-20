@@ -259,6 +259,10 @@ class SubscriptionPayment(models.Model):
     method = models.CharField(max_length=20, choices=METHODS)
     sender_bank_name = models.CharField(max_length=120, blank=True)
     reference_last4 = models.CharField(max_length=4, blank=True)
+    # The app's full transaction id, normalised (same rule as sales.Payment):
+    # what the platform checks against its own statement, and what stops a
+    # screenshot being submitted twice.
+    transfer_reference = models.CharField(max_length=64, blank=True)
     proof = models.FileField(upload_to="subscription-proofs/%Y/%m/", blank=True)
     status = models.CharField(max_length=12, choices=STATES, default=PENDING)
     recorded_by = models.ForeignKey(
