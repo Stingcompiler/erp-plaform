@@ -43,7 +43,10 @@ class IntegrationBase(APITestCase):
 
     def client_for(self, email, password="passw0rd123"):
         client = APIClient()
-        resp = client.post(reverse("auth-login"), {"email": email, "password": password})
+        resp = client.post(
+            reverse("auth-login"),
+            {"email": email, "password": password, "device_id": "TEST"},
+        )
         assert resp.status_code == 200, resp.content
         return client
 
