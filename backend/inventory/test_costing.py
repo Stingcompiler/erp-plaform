@@ -68,7 +68,11 @@ class CostingReportTests(CostingBase):
             company=self.company, role=role,
         )
         r = self.client.post(
-            reverse("auth-login"), {"email": "owner@alpha.test", "password": "passw0rd123"}
+            reverse("auth-login"), {
+                "email": "owner@alpha.test",
+                "password": "passw0rd123",
+                "device_id": "TEST",
+            }
         )
         assert r.status_code == 200, r.content
 

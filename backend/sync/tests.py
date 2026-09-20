@@ -36,7 +36,11 @@ class SyncBase(APITestCase):
             sale_price=Decimal("10"),
         )
         r = self.client.post(
-            reverse("auth-login"), {"email": "a@alpha.test", "password": "passw0rd123"}
+            reverse("auth-login"), {
+                "email": "a@alpha.test",
+                "password": "passw0rd123",
+                "device_id": "TEST",
+            }
         )
         assert r.status_code == 200, r.content
 
@@ -170,7 +174,7 @@ class SyncRBACTests(SyncBase):
         c = self.client_class()
         c.post(
             reverse("auth-login"),
-            {"email": "inv@alpha.test", "password": "passw0rd123"},
+            {"email": "inv@alpha.test", "password": "passw0rd123", "device_id": "TEST"},
         )
         resp = c.post(
             reverse("sync-push"),

@@ -29,7 +29,7 @@ from core.activity import log_activity
 from core.deletion import ArchiveOnDeleteMixin
 from core.rbac import RoleModuleAccess, tenant_scope_error
 from core.scoping import CompanyScopedModelViewSet
-from org.devices import DeviceRefused, is_revoked, register_device
+from org.devices import DeviceRefused, is_revoked, register_device, requires_device
 from org.store_mode import is_store_mode_allowed
 from org.models import Company
 from subscriptions.services import assert_capacity
@@ -130,6 +130,10 @@ class LoginView(APIView):
                 "device_revoked": (
                     "This device was removed by the company. Ask the owner to allow it again."
                 ),
+                "device_required": (
+                    "Sign in from the Vezano app or website so this device can be "
+                    "identified; company accounts cannot sign in without a device id."
+                ),
             }[refused.code]
             return Response(
                 {
@@ -138,7 +142,10 @@ class LoginView(APIView):
                     "limit": refused.limit,
                     "owner_contact": owner.email if owner else "",
                 },
-                status=status.HTTP_403_FORBIDDEN,
+                status=(
+                    status.HTTP_400_BAD_REQUEST if refused.code == "device_required"
+                    else status.HTTP_403_FORBIDDEN
+                ),
             )
 
         refresh = RefreshToken.for_user(user)
@@ -210,6 +217,15 @@ class RefreshView(APIView):
         if device_id and is_revoked(user.company_id, device_id):
             response = Response(
                 {"code": "device_revoked", "detail": "This device was removed by the company."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+            clear_auth_cookies(response)
+            return response
+        if not device_id and requires_device(user):
+            # A session minted before device identity was mandatory: it ends
+            # here and the next sign-in registers the device.
+            response = Response(
+                {"code": "device_required", "detail": "Sign in again from this device."},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
             clear_auth_cookies(response)

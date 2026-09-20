@@ -22,7 +22,11 @@ from sales.models import Invoice, InvoiceLine
 def login_client(user, password):
     client = APIClient()
     response = client.post(
-        reverse("auth-login"), {"email": user.email, "password": password}, format="json"
+        reverse("auth-login"), {
+            "email": user.email,
+            "password": password,
+            "device_id": "TEST",
+        }, format="json"
     )
     assert response.status_code == 200, response.data
     return client

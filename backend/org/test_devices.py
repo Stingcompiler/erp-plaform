@@ -67,10 +67,74 @@ class DeviceLimitTests(TestCase):
         blocked = ActivityLog.objects.get(action="login_blocked")
         self.assertEqual(blocked.metadata["reason"], "device_limit_reached")
 
-    def test_no_device_id_registers_nothing(self):
+    def test_company_login_without_a_device_id_is_refused(self):
+        """Review F06: omitting the id used to sign in uncounted."""
         _, response = self._login("owner@tills.test", "Owner-passw0rd!x", "")
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertEqual(response.data["code"], "device_required")
         self.assertEqual(Device.objects.count(), 0)
+        # Two tills fill the plan; a third with a made-up id and a third
+        # without any id are both refused.
+        for device in ("TILL1", "TILL2"):
+            self.assertEqual(self._login("sales@tills.test", "Sales-passw0rd!x", device)[1]
+                             .status_code, 200)
+        self.assertEqual(self._login("sales@tills.test", "Sales-passw0rd!x", "TILL3")[1]
+                         .status_code, 403)
+        self.assertEqual(self._login("sales@tills.test", "Sales-passw0rd!x", "")[1]
+                         .status_code, 400)
+
+    def test_platform_accounts_need_no_device(self):
+        """The documented exception: console logins belong to no company."""
+        User.objects.create_superuser(email="root@vezano.test", password="Root-passw0rd!")
+        _, response = self._login("root@vezano.test", "Root-passw0rd!", "")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(Device.objects.count(), 0)
+
+    def test_revocation_survives_a_cache_loss(self):
+        """Review F05: the flag lived in cache only."""
+        till, _ = self._login("sales@tills.test", "Sales-passw0rd!x", "TILL1")
+        device = Device.objects.get(device_id="TILL1")
+        owner, _ = self._login("owner@tills.test", "Owner-passw0rd!x", "OWNER")
+        self.assertEqual(
+            owner.post(f"/api/subscription/devices/{device.pk}/revoke/", {}, format="json")
+            .status_code, 200,
+        )
+        cache.clear()  # eviction, restart, or a rebuilt cache table
+        self.assertEqual(till.get("/api/auth/me/").status_code, 401)
+        self.assertEqual(till.post("/api/auth/refresh/", {}, format="json").status_code, 401)
+        # A new sign-in from the removed device is refused too.
+        self.assertEqual(self._login("sales@tills.test", "Sales-passw0rd!x", "TILL1")[1]
+                         .status_code, 403)
+        # Reactivating clears it, also without the cache.
+        owner.post(f"/api/subscription/devices/{device.pk}/reactivate/", {}, format="json")
+        cache.clear()
+        self.assertEqual(self._login("sales@tills.test", "Sales-passw0rd!x", "TILL1")[1]
+                         .status_code, 200)
+
+    def test_sessions_minted_without_a_device_cannot_refresh(self):
+        """Tokens from before device identity was mandatory end at refresh."""
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        legacy = RefreshToken.for_user(self.sales)  # no "device" claim
+        client = APIClient()
+        client.cookies["refresh_token"] = str(legacy)
+        response = client.post("/api/auth/refresh/", {}, format="json")
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data["code"], "device_required")
+
+    def test_sync_after_an_outage_keeps_working_and_stops_once_revoked(self):
+        till, _ = self._login("sales@tills.test", "Sales-passw0rd!x", "TILL1")
+        # The till comes back online and replays its queue with its session.
+        self.assertEqual(till.get("/api/sync/pull/").status_code, 200)
+        # Signing in again from the same device counts no new device.
+        self.assertEqual(self._login("sales@tills.test", "Sales-passw0rd!x", "TILL1")[1]
+                         .status_code, 200)
+        self.assertEqual(Device.objects.filter(is_active=True).count(), 1)
+        device = Device.objects.get(device_id="TILL1")
+        owner, _ = self._login("owner@tills.test", "Owner-passw0rd!x", "OWNER")
+        owner.post(f"/api/subscription/devices/{device.pk}/revoke/", {}, format="json")
+        cache.clear()
+        self.assertEqual(till.get("/api/sync/pull/").status_code, 401)
 
     def test_owner_sees_usage_and_devices_and_revoking_ends_the_session(self):
         till, _ = self._login("sales@tills.test", "Sales-passw0rd!x", "TILL1")

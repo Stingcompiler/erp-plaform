@@ -21,7 +21,7 @@ class AdminPasswordResetTests(APITestCase):
         )
         r = self.client.post(
             reverse("auth-login"),
-            {"email": "owner@alpha.test", "password": "passw0rd123"},
+            {"email": "owner@alpha.test", "password": "passw0rd123", "device_id": "TEST"},
         )
         assert r.status_code == 200, r.content
 
@@ -38,7 +38,7 @@ class AdminPasswordResetTests(APITestCase):
         fresh = self.client_class()
         good = fresh.post(
             reverse("auth-login"),
-            {"email": "member@alpha.test", "password": "brandnewpass99"},
+            {"email": "member@alpha.test", "password": "brandnewpass99", "device_id": "TEST"},
         )
         self.assertEqual(good.status_code, 200)
 
@@ -46,7 +46,7 @@ class AdminPasswordResetTests(APITestCase):
         fresh2 = self.client_class()
         bad = fresh2.post(
             reverse("auth-login"),
-            {"email": "member@alpha.test", "password": "oldpassw0rd1"},
+            {"email": "member@alpha.test", "password": "oldpassw0rd1", "device_id": "TEST"},
         )
         self.assertEqual(bad.status_code, 400)
 

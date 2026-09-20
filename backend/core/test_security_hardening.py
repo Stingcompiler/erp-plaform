@@ -176,7 +176,11 @@ class RefreshRotationTests(APITestCase):
 
     def test_refresh_rotates_and_blacklists_the_presented_token(self):
         login = self.client.post(
-            reverse("auth-login"), {"email": "owner@alpha.test", "password": "passw0rd123"}
+            reverse("auth-login"), {
+                "email": "owner@alpha.test",
+                "password": "passw0rd123",
+                "device_id": "TEST",
+            }
         )
         self.assertEqual(login.status_code, 200, login.content)
         first = self.client.cookies["refresh_token"].value
@@ -215,7 +219,7 @@ class LoginLockoutTests(APITestCase):
         extra = {"HTTP_X_FORWARDED_FOR": forwarded} if forwarded else {}
         return self.client.post(
             reverse("auth-login"),
-            {"email": "owner@alpha.test", "password": password},
+            {"email": "owner@alpha.test", "password": password, "device_id": "TEST"},
             **extra,
         )
 

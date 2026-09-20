@@ -38,7 +38,11 @@ class SalesBase(APITestCase):
         # tests that leave a balance sell to this account customer.
         self.customer = Customer.objects.create(company=self.company_a, name="Account customer")
         r = self.client.post(
-            reverse("auth-login"), {"email": "a@alpha.test", "password": "passw0rd123"}
+            reverse("auth-login"), {
+                "email": "a@alpha.test",
+                "password": "passw0rd123",
+                "device_id": "TEST",
+            }
         )
         assert r.status_code == 200, r.content
 
@@ -101,7 +105,11 @@ class InvoiceNumberingTests(SalesBase):
         )
         client_b = self.client_class()
         client_b.post(
-            reverse("auth-login"), {"email": "b@beta.test", "password": "passw0rd123"}
+            reverse("auth-login"), {
+                "email": "b@beta.test",
+                "password": "passw0rd123",
+                "device_id": "TEST",
+            }
         )
         resp = client_b.post(
             reverse("pos-checkout"),

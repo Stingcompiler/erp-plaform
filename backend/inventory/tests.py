@@ -41,7 +41,11 @@ class InventoryBase(APITestCase):
         )
 
         resp = self.client.post(
-            reverse("auth-login"), {"email": "a@alpha.test", "password": "passw0rd123"}
+            reverse("auth-login"), {
+                "email": "a@alpha.test",
+                "password": "passw0rd123",
+                "device_id": "TEST",
+            }
         )
         assert resp.status_code == 200, resp.content
 

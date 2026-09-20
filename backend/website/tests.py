@@ -32,7 +32,11 @@ class WebsiteBase(APITestCase):
 
     def login(self, email):
         c = self.client_class()
-        r = c.post(reverse("auth-login"), {"email": email, "password": "passw0rd123"})
+        r = c.post(reverse("auth-login"), {
+            "email": email,
+            "password": "passw0rd123",
+            "device_id": "TEST",
+        })
         assert r.status_code == 200, r.content
         return c
 

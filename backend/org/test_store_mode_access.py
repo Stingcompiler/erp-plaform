@@ -43,7 +43,7 @@ class StoreModeAccessTests(APITestCase):
         client = self.client_class()
         return client.post(
             reverse("auth-login"),
-            {"email": user.email, "password": "passw0rd12345"},
+            {"email": user.email, "password": "passw0rd12345", "device_id": "TEST"},
             format="json",
         )
 

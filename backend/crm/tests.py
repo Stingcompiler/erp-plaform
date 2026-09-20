@@ -28,7 +28,7 @@ class CrmBase(APITestCase):
         )
         r = self.client.post(
             reverse("auth-login"),
-            {"email": "a@alpha.test", "password": "passw0rd123"},
+            {"email": "a@alpha.test", "password": "passw0rd123", "device_id": "TEST"},
         )
         assert r.status_code == 200, r.content
 

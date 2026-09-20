@@ -3,8 +3,18 @@
 A device is a browser profile (org.models.Device). The client sends its id
 with every sign-in; the server registers it, refuses it when it is revoked
 or would exceed the plan, and stamps it into the session's tokens so that
-revoking a device also ends its sessions. Sign-ins that carry no device id
-(scripts, tests) register nothing and are not counted.
+revoking a device also ends its sessions.
+
+A company user must present a device id (review F06: a client that simply
+omitted it used to sign in uncounted, so the plan's device limit was
+optional). Platform accounts — the Vezano team's console logins, which
+belong to no company and are never counted against a plan — are the one
+documented exception; there is no exception for scripts or curl.
+
+Revocation is read from the database with the cache only as an
+accelerator (review F05: a cache-only flag came back "not revoked" after an
+eviction or a cache-table rebuild, and a removed device kept working until
+its refresh token expired).
 """
 
 from django.core.cache import cache
@@ -15,7 +25,10 @@ from core.activity import log_activity
 from org.models import Device
 
 DEVICE_ID_MAX = 64
-REVOKED_CACHE_TTL = 60 * 60 * 24 * 14  # outlives the longest refresh token
+# The cache only shortens the DB lookup; a miss is answered by the database,
+# so the TTL is about request cost, not correctness.
+REVOKED_CACHE_TTL = 60 * 5
+_MISS = object()
 
 
 class DeviceRefused(Exception):
@@ -37,8 +50,23 @@ def _revoked_key(company_id, device_id):
     return f"device-revoked:{company_id}:{device_id}"
 
 
+def requires_device(user):
+    """Business logins need a device identity; platform accounts do not."""
+    return user.company_id is not None and not getattr(user, "is_platform_admin", False)
+
+
 def is_revoked(company_id, device_id):
-    return bool(cache.get(_revoked_key(company_id, device_id)))
+    if company_id is None or not device_id:
+        return False
+    key = _revoked_key(company_id, device_id)
+    cached = cache.get(key, _MISS)
+    if cached is not _MISS:
+        return bool(cached)
+    revoked = Device.objects.filter(
+        company_id=company_id, device_id=device_id, is_active=False,
+    ).exists()
+    cache.set(key, revoked, REVOKED_CACHE_TTL)
+    return revoked
 
 
 def register_device(company, device_id, user, request):
@@ -47,7 +75,11 @@ def register_device(company, device_id, user, request):
     from subscriptions.services import assert_capacity
 
     device_id = clean_device_id(device_id)
-    if not device_id or company is None:
+    if company is None:
+        return None
+    if not device_id:
+        if requires_device(user):
+            raise DeviceRefused("device_required")
         return None
     agent = str(request.META.get("HTTP_USER_AGENT", ""))[:255]
     now = timezone.now()
@@ -110,7 +142,7 @@ def reactivate_device(device, actor, request=None):
     device.revoked_at = None
     device.revoked_by = None
     device.save(update_fields=["is_active", "revoked_at", "revoked_by"])
-    cache.delete(_revoked_key(device.company_id, device.device_id))
+    cache.set(_revoked_key(device.company_id, device.device_id), False, REVOKED_CACHE_TTL)
     log_activity(
         action="device_reactivated", request=request, user=actor, company=device.company,
         entity_type="Device", entity_id=device.pk, metadata={"device_id": device.device_id},
