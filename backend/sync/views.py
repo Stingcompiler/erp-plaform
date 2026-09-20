@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 from core.activity import log_activity
 from core.permissions import EntitlementAccess
 from core.rbac import role_can
+from core.scoping import apply_branch_scope
 from sync.models import DiscardedOperation, SyncBatch, SyncOperation
 from sync.services import APPLIED, DUPLICATE, ERROR, process_operation
 
@@ -221,45 +222,55 @@ class SyncPushView(APIView):
 # Curated set of entities a client pulls, with the timestamp field used for the
 # delta and the read-module that gates visibility.
 def _pull_specs():
+    """(key, model, serializer, timestamp field, read module, viewset).
+
+    The viewset is the one that serves the entity's normal endpoint: its
+    ``branch_field`` / ``include_unassigned_branch_rows`` decide what a
+    branch-scoped user may see, and pull applies exactly the same rule (the
+    2026-09-20 review found employees, warehouses, orders and bills leaking
+    across branches through here while the screens hid them).
+    """
+    from hr.models import Employee
+    from hr.serializers import EmployeeSerializer
+    from hr.views import EmployeeViewSet
     from inventory.models import Product, StockMovement, Warehouse
     from inventory.serializers import (
         ProductSerializer,
         StockMovementSerializer,
         WarehouseSerializer,
     )
-    from hr.models import Employee
-    from hr.serializers import EmployeeSerializer
+    from inventory.views import ProductViewSet, StockMovementViewSet, WarehouseViewSet
     from purchasing.models import Bill, PurchaseOrder, Supplier
     from purchasing.serializers import (
         BillSerializer,
         PurchaseOrderSerializer,
         SupplierSerializer,
     )
+    from purchasing.views import BillViewSet, PurchaseOrderViewSet, SupplierViewSet
     from sales.models import Customer, Invoice
     from sales.serializers import CustomerSerializer, InvoiceSerializer
+    from sales.views import CustomerViewSet, InvoiceViewSet
 
     # Documents written by offline devices carry BUSINESS time in created_at
     # / issued_at, which may be hours or days before the row reached the
     # server. A delta cursor on business time would skip them for every other
     # device, so those entities page on the server-stamped received_at.
     return [
-        ("products", Product, ProductSerializer, "updated_at", "inventory"),
-        ("warehouses", Warehouse, WarehouseSerializer, "updated_at", "inventory"),
-        (
-            "stock_movements",
-            StockMovement,
-            StockMovementSerializer,
-            "received_at",
-            "inventory",
-        ),
-        ("customers", Customer, CustomerSerializer, "updated_at", "sales"),
-        ("invoices", Invoice, InvoiceSerializer, "received_at", "sales"),
-        ("suppliers", Supplier, SupplierSerializer, "updated_at", "purchasing"),
+        ("products", Product, ProductSerializer, "updated_at", "inventory", ProductViewSet),
+        ("warehouses", Warehouse, WarehouseSerializer, "updated_at", "inventory",
+         WarehouseViewSet),
+        ("stock_movements", StockMovement, StockMovementSerializer, "received_at",
+         "inventory", StockMovementViewSet),
+        ("customers", Customer, CustomerSerializer, "updated_at", "sales", CustomerViewSet),
+        ("invoices", Invoice, InvoiceSerializer, "received_at", "sales", InvoiceViewSet),
+        ("suppliers", Supplier, SupplierSerializer, "updated_at", "purchasing",
+         SupplierViewSet),
         # Receiving against an order and paying a bill both happen on the
         # floor with the connection down; the attendance register too.
-        ("purchase_orders", PurchaseOrder, PurchaseOrderSerializer, "updated_at", "purchasing"),
-        ("bills", Bill, BillSerializer, "updated_at", "purchasing"),
-        ("employees", Employee, EmployeeSerializer, "updated_at", "hr"),
+        ("purchase_orders", PurchaseOrder, PurchaseOrderSerializer, "updated_at",
+         "purchasing", PurchaseOrderViewSet),
+        ("bills", Bill, BillSerializer, "updated_at", "purchasing", BillViewSet),
+        ("employees", Employee, EmployeeSerializer, "updated_at", "hr", EmployeeViewSet),
     ]
 
 
@@ -309,7 +320,7 @@ class SyncPullView(APIView):
 
         changes = {}
         has_more = False
-        for key, model, serializer_cls, ts_field, module in _pull_specs():
+        for key, model, serializer_cls, ts_field, module, viewset in _pull_specs():
             if not role_can(request.user, module, write=False):
                 continue
             if key in completed:
@@ -331,15 +342,13 @@ class SyncPullView(APIView):
                     | Q(**{ts_field: marker_time, "pk__gt": marker["id"]})
                 )
 
-            # Branch-bound documents follow the same visibility rules as their
-            # normal endpoints. Shared master records remain company-wide.
-            role = getattr(request.user, "role", None)
-            branch_id = getattr(request.user, "branch_id", None)
-            if role and role.scope_level == "branch" and branch_id:
-                if key == "invoices":
-                    qs = qs.filter(branch_id=branch_id)
-                elif key == "stock_movements":
-                    qs = qs.filter(warehouse__branch_id=branch_id)
+            # Exactly the normal endpoint's branch rule, taken from its
+            # viewset: company-wide master data stays company-wide, branch
+            # documents (and employees, warehouses, orders) stay in-branch.
+            qs = apply_branch_scope(
+                qs, request.user, viewset.branch_field,
+                viewset.include_unassigned_branch_rows,
+            )
 
             rows = list(qs.order_by(ts_field, "pk")[:501])
             more_for_key = len(rows) > 500
