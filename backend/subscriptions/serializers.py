@@ -1,3 +1,4 @@
+import re
 from rest_framework import serializers
 
 from subscriptions.models import (
@@ -290,6 +291,7 @@ class SubscriptionPaymentSerializer(serializers.ModelSerializer):
             "method",
             "sender_bank_name",
             "reference_last4",
+            "transfer_reference",
             "proof",
             "proof_available",
             "status",
@@ -317,13 +319,27 @@ class SubscriptionPaymentSerializer(serializers.ModelSerializer):
         return obj.recorded_by.full_name or obj.recorded_by.email
 
     def validate(self, attrs):
-        if (
-            attrs.get("method") == "bank_transfer"
-            and len(attrs.get("reference_last4", "")) != 4
-        ):
-            raise serializers.ValidationError(
-                {"reference_last4": "Enter the last four reference characters."}
-            )
+        from sales.serializers import normalise_reference
+
+        full = normalise_reference(attrs.get("transfer_reference"))
+        attrs["transfer_reference"] = full
+        last4 = str(attrs.get("reference_last4") or "").strip()
+        if full and not last4:
+            digits = re.sub(r"\D", "", full)
+            last4 = (digits or full)[-4:]
+            attrs["reference_last4"] = last4
+        if attrs.get("method") == "bank_transfer":
+            if len(last4) != 4:
+                raise serializers.ValidationError(
+                    {"transfer_reference": "Enter the transfer reference from the app."}
+                )
+            company = self.context["request"].user.company
+            if full and SubscriptionPayment.objects.filter(
+                company=company, transfer_reference=full,
+            ).exclude(status=SubscriptionPayment.REJECTED).exists():
+                raise serializers.ValidationError(
+                    {"transfer_reference": "This transfer reference was already submitted."}
+                )
         return attrs
 
     def validate_proof(self, value):
