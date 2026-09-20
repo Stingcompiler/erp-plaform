@@ -587,3 +587,36 @@ class ReturnRevenueBasisTests(CorrectionBase):
         self.assertEqual(Decimal(summary["gross_sales"]), Decimal("100.00"))
         self.assertEqual(Decimal(summary["sales_returns"]), Decimal("33.33"))
         self.assertEqual(Decimal(summary["revenue"]), Decimal("66.67"))
+
+
+class ReturnCogsSnapshotTests(CorrectionBase):
+    def test_income_statement_reverses_a_return_at_the_sale_cost(self):
+        """Review F12: sell at cost 60, cost rises to 90, full return → the
+        period's revenue, COGS and gross profit are all zero, not a 60 gain."""
+        sale = self._sell(qty="1", paid="100.00")
+        self.assertEqual(sale.status_code, 201, sale.data)
+        invoice = Invoice.objects.get(pk=sale.data["id"])
+        line = invoice.lines.get()
+        self.product.cost_price = Decimal("90.00")
+        self.product.save(update_fields=["cost_price"])
+        self._as(self.owner)
+        returned = self.client.post(
+            reverse("salesreturn-list"),
+            {"invoice": invoice.pk, "lines": [
+                {"invoice_line": line.pk, "product": self.product.pk, "quantity": "1"}
+            ]},
+            format="json",
+        )
+        self.assertEqual(returned.status_code, 201, returned.data)
+        # In quarantine the goods are not back in stock: the cost stays booked.
+        self.assertEqual(Decimal(operating_summary(self.company.pk)["cogs"]), Decimal("60"))
+        line_id = returned.data["lines"][0]["id"]
+        restocked = self.client.post(
+            reverse("salesreturn-disposition", args=[returned.data["id"]]),
+            {"decisions": [{"line_id": line_id, "action": "restock"}]}, format="json",
+        )
+        self.assertEqual(restocked.status_code, 200, restocked.data)
+        summary = operating_summary(self.company.pk)
+        self.assertEqual(Decimal(summary["revenue"]), Decimal("0"))
+        self.assertEqual(Decimal(summary["cogs"]), Decimal("0"))  # was −30 (90 − 60)
+        self.assertEqual(Decimal(summary["gross_profit"]), Decimal("0"))

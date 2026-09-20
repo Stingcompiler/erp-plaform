@@ -212,9 +212,37 @@ class CostingEngineTests(LedgerBase):
             movement_type=StockMovement.SALES_RETURN_IN, quantity=Decimal("1"),
             unit_cost=Decimal("5"), created_at=now - timedelta(hours=1),
         )
-        for method, expected in (("fifo", Decimal("15")), ("average", Decimal("15"))):
+        # Standard included: it read today's 9 for both legs before (review
+        # F12), booking 4×9 − 1×9 = 27 instead of the 15 the goods cost.
+        for method in ("fifo", "average", "standard"):
             with self.subTest(method=method):
-                self.assertEqual(compute(self.product, method)["cogs"], expected)
+                self.assertEqual(compute(self.product, method)["cogs"], Decimal("15"))
+        # Stock on hand is still valued at the current standard cost.
+        self.assertEqual(compute(self.product, "standard")["valuation"], Decimal("63"))
+
+    def test_standard_full_return_after_a_cost_rise_nets_to_zero(self):
+        now = timezone.now()
+        self._in(10, 60, when=now - timedelta(hours=3))
+        StockMovement.objects.create(
+            company=self.company, product=self.product, warehouse=self.wh,
+            movement_type=StockMovement.SALE_OUT, quantity=Decimal("-1"),
+            unit_cost=Decimal("60"), created_at=now - timedelta(hours=2),
+        )
+        self.product.cost_price = Decimal("90")
+        self.product.save(update_fields=["cost_price"])
+        StockMovement.objects.create(
+            company=self.company, product=self.product, warehouse=self.wh,
+            movement_type=StockMovement.SALES_RETURN_IN, quantity=Decimal("1"),
+            unit_cost=Decimal("60"), created_at=now - timedelta(hours=1),
+        )
+        self.assertEqual(compute(self.product, "standard")["cogs"], Decimal("0"))
+        # A movement from before snapshots existed still falls back to today.
+        StockMovement.objects.create(
+            company=self.company, product=self.product, warehouse=self.wh,
+            movement_type=StockMovement.SALE_OUT, quantity=Decimal("-2"),
+            unit_cost=None, created_at=now,
+        )
+        self.assertEqual(compute(self.product, "standard")["cogs"], Decimal("180"))
 
 
 class ReturnCostAndLotTests(LedgerBase):

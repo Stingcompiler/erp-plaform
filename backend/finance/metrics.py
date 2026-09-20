@@ -146,14 +146,18 @@ def operating_summary(company_id, start=None, end=None, method="standard"):
         ).aggregate(t=Coalesce(Sum(ExpressionWrapper(
             F("quantity") * F("cost_at_sale"), output_field=MONEY,
         )), ZERO, output_field=MONEY))["t"]
+        # A restocked return reverses COGS at the cost the sale carried (the
+        # restock movement copies it), not at today's cost (review F12).
         restocked = in_range(
             SalesReturnLine.objects.filter(
                 sales_return__company_id=company_id,
                 disposition=SalesReturnLine.RESTOCKED,
             ),
             "restock_movement__created_at__date", start, end,
+        ).annotate(
+            cost_at_return=Coalesce(F("restock_movement__unit_cost"), F("product__cost_price"))
         ).aggregate(t=Coalesce(Sum(ExpressionWrapper(
-            F("quantity") * F("product__cost_price"), output_field=MONEY,
+            F("quantity") * F("cost_at_return"), output_field=MONEY,
         )), ZERO, output_field=MONEY))["t"]
         cogs -= restocked
     else:

@@ -68,6 +68,12 @@ def _is_sales_return(m):
 
 
 def _standard(product, movements, start, end):
+    """Standard cost: stock is valued at the product's current standard cost,
+    but COGS is what the goods cost when they left. Sale and return
+    movements carry that snapshot in unit_cost (returns copy the sale's);
+    rows written before the snapshot existed fall back to the current cost.
+    Reading the current cost for both made a return during inflation book a
+    profit out of thin air (review F12)."""
     fallback = product.cost_price or ZERO
     cogs = ZERO
     on_hand = ZERO
@@ -76,10 +82,11 @@ def _standard(product, movements, start, end):
         on_hand += qty
         if not _in_window(m["created_at"], start, end):
             continue
+        unit = m["unit_cost"] if m["unit_cost"] is not None else fallback
         if _is_sale(m):
-            cogs += (-qty) * fallback
+            cogs += (-qty) * unit
         elif _is_sales_return(m):
-            cogs -= qty * fallback
+            cogs -= qty * unit
     return {"on_hand": on_hand, "cogs": cogs, "valuation": on_hand * fallback}
 
 
