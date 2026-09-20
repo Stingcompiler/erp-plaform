@@ -122,7 +122,17 @@ class CompanySubscriptionPaymentViewSet(
             company=company
         ).first()
         currency = serializer.validated_data.get("currency")
-        if subscription is not None and currency != subscription.plan_version.currency:
+        # A plan change into another currency is invoiced in that currency;
+        # paying it must be possible while the old plan is still current.
+        accepted = set()
+        if subscription is not None:
+            accepted.add(subscription.plan_version.currency)
+            accepted.update(
+                SubscriptionInvoice.objects.filter(
+                    company=company, status=SubscriptionInvoice.ISSUED,
+                ).values_list("currency", flat=True)
+            )
+        if subscription is not None and currency not in accepted:
             raise ValidationError({
                 "currency": _("Your subscription is billed in %(currency)s; pay in that currency.")
                 % {"currency": subscription.plan_version.currency},
@@ -398,7 +408,7 @@ class CompanyPlanChangeViewSet(viewsets.GenericViewSet):
 
     def list(self, request):
         from subscriptions.plan_changes import (
-            classify, open_request, proration, usage_over_limits,
+            classify, open_request, proration, same_currency, usage_over_limits,
         )
 
         company = request.user.company
@@ -409,24 +419,36 @@ class CompanyPlanChangeViewSet(viewsets.GenericViewSet):
         if subscription is not None:
             current = subscription.plan_version
             latest = {}
+            # Plans in another currency are offered too: a company billed in
+            # a currency no public plan uses any more would otherwise see
+            # nothing. Same currency first, then the rest.
             for version in PlanVersion.objects.select_related("plan").filter(
                 plan__is_active=True, plan__is_public=True, published_at__isnull=False,
-                currency=current.currency,
             ).order_by("plan__sort_order", "plan__name", "-version"):
                 latest.setdefault(version.plan_id, version)
-            for version in latest.values():
+            for version in sorted(
+                latest.values(), key=lambda v: not same_currency(v.currency, current.currency)
+            ):
                 if version.pk == current.pk:
                     continue
                 kind = classify(current, version)
-                amount, _ = proration(subscription, current, version)
+                if kind == PlanChangeRequest.SWITCH:
+                    amount = Decimal(version.price)
+                elif kind == PlanChangeRequest.UPGRADE:
+                    amount, _ = proration(subscription, current, version)
+                else:
+                    amount = Decimal("0")
                 options.append({
                     "version": version.pk, "plan": version.plan.name, "code": version.plan.code,
                     "price": str(version.price), "currency": version.currency,
                     "billing_cycle": version.billing_cycle, "limits": version.limits,
                     "modules": version.modules, "kind": kind,
-                    "due_now": str(amount) if kind == "upgrade" else "0.00",
+                    "currency_change": kind == PlanChangeRequest.SWITCH,
+                    "due_now": str(amount),
                     "blocked_by": (
-                        usage_over_limits(company, version) if kind == "downgrade" else {}
+                        usage_over_limits(company, version)
+                        if kind in (PlanChangeRequest.DOWNGRADE, PlanChangeRequest.SWITCH)
+                        else {}
                     ),
                 })
         addons = []

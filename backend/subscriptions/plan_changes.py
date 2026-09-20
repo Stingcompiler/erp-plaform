@@ -52,12 +52,22 @@ def monthly_price(version):
     return price / 12 if version.billing_cycle == PlanVersion.YEARLY else price
 
 
+def same_currency(a, b):
+    return (a or "").strip().upper() == (b or "").strip().upper()
+
+
 def classify(from_version, to_version):
+    if not same_currency(from_version.currency, to_version.currency):
+        return PlanChangeRequest.SWITCH
     return (
         PlanChangeRequest.UPGRADE
         if monthly_price(to_version) > monthly_price(from_version)
         else PlanChangeRequest.DOWNGRADE
     )
+
+
+def cycle_days(version):
+    return 365 if version.billing_cycle == PlanVersion.YEARLY else 30
 
 
 def usage_over_limits(company, version):
@@ -171,14 +181,12 @@ def request_change(company, to_version, actor, note=""):
         raise ValidationError({"to_version": "That plan is not available."})
     if to_version.pk == subscription.plan_version_id:
         raise ValidationError({"to_version": "The company is already on that plan."})
-    if to_version.currency != subscription.plan_version.currency:
-        raise ValidationError(
-            {"to_version": "The new plan must be priced in the same currency."}
-        )
     if open_request(company) is not None:
         raise ValidationError({"detail": "A plan change is already waiting for a decision."})
     kind = classify(subscription.plan_version, to_version)
-    if kind == PlanChangeRequest.DOWNGRADE:
+    # A smaller plan (or one in another currency that may be smaller) must
+    # still fit what the company already uses.
+    if kind in (PlanChangeRequest.DOWNGRADE, PlanChangeRequest.SWITCH):
         over = usage_over_limits(company, to_version)
         if over:
             raise UsageExceedsTarget(over)
@@ -250,7 +258,32 @@ def approve_request(request, actor, note=""):
     request.decided_by = actor
     request.decided_at = now
     request.decision_note = note
-    if request.kind in (PlanChangeRequest.UPGRADE, PlanChangeRequest.ADDON):
+    if request.kind == PlanChangeRequest.SWITCH:
+        # Full price for a fresh period in the new currency. Paying grants
+        # that period (entitlement_granted_at stays empty) and switches the
+        # plan through apply_on_invoice_paid.
+        to_version = request.to_version
+        invoice = SubscriptionInvoice.objects.create(
+            company=request.company, subscription=subscription,
+            number=f"PENDING-{uuid4().hex}", status=SubscriptionInvoice.ISSUED,
+            period_start=now.date(),
+            period_end=(now + timedelta(days=cycle_days(to_version))).date(),
+            currency=to_version.currency, amount=Decimal(to_version.price),
+            due_at=now + timedelta(days=7), issued_at=now,
+            line_snapshot=[{
+                "kind": request.kind,
+                "from_plan": request.from_version.plan.name,
+                "from_currency": request.from_version.currency,
+                "to_plan": to_version.plan.name,
+                "to_currency": to_version.currency,
+                "billing_cycle": to_version.billing_cycle,
+            }],
+        )
+        invoice.number = f"VSUB-{invoice.pk:06d}"
+        invoice.save(update_fields=["number"])
+        request.invoice = invoice
+        request.save()
+    elif request.kind in (PlanChangeRequest.UPGRADE, PlanChangeRequest.ADDON):
         if request.kind == PlanChangeRequest.ADDON:
             amount, fraction = addon_proration(subscription, request.extra_delta, now)
         else:

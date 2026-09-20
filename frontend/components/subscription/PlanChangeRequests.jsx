@@ -7,7 +7,7 @@ import { Badge, Button, Card, Input } from "@/components/ui/kit";
 import { platformPlanChanges as api } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 
-const KIND_TONE = { upgrade: "ok", downgrade: "warn", addon: "ok", addon_remove: "warn" };
+const KIND_TONE = { upgrade: "ok", downgrade: "warn", addon: "ok", addon_remove: "warn", switch: "accent" };
 
 // Pending plan changes for the platform team: who asked, from what to what,
 // what an upgrade would bill for the rest of the period, approve or reject.
@@ -51,10 +51,10 @@ export default function PlanChangeRequests({ canManage, onChanged }) {
               </div>
               <div className="mt-0.5 text-xs text-muted">
                 {t("planChange.requestedBy", { name: r.requested_by_name, date: fmt(r.created_at) })}
-                {!r.kind.startsWith("addon") && <>{" · "}{money(r.from_price, r.currency)} → {money(r.to_price, r.currency)} / {t(`platformPlans.${r.to_cycle}`)}</>}
+                {!r.kind.startsWith("addon") && <>{" · "}{money(r.from_price, r.from_currency || r.currency)} → {money(r.to_price, r.currency)} / {t(`platformPlans.${r.to_cycle}`)}</>}
                 {r.note && <> · «{r.note}»</>}
               </div>
-              <div className="mt-0.5 text-xs text-muted">{r.kind === "upgrade" || r.kind === "addon" ? t("planChange.upgradeEffect") : t("planChange.downgradeEffect")}</div>
+              <div className="mt-0.5 text-xs text-muted">{r.kind === "switch" ? t("planChange.switchEffect") : r.kind === "upgrade" || r.kind === "addon" ? t("planChange.upgradeEffect") : t("planChange.downgradeEffect")}</div>
             </div>
             {canManage && (
               <div className="flex flex-wrap items-center gap-2">

@@ -332,3 +332,85 @@ class PaymentCurrencyTests(TestCase):
             {"amount": "100000", "currency": "SDG", "method": "cash"},
         )
         self.assertEqual(right.status_code, 201, right.data)
+
+
+@override_settings(SUBSCRIPTION_POLICY="enforce")
+class CrossCurrencySwitchTests(PlanChangeTests):
+    """A company billed in one currency can move to a plan priced in another:
+    no proration, the new plan is invoiced in full for a fresh period, the
+    invoice is payable in its own currency, and paying it switches the plan."""
+
+    def setUp(self):
+        super().setUp()
+        usd = Plan.objects.create(code="usd-pro", name="Pro (USD)", sort_order=3)
+        self.usd_pro = PlanVersion.objects.create(
+            plan=usd, version=1, modules=["*"], currency=" usd ", price=Decimal("40"),
+            limits={"devices": 5}, billing_cycle=PlanVersion.MONTHLY, published_at=self.now,
+        )
+
+    def test_currency_is_normalised_on_save(self):
+        self.usd_pro.refresh_from_db()
+        self.assertEqual(self.usd_pro.currency, "USD")
+
+    def test_other_currency_plans_are_offered_as_a_switch_after_same_currency(self):
+        response = self.owner_client.get("/api/subscription/plan-changes/")
+        codes = [o["code"] for o in response.data["options"]]
+        self.assertEqual(codes, ["pro", "usd-pro"])
+        option = response.data["options"][1]
+        self.assertEqual(option["kind"], "switch")
+        self.assertTrue(option["currency_change"])
+        self.assertEqual(Decimal(option["due_now"]), Decimal("40"))
+        self.assertEqual(option["currency"], "USD")
+
+    def test_switch_is_invoiced_in_full_and_paid_in_the_new_currency(self):
+        asked = self.owner_client.post(
+            "/api/subscription/plan-changes/", {"to_version": self.usd_pro.pk}, format="json"
+        )
+        self.assertEqual(asked.status_code, 201, asked.data)
+        self.assertEqual(asked.data["kind"], "switch")
+        approved = self.admin_client.post(
+            f"/api/platform/plan-changes/{asked.data['id']}/approve/", {}, format="json"
+        )
+        self.assertEqual(approved.status_code, 200, approved.data)
+        invoice = SubscriptionInvoice.objects.get(number=approved.data["invoice_number"])
+        self.assertEqual((invoice.currency, invoice.amount), ("USD", Decimal("40")))
+        self.assertIsNone(invoice.entitlement_granted_at)
+        self.assertEqual((invoice.period_end - invoice.period_start).days, 30)
+        self.assertEqual(invoice.line_snapshot[0]["from_currency"], "SDG")
+
+        # The owner may record a USD payment while still on the SDG plan…
+        recorded = self.owner_client.post(
+            "/api/subscription/payments/",
+            {"amount": "40", "currency": "USD", "method": "cash"}, format="json",
+        )
+        self.assertEqual(recorded.status_code, 201, recorded.data)
+        # …but not in a currency nobody invoiced.
+        wrong = self.owner_client.post(
+            "/api/subscription/payments/",
+            {"amount": "40", "currency": "EUR", "method": "cash"}, format="json",
+        )
+        self.assertEqual(wrong.status_code, 400)
+
+        payment = SubscriptionPayment.objects.get(pk=recorded.data["id"])
+        verify_and_allocate_payment(
+            payment.pk, self.admin, [{"invoice_id": invoice.pk, "amount": Decimal("40")}]
+        )
+        self.subscription.refresh_from_db()
+        self.assertEqual(self.subscription.plan_version_id, self.usd_pro.pk)
+        # A fresh 30-day period was granted, past the old 15 remaining days.
+        self.assertGreater(
+            self.subscription.period_ends_at, self.now + timedelta(days=29)
+        )
+        self.assertTrue(
+            SubscriptionEvent.objects.filter(
+                subscription=self.subscription, event_type="plan_changed",
+            ).exists()
+        )
+
+    def test_switch_still_refused_when_usage_exceeds_the_target(self):
+        for i in range(6):
+            Device.objects.create(company=self.company, device_id=f"d{i}", is_active=True)
+        asked = self.owner_client.post(
+            "/api/subscription/plan-changes/", {"to_version": self.usd_pro.pk}, format="json"
+        )
+        self.assertEqual(asked.status_code, 400, asked.data)
