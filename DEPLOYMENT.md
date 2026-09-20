@@ -142,6 +142,15 @@ Every delivery is verified with `X-Hub-Signature-256`; unsigned or
 mis-signed bodies are refused with 403. Raw bodies are kept
 `WHATSAPP_EVENT_RETENTION_DAYS` (14) for debugging and pruned nightly.
 
+Sending (P1): a company owner/manager can also connect the number from
+Settings → WhatsApp (the token is write-only), choose the approved Meta
+template for each purpose (body parameters are positional and listed on
+the screen), and send a test. Customers receive their invoice after a
+POS sale and a receipt after a recorded payment **only if** the customer
+record has "send on WhatsApp" ticked; without a template the free-text
+message goes only inside Meta's 24-hour window after the customer wrote.
+`WHATSAPP_GRAPH_BASE` may point at a stub in dev/e2e.
+
 ## Security posture (M10)
 
 With `DEBUG=False` (all deploys), the API enforces: SSL redirect, 1-year HSTS

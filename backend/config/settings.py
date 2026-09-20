@@ -519,5 +519,7 @@ VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY", default="")
 WHATSAPP_VERIFY_TOKEN = env("WHATSAPP_VERIFY_TOKEN", default="")
 WHATSAPP_APP_SECRET = env("WHATSAPP_APP_SECRET", default="")
 WHATSAPP_EVENT_RETENTION_DAYS = env.int("WHATSAPP_EVENT_RETENTION_DAYS", default=14)
+# Overridable so a local stub can stand in for graph.facebook.com in dev/e2e.
+WHATSAPP_GRAPH_BASE = env("WHATSAPP_GRAPH_BASE", default="https://graph.facebook.com")
 VAPID_CLAIMS_EMAIL = env("VAPID_CLAIMS_EMAIL", default="mailto:musab@vezano.app")
 WEB_PUSH_ENABLED = bool(VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY)
