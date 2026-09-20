@@ -67,6 +67,14 @@ services:
         sync: false
       - key: DEFAULT_FROM_EMAIL
         value: "Vezano <no-reply@vezano.app>"
+      # WhatsApp Business (Meta Cloud API). Optional. The verify token is a
+      # phrase we choose and paste into the Meta app's webhook screen; the
+      # app secret is the Meta app's "App Secret" and signs every delivery.
+      # Numbers are connected per company with `manage.py whatsapp_connect`.
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_APP_SECRET
+        sync: false
       # The paid persistent disk is attached to erp-api at this path in Render.
       # All FileField uploads (medical reports and subscription proofs) land
       # beneath it and therefore survive deploys and restarts.

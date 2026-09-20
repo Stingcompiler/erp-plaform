@@ -116,6 +116,7 @@ INSTALLED_APPS = [
     "tax",        # Pluggable tax / e-invoicing handlers (M11)
     "subscriptions",  # SaaS plans, commercial subscriptions and manual billing
     "licensing",      # Standalone installation identity and signed licences
+    "whatsapp",       # WhatsApp Business (Meta Cloud API) per-company numbers
 ]
 
 # M1: email-login custom user with company/branch/role scoping. Introduced
@@ -511,5 +512,12 @@ if FORCE_HTTPS:
 # handed to browsers. Without a private key push is simply off.
 VAPID_PRIVATE_KEY = env("VAPID_PRIVATE_KEY", default="")
 VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY", default="")
+
+# WhatsApp Business (Meta Cloud API). The verify token is a phrase of our
+# choosing pasted into the Meta app's webhook screen; the app secret signs
+# every delivery. Both empty = the webhook answers 403 to everything.
+WHATSAPP_VERIFY_TOKEN = env("WHATSAPP_VERIFY_TOKEN", default="")
+WHATSAPP_APP_SECRET = env("WHATSAPP_APP_SECRET", default="")
+WHATSAPP_EVENT_RETENTION_DAYS = env.int("WHATSAPP_EVENT_RETENTION_DAYS", default=14)
 VAPID_CLAIMS_EMAIL = env("VAPID_CLAIMS_EMAIL", default="mailto:musab@vezano.app")
 WEB_PUSH_ENABLED = bool(VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY)

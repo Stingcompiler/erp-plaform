@@ -22,6 +22,7 @@ urlpatterns = [
     path("api/", include("ops.urls")),
     path("api/", include("tax.urls")),
     path("api/", include("subscriptions.urls")),
+    path("api/", include("whatsapp.urls")),
     path("api/", include("licensing.urls")),
 ]
 
