@@ -43,7 +43,13 @@ img{max-width:100%;display:block}
 @media (min-width:760px){.bar nav{display:flex}}
 .btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;text-decoration:none;padding:12px 20px;border-radius:12px;font-weight:700;border:0;white-space:nowrap}
 .btn.small{padding:9px 14px;font-size:.92rem}
-[hidden]{display:none!important}.card .avail{font-size:.8rem;margin-top:4px}.card .avail.in{color:#15803d}.card .avail.out{color:#b91c1c}.card .add{margin-top:10px;width:100%;justify-content:center}
+[hidden]{display:none!important}
+/* Bot trap: hidden by clipping, never by an off-screen offset. On an RTL page a
+   far-left offset is scrollable overflow: revealing the order form once made
+   the page 10,000px wide and the viewport slid sideways after "add to order". */
+.order .hp{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);opacity:0;pointer-events:none}
+.order{position:relative}
+html,body{overflow-x:clip}.card .avail{font-size:.8rem;margin-top:4px}.card .avail.in{color:#15803d}.card .avail.out{color:#b91c1c}.card .add{margin-top:10px;width:100%;justify-content:center}
 .order .cart{list-style:none;padding:0;margin:0 0 8px}.order .cart li{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #e5e7eb}.order .cart .n{flex:1}.order .cart .q{display:inline-flex;align-items:center;gap:8px}.order .cart .q button{width:30px;height:30px;border-radius:8px;border:1px solid #d1d5db;background:#fff;font-size:1.1rem;cursor:pointer}.order .cart .p{min-width:90px;text-align:end;font-weight:600}
 .order .total{font-weight:800;margin:6px 0 16px}.order form{display:grid;gap:12px;max-width:520px}.order label{display:grid;gap:6px;font-weight:600;font-size:.95rem}.order input,.order select,.order textarea{padding:11px 12px;border:1px solid #d1d5db;border-radius:10px;font:inherit}.order .mode{display:flex;gap:16px;border:0;padding:0;margin:0}.order .mode label{display:inline-flex;align-items:center;gap:6px;font-weight:500}
 .order .acct{padding:8px 12px;border:1px dashed #cbd5e1;border-radius:10px;margin:6px 0}.order .acct code{user-select:all;font-size:1.05rem}.order .done h4{margin:14px 0 6px}.order .done #order-pay{margin-top:10px}
@@ -183,7 +189,7 @@ footer.site a{color:var(--muted)}
     <ul class="cart" id="cart"></ul>
     <div class="total" id="cart-total"></div>
     <form id="order-form" autocomplete="on">
-      <input type="text" name="website_url" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
+      <input type="text" name="website_url" tabindex="-1" autocomplete="off" class="hp" aria-hidden="true">
       <label>{% if language == 'ar' %}الاسم{% else %}Name{% endif %}<input name="contact_name" required maxlength="120"></label>
       <label>{% if language == 'ar' %}رقم الهاتف (واتساب){% else %}Phone (WhatsApp){% endif %}<input name="phone" type="tel" required inputmode="tel" maxlength="32"></label>
       <label>{% if language == 'ar' %}البريد الإلكتروني (اختياري — لتصلك تفاصيل الطلب ورابط الدفع){% else %}Email (optional — to receive the order details and payment link){% endif %}<input name="email" type="email" maxlength="254"></label>
@@ -297,7 +303,7 @@ footer.site a{color:var(--muted)}
   document.querySelectorAll("[data-add]").forEach(function (b) {
     var card = b.closest(".card"), id = b.getAttribute("data-add");
     names[id] = card.getAttribute("data-name"); prices[id] = card.getAttribute("data-price");
-    b.addEventListener("click", function () { cart[id] = (cart[id] || 0) + 1; render(); if (Object.keys(cart).length === 1 && cart[id] === 1) fab.focus(); });
+    b.addEventListener("click", function () { cart[id] = (cart[id] || 0) + 1; render(); if (Object.keys(cart).length === 1 && cart[id] === 1) fab.focus({preventScroll:true}); });
   });
   list.addEventListener("click", function (e) {
     var inc = e.target.getAttribute("data-inc"), dec = e.target.getAttribute("data-dec");
