@@ -190,3 +190,109 @@ class ConcurrentOverpayTests(TransactionTestCase):
         self.assertEqual(Payment.objects.filter(invoice=self.invoice).count(), 1)
         self.assertEqual(len(errors), 3)
         self.assertLessEqual(self.invoice.amount_paid(), self.invoice.total)
+
+
+class TransferIdentityTests(VerificationBase):
+    """F10: a payment with a full reference is matched on it only; F13: the
+    same reference on one invoice is refused even under a race."""
+
+    def setUp(self):
+        super().setUp()
+        Payment.objects.all().delete()
+        self.bank = CompanyBankAccount.objects.create(
+            company=self.company, bank_name="BoK", account_name="Alpha",
+        )
+
+    def _pay(self, amount, **extra):
+        return record_payment(
+            self.invoice, amount=Decimal(amount), method=Payment.BANK_TRANSFER,
+            company_bank_account=self.bank, sender_bank_name="Ahmed", **extra,
+        )
+
+    def _reconcile(self, rows):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        client = self.client_for(self.finance)
+        text = "reference,amount\n" + "\n".join(rows)
+        return client.post(reverse("payment-reconcile"), {
+            "account": self.bank.pk,
+            "file": SimpleUploadedFile("s.csv", text.encode(), content_type="text/csv"),
+            "dry_run": "1",
+        }, format="multipart").data
+
+    def test_full_reference_conflict_never_matches_by_last4(self):
+        self._pay("300", transfer_reference="AAA1234")
+        data = self._reconcile(["BBB1234,300"])
+        self.assertEqual(data["matched"], [])
+        self.assertEqual([u["reason"] for u in data["unmatched_rows"]], ["not_recorded"])
+
+    def test_last4_only_payment_still_matches_by_last4_and_amount(self):
+        self._pay("300", reference_last4="1234")
+        data = self._reconcile(["ZZ1234,300"])
+        self.assertEqual(len(data["matched"]), 1)
+        self.assertEqual(data["matched"][0]["how"], "last4_amount")
+
+    def test_same_reference_on_the_same_invoice_is_refused_by_the_database(self):
+        self._pay("100", transfer_reference="DUP1")
+        # Bypass the application check to prove the constraint itself.
+        from django.db import IntegrityError, transaction
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Payment.objects.create(
+                company=self.company, invoice=self.invoice, method=Payment.BANK_TRANSFER,
+                company_bank_account=self.bank, sender_bank_name="x",
+                transfer_reference="DUP1", reference_last4="DUP1", amount=Decimal("1"),
+            )
+        # And the service turns it into a clean 400 rather than a 500.
+        with self.assertRaises(Exception) as ctx:
+            self._pay("50", transfer_reference="DUP1")
+        self.assertIn("transfer_reference", str(ctx.exception.detail))
+
+
+class ConcurrentReferenceTests(TransactionTestCase):
+    """Ten writers presenting one screenshot at once: one payment, nine refusals."""
+
+    def setUp(self):
+        self.company = Company.objects.create(name="Race")
+        branch = Branch.objects.create(company=self.company, name="Main")
+        wh = Warehouse.objects.create(company=self.company, branch=branch, name="W")
+        customer = Customer.objects.create(company=self.company, name="C")
+        self.bank = CompanyBankAccount.objects.create(
+            company=self.company, bank_name="BoK", account_name="Race",
+        )
+        self.invoices = [
+            Invoice.objects.create(
+                company=self.company, customer=customer, warehouse=wh, number=n,
+                total=Decimal("1000"), subtotal=Decimal("1000"),
+            )
+            for n in (1, 2)
+        ]
+
+    def test_ten_writers_one_reference_across_two_invoices(self):
+        if connection.vendor == "sqlite":
+            self.skipTest("row locks only exist on PostgreSQL")
+        outcomes = []
+
+        def worker(i):
+            try:
+                record_payment(
+                    self.invoices[i % 2], amount=Decimal("100"), method=Payment.BANK_TRANSFER,
+                    company_bank_account=self.bank, sender_bank_name="x",
+                    transfer_reference="ONE-SCREENSHOT",
+                )
+                outcomes.append("ok")
+            except Exception as exc:  # noqa: BLE001 - collected for the assertion
+                outcomes.append(f"{type(exc).__name__}:{getattr(exc, 'detail', exc)}"[:160])
+            finally:
+                connections.close_all()
+
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        self.assertEqual(outcomes.count("ok"), 1, outcomes)
+        self.assertEqual(
+            Payment.objects.filter(transfer_reference="ONESCREENSHOT").count(), 1
+        )
+        self.assertNotIn("IntegrityError", outcomes)  # always a clean ValidationError

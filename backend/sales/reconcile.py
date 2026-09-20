@@ -112,8 +112,9 @@ def _payment_row(payment):
 def reconcile(company, account, uploaded, user, *, dry_run):
     """Match statement rows to this account's transfers; apply marks verified.
 
-    Match order per row: the full reference, then (last 4 digits + amount)
-    when that pair is unique. Rows and payments are consumed once.
+    Match order per row: the full reference; then (last 4 digits + amount)
+    only against payments recorded without a full reference, and only when
+    that pair is unique. Rows and payments are consumed once.
     """
     from sales.models import Payment
     from sales.serializers import normalise_reference
@@ -129,8 +130,11 @@ def reconcile(company, account, uploaded, user, *, dry_run):
     by_last4_amount = {}
     for payment in payments:
         if payment.transfer_reference:
+            # A payment that carries the app's full id is matched on that id
+            # only. Falling back to last-4 + amount here let statement row
+            # BBB1234 verify payment AAA1234 (review F10).
             by_reference.setdefault(payment.transfer_reference, []).append(payment)
-        if payment.reference_last4:
+        elif payment.reference_last4:
             by_last4_amount.setdefault(
                 (payment.reference_last4, payment.amount), []
             ).append(payment)
