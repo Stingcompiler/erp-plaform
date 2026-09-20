@@ -222,3 +222,17 @@ class PublicOrderTests(TestCase):
         self._place(self.main)
         self.assertEqual(new_public_orders(self.owner, since), 2)
         self.assertEqual(new_public_orders(self.main_clerk, since), 1)
+
+
+class PublicPageLayoutTests(PublicOrderTests):
+    def test_order_form_honeypot_is_clipped_not_offscreen(self):
+        """left:-9999px on an RTL page is scrollable overflow: after the first
+        "add to order" the page became 10,000 px wide and the viewport slid
+        sideways. The trap must hide by clipping, and the page must forbid
+        sideways scroll."""
+        html = self.client.get("/s/bakery/").content.decode()
+        self.assertIn('name="website_url"', html)
+        self.assertNotIn("-9999", html)
+        self.assertIn(".order .hp{position:absolute;width:1px;height:1px", html)
+        self.assertIn("overflow-x:clip", html)
+        self.assertIn("focus({preventScroll:true})", html)
