@@ -1,4 +1,6 @@
-from django.http import FileResponse, Http404
+from django.http import Http404
+
+from core.uploads import proof_response
 from django.db import IntegrityError
 from decimal import Decimal
 from django.utils import timezone
@@ -150,7 +152,7 @@ class CompanySubscriptionPaymentViewSet(
         payment = self.get_object()
         if not payment.proof:
             raise Http404
-        return FileResponse(payment.proof.open("rb"), as_attachment=True)
+        return proof_response(payment.proof)
 
 
 class _PlatformAuditMixin:
@@ -381,7 +383,7 @@ class PlatformSubscriptionPaymentViewSet(viewsets.ReadOnlyModelViewSet):
         payment = self.get_object()
         if not payment.proof:
             raise Http404
-        return FileResponse(payment.proof.open("rb"), as_attachment=True)
+        return proof_response(payment.proof)
 
 
 class DeploymentInfoView(APIView):

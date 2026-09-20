@@ -132,10 +132,9 @@ def declare_payment(order, payload, files=None, request=None):
         raise ValidationError({"detail": "This order is closed."})
     proof = (files or {}).get("proof")
     if proof is not None:
-        if proof.size > 5 * 1024 * 1024:
-            raise ValidationError({"proof": "The receipt image must be under 5 MB."})
-        if not str(proof.content_type or "").startswith("image/"):
-            raise ValidationError({"proof": "The receipt must be an image."})
+        from core.uploads import validate_proof
+
+        validate_proof(proof, max_bytes=5 * 1024 * 1024)
     claim = PublicOrderPayment.objects.create(
         order=order, company=order.company, bank_account=account, sender_bank_name=sender,
         reference_last4=ref, amount=amount, proof=proof, visitor_hash=visitor,

@@ -343,13 +343,14 @@ class SubscriptionPaymentSerializer(serializers.ModelSerializer):
         return attrs
 
     def validate_proof(self, value):
-        if value.size > 10 * 1024 * 1024:
-            raise serializers.ValidationError("Payment proof must be 10 MB or smaller.")
-        allowed = {"application/pdf", "image/jpeg", "image/png", "image/webp"}
-        if getattr(value, "content_type", "") not in allowed:
-            raise serializers.ValidationError(
-                "Use a PDF, JPEG, PNG or WebP proof file."
-            )
+        from rest_framework.exceptions import ValidationError as DRFValidationError
+
+        from core.uploads import validate_proof
+
+        try:
+            validate_proof(value, max_bytes=10 * 1024 * 1024, allow_pdf=True)
+        except DRFValidationError as exc:
+            raise serializers.ValidationError(exc.detail.get("proof", exc.detail))
         return value
 
 
