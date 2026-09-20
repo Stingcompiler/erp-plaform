@@ -7,6 +7,7 @@ import { settings, users } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
+import WhatsAppCard from "@/components/settings/WhatsAppCard";
 
 const bytes = (n) => (n > 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
 
@@ -463,6 +464,12 @@ export default function SettingsPage() {
               </ul>
             </div>
           )}
+        </Card>
+      )}
+
+      {company && (
+        <Card className="mb-6 p-6">
+          <WhatsAppCard canManage={writable && canApprove} language={language} />
         </Card>
       )}
 

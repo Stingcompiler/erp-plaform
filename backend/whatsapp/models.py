@@ -137,6 +137,51 @@ class WhatsAppWebhookEvent(models.Model):
         ordering = ["-received_at"]
 
 
+class WhatsAppTemplate(models.Model):
+    """Which approved Meta template a company uses for each purpose.
+
+    Templates are created and approved in the company's own Business
+    Manager; here we only record the name and language to call them by.
+    Body parameters are positional and fixed per purpose (see PARAMS) so
+    the owner knows what {{1}}…{{4}} must mean when writing the template.
+    """
+
+    INVOICE_SENT = "invoice_sent"
+    PAYMENT_RECEIVED = "payment_received"
+    DEBT_REMINDER = "debt_reminder"
+    ORDER_CONFIRMED = "order_confirmed"
+    PURPOSES = [
+        (INVOICE_SENT, "Invoice after a sale"),
+        (PAYMENT_RECEIVED, "Payment received"),
+        (DEBT_REMINDER, "Debt reminder"),
+        (ORDER_CONFIRMED, "Public order confirmed"),
+    ]
+    # Positional body parameters each purpose sends, in order.
+    PARAMS = {
+        INVOICE_SENT: ["customer name", "invoice number", "total", "amount due"],
+        PAYMENT_RECEIVED: ["customer name", "amount paid", "invoice number", "balance due"],
+        DEBT_REMINDER: ["customer name", "amount overdue", "oldest invoice", "days overdue"],
+        ORDER_CONFIRMED: ["customer name", "order reference", "total", "branch"],
+    }
+
+    company = models.ForeignKey(
+        "org.Company", on_delete=models.CASCADE, related_name="whatsapp_templates"
+    )
+    purpose = models.CharField(max_length=32, choices=PURPOSES)
+    template_name = models.CharField(max_length=120, blank=True)
+    language = models.CharField(max_length=8, default="ar")
+    is_active = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["company", "purpose"], name="uniq_wa_template_purpose")
+        ]
+
+    def __str__(self):
+        return f"{self.purpose} → {self.template_name or '—'}"
+
+
 def settings_ready():
     """The two secrets the webhook needs; sending needs the account token."""
     return bool(

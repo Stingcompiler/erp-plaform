@@ -840,6 +840,13 @@ class InvoiceViewSet(
 class PaymentViewSet(AppendOnlyScopedViewSet):
     branch_field = "invoice__branch"
     include_unassigned_branch_rows = False
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        # Best-effort receipt on WhatsApp; never blocks recording the money.
+        from whatsapp.notify import notify_payment
+
+        notify_payment(serializer.instance)
     queryset = Payment.objects.select_related(
         "invoice__customer",
         "company",
@@ -1029,6 +1036,10 @@ class POSCheckoutView(APIView):
             entity_id=invoice.id,
             metadata={"number": invoice.number, "total": str(invoice.total)},
         )
+        # Best-effort: the customer's WhatsApp copy never delays or fails the sale.
+        from whatsapp.notify import notify_invoice
+
+        notify_invoice(invoice)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
