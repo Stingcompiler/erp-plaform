@@ -117,6 +117,10 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
     setBusy(true);
     const done = [];
     let queued = 0;
+    // One collection = one receipt: every invoice's payment carries the same
+    // group so a single transfer reference may settle several invoices
+    // without tripping the duplicate-reference guard.
+    const receiptGroup = crypto.randomUUID();
     try {
       for (const row of allocation.rows) {
         if (row.take <= 0) continue;
@@ -125,6 +129,7 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
           invoice: row.invoice.id,
           method,
           amount: row.take.toFixed(2),
+          receipt_group: receiptGroup,
         };
         if (method === "bank_transfer") {
           body.company_bank_account = Number(account);

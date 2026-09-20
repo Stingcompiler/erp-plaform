@@ -243,10 +243,16 @@ def confirm_payment(claim, actor, request, warehouse=None, note=""):
         invoice = sales_order.invoices.order_by("-pk").first()
         if invoice is None:
             raise ValidationError({"detail": "This order was fulfilled without an invoice."})
-        payment = Payment.objects.create(
-            company=order.company, invoice=invoice, method=Payment.BANK_TRANSFER,
-            company_bank_account=claim.bank_account, sender_bank_name=claim.sender_bank_name,
-            reference_last4=claim.reference_last4, amount=claim.amount, recorded_by=actor,
+        # Through the one payment service: locked, capped at the balance due
+        # (review F01: 800 + 800 on a 1,000 order used to be accepted), the
+        # currency taken from the invoice. The shop's confirmation stays the
+        # verification, as decided.
+        from sales.payments import record_payment
+
+        payment = record_payment(
+            invoice, amount=claim.amount, method=Payment.BANK_TRANSFER,
+            recorded_by=actor, company_bank_account=claim.bank_account,
+            sender_bank_name=claim.sender_bank_name, reference_last4=claim.reference_last4,
         )
     if payment is not None and payment.verified_at is None:
         payment.verified_at = timezone.now()

@@ -159,9 +159,14 @@ def transfer_details(attrs, bank_account):
         if not ref:
             ref = digits[-4:] if digits else full[-4:]
             attrs["reference_last4"] = ref
-        duplicate = Payment.objects.filter(
+        duplicates = Payment.objects.filter(
             company_bank_account=bank_account, transfer_reference=full,
-        ).select_related("invoice").first()
+        )
+        group = attrs.get("receipt_group")
+        if group:
+            # Same transfer split over several invoices in one collection.
+            duplicates = duplicates.exclude(receipt_group=group)
+        duplicate = duplicates.select_related("invoice").first()
         if duplicate is not None:
             raise serializers.ValidationError({
                 "transfer_reference": _(
@@ -449,14 +454,17 @@ class PaymentSerializer(serializers.ModelSerializer):
             "id", "company", "invoice", "invoice_number", "customer_name",
             "method", "company_bank_account", "bank_account_name", "bank_channel",
             "credit_note", "credit_note_number",
-            "sender_bank_name", "reference_last4", "transfer_reference", "amount",
-            "currency", "exchange_rate",
+            "sender_bank_name", "reference_last4", "transfer_reference", "receipt_group",
+            "amount", "currency", "exchange_rate",
             "shift", "recorded_by", "recorded_by_name",
             "recorded_at", "received_at", "verified_at", "verified_by", "verified_by_name",
             "client_uuid",
         ]
+        # Currency and rate are a snapshot of the invoice, never client input
+        # (review F04: a caller could post currency=USD, exchange_rate=0).
         read_only_fields = [
             "company", "recorded_by", "received_at", "verified_at", "verified_by",
+            "currency", "exchange_rate",
         ]
         extra_kwargs = {"recorded_at": {"required": False}}
 
@@ -551,38 +559,28 @@ class PaymentSerializer(serializers.ModelSerializer):
                 )
 
     def create(self, validated_data):
-        request = self.context.get("request")
-        if request and request.user.is_authenticated:
-            validated_data.setdefault("recorded_by", request.user)
-        # The balance check in validate() ran without a lock; two tills (or a
-        # sync replay racing a live payment) could both see the full balance
-        # and both commit. Re-check under a row lock on the invoice so the
-        # sum of payments can never exceed what was owed.
-        with transaction.atomic():
-            invoice = Invoice.objects.select_for_update().get(
-                pk=validated_data["invoice"].pk
-            )
-            due = invoice.amount_due()
-            if validated_data["amount"] > due:
-                raise serializers.ValidationError(
-                    {"amount": _("Amount exceeds the balance due (%(due)s).") % {"due": due}}
-                )
-            validated_data["invoice"] = invoice
-            validated_data.setdefault("currency", invoice.currency)
-            validated_data.setdefault("exchange_rate", invoice.exchange_rate)
-            if validated_data.get("method") == Payment.STORE_CREDIT:
-                from returns.models import CreditNote
+        # validate() pre-checked without a lock; sales.payments.record_payment
+        # re-checks the balance under a row lock so two tills (or a sync
+        # replay racing a live payment) can never both commit.
+        from sales.payments import record_payment
 
-                note = CreditNote.objects.select_for_update().get(
-                    pk=validated_data["credit_note"].pk
-                )
-                assert_store_credit(note, invoice, validated_data["amount"], invoice.company_id)
-                validated_data["credit_note"] = note
-            payment = super().create(validated_data)
-            Invoice.objects.filter(pk=payment.invoice_id).update(
-                updated_at=payment.recorded_at
-            )
-        return payment
+        request = self.context.get("request")
+        recorded_by = validated_data.get("recorded_by")
+        if recorded_by is None and request and request.user.is_authenticated:
+            recorded_by = request.user
+        return record_payment(
+            validated_data["invoice"],
+            amount=validated_data["amount"], method=validated_data["method"],
+            recorded_by=recorded_by,
+            company_bank_account=validated_data.get("company_bank_account"),
+            sender_bank_name=validated_data.get("sender_bank_name", ""),
+            reference_last4=validated_data.get("reference_last4", ""),
+            transfer_reference=validated_data.get("transfer_reference", ""),
+            receipt_group=validated_data.get("receipt_group"),
+            shift=validated_data.get("shift"), credit_note=validated_data.get("credit_note"),
+            client_uuid=validated_data.get("client_uuid"),
+            recorded_at=validated_data.get("recorded_at"),
+        )
 
 
 # ---------- POS checkout ----------
@@ -1173,32 +1171,18 @@ class POSCheckoutSerializer(serializers.Serializer):
                     )
                 }
             )
-        method = pay["method"]
+        from sales.payments import record_payment
+
         ba = pay.get("company_bank_account")
-        sender = pay.get("sender_bank_name", "")
-        ref = pay.get("reference_last4", "")
-        transfer_reference = pay.get("transfer_reference", "")
-        if method == Payment.BANK_TRANSFER:
-            if ba is None or not sender:
-                raise serializers.ValidationError(
-                    _("Bank transfer needs receiving account, sender bank, and "
-                      "the transfer reference.")
-                )
+        if ba is not None:
             self._assert_company(ba, company_id, "company_bank_account")
-            ref = transfer_details(pay, ba)
-        elif method == Payment.CASH and (ba or sender or ref or transfer_reference):
-            raise serializers.ValidationError(
-                _("Cash payment must not carry bank/reference details.")
-            )
-        return Payment.objects.create(
-            company_id=company_id, invoice=invoice, method=method,
-            company_bank_account=ba, sender_bank_name=sender,
-            reference_last4=ref, transfer_reference=pay.get("transfer_reference", ""),
-            amount=pay["amount"],
-            currency=invoice.currency, exchange_rate=invoice.exchange_rate,
-            shift=shift,
+        return record_payment(
+            invoice, amount=pay["amount"], method=pay["method"],
             recorded_by=user if user.is_authenticated else None,
-            **({"recorded_at": occurred_at} if occurred_at else {}),
+            company_bank_account=ba, sender_bank_name=pay.get("sender_bank_name", ""),
+            reference_last4=pay.get("reference_last4", ""),
+            transfer_reference=pay.get("transfer_reference", ""),
+            shift=shift, recorded_at=occurred_at,
         )
 
     def to_representation(self, instance):
