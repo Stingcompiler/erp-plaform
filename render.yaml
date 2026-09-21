@@ -80,6 +80,18 @@ services:
       # beneath it and therefore survive deploys and restarts.
       - key: MEDIA_ROOT
         value: /var/data/media/
+      # Off-box copies of the nightly logical dumps (docs/go-live-gate-recovery.md).
+      # Without these the dump is stored inside the same database it protects.
+      - key: BACKUP_S3_BUCKET
+        sync: false
+      - key: BACKUP_S3_ENDPOINT_URL
+        sync: false
+      - key: BACKUP_S3_REGION
+        sync: false
+      - key: BACKUP_S3_ACCESS_KEY_ID
+        sync: false
+      - key: BACKUP_S3_SECRET_ACCESS_KEY
+        sync: false
       - key: LOG_LEVEL
         value: INFO
       # Sync Gunicorn workers for the starter instance (see gunicorn.conf.py).
@@ -168,6 +180,18 @@ services:
         value: "False"
       - key: SUBSCRIPTION_POLICY
         value: observe
+      # Off-box copies of the nightly logical dumps (docs/go-live-gate-recovery.md).
+      # Without these the dump is stored inside the same database it protects.
+      - key: BACKUP_S3_BUCKET
+        sync: false
+      - key: BACKUP_S3_ENDPOINT_URL
+        sync: false
+      - key: BACKUP_S3_REGION
+        sync: false
+      - key: BACKUP_S3_ACCESS_KEY_ID
+        sync: false
+      - key: BACKUP_S3_SECRET_ACCESS_KEY
+        sync: false
       - key: DATABASE_URL
         fromDatabase:
           name: erp-db
