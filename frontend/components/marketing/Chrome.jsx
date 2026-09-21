@@ -150,9 +150,9 @@ export function MarketingHeader() {
             aria-controls="landing-menu"
             aria-label={t("shell.menu")}
             onClick={() => setOpen((value) => !value)}
-            className="grid h-10 w-10 place-items-center rounded-control text-ink hover:bg-surface"
+            className="grid h-10 w-11 place-items-center rounded-control border border-line bg-surface text-ink hover:border-accent"
           >
-            {open ? <X size={20} /> : <Menu size={20} />}
+            {open ? <X size={26} /> : <Menu size={26} />}
           </button>
         </div>
       </div>
