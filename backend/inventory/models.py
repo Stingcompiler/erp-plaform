@@ -134,6 +134,13 @@ class Product(models.Model):
     reference_price = models.DecimalField(
         max_digits=14, decimal_places=4, null=True, blank=True
     )
+    # Same for the cost: the supplier's price in the reference currency. A
+    # reprice by rate derives cost_price from it alone — never from the
+    # sale price's movement, which is what made a repeated reprice double
+    # the cost (F14). Without it the cost is left as it is.
+    reference_cost = models.DecimalField(
+        max_digits=14, decimal_places=4, null=True, blank=True
+    )
     # Low-stock threshold; on-hand <= this flags the product (see low_stock).
     reorder_level = models.DecimalField(max_digits=14, decimal_places=3, default=0)
     track_batches = models.BooleanField(default=False)

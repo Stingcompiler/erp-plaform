@@ -5,6 +5,9 @@ moves. Two ways to do that in one stroke:
 
 - by rate: products that carry a reference price (USD) get
   ``reference_price × today's rate``; products without one are left alone.
+  The cost likewise comes from ``reference_cost`` only — a product without
+  one keeps its cost. Deriving it from the sale price's movement is not
+  idempotent (a repeated run doubled the cost), so it is never done.
 - by percent: every matched product's current price is scaled.
 
 Prices are then rounded to a step the market actually trades in (nobody
@@ -13,6 +16,7 @@ charges 84,317 SDG for a sack of sugar), half up.
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -108,7 +112,12 @@ def reprice(company, params):
     if opts["category_id"] is not None:
         qs = qs.filter(category_id=opts["category_id"])
     if opts["mode"] == MODE_RATE:
-        qs = qs.filter(reference_price__isnull=False)
+        if opts["target"] == TARGET_COST:
+            qs = qs.filter(reference_cost__isnull=False)
+        elif opts["target"] == TARGET_SALE:
+            qs = qs.filter(reference_price__isnull=False)
+        else:
+            qs = qs.filter(Q(reference_price__isnull=False) | Q(reference_cost__isnull=False))
     fields = {
         TARGET_SALE: ("sale_price",), TARGET_COST: ("cost_price",),
         TARGET_BOTH: ("sale_price", "cost_price"),
@@ -122,15 +131,8 @@ def reprice(company, params):
         new_values = {}
         for field in fields:
             current = getattr(product, field)
-            # Cost has no reference price; by rate it follows the same
-            # proportion the sale price moved by.
-            if field == "cost_price" and opts["mode"] == MODE_RATE:
-                new_sale = _new_price(product.sale_price, product.reference_price, opts)
-                if new_sale is None or not product.sale_price:
-                    continue
-                value = round_to_step(current * new_sale / product.sale_price, opts["step"])
-            else:
-                value = _new_price(current, product.reference_price, opts)
+            reference = product.reference_cost if field == "cost_price" else product.reference_price
+            value = _new_price(current, reference, opts)
             if value is None:
                 continue
             if value != current:
@@ -143,6 +145,7 @@ def reprice(company, params):
             sample.append({
                 "id": product.pk, "sku": product.sku, "name": product.name,
                 "reference_price": product.reference_price,
+                "reference_cost": product.reference_cost,
                 "before": {f: getattr(product, f) for f in fields},
                 "after": {f: new_values.get(f, getattr(product, f)) for f in fields},
             })

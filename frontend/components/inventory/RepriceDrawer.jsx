@@ -160,7 +160,11 @@ export default function RepriceDrawer({ open, onClose, categories, exchangeRate,
                     {preview.sample.map((row) => (
                       <tr key={row.id} className="border-t border-line">
                         <td className="py-1 text-ink">{row.name} <span className="text-muted">{row.sku}</span></td>
-                        {form.mode === "rate" && <td className="tabular py-1 text-end">{fmt(row.reference_price)}</td>}
+                        {form.mode === "rate" && (
+                          <td className="tabular py-1 text-end">
+                            {priceKeys.map((k) => fmt(k === "cost_price" ? row.reference_cost : row.reference_price)).join(" / ")}
+                          </td>
+                        )}
                         <td className="tabular py-1 text-end text-muted">{priceKeys.map((k) => fmt(row.before[k])).join(" / ")}</td>
                         <td className="tabular py-1 text-end font-semibold text-ink">{priceKeys.map((k) => fmt(row.after[k])).join(" / ")}</td>
                       </tr>
