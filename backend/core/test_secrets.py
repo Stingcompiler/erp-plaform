@@ -36,6 +36,13 @@ class SecretsTests(TestCase):
             with self.assertRaises(secrets.SecretUnreadable):
                 secrets.decrypt(stored)
 
+    def test_rows_sealed_before_a_dedicated_key_stay_readable_after_one_is_set(self):
+        with override_settings(SECRETS_ENCRYPTION_KEY=""):
+            stored = secrets.encrypt("early")
+        with override_settings(SECRETS_ENCRYPTION_KEY=Fernet.generate_key().decode()):
+            self.assertEqual(secrets.decrypt(stored), "early")
+            self.assertNotEqual(secrets.rotate(stored), stored)
+
     def test_whatsapp_token_is_ciphertext_in_the_database(self):
         account = WhatsAppAccount.objects.create(phone_number_id="PN-1")
         account.access_token = "EAAB-permanent"

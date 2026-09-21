@@ -41,11 +41,18 @@ def _fernet_key(raw):
 
 
 def _keys():
-    current = _fernet_key(getattr(settings, "SECRETS_ENCRYPTION_KEY", ""))
-    if current is None:
-        current = _fernet_key("vezano-secrets:" + settings.SECRET_KEY)
+    """Current key first (it encrypts), then the previous one, then the key
+    derived from SECRET_KEY — always last, so rows sealed before a dedicated
+    key was configured stay readable and ``rotate_secrets`` can re-seal
+    them without the operator having to reconstruct the derived key."""
+    derived = _fernet_key("vezano-secrets:" + settings.SECRET_KEY)
+    current = _fernet_key(getattr(settings, "SECRETS_ENCRYPTION_KEY", "")) or derived
     previous = _fernet_key(getattr(settings, "SECRETS_ENCRYPTION_KEY_PREVIOUS", ""))
-    return [k for k in (current, previous) if k]
+    keys = []
+    for key in (current, previous, derived):
+        if key and key not in keys:
+            keys.append(key)
+    return keys
 
 
 def _multi():
