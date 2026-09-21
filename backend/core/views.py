@@ -68,15 +68,27 @@ class ActivityLogViewSet(
 @api_view(["GET"])
 @authentication_classes([])
 @permission_classes([AllowAny])
+def health_live(request):
+    """Liveness only: the process answers HTTP. Never touches the database or
+    the disk, so it stays 200 while readiness below says 503 and Render can
+    tell a hung process from a service that is up but not usable."""
+    return Response({"status": "alive", "service": "erp-api"}, status=200)
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([AllowAny])
 def health_check(request):
     """
-    Unauthenticated liveness/readiness probe. It deliberately skips JWT
-    authentication too: a stale cookie or unavailable user table must not turn
-    the endpoint Render uses for recovery into an opaque 500 response.
+    Unauthenticated readiness probe (Render's health check path). It
+    deliberately skips JWT authentication too: a stale cookie or unavailable
+    user table must not turn the endpoint Render uses for recovery into an
+    opaque 500 response.
 
-    Returns 200 with basic status info, including whether the configured
-    database is reachable, so Render (and CI) can confirm the service is
-    actually up rather than just "the process started".
+    Returns the status payload with 200 when the service can actually serve
+    (database reachable, media directory writable) and 503 with the same
+    payload otherwise — a process that started but cannot reach its database
+    is not ready, and an uptime monitor must see that.
     """
     db_ok = True
     try:
@@ -90,8 +102,10 @@ def health_check(request):
     from core.public_media import media_health
 
     config = get_deployment_config()
+    media = media_health()
+    ready = db_ok and media["writable"]
     payload = {
-        "status": "ok",
+        "status": "ok" if ready else "degraded",
         "service": "erp-api",
         "database": "ok" if db_ok else "unreachable",
         "deployment_mode": config.mode,
@@ -100,7 +114,7 @@ def health_check(request):
         "commit": deployed_commit(),
         # Uploads: on ephemeral storage every deploy wipes them; a picture a
         # merchant uploaded then 404s. The first thing to check.
-        "media": media_health(),
+        "media": media,
     }
     # On a customer's server this is what support asks for first: which
     # installation, which release, and whether the licence is the problem.
@@ -131,7 +145,7 @@ def health_check(request):
             }
         except Exception:  # noqa: BLE001 - health must never 500 on a licence problem
             payload["licence"] = {"state": "unknown"}
-    return Response(payload, status=200)
+    return Response(payload, status=200 if ready else 503)
 
 
 @api_view(["GET"])

@@ -1,14 +1,16 @@
 """The hosted SaaS answers on the canonical apex domain, its www alias and the
 original enterprise.* subdomain, and the crawler files ship with the export."""
 from django.conf import settings
-from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 
 from core.frontend import FRONTEND_DIST, serve_frontend
 
 HOSTS = ("vezano.app", "www.vezano.app", "enterprise.vezano.app")
 
 
-class PublicHostTests(SimpleTestCase):
+# TestCase, not SimpleTestCase: readiness now really touches the database
+# (a probe that cannot reach it answers 503).
+class PublicHostTests(TestCase):
     def test_every_public_host_is_allowed(self):
         for host in HOSTS:
             self.assertIn(host, settings.ALLOWED_HOSTS)

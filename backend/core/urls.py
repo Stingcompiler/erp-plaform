@@ -7,6 +7,7 @@ from core.views import (
     attention_seen,
     dashboard,
     health_check,
+    health_live,
     rbac_access,
 )
 
@@ -15,6 +16,7 @@ router.register("activity-logs", ActivityLogViewSet, basename="activitylog")
 
 urlpatterns = [
     path("health/", health_check, name="health-check"),
+    path("health/live/", health_live, name="health-live"),
     path("dashboard/", dashboard, name="dashboard"),
     path("rbac/access/", rbac_access, name="rbac-access"),
     path("attention/", attention, name="attention"),

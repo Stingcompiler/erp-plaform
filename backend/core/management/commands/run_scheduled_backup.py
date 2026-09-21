@@ -1,4 +1,4 @@
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 
 class Command(BaseCommand):
@@ -22,6 +22,7 @@ class Command(BaseCommand):
 
         companies = Company.objects.filter(is_active=True)
         done = 0
+        failed = []
         for company in companies:
             try:
                 snapshots.store(company, BackupRecord.SCHEDULED, dump_company(company))
@@ -31,9 +32,16 @@ class Command(BaseCommand):
                     company=company, kind=BackupRecord.SCHEDULED,
                     status=BackupRecord.FAILED, note=str(exc)[:255],
                 )
+                failed.append(f"{company.name} (#{company.pk}): {exc}")
+                self.stderr.write(f"FAILED {company.name} (#{company.pk}): {exc}")
         pruned = snapshots.prune()
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"Scheduled backup complete: {done} companies, {pruned} old snapshots pruned."
+        summary = f"{done} companies, {pruned} old snapshots pruned."
+        # A cron that skipped a company must not look green: Render only
+        # alerts on a non-zero exit, so every failure ends the run that way
+        # after the other companies were still backed up.
+        if failed:
+            raise CommandError(
+                f"Scheduled backup finished with {len(failed)} failure(s): {summary}\n"
+                + "\n".join(failed)
             )
-        )
+        self.stdout.write(self.style.SUCCESS(f"Scheduled backup complete: {summary}"))
