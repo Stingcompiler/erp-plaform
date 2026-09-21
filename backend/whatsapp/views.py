@@ -90,7 +90,7 @@ def _account_payload(account):
         "waba_id": account.waba_id,
         "display_phone": account.display_phone,
         "display_name": account.display_name,
-        "has_token": bool(account.access_token),
+        "has_token": account.has_token,
         "is_active": account.is_active,
         "last_event_at": account.last_event_at,
     }

@@ -35,8 +35,11 @@ class WhatsAppAccount(models.Model):
     display_phone = models.CharField(max_length=32, blank=True)
     display_name = models.CharField(max_length=120, blank=True)
     # A permanent System User token from Business Manager. Sending needs it;
-    # receiving does not, so a webhook-only account may leave it empty.
-    access_token = models.CharField(max_length=512, blank=True)
+    # receiving does not, so a webhook-only account may leave it empty. It
+    # is stored encrypted (core.secrets) — a database read or dump must not
+    # hand out the ability to message customers in a merchant's name — and
+    # read/written through the ``access_token`` property.
+    access_token_encrypted = models.TextField(blank=True, default="")
     is_active = models.BooleanField(default=True)
     last_event_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -47,6 +50,31 @@ class WhatsAppAccount(models.Model):
 
     def __str__(self):
         return self.display_phone or self.phone_number_id
+
+    @property
+    def access_token(self):
+        from core.secrets import decrypt
+
+        return decrypt(self.access_token_encrypted)
+
+    @access_token.setter
+    def access_token(self, value):
+        from core.secrets import encrypt
+
+        self.access_token_encrypted = encrypt((value or "").strip())
+
+    @property
+    def has_token(self):
+        return bool(self.access_token_encrypted)
+
+    def save(self, *args, **kwargs):
+        from core.secrets import encrypt, is_encrypted
+
+        # A plaintext that reached the column some other way (a legacy row,
+        # a raw update) is sealed on the next save.
+        if self.access_token_encrypted and not is_encrypted(self.access_token_encrypted):
+            self.access_token_encrypted = encrypt(self.access_token_encrypted)
+        super().save(*args, **kwargs)
 
 
 class WhatsAppMessage(models.Model):

@@ -75,6 +75,10 @@ services:
         sync: false
       - key: WHATSAPP_APP_SECRET
         sync: false
+      # Seals the companies' WhatsApp tokens at rest (core.secrets). A
+      # dedicated Fernet key, generated once; see DEPLOYMENT.md for rotation.
+      - key: SECRETS_ENCRYPTION_KEY
+        sync: false
       # The paid persistent disk is attached to erp-api at this path in Render.
       # All FileField uploads (medical reports and subscription proofs) land
       # beneath it and therefore survive deploys and restarts.

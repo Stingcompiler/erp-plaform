@@ -7,8 +7,10 @@ from whatsapp.models import WhatsAppAccount, WhatsAppMessage, WhatsAppWebhookEve
 class WhatsAppAccountAdmin(admin.ModelAdmin):
     list_display = ("display_phone", "phone_number_id", "company", "is_active", "last_event_at")
     search_fields = ("display_phone", "phone_number_id", "company__name")
-    # The token is a credential: editable, never listed.
-    exclude = ()
+    # The token is a credential: never listed, and the ciphertext column is
+    # not editable by hand either (the settings API and whatsapp_connect
+    # seal it through the model property).
+    exclude = ("access_token_encrypted",)
 
 
 @admin.register(WhatsAppMessage)

@@ -62,6 +62,6 @@ class Command(BaseCommand):
         self.stdout.write(
             f"{'Connected' if created else 'Updated'} {account.phone_number_id} "
             f"({account.display_phone or 'no display phone'}) → {owner}; "
-            f"token {'set' if account.access_token else 'not set'}; "
+            f"token {'set' if account.has_token else 'not set'}; "
             f"{'active' if account.is_active else 'inactive'}."
         )
