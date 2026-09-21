@@ -186,7 +186,13 @@ class WebhookTests(TestCase):
         self.assertEqual(r.status_code, 200)
 
     def test_preflight_reports_configuration(self):
-        self.assertEqual(check_whatsapp().level, "ok")
+        # Secrets present but no dedicated encryption key: usable, warned.
+        with override_settings(DEBUG=False, SECRETS_ENCRYPTION_KEY=""):
+            finding = check_whatsapp()
+            self.assertEqual(finding.level, "warn")
+            self.assertIn("SECRETS_ENCRYPTION_KEY", finding.detail)
+        with override_settings(DEBUG=False, SECRETS_ENCRYPTION_KEY="a-dedicated-key"):
+            self.assertEqual(check_whatsapp().level, "ok")
         with override_settings(WHATSAPP_APP_SECRET=""):
             self.assertEqual(check_whatsapp().level, "warn")
         with override_settings(WHATSAPP_APP_SECRET="", WHATSAPP_VERIFY_TOKEN=""):

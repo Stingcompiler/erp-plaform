@@ -405,6 +405,15 @@ def check_whatsapp():
             "Set both WHATSAPP_VERIFY_TOKEN and WHATSAPP_APP_SECRET; with one "
             "missing the webhook rejects every delivery.",
         )
+    from core.secrets import is_dedicated_key_configured
+
+    if not settings.DEBUG and not is_dedicated_key_configured():
+        return Finding(
+            "whatsapp", WARN,
+            "Webhook secrets present, but SECRETS_ENCRYPTION_KEY is unset: the "
+            "companies' WhatsApp tokens are sealed with a key derived from "
+            "DJANGO_SECRET_KEY only. Set a dedicated key (see DEPLOYMENT.md).",
+        )
     return Finding("whatsapp", OK, "Webhook secrets present; connect numbers per company.")
 
 

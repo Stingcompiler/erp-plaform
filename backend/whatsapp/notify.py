@@ -30,7 +30,7 @@ def account_for(company):
         return None
     return WhatsAppAccount.objects.filter(
         company=company, is_active=True,
-    ).exclude(access_token="").first()
+    ).exclude(access_token_encrypted="").first()
 
 
 def reachable_phone(customer):

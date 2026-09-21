@@ -49,7 +49,7 @@ def _post_json(url, token, body, timeout=TIMEOUT_SECONDS):
 
 
 def can_send(account):
-    return bool(account and account.is_active and account.access_token)
+    return bool(account and account.is_active and account.has_token)
 
 
 def text_payload(to, text):

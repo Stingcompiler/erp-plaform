@@ -138,6 +138,18 @@ serves the platform and routes events by `phone_number_id`.
    WhatsApp messages with status `received`; statuses of outbound
    messages (sent/delivered/read/failed) update their rows.
 
+**Token storage.** Permanent tokens are encrypted at rest (`core.secrets`,
+Fernet) and never returned by the API or listed in admin. Set
+`SECRETS_ENCRYPTION_KEY` on `erp-api` to a dedicated key
+(`python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`);
+without it the key is derived from `DJANGO_SECRET_KEY` and `preflight`
+warns. To rotate: move the current value to `SECRETS_ENCRYPTION_KEY_PREVIOUS`,
+set the new key, deploy, run `python manage.py rotate_secrets` from the
+shell, then remove `_PREVIOUS`. A token that leaked (for example one that
+was visible in a screenshot) must still be invalidated in Meta Business
+Manager and re-entered — encryption protects the database copy, not a
+copy already outside it.
+
 Every delivery is verified with `X-Hub-Signature-256`; unsigned or
 mis-signed bodies are refused with 403. Raw bodies are kept
 `WHATSAPP_EVENT_RETENTION_DAYS` (14) for debugging and pruned nightly.
