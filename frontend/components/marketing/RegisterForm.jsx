@@ -99,18 +99,24 @@ export default function RegisterForm() {
         <fieldset className="mb-6">
           <legend className="mb-2 text-sm font-medium">{t("register.deliveryLabel")}</legend>
           <div className="grid gap-2 sm:grid-cols-2">
-            {[["saas", "register.hosted"], ["standalone", "register.standalone"]].map(([value, key]) => (
+            {[["saas", "register.hosted", "register.hostedHint"], ["standalone", "register.standalone", "register.standaloneHint"]].map(([value, key, hint]) => (
               <label
                 key={value}
-                className={`flex cursor-pointer items-center gap-2 rounded-control border px-3 py-3 text-sm ${
+                className={`flex cursor-pointer items-start gap-2 rounded-control border px-3 py-3 text-sm ${
                   mode === value ? "border-accent bg-accent/5" : "border-line bg-surface"
                 }`}
               >
-                <input type="radio" name="mode" value={value} checked={mode === value} onChange={() => setMode(value)} className="accent-accent" />
-                {t(key)}
+                <input type="radio" name="mode" value={value} checked={mode === value} onChange={() => setMode(value)} className="mt-1 accent-accent" />
+                <span>
+                  <span className="font-medium">{t(key)}</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-muted">{t(hint)}</span>
+                </span>
               </label>
             ))}
           </div>
+          <Link href={href("/register/hosting")} className="mt-2 inline-block text-sm text-accent hover:underline">
+            {t("register.compareOptions")}
+          </Link>
         </fieldset>
 
         <div className="grid gap-4 sm:grid-cols-2">
