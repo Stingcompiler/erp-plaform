@@ -102,6 +102,16 @@ curl -sI https://vezano.app/robots.txt | head -1      # -> 200, and /sitemap.xml
 Open `https://vezano.app/` — same origin serves the frontend, which
 pings `/api/health/` and shows whether the API is reachable.
 
+`/api/health/` is the **readiness** probe (Render's `healthCheckPath`): it
+answers `503` with `"status": "degraded"` when the database is unreachable
+or the media directory is not writable, so a deploy that cannot serve is
+rolled back and an uptime monitor alerts. `/api/health/live/` is
+**liveness** only (the process answers) and never touches the database.
+
+The `erp-backup-cron` job exits non-zero when any company's backup failed
+(the others are still backed up first, and a `FAILED` BackupRecord names
+the cause), so Render's cron alerting fires instead of a green run.
+
 ## Environment variables
 
 `erp-api` (see `backend/.env.example` for the full list):

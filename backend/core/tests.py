@@ -1,6 +1,7 @@
 from io import StringIO
+from unittest import mock
 
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 from django.urls import resolve, reverse
 from rest_framework.test import APITestCase
 
@@ -59,6 +60,29 @@ class HealthCheckTests(APITestCase):
         view = resolve(reverse("health-check")).func.cls
         self.assertEqual(view.authentication_classes, [])
 
+    def test_readiness_is_503_when_the_database_is_unreachable(self):
+        # The process is up but cannot serve: Render and the uptime monitor
+        # must see a failure, not "status: ok" next to "database: unreachable".
+        with mock.patch("core.views.connection.ensure_connection", side_effect=OSError("down")):
+            response = self.client.get(reverse("health-check"))
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.data["status"], "degraded")
+        self.assertEqual(response.data["database"], "unreachable")
+
+    def test_readiness_is_503_when_media_is_not_writable(self):
+        broken = {"storage": "configured", "writable": False, "public_files": 0}
+        with mock.patch("core.public_media.media_health", return_value=broken):
+            response = self.client.get(reverse("health-check"))
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.data["media"], broken)
+
+    def test_liveness_stays_200_without_the_database(self):
+        with mock.patch("core.views.connection.ensure_connection", side_effect=OSError("down")):
+            response = self.client.get(reverse("health-live"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], "alive")
+        self.assertEqual(resolve(reverse("health-live")).func.cls.authentication_classes, [])
+
 
 class BackupCronCommandTests(APITestCase):
     def test_run_scheduled_backup_command_executes_without_error(self):
@@ -68,6 +92,32 @@ class BackupCronCommandTests(APITestCase):
         out = StringIO()
         call_command("run_scheduled_backup", stdout=out)
         self.assertIn("Scheduled backup complete", out.getvalue())
+
+    def test_run_scheduled_backup_exits_non_zero_when_a_company_fails(self):
+        # Render only alerts on a non-zero exit: a run that could not back up
+        # a company must not print SUCCESS and end with status 0. The other
+        # companies are still backed up first.
+        from ops.models import BackupRecord
+
+        good = Company.objects.create(name="Good Co")
+        bad = Company.objects.create(name="Bad Co")
+        real_dump = __import__("ops.services", fromlist=["dump_company"]).dump_company
+
+        def dump(company):
+            if company == bad:
+                raise RuntimeError("disk on fire")
+            return real_dump(company)
+
+        err = StringIO()
+        with mock.patch("ops.services.dump_company", side_effect=dump):
+            with self.assertRaises(CommandError) as raised:
+                call_command("run_scheduled_backup", stdout=StringIO(), stderr=err)
+        self.assertIn("1 failure(s)", str(raised.exception))
+        self.assertIn("Bad Co", str(raised.exception))
+        self.assertIn("FAILED Bad Co", err.getvalue())
+        records = BackupRecord.objects.filter(kind=BackupRecord.SCHEDULED)
+        self.assertTrue(records.filter(company=bad, status=BackupRecord.FAILED).exists())
+        self.assertTrue(records.filter(company=good, status=BackupRecord.SUCCESS).exists())
 
 
 class AuditLogAccessTests(APITestCase):
