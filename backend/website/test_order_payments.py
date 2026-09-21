@@ -226,3 +226,43 @@ class OrderPaymentTests(TestCase):
             format="json",
         )
         self.assertEqual(blocked.status_code, 400)
+
+
+class ProofHardeningTests(OrderPaymentTests):
+    def _claim_with_proof(self, proof):
+        ref = self._order()["reference"]
+        return self.visitor.post(
+            f"/api/public/site/bakery/orders/{ref}/",
+            {"bank_account": self.bank.pk, "sender_bank_name": "Faisal Islamic",
+             "reference_last4": "4321", "amount": "1000", "proof": proof},
+            format="multipart",
+        )
+
+    def test_svg_and_html_proofs_are_refused_even_labelled_as_images(self):
+        svg = SimpleUploadedFile(
+            "r.png", b'<svg xmlns="http://www.w3.org/2000/svg"><script>1</script></svg>',
+            content_type="image/png",
+        )
+        self.assertEqual(self._claim_with_proof(svg).status_code, 400)
+        html = SimpleUploadedFile("r.jpg", b"<html><script>1</script></html>",
+                                  content_type="image/jpeg")
+        r = self._claim_with_proof(html)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("proof", r.data)
+
+    def test_a_real_image_is_stored_under_its_true_extension_and_downloads_as_attachment(self):
+        from website.models import PublicOrder
+
+        jpeg = SimpleUploadedFile("shot.svg", b"\xff\xd8\xff\xe0" + b"0" * 64,
+                                  content_type="image/svg+xml")
+        declared = self._claim_with_proof(jpeg)
+        self.assertEqual(declared.status_code, 201, declared.data)
+        order = PublicOrder.objects.latest("pk")
+        claim = order.payments.get()
+        self.assertTrue(claim.proof.name.endswith(".jpg"))
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self.staff.get(f"/api/web-orders/{order.pk}/payments/{claim.pk}/proof/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r["Content-Type"], "image/jpeg")
+        self.assertTrue(r["Content-Disposition"].startswith("attachment"))
+        self.assertEqual(r["X-Content-Type-Options"], "nosniff")

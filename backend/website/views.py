@@ -5,7 +5,7 @@ from datetime import timedelta
 from django.db import models
 from django.utils import timezone
 from django.db.models import Q
-from django.http import FileResponse, Http404
+from django.http import Http404
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -847,10 +847,12 @@ class PublicOrderViewSet(
 
     @action(detail=True, methods=["get"], url_path=r"payments/(?P<claim_pk>\d+)/proof")
     def payment_proof(self, request, pk=None, claim_pk=None):
+        from core.uploads import proof_response
+
         claim = self._claim(pk, claim_pk)
         if not claim.proof:
             raise Http404
-        return FileResponse(claim.proof.open("rb"))
+        return proof_response(claim.proof)
 
     @action(detail=True, methods=["post"], url_path=r"payments/(?P<claim_pk>\d+)/confirm")
     def confirm_payment(self, request, pk=None, claim_pk=None):
