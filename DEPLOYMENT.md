@@ -180,6 +180,15 @@ With `DEBUG=False` (all deploys), the API enforces: SSL redirect, 1-year HSTS
 content-type nosniff, JWT-in-HttpOnly-cookie auth with refresh-token rotation,
 a login throttle, and a min-length-10 password policy.
 
+## Recovery gate
+
+Before the first paying customer, work through
+[docs/go-live-gate-recovery.md](docs/go-live-gate-recovery.md): managed
+Postgres backups, object storage for the nightly dumps, a media copy, secrets
+on file, and a timed restore drill checked with
+`python manage.py recovery_fingerprint` (counts and totals of the ten
+financial entities before and after the restore).
+
 ## Rollback
 
 Render keeps prior deploys per service — use **Rollback** on the service's
