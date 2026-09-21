@@ -20,6 +20,7 @@ const EMPTY = {
   cost_price: "0",
   sale_price: "0",
   reference_price: "",
+  reference_cost: "",
   reorder_level: "0",
   track_batches: false,
   is_stock_tracked: true,
@@ -135,6 +136,7 @@ export default function ProductForm({ open, onClose, onSaved, product, exchangeR
         cost_price: String(product.cost_price ?? "0"),
         sale_price: String(product.sale_price ?? "0"),
         reference_price: product.reference_price == null ? "" : String(product.reference_price),
+        reference_cost: product.reference_cost == null ? "" : String(product.reference_cost),
         reorder_level: String(product.reorder_level ?? "0"),
         track_batches: Boolean(product.track_batches),
         is_stock_tracked: product.is_stock_tracked !== false,
@@ -161,6 +163,7 @@ export default function ProductForm({ open, onClose, onSaved, product, exchangeR
       brand: form.brand || null,
       unit: form.unit || null,
       reference_price: form.reference_price === "" ? null : form.reference_price,
+      reference_cost: form.reference_cost === "" ? null : form.reference_cost,
     };
     try {
       if (editing) await inventory.updateProduct(product.id, body);
@@ -308,6 +311,23 @@ export default function ProductForm({ open, onClose, onSaved, product, exchangeR
               </Button>
             )}
           </div>
+        </Field>
+        <Field
+          label={t("inventory.referenceCost", { currency: referenceCurrency || "USD" })}
+          hint={
+            form.reference_cost !== "" && Number(exchangeRate) > 0
+              ? t("inventory.referenceCostHint", {
+                  price: (Number(form.reference_cost) * Number(exchangeRate)).toLocaleString(
+                    undefined, { maximumFractionDigits: 2 },
+                  ),
+                })
+              : t("inventory.referenceCostEmptyHint")
+          }
+        >
+          <Input
+            type="number" inputMode="decimal" min="0" step="0.0001"
+            value={form.reference_cost} onChange={set("reference_cost")} className="w-40"
+          />
         </Field>
         <label className="flex items-center gap-2 text-sm text-ink">
           <input type="checkbox" checked={form.track_batches} onChange={set("track_batches")} />

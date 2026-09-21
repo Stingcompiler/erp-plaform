@@ -133,13 +133,39 @@ class RepriceTests(PricingBase):
         self.bag.refresh_from_db()
         self.assertEqual(self.bag.sale_price, Decimal("550.00"))
 
-    def test_reprice_both_moves_cost_in_proportion(self):
+    def test_reprice_both_takes_cost_from_its_own_reference(self):
+        self.sugar.reference_cost = Decimal("42")
+        self.sugar.save(update_fields=["reference_cost"])
         r = self._reprice({"mode": "rate", "rate": "8400", "target": "both", "step": "1"})
         self.assertEqual(r.status_code, 200, r.data)
         self.sugar.refresh_from_db()
         self.assertEqual(self.sugar.sale_price, Decimal("420000.00"))
-        # 300000 × 420000 / 350000
-        self.assertEqual(self.sugar.cost_price, Decimal("360000.00"))
+        self.assertEqual(self.sugar.cost_price, Decimal("352800.00"))
+
+    def test_reprice_cost_by_rate_is_idempotent(self):
+        # F14: the cost used to follow the sale price's movement, so a
+        # repeated click doubled it (60 → 120 → 240). Now it comes from
+        # reference_cost alone; the second run changes nothing.
+        self.sugar.reference_cost = Decimal("40")
+        self.sugar.save(update_fields=["reference_cost"])
+        first = self._reprice({"mode": "rate", "rate": "8400", "target": "cost", "step": "1"})
+        self.assertEqual(first.status_code, 200, first.data)
+        self.assertEqual(first.data["changed"], 1)
+        self.sugar.refresh_from_db()
+        self.assertEqual(self.sugar.cost_price, Decimal("336000.00"))
+        again = self._reprice({"mode": "rate", "rate": "8400", "target": "cost", "step": "1"})
+        self.assertEqual(again.data["changed"], 0)
+        self.sugar.refresh_from_db()
+        self.assertEqual(self.sugar.cost_price, Decimal("336000.00"))
+
+    def test_reprice_cost_by_rate_leaves_products_without_reference_cost(self):
+        # sugar has a reference sale price but no reference cost: its cost
+        # is not guessed from the sale price.
+        r = self._reprice({"mode": "rate", "rate": "8400", "target": "cost", "step": "1"})
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual(r.data["changed"], 0)
+        self.sugar.refresh_from_db()
+        self.assertEqual(self.sugar.cost_price, Decimal("300000.00"))
 
     def test_dry_run_previews_without_writing(self):
         before = self.sugar.updated_at

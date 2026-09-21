@@ -121,7 +121,7 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = [
             "id", "company", "sku", "name", "category", "brand", "unit",
             "barcode", "qr_code", "cost_price", "sale_price", "reference_price",
-            "suggested_price", "reorder_level",
+            "reference_cost", "suggested_price", "reorder_level",
             "track_batches", "is_stock_tracked", "is_active", "on_hand",
             "expiry_status", "next_expiry",
             "unit_name", "packs",
@@ -143,6 +143,11 @@ class ProductSerializer(serializers.ModelSerializer):
         return (obj.reference_price * rate).quantize(Decimal("0.01"))
 
     def validate_reference_price(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Cannot be negative.")
+        return value
+
+    def validate_reference_cost(self, value):
         if value is not None and value < 0:
             raise serializers.ValidationError("Cannot be negative.")
         return value
