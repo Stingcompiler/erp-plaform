@@ -132,6 +132,9 @@ export const registerEn = {
   deliveryLabel: "How do you want to run Vezano?",
   serverNote: "Anything about your server or IT team we should know? (optional)",
   sentTitle: "Request received",
+  checkEmailTitle: "Check your email",
+  checkEmailSentTo: "We sent a confirmation to",
+  checkEmailNext: "Once your request is reviewed, the owner activation link arrives at the same address — check the spam folder too.",
   sentBody: "Keep this reference for follow-up:",
   backHome: "Back to home",
 };
@@ -149,6 +152,9 @@ export const registerAr = {
   deliveryLabel: "كيف تريد تشغيل فيزانو؟",
   serverNote: "هل هناك ما يجب أن نعرفه عن خادمك أو فريقك التقني؟ (اختياري)",
   sentTitle: "استلمنا طلبك",
+  checkEmailTitle: "راجع بريدك الإلكتروني",
+  checkEmailSentTo: "أرسلنا تأكيدًا إلى",
+  checkEmailNext: "بعد مراجعة طلبك يصلك رابط تفعيل حساب المالك على العنوان نفسه — تفقّد مجلد الرسائل غير المرغوبة أيضًا.",
   sentBody: "احتفظ بهذا المرجع للمتابعة:",
   backHome: "العودة للرئيسية",
 };

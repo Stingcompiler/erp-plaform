@@ -1,6 +1,9 @@
 from datetime import timedelta
 from uuid import uuid4
 
+from django.core import mail
+from django.core.cache import cache
+from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APITestCase
@@ -14,6 +17,9 @@ from website.models import OwnerInvitation, RegistrationRequest
 
 class RegistrationRequestTests(APITestCase):
     def setUp(self):
+        # The public endpoint is throttled per hour; the counter lives in the
+        # cache and would otherwise leak between tests.
+        cache.clear()
         plan = Plan.objects.create(code="business", name="Business")
         self.version = PlanVersion.objects.create(
             plan=plan, version=1, currency="USD", price=20,
@@ -43,6 +49,21 @@ class RegistrationRequestTests(APITestCase):
         self.assertEqual(again.status_code, 200, again.data)
         self.assertEqual(RegistrationRequest.objects.count(), 1)
         self.assertEqual(set(first.data), {"reference", "status"})
+
+    @override_settings(
+        EMAIL_ENABLED=True, EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend"
+    )
+    def test_new_request_is_acknowledged_by_email_once(self):
+        url = reverse("registration-request")
+        self.assertEqual(self.client.post(url, self.body, format="json").status_code, 201)
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+        self.assertEqual(message.to, ["amina@northwind.test"])
+        self.assertIn(self.body["request_uuid"], message.body)
+        self.assertIn("Northwind Trading", message.body)
+        # A retry of the same request must not send a second acknowledgement.
+        self.assertEqual(self.client.post(url, self.body, format="json").status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
 
     def test_public_endpoint_only_lists_published_public_plans(self):
         hidden_plan = Plan.objects.create(code="hidden", name="Hidden", is_public=False)

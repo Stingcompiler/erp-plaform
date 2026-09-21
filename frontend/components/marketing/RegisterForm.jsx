@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Mail } from "lucide-react";
 
 import { useI18n } from "../../app/providers/I18nProvider";
 import { registration } from "@/lib/api";
@@ -22,6 +22,7 @@ export default function RegisterForm() {
   const { plans } = usePublicPlans();
   const [mode, setMode] = useState(params.get("mode") === "standalone" ? "standalone" : "saas");
   const [planId, setPlanId] = useState(params.get("plan") || "");
+  // { reference, email } once the request is accepted.
   const [sent, setSent] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -59,7 +60,7 @@ export default function RegisterForm() {
         message: form.get("message"),
         privacy_version: "2026-09",
       });
-      setSent(response.data.reference);
+      setSent({ reference: response.data.reference, email: String(form.get("email") || "").trim() });
     } catch {
       setError(t("registration.publicError"));
     } finally { setBusy(false); }
@@ -70,8 +71,19 @@ export default function RegisterForm() {
       <div className="mx-auto max-w-lg rounded-card border border-line bg-paper p-8 text-center shadow-card">
         <CheckCircle2 className="mx-auto text-ok" size={40} />
         <h2 className="mt-4 font-display text-xl font-semibold">{t("register.sentTitle")}</h2>
-        <p className="mt-2 text-muted">{t("register.sentBody")}</p>
-        <p className="tabular mt-3 rounded-control bg-surface px-3 py-2 font-mono text-sm">{sent}</p>
+        <div role="status" className="mt-4 flex items-start gap-3 rounded-control border border-accent/30 bg-accent/5 p-4 text-start">
+          <Mail size={20} className="mt-0.5 shrink-0 text-accent" />
+          <div>
+            <p className="font-medium text-ink">{t("register.checkEmailTitle")}</p>
+            <p className="mt-1 text-sm text-muted">
+              {t("register.checkEmailSentTo")}{" "}
+              <bdi dir="ltr" className="whitespace-nowrap font-medium text-ink">{sent.email}</bdi>
+            </p>
+            <p className="mt-1 text-sm text-muted">{t("register.checkEmailNext")}</p>
+          </div>
+        </div>
+        <p className="mt-4 text-sm text-muted">{t("register.sentBody")}</p>
+        <p className="tabular mt-2 rounded-control bg-surface px-3 py-2 font-mono text-sm" dir="ltr">{sent.reference}</p>
         <Link href={href("/")} className="mt-6 inline-block rounded-control border border-line bg-surface px-5 py-3 font-medium hover:border-accent">
           {t("register.backHome")}
         </Link>
