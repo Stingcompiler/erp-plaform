@@ -22,7 +22,6 @@ import {
   Wallet,
 } from "lucide-react";
 
-import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import Showcase from "@/components/landing/Showcase";
 import InstallCard from "@/components/sync/InstallCard";
@@ -72,7 +71,6 @@ function Reveal({ children, delay = 0, className = "", immediate = false }) {
 
 function Hero() {
   const { t, href } = useI18n();
-  const { user } = useAuth();
   return (
     <section className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-accent/10 via-transparent to-transparent" />
@@ -100,11 +98,6 @@ function Hero() {
               <Link href={href("/pricing")} className="w-full rounded-control border border-line bg-surface px-6 py-3 text-center font-medium text-ink hover:border-accent sm:w-auto">
                 {t("home.heroSecondary")}
               </Link>
-              {user && (
-                <Link href="/dashboard" className="w-full rounded-control px-6 py-3 text-center font-medium text-accent hover:underline sm:w-auto">
-                  {t("nav.dashboard")}
-                </Link>
-              )}
             </div>
             <p className="mt-4 text-sm text-muted">{t("home.heroNote")}</p>
             <InstallCard className="mx-auto mt-6 max-w-md text-start" />

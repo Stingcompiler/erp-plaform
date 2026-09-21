@@ -28,6 +28,11 @@ const COPY = {
       description:
         "سجّل شركتك في فيزانو: تجربة 14 يومًا بلا بطاقة على السحابة، أو اطلب عرض رخصة دائمة لخادمك الخاص. نراجع الطلب وننشئ مساحة العمل ونرسل للمالك رابط التفعيل.",
     },
+    "/register/hosting": {
+      title: "السحابة أم خادمك الخاص؟ — الفرق بين خياري تشغيل فيزانو",
+      description:
+        "فيزانو على السحابة: لا تركيب، تحديثات ونسخ احتياطي علينا، اشتراك بالباقة. أو على خادمك الخاص: بياناتك عندك، رخصة دائمة، يعمل دون إنترنت. اعرف أيهما يناسب شركتك.",
+    },
   },
   en: {
     "/": {
@@ -49,6 +54,11 @@ const COPY = {
       title: "Start Your Company's Free Trial",
       description:
         "Register your company on Vezano: a 14-day cloud trial with no card, or request a perpetual-licence quote for your own server. We review the request, create the workspace and send the owner an activation link.",
+    },
+    "/register/hosting": {
+      title: "Cloud or Your Own Server? — Vezano's Two Ways to Run",
+      description:
+        "Vezano in the cloud: nothing to install, updates and backups on us, a plan subscription. Or on your own server: data stays with you, a perpetual licence, runs without internet. Find out which fits your company.",
     },
   },
 };

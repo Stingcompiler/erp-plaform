@@ -254,10 +254,38 @@ class PublicRegistrationRequestView(APIView):
         registration, created = RegistrationRequest.objects.get_or_create(
             request_uuid=request_uuid, defaults=data
         )
+        if created:
+            _email_request_received(registration)
         return Response(
             {"reference": str(registration.request_uuid), "status": registration.status},
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
+
+
+def _email_request_received(registration):
+    """Best-effort acknowledgement so the visitor finds something in their
+    inbox right away; the activation link follows once the request is
+    reviewed. The mailer logs failures instead of raising."""
+    from core import mailer
+
+    return mailer.send_bilingual(
+        subject_ar="استلمنا طلبك في فيزانو",
+        subject_en="We received your Vezano request",
+        ar=[
+            f"مرحباً {registration.contact_name}،",
+            f"استلمنا طلب «{registration.company_name}» وسنراجعه قريبًا.",
+            "عند الموافقة يصلك رابط تفعيل حساب المالك على هذا البريد.",
+            f"مرجع الطلب: {registration.request_uuid}",
+        ],
+        en=[
+            f"Hello {registration.contact_name},",
+            f"We received the request for “{registration.company_name}” "
+            "and will review it shortly.",
+            "Once approved, the owner activation link arrives at this address.",
+            f"Request reference: {registration.request_uuid}",
+        ],
+        recipient=registration.email,
+    )
 
 
 def _email_owner_invitation(registration, token):
