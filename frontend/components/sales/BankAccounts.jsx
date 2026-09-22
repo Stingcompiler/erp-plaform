@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 
 import { bankAccounts as api } from "@/lib/api";
+import { errorText } from "@/lib/errors";
 import { useI18n } from "../../app/providers/I18nProvider";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
@@ -28,10 +29,7 @@ function AccountForm({ open, onClose, onSaved }) {
       onSaved();
       onClose();
     } catch (err) {
-      const data = err?.response?.data;
-      setError(
-        typeof data === "object" && data ? Object.values(data).flat().join(" ") : t("purchasing.saveError")
-      );
+      setError(errorText(err, t, "purchasing.saveError"));
     } finally {
       setSaving(false);
     }
