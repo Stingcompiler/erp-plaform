@@ -176,6 +176,46 @@ class DeviceLimitTests(TestCase):
             {"device_registered", "device_revoked", "update"},
         )
 
+    def test_owner_removes_a_device_and_its_sessions_stop_at_once(self):
+        """The owner asked for removal, not just revocation: the row goes, and
+        a session from that device is refused immediately rather than being
+        trusted again because the id is now unknown."""
+        till, _ = self._login("sales@tills.test", "Sales-passw0rd!x", "TILL1")
+        owner, _ = self._login("owner@tills.test", "Owner-passw0rd!x", "ADMIN")
+        device = Device.objects.get(device_id="TILL1")
+        self.assertEqual(till.get("/api/products/").status_code, 200)
+
+        removed = owner.delete(f"/api/subscription/devices/{device.pk}/")
+        self.assertEqual(removed.status_code, 204, removed.content)
+        self.assertFalse(Device.objects.filter(pk=device.pk).exists())
+        self.assertEqual(till.get("/api/products/").status_code, 401)
+        # The slot is free again, and the log keeps where the data was handled.
+        self.assertEqual(
+            owner.get("/api/subscription/devices/").data["usage"]["devices"]["used"], 1
+        )
+        entry = ActivityLog.objects.get(action="device_deleted")
+        self.assertEqual(entry.metadata["device_id"], "TILL1")
+
+    def test_the_device_you_are_using_is_not_removable_from_itself(self):
+        """Otherwise the owner signs themselves out mid-click and, with the
+        row gone, cannot get back in without registering a new device."""
+        owner, _ = self._login("owner@tills.test", "Owner-passw0rd!x", "ADMIN")
+        mine = Device.objects.get(device_id="ADMIN")
+        for response in (
+            owner.delete(f"/api/subscription/devices/{mine.pk}/"),
+            owner.post(f"/api/subscription/devices/{mine.pk}/revoke/"),
+        ):
+            self.assertEqual(response.status_code, 400, response.content)
+            self.assertEqual(response.data["code"], "device_in_use")
+        self.assertTrue(Device.objects.filter(pk=mine.pk, is_active=True).exists())
+        self.assertEqual(owner.get("/api/products/").status_code, 200)
+
+    def test_removing_a_device_is_the_owners_alone(self):
+        till, _ = self._login("sales@tills.test", "Sales-passw0rd!x", "TILL1")
+        device = Device.objects.get(device_id="TILL1")
+        self.assertEqual(till.delete(f"/api/subscription/devices/{device.pk}/").status_code, 403)
+        self.assertTrue(Device.objects.filter(pk=device.pk).exists())
+
     def test_a_non_owner_cannot_manage_devices(self):
         till, _ = self._login("sales@tills.test", "Sales-passw0rd!x", "TILL1")
         self.assertEqual(till.get("/api/subscription/devices/").status_code, 403)

@@ -56,14 +56,21 @@ def requires_device(user):
 
 
 def is_revoked(company_id, device_id):
+    """True when a session from this device must no longer be accepted.
+
+    Fail closed on a device the company no longer has: a row that was revoked
+    *and then deleted* must not quietly let the phone back in, so "unknown"
+    counts as revoked. Every live business token carries the id of a device
+    registered at sign-in, so an unknown id means the owner removed it.
+    """
     if company_id is None or not device_id:
         return False
     key = _revoked_key(company_id, device_id)
     cached = cache.get(key, _MISS)
     if cached is not _MISS:
         return bool(cached)
-    revoked = Device.objects.filter(
-        company_id=company_id, device_id=device_id, is_active=False,
+    revoked = not Device.objects.filter(
+        company_id=company_id, device_id=device_id, is_active=True,
     ).exists()
     cache.set(key, revoked, REVOKED_CACHE_TTL)
     return revoked
@@ -129,6 +136,23 @@ def revoke_device(device, actor, request=None):
         metadata={"device_id": device.device_id, "label": device.label},
     )
     return device
+
+
+def delete_device(device, actor, request=None):
+    """Remove the device from the company's list for good.
+
+    The row is what the authenticator reads, so deletion ends every session
+    opened from it immediately (is_revoked fails closed on an unknown id).
+    The activity log keeps the record of where the company's data was handled.
+    """
+    company, pk, device_id, label = device.company, device.pk, device.device_id, device.label
+    device.delete()
+    cache.set(_revoked_key(company.pk, device_id), True, REVOKED_CACHE_TTL)
+    log_activity(
+        action="device_deleted", request=request, user=actor, company=company,
+        entity_type="Device", entity_id=pk,
+        metadata={"device_id": device_id, "label": label},
+    )
 
 
 def reactivate_device(device, actor, request=None):
