@@ -105,7 +105,6 @@ class CustomerSerializer(serializers.ModelSerializer):
         fields = [
             "id", "company", "name", "phone", "email", "address",
             "is_active", "credit_limit", "credit_hold", "payment_terms_days",
-            "whatsapp_opt_in",
             "ar_balance", "opening_balance", "updated_at",
         ]
         read_only_fields = ["company", "updated_at"]

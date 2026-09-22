@@ -462,12 +462,6 @@ export const sync = {
   pull: (params) => api.get("/sync/pull/", { params }),
 };
 
-export const whatsapp = {
-  settings: () => api.get("/whatsapp/settings/"),
-  saveSettings: (body) => api.put("/whatsapp/settings/", body),
-  testSend: (body) => api.post("/whatsapp/test-send/", body),
-};
-
 export const org = {
   branches: () => api.get("/branches/"),
   createBranch: (body) => api.post("/branches/", body),

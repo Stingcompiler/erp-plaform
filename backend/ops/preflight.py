@@ -393,30 +393,6 @@ def check_email_delivery():
     return Finding("email_delivery", OK, detail)
 
 
-def check_whatsapp():
-    """Optional channel; say plainly whether the webhook can accept events."""
-    from whatsapp.models import settings_ready
-
-    if not (settings.WHATSAPP_VERIFY_TOKEN or settings.WHATSAPP_APP_SECRET):
-        return Finding("whatsapp", OK, "WhatsApp is not configured (optional).")
-    if not settings_ready():
-        return Finding(
-            "whatsapp", WARN,
-            "Set both WHATSAPP_VERIFY_TOKEN and WHATSAPP_APP_SECRET; with one "
-            "missing the webhook rejects every delivery.",
-        )
-    from core.secrets import is_dedicated_key_configured
-
-    if not settings.DEBUG and not is_dedicated_key_configured():
-        return Finding(
-            "whatsapp", WARN,
-            "Webhook secrets present, but SECRETS_ENCRYPTION_KEY is unset: the "
-            "companies' WhatsApp tokens are sealed with a key derived from "
-            "DJANGO_SECRET_KEY only. Set a dedicated key (see DEPLOYMENT.md).",
-        )
-    return Finding("whatsapp", OK, "Webhook secrets present; connect numbers per company.")
-
-
 def run_preflight():
     """Every check, in a stable order. Import-time safe: never touches the network."""
     return [
@@ -434,5 +410,4 @@ def run_preflight():
         check_backup_freshness(),
         check_dependency_lock(),
         check_email_delivery(),
-        check_whatsapp(),
     ]
