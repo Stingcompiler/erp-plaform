@@ -447,7 +447,10 @@ export const settings = {
   backups: () => api.get("/ops/backups/"),
   createBackup: () => api.post("/ops/backups/"),
   // A plain link (cookie auth), so the browser saves it as a file directly.
-  backupDownloadUrl: (id) => `${api.defaults.baseURL}/ops/backups/${id}/download/`,
+  // format: "json" restores, "xlsx"/"csv" are for reading; lang picks the
+  // headers inside the readable ones.
+  backupDownloadUrl: (id, format = "json", lang = "ar") =>
+    `${api.defaults.baseURL}/ops/backups/${id}/download/?format=${format}&lang=${lang}`,
   // body: {data | backup_id, mode?: "empty" | "missing", dry_run?: true}
   restoreBackup: (body) => api.post("/ops/backups/restore/", body),
 };
