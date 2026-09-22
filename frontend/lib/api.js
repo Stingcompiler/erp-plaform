@@ -451,6 +451,7 @@ export const settings = {
   // headers inside the readable ones.
   backupDownloadUrl: (id, format = "json", lang = "ar") =>
     `${api.defaults.baseURL}/ops/backups/${id}/download/?format=${format}&lang=${lang}`,
+  // body: {data | backup_id, mode?: "empty" | "missing", dry_run?: true}
   restoreBackup: (body) => api.post("/ops/backups/restore/", body),
 };
 

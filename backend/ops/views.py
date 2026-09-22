@@ -11,6 +11,7 @@ from core.activity import log_activity
 from core.rbac import RoleModuleAccess
 from ops import exporters, snapshots
 from ops.models import BackupRecord, UserPreference
+from ops import services
 from ops.services import dump_company, restore_master
 
 
@@ -130,17 +131,25 @@ class RestoreView(APIView):
         # re-creation is legitimate; only the by-key path needs the ownership
         # check above, because that path fetches data the caller never had.
         company = Company.objects.get(pk=company_id)
-        restored = restore_master(company, dump, request.user)
+        # mode=missing adds only what the company does not have (the everyday
+        # case: something was deleted); dry_run answers what it would add
+        # without writing, so the owner sees it before agreeing.
+        mode = request.data.get("mode") or services.EMPTY_ONLY
+        dry_run = str(request.data.get("dry_run", "")).lower() in ("1", "true", "yes")
+        result = restore_master(company, dump, request.user, mode=mode, dry_run=dry_run)
+        if dry_run:
+            return Response(result, status=status.HTTP_200_OK)
         record = BackupRecord.objects.create(
             company=company, kind=BackupRecord.RESTORE, status=BackupRecord.SUCCESS,
-            record_count=restored,
+            record_count=result["restored"],
             created_by=request.user if request.user.is_authenticated else None,
         )
         log_activity(
             action="create", request=request, entity_type="BackupRecord",
-            entity_id=record.id, metadata={"kind": "restore", "restored": restored},
+            entity_id=record.id,
+            metadata={"kind": "restore", "mode": mode, **result},
         )
-        return Response({"restored": restored}, status=status.HTTP_200_OK)
+        return Response(result, status=status.HTTP_200_OK)
 
 
 class BackupDownloadView(APIView):
