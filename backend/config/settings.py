@@ -116,7 +116,6 @@ INSTALLED_APPS = [
     "tax",        # Pluggable tax / e-invoicing handlers (M11)
     "subscriptions",  # SaaS plans, commercial subscriptions and manual billing
     "licensing",      # Standalone installation identity and signed licences
-    "whatsapp",       # WhatsApp Business (Meta Cloud API) per-company numbers
 ]
 
 # M1: email-login custom user with company/branch/role scoping. Introduced
@@ -516,16 +515,5 @@ VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY", default="")
 # WhatsApp Business (Meta Cloud API). The verify token is a phrase of our
 # choosing pasted into the Meta app's webhook screen; the app secret signs
 # every delivery. Both empty = the webhook answers 403 to everything.
-# Encryption at rest for tenant credentials (core.secrets). Set a dedicated
-# key in production (`python -c "from cryptography.fernet import Fernet;
-# print(Fernet.generate_key().decode())"`); without one the key is derived
-# from SECRET_KEY. _PREVIOUS keeps old ciphertexts readable during a rotation.
-SECRETS_ENCRYPTION_KEY = env("SECRETS_ENCRYPTION_KEY", default="")
-SECRETS_ENCRYPTION_KEY_PREVIOUS = env("SECRETS_ENCRYPTION_KEY_PREVIOUS", default="")
-WHATSAPP_VERIFY_TOKEN = env("WHATSAPP_VERIFY_TOKEN", default="")
-WHATSAPP_APP_SECRET = env("WHATSAPP_APP_SECRET", default="")
-WHATSAPP_EVENT_RETENTION_DAYS = env.int("WHATSAPP_EVENT_RETENTION_DAYS", default=14)
-# Overridable so a local stub can stand in for graph.facebook.com in dev/e2e.
-WHATSAPP_GRAPH_BASE = env("WHATSAPP_GRAPH_BASE", default="https://graph.facebook.com")
 VAPID_CLAIMS_EMAIL = env("VAPID_CLAIMS_EMAIL", default="mailto:musab@vezano.app")
 WEB_PUSH_ENABLED = bool(VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY)

@@ -17,9 +17,6 @@ class Customer(models.Model):
     email = models.EmailField(blank=True)
     address = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
-    # The customer agreed to receive invoices and reminders on WhatsApp.
-    # Off by default: Meta bans numbers that message people who did not ask.
-    whatsapp_opt_in = models.BooleanField(default=False)
     # Credit control. `credit_limit` is the most this customer may owe in
     # total (null = no limit); `credit_hold` blocks any new sale on account,
     # whatever the limit, until a manager lifts it. Both are checked at POS

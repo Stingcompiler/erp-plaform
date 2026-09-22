@@ -9,7 +9,7 @@ import Drawer from "@/components/ui/Drawer";
 import { Button, Field, Input } from "@/components/ui/kit";
 import OpeningBalanceForm from "@/components/finance/OpeningBalanceForm";
 
-const EMPTY = { name: "", phone: "", email: "", address: "", payment_terms_days: "", credit_limit: "", credit_hold: false, whatsapp_opt_in: false };
+const EMPTY = { name: "", phone: "", email: "", address: "", payment_terms_days: "", credit_limit: "", credit_hold: false };
 
 /**
  * Create or edit a customer. Until this drawer existed customers could only
@@ -33,7 +33,6 @@ export default function CustomerDrawer({ open, onClose, customer, onSaved }) {
       address: customer.address || "",
       payment_terms_days: customer.payment_terms_days ?? "",
       credit_limit: customer.credit_limit ?? "", credit_hold: Boolean(customer.credit_hold),
-      whatsapp_opt_in: Boolean(customer.whatsapp_opt_in),
     } : EMPTY);
   }, [open, customer]);
 
@@ -45,7 +44,6 @@ export default function CustomerDrawer({ open, onClose, customer, onSaved }) {
     const body = {
       name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim(), address: form.address.trim(),
       payment_terms_days: form.payment_terms_days === "" ? null : Number(form.payment_terms_days),
-      whatsapp_opt_in: form.whatsapp_opt_in,
     };
     if (managesCredit) {
       body.credit_limit = form.credit_limit === "" ? null : form.credit_limit;
@@ -91,11 +89,6 @@ export default function CustomerDrawer({ open, onClose, customer, onSaved }) {
         <Field label={t("customers.address")}>
           <Input value={form.address} onChange={set("address")} />
         </Field>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={form.whatsapp_opt_in} onChange={set("whatsapp_opt_in")} className="h-4 w-4 accent-accent" />
-          {t("customers.whatsappOptIn")}
-        </label>
-        <p className="-mt-2 text-xs text-muted">{t("customers.whatsappOptInHint")}</p>
         <Field label={t("customers.terms")} hint={t("customers.termsHint")}>
           <Input type="number" inputMode="numeric" min="0" max="365" value={form.payment_terms_days} onChange={set("payment_terms_days")} placeholder={t("customers.termsDefault")} className="w-32" />
         </Field>
