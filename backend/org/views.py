@@ -365,13 +365,39 @@ class CompanyDeviceViewSet(viewsets.GenericViewSet):
 
     @action(detail=True, methods=["post"])
     def revoke(self, request, pk=None):
-        device = revoke_device(self.get_object(), request.user, request)
+        device = self.get_object()
+        if self._is_this_device(request, device):
+            return Response(
+                {
+                    "code": "device_in_use",
+                    "detail": "You are using this device right now. "
+                              "Revoke it from another one.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        device = revoke_device(device, request.user, request)
         return Response(self.get_serializer(device).data)
+
+    def _is_this_device(self, request, device):
+        """The browser making the request, identified by its own token."""
+        token = getattr(request, "auth", None)
+        current = token.get("device") if hasattr(token, "get") else None
+        return bool(current) and current == device.device_id
 
     def destroy(self, request, pk=None):
         """The owner removes a device from the list. Sessions from it stop
-        working at once — an unknown device id is refused, not trusted."""
+        working at once — an unknown device id is refused, not trusted — so
+        removing the browser you are using would sign you out mid-click."""
         device = self.get_object()
+        if self._is_this_device(request, device):
+            return Response(
+                {
+                    "code": "device_in_use",
+                    "detail": "You are using this device right now. "
+                              "Remove it from another one.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         delete_device(device, request.user, request)
         return Response(status=status.HTTP_204_NO_CONTENT)
 

@@ -196,6 +196,20 @@ class DeviceLimitTests(TestCase):
         entry = ActivityLog.objects.get(action="device_deleted")
         self.assertEqual(entry.metadata["device_id"], "TILL1")
 
+    def test_the_device_you_are_using_is_not_removable_from_itself(self):
+        """Otherwise the owner signs themselves out mid-click and, with the
+        row gone, cannot get back in without registering a new device."""
+        owner, _ = self._login("owner@tills.test", "Owner-passw0rd!x", "ADMIN")
+        mine = Device.objects.get(device_id="ADMIN")
+        for response in (
+            owner.delete(f"/api/subscription/devices/{mine.pk}/"),
+            owner.post(f"/api/subscription/devices/{mine.pk}/revoke/"),
+        ):
+            self.assertEqual(response.status_code, 400, response.content)
+            self.assertEqual(response.data["code"], "device_in_use")
+        self.assertTrue(Device.objects.filter(pk=mine.pk, is_active=True).exists())
+        self.assertEqual(owner.get("/api/products/").status_code, 200)
+
     def test_removing_a_device_is_the_owners_alone(self):
         till, _ = self._login("sales@tills.test", "Sales-passw0rd!x", "TILL1")
         device = Device.objects.get(device_id="TILL1")

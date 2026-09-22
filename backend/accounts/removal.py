@@ -16,6 +16,10 @@ actually wanted.
 # personal settings, this browser's push subscription, an invitation that was
 # already used, and the devices the person happened to sign in from.
 PERSONAL_ACCESSORS = frozenset({
+    # JWT bookkeeping: rows for the sessions this account opened, which say
+    # nothing about the company's records and would otherwise make every
+    # person who ever signed in un-removable.
+    "outstandingtoken_set",
     "preference",
     "push_subscriptions",
     "owner_invitations",

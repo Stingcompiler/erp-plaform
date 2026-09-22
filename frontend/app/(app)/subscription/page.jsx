@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CreditCard, KeyRound, Lock } from "lucide-react";
 import { useAuth } from "../../providers/AuthProvider";
+import { errorText } from "@/lib/errors";
 import { useI18n } from "../../providers/I18nProvider";
 import { subscription as subscriptionApi } from "@/lib/api";
 import { Badge, Button, Card, Input, PageHeader, Select } from "@/components/ui/kit";
@@ -63,7 +64,12 @@ export default function SubscriptionPage() {
   const deviceAction = async (fn, id) => {
     setDeviceBusy(id); setError("");
     try { await fn(); await loadDevices(); await load(); }
-    catch (err) { const d = err?.response?.data; setError(d?.code === "plan_limit_reached" ? t("devices.noRoom", { limit: d.limit }) : (d?.detail || t("subscription.loadError"))); }
+    catch (err) {
+      const d = err?.response?.data;
+      setError(d?.code === "plan_limit_reached"
+        ? t("devices.noRoom", { limit: d.limit })
+        : errorText(err, t, "subscription.loadError"));
+    }
     finally { setDeviceBusy(null); }
   };
 
