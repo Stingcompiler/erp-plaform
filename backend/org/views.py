@@ -28,7 +28,7 @@ from django.db import transaction
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from org.devices import reactivate_device, revoke_device
+from org.devices import delete_device, reactivate_device, revoke_device
 from subscriptions.permissions import IsBusinessOwner
 from subscriptions.services import assert_capacity, usage_for
 
@@ -367,6 +367,13 @@ class CompanyDeviceViewSet(viewsets.GenericViewSet):
     def revoke(self, request, pk=None):
         device = revoke_device(self.get_object(), request.user, request)
         return Response(self.get_serializer(device).data)
+
+    def destroy(self, request, pk=None):
+        """The owner removes a device from the list. Sessions from it stop
+        working at once — an unknown device id is refused, not trusted."""
+        device = self.get_object()
+        delete_device(device, request.user, request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["post"])
     def reactivate(self, request, pk=None):

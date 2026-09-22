@@ -29,6 +29,10 @@ from core.activity import log_activity
 from core.deletion import ArchiveOnDeleteMixin
 from core.rbac import RoleModuleAccess, tenant_scope_error
 from core.scoping import CompanyScopedModelViewSet
+from rest_framework.decorators import action
+
+from accounts.removal import attribution_of
+from subscriptions.permissions import IsBusinessOwner
 from org.devices import DeviceRefused, is_revoked, register_device, requires_device
 from org.store_mode import is_store_mode_allowed
 from org.models import Company
@@ -371,25 +375,63 @@ class UserViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
             recipient=target.email,
         )
 
-    def destroy(self, request, *args, **kwargs):
-        # Deactivating yourself would lock you out of the account that has the
-        # rights to undo it — in a single-admin company that bricks the tenant.
-        if self.get_object().pk == request.user.pk:
-            return Response(
-                {"detail": "You cannot deactivate your own account."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        target = self.get_object()
+    def _guard_removal(self, target, request):
+        """Shared refusals for deactivating or removing an account."""
+        if target.pk == request.user.pk:
+            return "You cannot deactivate your own account."
         if target.role and target.role.name == "Business Owner":
-            if User.objects.filter(
+            remaining = User.objects.filter(
                 company_id=target.company_id,
                 role__name="Business Owner",
                 is_active=True,
-            ).count() <= 1:
-                return Response(
-                    {"detail": "The company must retain at least one active owner."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            ).exclude(pk=target.pk).exists()
+            if not remaining:
+                return "The company must retain at least one active owner."
+        return None
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsBusinessOwner])
+    @transaction.atomic
+    def remove(self, request, pk=None):
+        """The owner removes an account for good.
+
+        An account that never recorded anything is deleted; one that carries
+        attribution is deactivated instead, and the response names what is
+        holding it, so the owner is told the truth rather than silently given
+        a different outcome.
+        """
+        target = self.get_object()
+        refusal = self._guard_removal(target, request)
+        if refusal:
+            return Response({"detail": refusal}, status=status.HTTP_400_BAD_REQUEST)
+        attribution = attribution_of(target)
+        email, name, pk = target.email, target.full_name, target.pk
+        if attribution:
+            if target.is_active:
+                target.is_active = False
+                target.save(update_fields=["is_active"])
+            log_activity(
+                action="archive", request=request, entity_type="User", entity_id=pk,
+                metadata={"target_email": email, "kept_for_audit": attribution},
+            )
+            return Response({
+                "removed": False,
+                "code": "kept_for_audit",
+                "records": attribution,
+            })
+        target.delete()
+        log_activity(
+            action="delete", request=request, entity_type="User", entity_id=pk,
+            metadata={"target_email": email, "target_name": name},
+        )
+        return Response({"removed": True})
+
+    def destroy(self, request, *args, **kwargs):
+        # Deactivating yourself would lock you out of the account that has the
+        # rights to undo it — in a single-admin company that bricks the tenant,
+        # and a company with no active owner cannot be administered at all.
+        refusal = self._guard_removal(self.get_object(), request)
+        if refusal:
+            return Response({"detail": refusal}, status=status.HTTP_400_BAD_REQUEST)
         return super().destroy(request, *args, **kwargs)
 
 

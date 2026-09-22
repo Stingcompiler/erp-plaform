@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MonitorSmartphone, Pencil } from "lucide-react";
+import { MonitorSmartphone, Pencil, Trash2 } from "lucide-react";
 
 import { Badge, Button, Input } from "@/components/ui/kit";
 import { useI18n } from "../../app/providers/I18nProvider";
@@ -15,7 +15,7 @@ function describeAgent(agent) {
 
 // Every browser that has signed in to the company. `onLabel` is optional —
 // the platform team reads labels but does not write them.
-export default function DeviceList({ devices, onLabel, onRevoke, onReactivate, busyId }) {
+export default function DeviceList({ devices, onLabel, onRevoke, onReactivate, onRemove, busyId }) {
   const { t, language } = useI18n();
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState("");
@@ -52,9 +52,16 @@ export default function DeviceList({ devices, onLabel, onRevoke, onReactivate, b
               <> · {t("devices.lastSeen")} {fmt(d.last_seen_at)}</>
             </div>
           </div>
-          {d.is_active
-            ? onRevoke && <Button variant="outline" disabled={busyId === d.id} onClick={() => onRevoke(d)}>{t("devices.revoke")}</Button>
-            : onReactivate && <Button variant="outline" disabled={busyId === d.id} onClick={() => onReactivate(d)}>{t("devices.allowAgain")}</Button>}
+          <div className="flex flex-wrap items-center gap-2">
+            {d.is_active
+              ? onRevoke && <Button variant="outline" disabled={busyId === d.id} onClick={() => onRevoke(d)}>{t("devices.revoke")}</Button>
+              : onReactivate && <Button variant="outline" disabled={busyId === d.id} onClick={() => onReactivate(d)}>{t("devices.allowAgain")}</Button>}
+            {onRemove && (
+              <Button variant="danger" disabled={busyId === d.id} onClick={() => onRemove(d)}>
+                <Trash2 size={15} />{t("devices.remove")}
+              </Button>
+            )}
+          </div>
         </li>
       ))}
     </ul>

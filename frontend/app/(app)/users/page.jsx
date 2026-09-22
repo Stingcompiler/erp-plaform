@@ -6,6 +6,7 @@ import { Lock, Plus, ShieldCheck } from "lucide-react";
 
 import { users as usersApi } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
+import { errorText } from "@/lib/errors";
 import { useI18n } from "../../providers/I18nProvider";
 import { translateRole } from "@/lib/i18n";
 import { Badge, Button, Card, PageHeader } from "@/components/ui/kit";
@@ -62,6 +63,27 @@ export default function UsersPage() {
       .finally(() => setLoading(false));
   }, [t]);
 
+  // Owner-only: the account goes for good when nothing references it, and is
+  // deactivated with an explanation when its name is on the company's records.
+  async function removeAccount(u) {
+    if (!window.confirm(t("users.removeConfirm", { email: u.email }))) return;
+    setBusyId(u.id);
+    try {
+      const { data } = await usersApi.remove(u.id);
+      if (data.removed) {
+        toast.success(t("users.removed", { email: u.email }));
+      } else {
+        const records = Object.values(data.records || {}).reduce((sum, n) => sum + n, 0);
+        toast.success(t("users.keptForAudit", { email: u.email, count: records }));
+      }
+      load();
+    } catch (err) {
+      toast.error(errorText(err, t, "users.toggleError"));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function toggleActive(u) {
     if (u.is_active && !window.confirm(t("users.deactivateConfirm", { email: u.email }))) return;
     setBusyId(u.id);
@@ -70,8 +92,7 @@ export default function UsersPage() {
       toast.success(u.is_active ? t("users.deactivated") : t("users.reactivated"));
       load();
     } catch (err) {
-      const data = err?.response?.data;
-      toast.error(data?.detail || (data && Object.values(data).flat().join(" ")) || t("users.toggleError"));
+      toast.error(errorText(err, t, "users.toggleError"));
     } finally {
       setBusyId(null);
     }
@@ -221,6 +242,15 @@ export default function UsersPage() {
                             >
                               {u.is_active ? t("users.deactivate") : t("users.reactivate")}
                             </button>
+                            {canAssignOwner && (
+                              <button
+                                onClick={() => removeAccount(u)}
+                                disabled={busyId === u.id}
+                                className="text-sm text-danger hover:underline disabled:opacity-50"
+                              >
+                                {t("users.remove")}
+                              </button>
+                            )}
                           </span>
                         )}
                       </td>

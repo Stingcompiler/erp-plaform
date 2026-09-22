@@ -391,6 +391,9 @@ export const users = {
   // DELETE archives (is_active=false) — attribution on payments stays intact.
   deactivate: (id) => api.delete(`/users/${id}/`),
   reactivate: (id) => api.patch(`/users/${id}/`, { is_active: true }),
+  // Owner-only: deletes the account outright when nothing references it,
+  // otherwise deactivates it and names what kept it (see accounts/removal.py).
+  remove: (id) => api.post(`/users/${id}/remove/`),
   roles: () => api.get("/roles/"),
   branches: () => api.get("/branches/"),
 };
@@ -563,6 +566,7 @@ export const subscription = {
   labelDevice: (id, label) => api.patch(`/subscription/devices/${id}/`, { label }),
   revokeDevice: (id) => api.post(`/subscription/devices/${id}/revoke/`),
   reactivateDevice: (id) => api.post(`/subscription/devices/${id}/reactivate/`),
+  removeDevice: (id) => api.delete(`/subscription/devices/${id}/`),
   planChanges: () => api.get("/subscription/plan-changes/"),
   requestPlanChange: (to_version, note = "") =>
     api.post("/subscription/plan-changes/", { to_version, note }),

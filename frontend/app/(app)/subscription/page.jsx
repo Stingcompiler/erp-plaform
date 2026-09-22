@@ -182,6 +182,7 @@ export default function SubscriptionPage() {
             onLabel={(id, label) => deviceAction(() => subscriptionApi.labelDevice(id, label), id)}
             onRevoke={(d) => { if (window.confirm(t("devices.confirmRevoke", { name: d.label || d.device_id }))) deviceAction(() => subscriptionApi.revokeDevice(d.id), d.id); }}
             onReactivate={(d) => deviceAction(() => subscriptionApi.reactivateDevice(d.id), d.id)}
+            onRemove={(d) => { if (window.confirm(t("devices.confirmRemove", { name: d.label || d.device_id }))) deviceAction(() => subscriptionApi.removeDevice(d.id), d.id); }}
           />
         </div>
       </Card>}
