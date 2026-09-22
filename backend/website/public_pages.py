@@ -255,10 +255,13 @@ def _http_url(value):
 
 
 def _site_or_404(slug):
+    # `from None`: an unknown slug is an ordinary 404, and chaining
+    # DoesNotExist onto it only adds a misleading "during handling of the
+    # above exception" block to the log.
     try:
         company = Company.objects.get(slug=slug, is_active=True)
     except Company.DoesNotExist:
-        raise Http404
+        raise Http404 from None
     site = getattr(company, "website", None)
     if site is None or not site.is_published:
         raise Http404

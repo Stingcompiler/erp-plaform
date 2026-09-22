@@ -4,6 +4,8 @@ the monitor itself can never make an outage worse.
 
 from unittest import mock
 
+from django.core.exceptions import PermissionDenied, SuspiciousOperation
+from django.http import Http404
 from django.test import RequestFactory, TestCase, override_settings
 from rest_framework.test import APIClient
 
@@ -36,6 +38,16 @@ class ErrorCaptureTests(TestCase):
         self.assertEqual(event.message, "boom")
         self.assertEqual(event.method, "POST")
         self.assertIn("_boom", event.traceback)
+
+    def test_expected_4xx_exceptions_are_not_recorded(self):
+        # A visitor asking for a store slug that does not exist, a forbidden
+        # page, a bad host: the right status code is the whole answer.
+        for exc in (Http404("no such site"), PermissionDenied(), SuspiciousOperation()):
+            _capture(path="/s/unknown-shop/", exc=exc)
+        self.assertEqual(ErrorEvent.objects.count(), 0)
+        # A real fault on the same path still lands.
+        _capture(path="/s/unknown-shop/")
+        self.assertEqual(ErrorEvent.objects.count(), 1)
 
     def test_recurrence_reopens_a_resolved_error(self):
         _capture()
