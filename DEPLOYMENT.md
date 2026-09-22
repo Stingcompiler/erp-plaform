@@ -122,56 +122,6 @@ Node (used only to build the frontend) via `NODE_VERSION`. `CORS_ALLOWED_ORIGINS
 is no longer needed in production — the frontend is same-origin — but stays
 useful for local dev against `next dev` on `:3000`.
 
-### WhatsApp Business (optional)
-
-Each company connects its own Meta WhatsApp Business number; one webhook
-serves the platform and routes events by `phone_number_id`.
-
-1. On `erp-api` set `WHATSAPP_VERIFY_TOKEN` (any long random phrase) and
-   `WHATSAPP_APP_SECRET` (Meta app → App settings → Basic → App Secret).
-   Redeploy. `manage.py preflight` reports `whatsapp: ok`.
-2. Meta app → WhatsApp → Configuration → Webhook: callback URL
-   `https://enterprise.vezano.app/api/whatsapp/webhook/`, verify token as
-   above, then subscribe to the `messages` field. Meta sends a GET with
-   `hub.challenge`; the app echoes it only when the token matches.
-3. Connect a number from the Render shell (the token comes from an
-   environment variable, never the command line):
-
-   ```
-   WA_TOKEN_SHOP=<permanent System User token> python manage.py whatsapp_connect \
-       --phone-number-id <id> --display-phone 2499xxxxxxx --company "<company name>" \
-       --waba-id <waba id> --token-env WA_TOKEN_SHOP
-   ```
-
-   Omit `--company` for the platform's own number.
-4. Send a WhatsApp message to the number: it appears in Django admin →
-   WhatsApp messages with status `received`; statuses of outbound
-   messages (sent/delivered/read/failed) update their rows.
-
-**Token storage.** Permanent tokens are encrypted at rest (`core.secrets`,
-Fernet) and never returned by the API or listed in admin. Set
-`SECRETS_ENCRYPTION_KEY` on `erp-api` to a dedicated key
-(`python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`);
-without it the key is derived from `DJANGO_SECRET_KEY` and `preflight`
-warns. To rotate: move the current value to `SECRETS_ENCRYPTION_KEY_PREVIOUS`,
-set the new key, deploy, run `python manage.py rotate_secrets` from the
-shell, then remove `_PREVIOUS`. A token that leaked (for example one that
-was visible in a screenshot) must still be invalidated in Meta Business
-Manager and re-entered — encryption protects the database copy, not a
-copy already outside it.
-
-Every delivery is verified with `X-Hub-Signature-256`; unsigned or
-mis-signed bodies are refused with 403. Raw bodies are kept
-`WHATSAPP_EVENT_RETENTION_DAYS` (14) for debugging and pruned nightly.
-
-Sending (P1): a company owner/manager can also connect the number from
-Settings → WhatsApp (the token is write-only), choose the approved Meta
-template for each purpose (body parameters are positional and listed on
-the screen), and send a test. Customers receive their invoice after a
-POS sale and a receipt after a recorded payment **only if** the customer
-record has "send on WhatsApp" ticked; without a template the free-text
-message goes only inside Meta's 24-hour window after the customer wrote.
-`WHATSAPP_GRAPH_BASE` may point at a stub in dev/e2e.
 
 ## Security posture (M10)
 

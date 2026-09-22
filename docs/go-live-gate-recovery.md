@@ -34,8 +34,7 @@ It is a tenant-level safety net, not disaster recovery: full recovery is a
       `render ssh erp-api` → `tar czf - /var/data/media | …` to your machine, or
       a one-line `rclone sync /var/data/media r2:vezano-media` from the shell.
       Record the date of the last copy in the table below.
-- [ ] **D. Secrets on file.** `DJANGO_SECRET_KEY`, `SECRETS_ENCRYPTION_KEY`
-      (#148), `WHATSAPP_*`, VAPID keys, SMTP — stored in the owner's password
+- [ ] **D. Secrets on file.** `DJANGO_SECRET_KEY`, VAPID keys, SMTP — stored in the owner's password
       manager. A restored database is useless without the same keys.
 - [ ] **E. Restore drill done** (below) and its numbers pasted here.
 
@@ -49,16 +48,16 @@ It is a tenant-level safety net, not disaster recovery: full recovery is a
    or `pg_restore` from the downloaded dump).
 3. **Point a scratch web service at it**: duplicate `erp-api` as `erp-api-drill`
    (or temporarily set `DATABASE_URL` on a preview instance) with the *same*
-   `DJANGO_SECRET_KEY` and `SECRETS_ENCRYPTION_KEY`. Run `python manage.py migrate`
+   `DJANGO_SECRET_KEY`. Run `python manage.py migrate`
    and `python manage.py preflight`.
 4. **Fingerprint the restored copy**: `python manage.py recovery_fingerprint --json > after.json`.
    `diff before.json after.json` must be empty except for rows written to
    production after the backup time (note them).
 5. **Media**: restore the latest media copy to the drill service's disk; open
    one payment proof and one product image from the UI.
-6. **Sign in** as an owner of one company, open POS, dashboard, finance,
-   subscription; send a WhatsApp test message (proves the encrypted token
-   restored with the key).
+6. **Sign in** as an owner of one company, open POS, dashboard, finance and
+   subscription, and send a test email (`manage.py send_test_email`) — mail is
+   the only outbound channel, so a restore that cannot send one is not done.
 7. **Logical-dump path**: from the drill service, `POST /api/ops/backups/restore/`
    with the newest `storage_key` into a new empty company; its product count
    must match the source company's.
