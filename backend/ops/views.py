@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 
 from core.activity import log_activity
 from core.rbac import RoleModuleAccess
-from ops import snapshots
+from ops import exporters, snapshots
 from ops.models import BackupRecord, UserPreference
 from ops.services import dump_company, restore_master
 
@@ -144,7 +144,11 @@ class RestoreView(APIView):
 
 
 class BackupDownloadView(APIView):
-    """GET /api/ops/backups/<id>/download/ — the snapshot as a JSON file.
+    """GET /api/ops/backups/<id>/download/?format=json|xlsx|csv&lang=ar|en
+
+    JSON is the snapshot a restore replays. The other two are the same data
+    for a person to read — a workbook, or a zip of CSVs — because a backup
+    nobody can open is a backup nobody checks.
 
     Resolved through the caller's own company, like restore; a record with
     no stored payload (pre-tier metadata-only rows) is a 404.
@@ -159,12 +163,27 @@ class BackupDownloadView(APIView):
         payload = snapshots.read(record) if record is not None else None
         if not payload:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        wanted = (request.query_params.get("format") or "json").lower()
+        if wanted not in exporters.FORMATS:
+            return Response(
+                {"format": f"Choose one of {', '.join(exporters.FORMATS)}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         stamp = record.created_at.strftime("%Y-%m-%dT%H-%M-%S")
-        response = HttpResponse(payload, content_type="application/json; charset=utf-8")
-        response["Content-Disposition"] = (
-            f'attachment; filename="vezano-backup-{stamp}-{record.kind}.json"'
-        )
+        name = f"vezano-backup-{stamp}-{record.kind}"
+        if wanted == "json":
+            response = HttpResponse(payload, content_type="application/json; charset=utf-8")
+            response["Content-Disposition"] = f'attachment; filename="{name}.json"'
+        else:
+            language = "en" if request.query_params.get("lang") == "en" else "ar"
+            render, content_type, extension = exporters.RENDERERS[wanted]
+            dump = payload if isinstance(payload, dict) else json.loads(payload)
+            response = HttpResponse(
+                render(dump, record, language), content_type=content_type
+            )
+            response["Content-Disposition"] = f'attachment; filename="{name}.{extension}"'
         response["Cache-Control"] = "no-store"
+        response["X-Content-Type-Options"] = "nosniff"
         return response
 
 

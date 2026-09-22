@@ -17,6 +17,14 @@ const TIMEZONES = [
   "Asia/Riyadh", "Asia/Dubai", "Asia/Qatar", "Asia/Kuwait", "Asia/Amman", "Europe/London", "UTC",
 ];
 
+// json restores; the other two are for a person to read (and for an
+// accountant who wants the numbers in a spreadsheet).
+const BACKUP_FORMATS = [
+  ["json", "settings.backupFormatJson"],
+  ["xlsx", "settings.backupFormatXlsx"],
+  ["csv", "settings.backupFormatCsv"],
+];
+
 export default function SettingsPage() {
   const { user, canRead, canWrite, refresh, can } = useAuth();
   const { t, language } = useI18n();
@@ -562,14 +570,20 @@ export default function SettingsPage() {
                   {b.storage_key && <Badge tone="accent">{t("settings.offSite")}</Badge>}
                   {b.record_count} {t("settings.records")} · {bytes(b.size_bytes)}
                   {b.downloadable && (
-                    <a
-                      href={settings.backupDownloadUrl(b.id)}
-                      download
-                      className="inline-flex items-center gap-1 rounded-control border border-line px-2 py-1 text-xs text-ink hover:bg-paper"
-                      title={t("settings.downloadBackup")}
-                    >
-                      <Download size={13} />{t("settings.downloadBackup")}
-                    </a>
+                    <span className="inline-flex items-center gap-1">
+                      <Download size={13} className="text-muted" />
+                      {BACKUP_FORMATS.map(([format, labelKey]) => (
+                        <a
+                          key={format}
+                          href={settings.backupDownloadUrl(b.id, format, language)}
+                          download
+                          className="rounded-control border border-line px-2 py-1 text-xs text-ink hover:bg-paper"
+                          title={t(`settings.backupFormatHint.${format}`)}
+                        >
+                          {t(labelKey)}
+                        </a>
+                      ))}
+                    </span>
                   )}
                   {b.downloadable && writable && b.kind !== "restore" && (
                     <button
@@ -587,7 +601,7 @@ export default function SettingsPage() {
             ))}
           </div>
         )}
-        <p className="mt-3 text-xs text-muted">{t("settings.backupsNote")}</p>
+        <p className="mt-3 text-xs text-muted">{t("settings.backupsNote")} {t("settings.backupFormatsNote")}</p>
         {writable && (
           <div className="mt-4 rounded-control border border-line bg-paper p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
