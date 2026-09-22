@@ -17,7 +17,9 @@ import logging
 import traceback as traceback_module
 
 from django.conf import settings
+from django.core.exceptions import PermissionDenied, SuspiciousOperation
 from django.db import models
+from django.http import Http404
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -34,9 +36,17 @@ def _fingerprint(exc, request):
     return hashlib.sha256(raw.encode("utf-8", "replace")).hexdigest()[:32]
 
 
+# Exceptions that are the correct answer to a bad request, not a fault in the
+# service: a visitor typing a store slug that does not exist, a user opening a
+# page their role forbids, a malformed host header. They already produce the
+# right status code, and recording them buries real errors under noise.
+EXPECTED = (Http404, PermissionDenied, SuspiciousOperation)
+
+
 class ErrorMonitorMiddleware:
     """Records unhandled view exceptions; DEBUG runs keep the debug page
-    as the whole story and are not recorded."""
+    as the whole story and are not recorded, and so are expected 4xx
+    exceptions (see EXPECTED)."""
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -45,7 +55,7 @@ class ErrorMonitorMiddleware:
         return self.get_response(request)
 
     def process_exception(self, request, exception):
-        if settings.DEBUG:
+        if settings.DEBUG or isinstance(exception, EXPECTED):
             return None
         try:
             from core.models import ErrorEvent

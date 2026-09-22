@@ -4,8 +4,18 @@ import { useCallback, useEffect, useState } from "react";
 import { MessageCircle, Send } from "lucide-react";
 
 import { whatsapp as api } from "@/lib/api";
+import { errorText } from "@/lib/errors";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { Badge, Button, Field, Input } from "@/components/ui/kit";
+
+// Meta's body parameters are positional; the backend names them in English
+// ("customer name"). Show the reader their own words, keeping {{1}}…{{4}}.
+const PARAM_KEY = {
+  "customer name": "customerName", "invoice number": "invoiceNumber", "total": "total",
+  "amount due": "amountDue", "amount paid": "amountPaid", "balance due": "balanceDue",
+  "amount overdue": "amountOverdue", "oldest invoice": "oldestInvoice",
+  "days overdue": "daysOverdue", "order reference": "orderReference", "branch": "branch",
+};
 
 const STATUS_TONE = { received: "accent", queued: "muted", sent: "muted", delivered: "ok", read: "ok", failed: "danger" };
 
@@ -52,8 +62,7 @@ export default function WhatsAppCard({ canManage, language }) {
       setAccount((a) => ({ ...a, access_token: "" }));
       setMsg(t("settings.whatsappSaved"));
     } catch (err) {
-      const d = err?.response?.data;
-      setMsg(typeof d === "object" && d ? Object.values(d).flat().join(" ") : t("settings.saveFailed"));
+      setMsg(errorText(err, t, "settings.saveFailed"));
     } finally { setBusy(false); }
   }
 
@@ -64,7 +73,7 @@ export default function WhatsAppCard({ canManage, language }) {
       setMsg(r.data.status === "failed" ? t("settings.whatsappTestFailed", { reason: r.data.error_title || "" }) : t("settings.whatsappTestSent"));
       load();
     } catch (err) {
-      setMsg(err?.response?.data?.detail || t("settings.saveFailed"));
+      setMsg(errorText(err, t, "settings.saveFailed"));
     } finally { setBusy(false); }
   }
 
@@ -114,7 +123,7 @@ export default function WhatsAppCard({ canManage, language }) {
                 <div key={row.purpose} className="grid gap-2 px-3 py-2 sm:grid-cols-[1fr_1fr_5rem_auto] sm:items-center">
                   <div>
                     <div className="text-sm">{t(`settings.whatsappPurpose.${row.purpose}`)}</div>
-                    <div className="text-xs text-muted" dir="ltr">{row.params.map((p, i) => `{{${i + 1}}} ${p}`).join(" · ")}</div>
+                    <div className="text-xs text-muted">{row.params.map((p, i) => `{{${i + 1}}} ${PARAM_KEY[p] ? t(`settings.whatsappParam.${PARAM_KEY[p]}`) : p}`).join(" · ")}</div>
                   </div>
                   <Input value={row.template_name} onChange={setTpl(row.purpose, "template_name")} dir="ltr" placeholder={t("settings.whatsappTemplateName")} disabled={!canManage} />
                   <Input value={row.language} onChange={setTpl(row.purpose, "language")} dir="ltr" maxLength={8} disabled={!canManage} />
