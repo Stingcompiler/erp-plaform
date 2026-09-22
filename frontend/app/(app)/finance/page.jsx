@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Lock, Plus, ArrowUpRight, Receipt, Wallet, Scale } from "lucide-react";
 
 import { finance } from "@/lib/api";
+import { errorText } from "@/lib/errors";
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
@@ -108,7 +109,8 @@ export default function FinancePage() {
   const [summary, setSummary] = useState(null);
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  // "" when everything loaded; otherwise the sentence to show.
+  const [error, setError] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [count, setCount] = useState(0);
@@ -119,20 +121,27 @@ export default function FinancePage() {
   const money = (v) => v == null ? "—" : Number(v).toLocaleString(language === "ar" ? "ar" : "en", {
     minimumFractionDigits: 2, maximumFractionDigits: 2,
   });
+  // allSettled, not all: the totals and the expense list are two independent
+  // requests, and one of them failing used to blank the other as well.
   const load = useCallback(async () => {
     const id = ++generation.current;
-    setLoading(true); setError(false); setSummary(null);
-    try {
-      const [totals, rows] = await Promise.all([
-        finance.summary({ start: filters.start, end: filters.end, method: filters.method }),
-        finance.expenses({ ...filters, page }),
-      ]);
-      if (id !== generation.current) return;
-      setSummary(totals.data); setExpenses(rows.data.results);
-      setCount(rows.data.count); setNext(Boolean(rows.data.next));
-    } catch { if (id === generation.current) { setError(true); setExpenses([]); } }
-    finally { if (id === generation.current) setLoading(false); }
-  }, [filters, page]);
+    setLoading(true); setError(""); setSummary(null);
+    const [totals, rows] = await Promise.allSettled([
+      finance.summary({ start: filters.start, end: filters.end, method: filters.method }),
+      finance.expenses({ ...filters, page }),
+    ]);
+    if (id !== generation.current) return;
+    if (totals.status === "fulfilled") setSummary(totals.value.data);
+    if (rows.status === "fulfilled") {
+      setExpenses(rows.value.data.results);
+      setCount(rows.value.data.count); setNext(Boolean(rows.value.data.next));
+    } else {
+      setExpenses([]);
+    }
+    const failure = [totals, rows].find((r) => r.status === "rejected");
+    setError(failure ? errorText(failure.reason, t, "improvements.loadError") : "");
+    setLoading(false);
+  }, [filters, page, t]);
   useEffect(() => {
     if (!canRead("finance") || invalidDates) return;
     const timer = setTimeout(load, 250);
@@ -153,7 +162,7 @@ export default function FinancePage() {
     {invalidDates && <p role="alert" className="mb-4 text-danger">{t("improvements.invalidDates")}</p>}
     {writable && <PaymentVerificationPanel refreshKey={reconcileKey} />}
     {writable && <StatementReconcilePanel onApplied={() => setReconcileKey((k) => k + 1)} />}
-    {error && <Card className="mb-4 p-4"><p role="alert" className="mb-3 text-danger">{t("improvements.loadError")}</p><Button onClick={load}>{t("improvements.retry")}</Button></Card>}
+    {error && <Card className="mb-4 p-4"><p role="alert" className="mb-3 text-danger">{error}</p><Button onClick={load}>{t("improvements.retry")}</Button></Card>}
     <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-busy={loading}>
       <StatTile label={t("finance.revenue")} value={money(summary?.revenue)} icon={ArrowUpRight} />
       <StatTile icon={Receipt} label={t("improvements.cogs")} value={money(summary?.cogs)} />
@@ -169,7 +178,7 @@ export default function FinancePage() {
       </Select></Field>
     </div>
     {loading && !invalidDates && <p role="status" className="py-6 text-muted">{t("common.loading")}</p>}
-    {!loading && !error && !invalidDates && <Card>
+    {!loading && !invalidDates && <Card>
       {expenses.length === 0 ? <p className="p-8 text-center text-muted">{t("finance.noExpenses")}</p> :
       <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-line text-muted">
         {["category","description","method","date","amount"].map((key) => <th key={key} scope="col" className="px-4 py-3 text-start">{t(`finance.${key}`)}</th>)}

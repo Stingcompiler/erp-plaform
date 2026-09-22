@@ -22,6 +22,31 @@ export function dirFor(lang) {
 }
 
 const en = {
+  errors: {
+    generic: "That did not work. Try again.",
+    network: "Could not reach the server. Check the connection and try again.",
+    offline: "You are offline. The page will load once the connection is back.",
+    server: "Something went wrong on our side. Try again in a moment; if it keeps happening, tell support.",
+    session: "Your session ended. Sign in again.",
+    forbidden: "Your role does not allow this.",
+    notFound: "That is no longer there — it may have been deleted or renamed.",
+    conflict: "Someone changed this first. Reload and try again.",
+    tooLarge: "The file is too large.",
+    badFile: "That file type is not accepted.",
+    tooMany: "Too many attempts. Wait a minute and try again.",
+    unavailable: "The service is busy. Try again in a moment.",
+    codes: {
+      module_not_in_plan: "This module is not included in your current plan. Upgrade the plan to use it.",
+      subscription_read_only: "The subscription is not active, so the workspace is read-only until it is renewed.",
+      license_read_only: "The licence is read-only. Renew it to make changes again.",
+      device_required: "This device is not registered. Sign in again from it.",
+      device_revoked: "This device was revoked. Ask an administrator to allow it again.",
+      plan_limit_reached: "Your plan's limit is reached. Add units or upgrade the plan.",
+      subscription_inactive: "The subscription is not active, so the workspace is read-only.",
+      duplicate_reference: "That transfer reference is already recorded on this invoice.",
+      approval_required: "This amount needs a manager's approval.",
+    },
+  },
   common: {
     appName: "VEZANO",
     choose: "— choose —",
@@ -1658,6 +1683,12 @@ const en = {
     whatsappOptedIn: "{count} customers opted in",
     whatsappTemplates: "Message templates",
     whatsappTemplatesHint: "Create and get each template approved in Meta Business Manager, then enter its exact name and language here. The body parameters must be used in this order.",
+    whatsappParam: {
+      customerName: "customer name", invoiceNumber: "invoice number", total: "total",
+      amountDue: "amount due", amountPaid: "amount paid", balanceDue: "balance due",
+      amountOverdue: "amount overdue", oldestInvoice: "oldest invoice",
+      daysOverdue: "days overdue", orderReference: "order reference", branch: "branch",
+    },
     whatsappTemplateName: "template name",
     whatsappPurpose: {
       invoice_sent: "Invoice after a sale",
@@ -2704,6 +2735,31 @@ const en = {
 };
 
 const ar = {
+  errors: {
+    generic: "لم تنجح العملية. حاول مرة أخرى.",
+    network: "تعذّر الوصول إلى الخادم. تحقّق من الاتصال وحاول مرة أخرى.",
+    offline: "أنت غير متصل. ستُحمّل الصفحة عند عودة الاتصال.",
+    server: "حدث خطأ لدينا. أعد المحاولة بعد قليل، وإن تكرر فأبلغ الدعم.",
+    session: "انتهت جلستك. سجّل الدخول من جديد.",
+    forbidden: "دورك لا يسمح بهذا الإجراء.",
+    notFound: "لم يعد هذا موجودًا — ربما حُذف أو تغيّر اسمه.",
+    conflict: "غيّره شخص آخر قبلك. أعد تحميل الصفحة وحاول مجددًا.",
+    tooLarge: "حجم الملف كبير جدًا.",
+    badFile: "نوع الملف غير مقبول.",
+    tooMany: "محاولات كثيرة. انتظر دقيقة ثم حاول مجددًا.",
+    unavailable: "الخدمة مشغولة حاليًا. أعد المحاولة بعد قليل.",
+    codes: {
+      module_not_in_plan: "هذه الوحدة غير مشمولة بباقتك الحالية. ارفع الباقة لاستخدامها.",
+      subscription_read_only: "الاشتراك غير نشط، ومساحة العمل للقراءة فقط حتى تجديده.",
+      license_read_only: "الرخصة للقراءة فقط. جدّدها للعودة إلى التعديل.",
+      device_required: "هذا الجهاز غير مسجّل. سجّل الدخول منه من جديد.",
+      device_revoked: "أُبطل هذا الجهاز. اطلب من المسؤول السماح به مجددًا.",
+      plan_limit_reached: "بلغت حد باقتك. أضف وحدات أو ارفع الباقة.",
+      subscription_inactive: "الاشتراك غير نشط، ومساحة العمل للقراءة فقط.",
+      duplicate_reference: "رقم التحويل مسجّل على هذه الفاتورة بالفعل.",
+      approval_required: "هذا المبلغ يحتاج اعتماد مدير.",
+    },
+  },
   common: {
     appName: "فيزانو",
     choose: "— اختر —",
@@ -4334,6 +4390,12 @@ const ar = {
     whatsappOptedIn: "{count} عميل موافق",
     whatsappTemplates: "قوالب الرسائل",
     whatsappTemplatesHint: "أنشئ كل قالب واعتمده في Meta Business Manager ثم أدخل اسمه ولغته هنا بدقة. معاملات النص يجب أن تكون بهذا الترتيب.",
+    whatsappParam: {
+      customerName: "اسم العميل", invoiceNumber: "رقم الفاتورة", total: "الإجمالي",
+      amountDue: "المبلغ المستحق", amountPaid: "المبلغ المدفوع", balanceDue: "الرصيد المتبقي",
+      amountOverdue: "المبلغ المتأخر", oldestInvoice: "أقدم فاتورة",
+      daysOverdue: "أيام التأخير", orderReference: "مرجع الطلب", branch: "الفرع",
+    },
     whatsappTemplateName: "اسم القالب",
     whatsappPurpose: {
       invoice_sent: "الفاتورة بعد البيع",

@@ -5,6 +5,7 @@ import { Database, Download, Lock, Printer, RotateCcw, TrendingUp, Upload } from
 
 import { settings, users } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
+import { errorText } from "@/lib/errors";
 import { useI18n } from "../../providers/I18nProvider";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import WhatsAppCard from "@/components/settings/WhatsAppCard";
@@ -62,8 +63,7 @@ export default function SettingsPage() {
       setCompany(r.data);
       loadRates();
     } catch (err) {
-      const data = err?.response?.data;
-      setRateMsg(typeof data === "object" && data ? Object.values(data).flat().join(" ") : t("settings.saveFailed"));
+      setRateMsg(errorText(err, t, "settings.saveFailed"));
     } finally {
       setSavingRate(false);
     }
@@ -121,8 +121,7 @@ export default function SettingsPage() {
       setProfile(r.data);
       setMsg(t("settings.taxSaved"));
     } catch (err) {
-      const data = err?.response?.data;
-      setMsg(typeof data === "object" && data ? Object.values(data).flat().join(" ") : t("settings.saveFailed"));
+      setMsg(errorText(err, t, "settings.saveFailed"));
     } finally {
       setSavingTax(false);
     }
@@ -157,12 +156,7 @@ export default function SettingsPage() {
       setCompany(r.data);
       setCompanyMsg(t("settings.companySaved"));
     } catch (err) {
-      const data = err?.response?.data;
-      setCompanyMsg(
-        typeof data === "object" && data
-          ? Object.values(data).flat().join(" ")
-          : t("settings.saveFailed"),
-      );
+      setCompanyMsg(errorText(err, t, "settings.saveFailed"));
     } finally {
       setSavingCompany(false);
     }
@@ -240,8 +234,7 @@ export default function SettingsPage() {
       setPendingMode(null);
       await refresh?.();
     } catch (err) {
-      const data = err?.response?.data;
-      setCompanyMsg(typeof data === "object" && data ? Object.values(data).flat().join(" ") : t("settings.saveFailed"));
+      setCompanyMsg(errorText(err, t, "settings.saveFailed"));
     } finally {
       setSavingMode(false);
     }
