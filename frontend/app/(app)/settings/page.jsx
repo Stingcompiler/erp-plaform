@@ -27,6 +27,7 @@ export default function SettingsPage() {
   const [handlers, setHandlers] = useState([]);
   const [backups, setBackups] = useState([]);
   const [restoring, setRestoring] = useState(false);
+  const [fileMode, setFileMode] = useState("empty");
   const [restoreMsg, setRestoreMsg] = useState(null);
   const [savingTax, setSavingTax] = useState(false);
   const [savingCompany, setSavingCompany] = useState(false);
@@ -161,17 +162,34 @@ export default function SettingsPage() {
     }
   }
 
-  async function restore(body) {
-    if (!window.confirm(t("settings.restoreConfirm"))) return;
+  // Two ways to restore. Into an empty company the dump is replayed whole.
+  // Into a working one, "missing" adds only what is gone — and it is always
+  // previewed first, because the owner should see the number before agreeing.
+  async function restore(body, { mode = "empty" } = {}) {
     setRestoring(true);
     setRestoreMsg(null);
     try {
-      const r = await settings.restoreBackup(body);
+      if (mode === "missing") {
+        const preview = await settings.restoreBackup({ ...body, mode, dry_run: true });
+        const adding = Object.values(preview.data.added || {}).reduce((sum, n) => sum + n, 0);
+        const keeping = Object.values(preview.data.skipped || {}).reduce((sum, n) => sum + n, 0);
+        if (adding === 0) {
+          setRestoreMsg({ ok: true, text: t("settings.restoreNothingMissing") });
+          return;
+        }
+        if (!window.confirm(t("settings.restoreMissingConfirm", { adding, keeping }))) return;
+      } else if (!window.confirm(t("settings.restoreConfirm"))) {
+        return;
+      }
+      const r = await settings.restoreBackup({ ...body, ...(mode === "missing" ? { mode } : {}) });
       setRestoreMsg({ ok: true, text: t("settings.restoreDone", { count: r.data.restored }) });
       await loadBackups();
     } catch (err) {
       const data = err?.response?.data;
-      setRestoreMsg({ ok: false, text: data?.detail || (Array.isArray(data) ? data.join(" ") : t("settings.restoreFailed")) });
+      setRestoreMsg({
+        ok: false,
+        text: data?.detail || (Array.isArray(data) ? data.join(" ") : errorText(err, t, "settings.restoreFailed")),
+      });
     } finally {
       setRestoring(false);
     }
@@ -183,7 +201,7 @@ export default function SettingsPage() {
     if (!file) return;
     try {
       const parsed = JSON.parse(await file.text());
-      await restore({ data: parsed.data ?? parsed });
+      await restore({ data: parsed.data ?? parsed }, { mode: fileMode });
     } catch {
       setRestoreMsg({ ok: false, text: t("settings.restoreBadFile") });
     }
@@ -582,6 +600,17 @@ export default function SettingsPage() {
                       <RotateCcw size={13} />{t("settings.restoreThis")}
                     </button>
                   )}
+                  {b.downloadable && writable && b.kind !== "restore" && (
+                    <button
+                      type="button"
+                      onClick={() => restore({ backup_id: b.id }, { mode: "missing" })}
+                      disabled={restoring}
+                      className="inline-flex items-center gap-1 rounded-control border border-line px-2 py-1 text-xs text-ink hover:bg-paper disabled:opacity-50"
+                      title={t("settings.restoreMissingHint")}
+                    >
+                      <RotateCcw size={13} />{t("settings.restoreMissing")}
+                    </button>
+                  )}
                 </span>
               </div>
             ))}
@@ -595,6 +624,15 @@ export default function SettingsPage() {
                 <div className="text-sm font-medium text-ink">{t("settings.restoreTitle")}</div>
                 <p className="mt-0.5 text-xs text-muted">{t("settings.restoreHint")}</p>
               </div>
+              <Select
+                value={fileMode}
+                onChange={(e) => setFileMode(e.target.value)}
+                className="w-auto"
+                aria-label={t("settings.restoreMode")}
+              >
+                <option value="empty">{t("settings.restoreModeEmpty")}</option>
+                <option value="missing">{t("settings.restoreModeMissing")}</option>
+              </Select>
               <label className={`inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-control border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink shadow-sm hover:bg-paper ${restoring ? "pointer-events-none opacity-50" : ""}`}>
                 <Upload size={15} />{restoring ? t("settings.restoring") : t("settings.restoreFromFile")}
                 <input type="file" accept="application/json,.json" className="hidden" onChange={restoreFromFile} disabled={restoring} />

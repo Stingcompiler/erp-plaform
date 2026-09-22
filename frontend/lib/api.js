@@ -448,6 +448,7 @@ export const settings = {
   createBackup: () => api.post("/ops/backups/"),
   // A plain link (cookie auth), so the browser saves it as a file directly.
   backupDownloadUrl: (id) => `${api.defaults.baseURL}/ops/backups/${id}/download/`,
+  // body: {data | backup_id, mode?: "empty" | "missing", dry_run?: true}
   restoreBackup: (body) => api.post("/ops/backups/restore/", body),
 };
 
