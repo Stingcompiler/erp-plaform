@@ -77,7 +77,7 @@ function NavLeaf({ item, onNavigate, nested = false }) {
       href={item.href}
       onClick={onClick}
       aria-current={active ? "page" : undefined}
-      className={`relative flex items-center gap-3 rounded-control py-2.5 text-sm transition-colors ${
+      className={`tap relative flex items-center gap-3 rounded-control py-2.5 text-sm transition-colors ${
         nested ? "ps-9 pe-3" : "px-3"
       } ${
         active
@@ -110,7 +110,7 @@ function NavGroup({ group, open, onToggle, onNavigate }) {
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className={`flex w-full items-center gap-3 rounded-control px-3 py-2.5 text-sm transition-colors ${
+        className={`tap flex w-full items-center gap-3 rounded-control px-3 py-2.5 text-sm transition-colors ${
           holdsActive && !open
             ? "text-sidebarText"
             : "text-sidebarText/70 hover:bg-white/5 hover:text-sidebarText"
@@ -245,7 +245,7 @@ function SidebarContent({ onNavigate }) {
         <Link
           href="/settings"
           onClick={onNavigate}
-          className="mx-3 mb-1 flex items-center gap-2 rounded-control bg-white/5 px-3 py-2 text-xs text-sidebarText/70 hover:bg-white/10 hover:text-sidebarText"
+          className="tap mx-3 mb-1 flex items-center gap-2 rounded-control bg-white/5 px-3 py-2 text-xs text-sidebarText/70 hover:bg-white/10 hover:text-sidebarText"
         >
           <Store size={14} className="shrink-0" />
           <span className="min-w-0 flex-1 truncate">{t("shell.shopMode")}</span>
@@ -271,7 +271,7 @@ function Topbar({ onOpenMenu }) {
         <button
           onClick={onOpenMenu}
           aria-label={t("shell.menu")}
-          className="grid h-10 w-10 place-items-center rounded-control text-muted hover:bg-paper hover:text-ink lg:hidden"
+          className="tap grid h-10 w-10 place-items-center rounded-control text-muted hover:bg-paper hover:text-ink lg:hidden"
         >
           <Menu size={20} />
         </button>
@@ -285,7 +285,7 @@ function Topbar({ onOpenMenu }) {
         <button
           onClick={toggleLanguage}
           title={t("shell.switchLanguage")}
-          className="flex h-10 items-center gap-1.5 rounded-control px-2.5 text-sm text-muted hover:bg-paper hover:text-ink"
+          className="tap flex h-10 items-center gap-1.5 rounded-control px-2.5 text-sm text-muted hover:bg-paper hover:text-ink"
         >
           <Languages size={16} />
           {language === "ar" ? "العربية" : "EN"}
@@ -294,14 +294,14 @@ function Topbar({ onOpenMenu }) {
           onClick={cycleTheme}
           title={`${t("shell.theme")}: ${theme}`}
           aria-label={t("shell.theme")}
-          className="grid h-10 w-10 place-items-center rounded-control text-muted hover:bg-paper hover:text-ink"
+          className="tap grid h-10 w-10 place-items-center rounded-control text-muted hover:bg-paper hover:text-ink"
         >
           <ThemeIcon size={16} />
         </button>
         <button
           onClick={logout}
           aria-label={t("common.signOut")}
-          className="flex h-10 items-center gap-1.5 rounded-control px-2.5 text-sm text-muted hover:bg-paper hover:text-danger"
+          className="tap flex h-10 items-center gap-1.5 rounded-control px-2.5 text-sm text-muted hover:bg-paper hover:text-danger"
         >
           <LogOut size={16} />
           <span className="hidden sm:inline">{t("common.signOut")}</span>
@@ -365,7 +365,7 @@ export default function AppShell({ children }) {
             <button
               onClick={() => setMenuOpen(false)}
               aria-label={t("common.close")}
-              className="absolute end-3 top-4 grid h-9 w-9 place-items-center rounded-control text-sidebarText/70 hover:bg-white/10"
+              className="tap absolute end-3 top-4 grid h-9 w-9 place-items-center rounded-control text-sidebarText/70 hover:bg-white/10"
             >
               <X size={18} />
             </button>

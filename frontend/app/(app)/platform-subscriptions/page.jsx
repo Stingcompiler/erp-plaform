@@ -9,6 +9,8 @@ import { platformSubscriptions as api } from "@/lib/api";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import PhoneLink from "@/components/ui/PhoneLink";
 import PlanChangeRequests from "@/components/subscription/PlanChangeRequests";
+import { errorText } from "@/lib/errors";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 const STATES = ["trialing", "active", "grace", "read_only", "suspended", "cancelled"];
 
@@ -62,6 +64,7 @@ export default function PlatformSubscriptionsPage() {
   const canManageSubs = can("platform.subscriptions.manage");
   const canBill = can("platform.billing.review");
   const { t } = useI18n();
+  const confirm = useConfirm();
   const [rows, setRows] = useState([]);
   const [plans, setPlans] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -144,9 +147,7 @@ export default function PlatformSubscriptionsPage() {
       setSuccess(t("subscription.configurationSaved"));
       await load();
     } catch (requestError) {
-      const data = requestError?.response?.data;
-      const first = data && Object.values(data).flat()[0];
-      setError(typeof first === "string" ? first : t("subscription.loadError"));
+      setError(errorText(requestError, t, "subscription.loadError"));
     } finally {
       setSaving(null);
     }
@@ -165,17 +166,17 @@ export default function PlatformSubscriptionsPage() {
       setSuccess(t("subscription.paymentVerified"));
       await load();
     } catch (requestError) {
-      const data = requestError?.response?.data;
-      const first = Array.isArray(data) ? data[0] : data?.detail || (data && Object.values(data).flat()[0]);
-      setError(typeof first === "string" ? first : t("subscription.loadError"));
+      setError(errorText(requestError, t, "subscription.loadError"));
     } finally {
       setSaving(null);
     }
   };
 
   const rejectPayment = async (payment) => {
-    const reason = window.prompt(t("subscription.rejectReasonPrompt"), "");
-    if (reason === null || !reason.trim()) return;
+    const reason = await confirm(t("subscription.rejectReasonPrompt"), {
+      tone: "danger", input: { label: t("subscription.rejectReason"), required: true },
+    });
+    if (reason === false) return;
     setSaving(`payment-${payment.id}`);
     setError("");
     setSuccess("");
@@ -184,9 +185,7 @@ export default function PlatformSubscriptionsPage() {
       setSuccess(t("subscription.paymentRejected"));
       await load();
     } catch (requestError) {
-      const data = requestError?.response?.data;
-      const first = Array.isArray(data) ? data[0] : data?.detail || data?.reason?.[0] || (data && Object.values(data).flat()[0]);
-      setError(typeof first === "string" ? first : t("subscription.loadError"));
+      setError(errorText(requestError, t, "subscription.loadError"));
     } finally {
       setSaving(null);
     }
@@ -211,9 +210,7 @@ export default function PlatformSubscriptionsPage() {
       setSuccess(t("subscription.invoiceIssued"));
       await load();
     } catch (requestError) {
-      const data = requestError?.response?.data;
-      const first = data?.detail || (data && Object.values(data).flat()[0]);
-      setError(typeof first === "string" ? first : t("subscription.loadError"));
+      setError(errorText(requestError, t, "subscription.loadError"));
     } finally {
       setSaving(null);
     }

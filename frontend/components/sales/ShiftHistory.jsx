@@ -8,6 +8,7 @@ import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -41,7 +42,7 @@ export default function ShiftHistory({ refreshKey }) {
       toast.success(t("till.history.reviewed"));
       load();
     } catch (err) {
-      toast.error(err?.response?.data?.detail || t("till.history.reviewError"));
+      toast.error(errorText(err, t, "till.history.reviewError"));
     } finally { setBusy(null); }
   }
 

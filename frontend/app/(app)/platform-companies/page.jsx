@@ -10,6 +10,7 @@ import { Badge, Card, Input, PageHeader } from "@/components/ui/kit";
 import PhoneLink from "@/components/ui/PhoneLink";
 import UsageMeter, { USAGE_KEYS, usageTone } from "@/components/subscription/UsageMeter";
 import DeviceList from "@/components/subscription/DeviceList";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 const STATUS_TONE = { active: "ok", trialing: "accent", grace: "warn", read_only: "warn", suspended: "danger", cancelled: "muted", legacy: "muted" };
 
@@ -22,6 +23,7 @@ function Cell({ cell }) {
 export default function PlatformCompaniesPage() {
   const { can } = useAuth();
   const { t, language } = useI18n();
+  const confirm = useConfirm();
   const canView = can("platform.subscriptions.view");
   const canManage = can("platform.subscriptions.manage");
   const [data, setData] = useState(null);
@@ -116,7 +118,7 @@ export default function PlatformCompaniesPage() {
                           <DeviceList
                             devices={devices[r.id]}
                             busyId={busy}
-                            onRevoke={canManage ? (d) => { if (window.confirm(t("devices.confirmRevoke", { name: d.label || d.device_id }))) deviceAction(r.id, () => api.revokeDevice(r.id, d.id), d.id); } : undefined}
+                            onRevoke={canManage ? async (d) => { if ((await confirm(t("devices.confirmRevoke", { name: d.label || d.device_id }), { tone: "danger" }))) deviceAction(r.id, () => api.revokeDevice(r.id, d.id), d.id); } : undefined}
                             onReactivate={canManage ? (d) => deviceAction(r.id, () => api.reactivateDevice(r.id, d.id), d.id) : undefined}
                           />
                         </div>

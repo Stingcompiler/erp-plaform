@@ -191,7 +191,7 @@ export default function PlatformAnalyticsPage() {
             {WINDOWS.map((window) => (
               <button
                 key={window} type="button" onClick={() => setDays(window)}
-                className={`rounded-control px-3 py-1.5 text-sm font-medium transition-colors ${days === window ? "bg-accent text-white" : "text-muted hover:text-ink"}`}
+                className={`tap rounded-control px-3 py-1.5 text-sm font-medium transition-colors ${days === window ? "bg-accent text-white" : "text-muted hover:text-ink"}`}
               >
                 {t("platformAnalytics.window", { days: window })}
               </button>

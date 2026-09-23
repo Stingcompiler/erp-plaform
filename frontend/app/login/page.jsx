@@ -79,7 +79,7 @@ export default function LoginPage() {
       <section className="relative flex items-center justify-center p-6">
         <button
           onClick={toggleLanguage}
-          className="absolute end-4 top-4 flex items-center gap-1.5 rounded-control px-2.5 py-1.5 text-sm text-muted hover:bg-surface hover:text-ink"
+          className="tap absolute end-4 top-4 flex items-center gap-1.5 rounded-control px-2.5 py-1.5 text-sm text-muted hover:bg-surface hover:text-ink"
         >
           <Languages size={16} />
           {language === "ar" ? "العربية" : "EN"}

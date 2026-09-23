@@ -8,6 +8,7 @@ import { useAuth } from "../../providers/AuthProvider";
 import { errorText } from "@/lib/errors";
 import { useI18n } from "../../providers/I18nProvider";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 const bytes = (n) => (n > 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
 
@@ -28,6 +29,7 @@ const BACKUP_FORMATS = [
 export default function SettingsPage() {
   const { user, canRead, canWrite, refresh, can } = useAuth();
   const { t, language } = useI18n();
+  const confirm = useConfirm();
   const writable = canWrite("settings");
   const canApprove = can("finance.approve");
   const [profile, setProfile] = useState(null);
@@ -185,19 +187,15 @@ export default function SettingsPage() {
           setRestoreMsg({ ok: true, text: t("settings.restoreNothingMissing") });
           return;
         }
-        if (!window.confirm(t("settings.restoreMissingConfirm", { adding, keeping }))) return;
-      } else if (!window.confirm(t("settings.restoreConfirm"))) {
+        if (!(await confirm(t("settings.restoreMissingConfirm", { adding, keeping })))) return;
+      } else if (!(await confirm(t("settings.restoreConfirm"), { tone: "danger" }))) {
         return;
       }
       const r = await settings.restoreBackup({ ...body, ...(mode === "missing" ? { mode } : {}) });
       setRestoreMsg({ ok: true, text: t("settings.restoreDone", { count: r.data.restored }) });
       await loadBackups();
     } catch (err) {
-      const data = err?.response?.data;
-      setRestoreMsg({
-        ok: false,
-        text: data?.detail || (Array.isArray(data) ? data.join(" ") : errorText(err, t, "settings.restoreFailed")),
-      });
+      setRestoreMsg({ ok: false, text: errorText(err, t, "settings.restoreFailed") });
     } finally {
       setRestoring(false);
     }
@@ -604,7 +602,7 @@ export default function SettingsPage() {
                               key={format}
                               href={settings.backupDownloadUrl(b.id, format, language)}
                               download
-                              className="inline-flex h-8 items-center rounded-control border border-line px-2.5 text-xs text-ink hover:bg-paper"
+                              className="tap inline-flex h-8 items-center rounded-control border border-line px-2.5 text-xs text-ink hover:bg-paper"
                               title={t(`settings.backupFormatHint.${format}`)}
                             >
                               {t(labelKey)}
@@ -619,7 +617,7 @@ export default function SettingsPage() {
                             type="button"
                             onClick={() => restore({ backup_id: b.id })}
                             disabled={restoring}
-                            className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-control border border-line px-2.5 text-xs text-ink hover:bg-paper disabled:opacity-50"
+                            className="tap inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-control border border-line px-2.5 text-xs text-ink hover:bg-paper disabled:opacity-50"
                             title={t("settings.restoreThis")}
                           >
                             <RotateCcw size={13} />{t("settings.restoreThis")}
@@ -628,7 +626,7 @@ export default function SettingsPage() {
                             type="button"
                             onClick={() => restore({ backup_id: b.id }, { mode: "missing" })}
                             disabled={restoring}
-                            className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-control border border-accent/40 bg-accent/5 px-2.5 text-xs text-accent hover:bg-accent/10 disabled:opacity-50"
+                            className="tap inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-control border border-accent/40 bg-accent/5 px-2.5 text-xs text-accent hover:bg-accent/10 disabled:opacity-50"
                             title={t("settings.restoreMissingHint")}
                           >
                             <RotateCcw size={13} />{t("settings.restoreMissing")}

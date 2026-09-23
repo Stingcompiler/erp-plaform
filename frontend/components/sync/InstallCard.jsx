@@ -65,7 +65,7 @@ export default function InstallCard({ className = "" }) {
           <button
             type="button"
             onClick={() => prompt()}
-            className="mt-2 inline-flex items-center gap-1.5 rounded-control bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-strong"
+            className="tap mt-2 inline-flex items-center gap-1.5 rounded-control bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-strong"
           >
             <Download size={14} /> {t("install.button")}
           </button>

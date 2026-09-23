@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import PlatformShell, { isPlatformPath } from "@/components/PlatformShell";
 import { ToastProvider } from "@/components/ui/Toast";
+import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import { SyncProvider } from "@/components/sync/SyncProvider";
 import { AttentionProvider } from "@/components/attention/AttentionProvider";
 import ForcedPasswordChange from "@/components/auth/ForcedPasswordChange";
@@ -57,20 +58,24 @@ export default function AppLayoutClient({ children }) {
     }
     return (
       <ToastProvider>
-        <AttentionProvider>
-          <PlatformShell>{children}</PlatformShell>
-        </AttentionProvider>
+        <ConfirmProvider>
+          <AttentionProvider>
+            <PlatformShell>{children}</PlatformShell>
+          </AttentionProvider>
+        </ConfirmProvider>
       </ToastProvider>
     );
   }
 
   return (
     <ToastProvider>
-      <SyncProvider>
-        <AttentionProvider>
-          <AppShell>{children}</AppShell>
-        </AttentionProvider>
-      </SyncProvider>
+      <ConfirmProvider>
+        <SyncProvider>
+          <AttentionProvider>
+            <AppShell>{children}</AppShell>
+          </AttentionProvider>
+        </SyncProvider>
+      </ConfirmProvider>
     </ToastProvider>
   );
 }

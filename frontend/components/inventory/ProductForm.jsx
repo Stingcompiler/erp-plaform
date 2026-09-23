@@ -9,6 +9,7 @@ import { ean13Svg, isValidEan13 } from "@/lib/ean13";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Field, Input, Select } from "@/components/ui/kit";
 import PackEditor from "@/components/inventory/PackEditor";
+import { errorText } from "@/lib/errors";
 
 const EMPTY = {
   sku: "",
@@ -109,8 +110,7 @@ export default function ProductForm({ open, onClose, onSaved, product, exchangeR
       const res = await inventory.generateBarcode(product.id);
       setForm((f) => ({ ...f, barcode: res.data.barcode }));
     } catch (err) {
-      const data = err?.response?.data;
-      setError(data?.detail || t("inventory.saveError"));
+      setError(errorText(err, t, "inventory.saveError"));
     } finally {
       setGenerating(false);
     }
@@ -171,10 +171,7 @@ export default function ProductForm({ open, onClose, onSaved, product, exchangeR
       onSaved();
       onClose();
     } catch (err) {
-      const data = err?.response?.data;
-      setError(
-        typeof data === "object" ? Object.values(data).flat().join(" ") : t("inventory.saveError")
-      );
+      setError(errorText(err, t, "inventory.saveError"));
     } finally {
       setSaving(false);
     }

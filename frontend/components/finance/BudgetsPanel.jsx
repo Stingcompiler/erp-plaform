@@ -9,6 +9,7 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -41,8 +42,7 @@ function NewBudgetDrawer({ open, onClose, categories, onSaved }) {
       });
       onSaved?.(r.data); onClose();
     } catch (err) {
-      const data = err?.response?.data;
-      setError(typeof data === "object" && data ? Object.values(data).flat().join(" ") : t("budgets.saveError"));
+      setError(errorText(err, t, "budgets.saveError"));
     } finally { setBusy(false); }
   }
 
@@ -138,7 +138,7 @@ export default function BudgetsPanel({ writable, categories, onChanged }) {
   const act = async (id, fn, ok) => {
     setBusy(id);
     try { await fn(id); toast.success(ok); load(); }
-    catch (err) { toast.error(err?.response?.data?.detail || t("budgets.actionError")); }
+    catch (err) { toast.error(errorText(err, t, "budgets.actionError")); }
     finally { setBusy(null); }
   };
   const fmt = (d) => new Date(`${d}T00:00:00`).toLocaleDateString(language === "ar" ? "ar" : "en");

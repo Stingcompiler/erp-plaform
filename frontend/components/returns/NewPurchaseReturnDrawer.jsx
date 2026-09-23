@@ -8,6 +8,7 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import { useOfflineMutation } from "@/components/sync/useOfflineMutation";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Field, Input, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 /**
  * Records goods going back to a supplier.
@@ -120,12 +121,7 @@ export default function NewPurchaseReturnDrawer({ open, onClose, onCreated }) {
       onCreated();
       onClose();
     } catch (err) {
-      const data = err?.response?.data;
-      setError(
-        typeof data === "object" && data
-          ? Object.values(data).flat().join(" ")
-          : t("returns.saveError"),
-      );
+      setError(errorText(err, t, "returns.saveError"));
     } finally {
       setBusy(false);
     }

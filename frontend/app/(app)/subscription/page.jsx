@@ -10,6 +10,7 @@ import { Badge, Button, Card, Input, PageHeader, Select } from "@/components/ui/
 import UsageMeter from "@/components/subscription/UsageMeter";
 import DeviceList from "@/components/subscription/DeviceList";
 import PlanChangePanel from "@/components/subscription/PlanChangePanel";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 // Digits in day/month/year order, Latin numerals: an Arabic-locale date
 // inside an LTR span was bidi-reordered to "202026/9/".
@@ -50,6 +51,7 @@ function EventRow({ row, t }) {
 export default function SubscriptionPage() {
   const { user } = useAuth();
   const { t, language } = useI18n();
+  const confirm = useConfirm();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -90,9 +92,7 @@ export default function SubscriptionPage() {
       await subscriptionApi.importLicense(envelope);
       setNotice(t("subscription.licenseImported")); setLicenseText(""); await load();
     } catch (requestError) {
-      const data = requestError?.response?.data;
-      const first = data?.detail || (data && Object.values(data).flat()[0]);
-      setError(typeof first === "string" ? first : t("subscription.invalidLicenseFile"));
+      setError(errorText(requestError, t, "subscription.invalidLicenseFile"));
     }
   };
   // A licence arrives as a file from the vendor; reading it here avoids a
@@ -186,9 +186,9 @@ export default function SubscriptionPage() {
             devices={devices?.devices}
             busyId={deviceBusy}
             onLabel={(id, label) => deviceAction(() => subscriptionApi.labelDevice(id, label), id)}
-            onRevoke={(d) => { if (window.confirm(t("devices.confirmRevoke", { name: d.label || d.device_id }))) deviceAction(() => subscriptionApi.revokeDevice(d.id), d.id); }}
+            onRevoke={async (d) => { if ((await confirm(t("devices.confirmRevoke", { name: d.label || d.device_id }), { tone: "danger" }))) deviceAction(() => subscriptionApi.revokeDevice(d.id), d.id); }}
             onReactivate={(d) => deviceAction(() => subscriptionApi.reactivateDevice(d.id), d.id)}
-            onRemove={(d) => { if (window.confirm(t("devices.confirmRemove", { name: d.label || d.device_id }))) deviceAction(() => subscriptionApi.removeDevice(d.id), d.id); }}
+            onRemove={async (d) => { if ((await confirm(t("devices.confirmRemove", { name: d.label || d.device_id }), { tone: "danger" }))) deviceAction(() => subscriptionApi.removeDevice(d.id), d.id); }}
           />
         </div>
       </Card>}

@@ -9,6 +9,7 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -63,8 +64,7 @@ function NewOrderDrawer({ open, onClose, suppliers, onSaved }) {
       onSaved?.(r.data);
       onClose();
     } catch (err) {
-      const data = err?.response?.data;
-      setError(typeof data === "object" && data ? Object.values(data).flat().join(" ") : t("purchasing.saveError"));
+      setError(errorText(err, t, "purchasing.saveError"));
     } finally {
       setBusy(false);
     }
@@ -93,7 +93,7 @@ function NewOrderDrawer({ open, onClose, suppliers, onSaved }) {
           {results.length > 0 && (
             <Card className="absolute z-10 mt-1 w-full overflow-hidden">
               {results.map((p) => (
-                <button key={p.id} onClick={() => add(p)} className="flex w-full items-center justify-between px-4 py-2 text-start text-sm hover:bg-paper">
+                <button key={p.id} onClick={() => add(p)} className="tap flex w-full items-center justify-between px-4 py-2 text-start text-sm hover:bg-paper">
                   <span><span className="tabular text-muted">{p.sku}</span> {p.name}</span>
                   <span className="tabular text-muted">{money(p.cost_price)}</span>
                 </button>
@@ -148,7 +148,7 @@ export default function PurchaseOrders({ suppliers, writable, onReceive, refresh
   async function move(order, status) {
     setBusyId(order.id);
     try { await purchasing.setPurchaseOrderStatus(order.id, status); load(); }
-    catch (err) { toast.error(err?.response?.data?.detail || t("purchasing.po.moveError")); }
+    catch (err) { toast.error(errorText(err, t, "purchasing.po.moveError")); }
     finally { setBusyId(null); }
   }
 

@@ -6,6 +6,7 @@ import { purchasing } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Field, Input, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 /**
  * Records a supplier's invoice (a bill).
@@ -67,12 +68,7 @@ export default function NewBillDrawer({ open, onClose, onSaved, suppliers }) {
       onSaved();
       onClose();
     } catch (err) {
-      const data = err?.response?.data;
-      setError(
-        typeof data === "object" && data
-          ? Object.values(data).flat().join(" ")
-          : t("purchasing.saveError"),
-      );
+      setError(errorText(err, t, "purchasing.saveError"));
     } finally {
       setSaving(false);
     }

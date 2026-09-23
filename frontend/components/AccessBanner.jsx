@@ -41,7 +41,7 @@ export default function AccessBanner() {
         {ent.reason && <span className="text-muted">— {ent.reason}</span>}
       </span>
       {owner && (
-        <Link href="/subscription" className="rounded-control border border-line bg-surface px-3 py-1 text-sm font-medium hover:border-accent">
+        <Link href="/subscription" className="tap inline-flex items-center rounded-control border border-line bg-surface px-3 py-1 text-sm font-medium hover:border-accent">
           {t(ent.source === "standalone" ? "access.manageLicence" : "access.manageSubscription")}
         </Link>
       )}

@@ -197,7 +197,7 @@ export default function DashboardPage() {
             <section className="mt-8">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <h2 className="font-display text-base font-bold text-ink">{t("dashboard.debtLedger")}</h2>
-                <Link href="/debts" className="text-sm font-medium text-accent hover:underline">{t("common.view")}</Link>
+                <Link href="/debts" className="tap inline-flex items-center text-sm font-medium text-accent hover:underline">{t("common.view")}</Link>
               </div>
               <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                 <Link href="/debts"><Stat icon={Wallet} label={t("dashboard.outstandingReceivables")} tone="accent" value={money(sections.debts.outstanding)} /></Link>

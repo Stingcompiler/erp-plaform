@@ -7,6 +7,7 @@ import { useRef, useState } from "react";
 import { ImagePlus, Trash2 } from "lucide-react";
 
 import { useI18n } from "@/app/providers/I18nProvider";
+import { errorText } from "@/lib/errors";
 
 export default function ImagePicker({ url, onUpload, onRemove, label, hint, disabled, aspect = "aspect-[3/1]", rounded = "rounded-card" }) {
   const { t } = useI18n();
@@ -22,7 +23,7 @@ export default function ImagePicker({ url, onUpload, onRemove, label, hint, disa
       await onUpload(file);
     } catch (err) {
       const data = err?.response?.data;
-      setError(data?.image?.[0] || data?.detail || t("website.imageError"));
+      setError(data?.image?.[0] || errorText(err, t, "website.imageError"));
     } finally {
       setBusy(false);
       if (input.current) input.current.value = "";
@@ -61,7 +62,7 @@ export default function ImagePicker({ url, onUpload, onRemove, label, hint, disa
             <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={busy} onChange={(event) => pick(event.target.files?.[0])} />
           </label>
           {url && onRemove && (
-            <button type="button" onClick={remove} disabled={busy} className="inline-flex items-center gap-1.5 rounded-control px-3 py-1.5 text-sm text-muted hover:text-danger">
+            <button type="button" onClick={remove} disabled={busy} className="tap inline-flex items-center gap-1.5 rounded-control px-3 py-1.5 text-sm text-muted hover:text-danger">
               <Trash2 size={15} />{t("website.removeImage")}
             </button>
           )}

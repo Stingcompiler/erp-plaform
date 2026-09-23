@@ -4,7 +4,7 @@ import { cloneElement, forwardRef, isValidElement, useId } from "react";
 
 export function Button({ variant = "primary", className = "", ...props }) {
   const base =
-    "inline-flex items-center justify-center gap-2 min-h-10 rounded-control px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 disabled:pointer-events-none";
+    "tap inline-flex items-center justify-center gap-2 min-h-10 rounded-control px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 disabled:pointer-events-none";
   const variants = {
     primary: "bg-accent text-white shadow-sm hover:bg-accent-strong",
     ghost: "text-muted hover:bg-paper hover:text-ink",
@@ -43,7 +43,7 @@ export function Field({ label, hint, error, children }) {
 }
 
 export const controlClass =
-  "w-full rounded-control border border-line bg-surface min-h-10 px-3 py-2 text-sm text-ink shadow-sm outline-none transition-colors hover:border-muted/40 focus:border-accent focus:ring-2 focus:ring-accent/15";
+  "tap w-full rounded-control border border-line bg-surface min-h-10 px-3 py-2 text-sm text-ink shadow-sm outline-none transition-colors hover:border-muted/40 focus:border-accent focus:ring-2 focus:ring-accent/15";
 
 // forwardRef so callers can focus the field programmatically — the barcode
 // scanner relies on refocusing after every scan.

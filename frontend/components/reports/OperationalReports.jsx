@@ -23,7 +23,7 @@ function Section({ title, hint, csvHref, children }) {
           {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
         </div>
         {csvHref && (
-          <a href={csvHref} className="inline-flex h-8 items-center gap-1 rounded-control border border-line px-2.5 text-xs text-ink hover:bg-paper">
+          <a href={csvHref} className="tap inline-flex h-8 items-center gap-1 rounded-control border border-line px-2.5 text-xs text-ink hover:bg-paper">
             <Download size={13} />CSV
           </a>
         )}

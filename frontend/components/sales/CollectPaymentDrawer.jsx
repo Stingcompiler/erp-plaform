@@ -10,6 +10,7 @@ import { useOfflineMutation } from "@/components/sync/useOfflineMutation";
 import DocumentDrawer from "@/components/print/DocumentDrawer";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Field, Input, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -144,10 +145,7 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
       setResult({ count: done.length + queued, queued, payments: done, total: allocatedTotal });
       onDone?.();
     } catch (err) {
-      const data = err?.response?.data;
-      setError(
-        typeof data === "object" && data ? Object.values(data).flat().join(" ") : t("debts.collectError"),
-      );
+      setError(errorText(err, t, "debts.collectError"));
       if (done.length) onDone?.();
     } finally {
       setBusy(false);

@@ -13,6 +13,8 @@ import { useAuth } from "../../../providers/AuthProvider";
 import { useI18n } from "../../../providers/I18nProvider";
 import { platformTeam } from "@/lib/api";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 function Row({ label, children }) {
   return (
@@ -61,6 +63,7 @@ function MemberDetail() {
   const canView = can("platform.team.view");
   const canManage = can("platform.team.manage");
   const { t, language, dir } = useI18n();
+  const confirm = useConfirm();
   const params = useSearchParams();
   const router = useRouter();
   const id = params.get("id");
@@ -94,9 +97,7 @@ function MemberDetail() {
   }, [canManage]);
 
   const fail = (requestError) => {
-    const data = requestError?.response?.data;
-    const first = data?.detail || data?.email?.[0] || data?.full_name?.[0] || data?.role?.[0] || (Array.isArray(data) ? data[0] : null);
-    setActionError(typeof first === "string" ? first : t("platformTeam.saveError"));
+    setActionError(errorText(requestError, t, "platformTeam.saveError"));
   };
   const run = async (key, fn) => {
     setSaving(key);
@@ -118,7 +119,7 @@ function MemberDetail() {
     if (await run("profile", () => platformTeam.updateProfile(member.id, form))) setEditing(false);
   };
   const remove = async () => {
-    if (!window.confirm(t("platformTeam.member.deleteConfirm", { email: member.email }))) return;
+    if (!(await confirm(t("platformTeam.member.deleteConfirm", { email: member.email }), { tone: "danger" }))) return;
     setSaving("delete");
     setActionError("");
     try {

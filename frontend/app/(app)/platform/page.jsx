@@ -49,7 +49,7 @@ export default function PlatformPage() {
             <p className="mt-1 max-w-3xl text-sm text-muted">{t("platform.ownerCreationHint")}</p>
           </div>
         </div>
-        <Link href="/platform-registrations" className="shrink-0 rounded-control bg-accent px-4 py-2 text-center text-sm font-semibold text-white">{t("platform.createOwnerAction")}</Link>
+        <Link href="/platform-registrations" className="tap inline-flex items-center shrink-0 rounded-control bg-accent px-4 py-2 text-center text-sm font-semibold text-white">{t("platform.createOwnerAction")}</Link>
       </div>
     </Card>
     <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">

@@ -40,7 +40,7 @@ export default function SyncStatus() {
   const errorKey = { storage: "syncStorage", network: "syncNetwork", identity: "syncIdentity", auth: "syncAuth" }[error];
   return <>
     <button onClick={() => setOpen(true)} title={t("improvements.syncReview")}
-      className={`flex items-center gap-1.5 rounded-control px-2 py-1.5 text-sm ${error || failed ? "text-danger" : "text-muted"}`}>
+      className={`tap flex items-center gap-1.5 rounded-control px-2 py-1.5 text-sm ${error || failed ? "text-danger" : "text-muted"}`}>
       <Icon size={16} /><span>{online ? t("sync.sync") : t("sync.offline")} {pending || ""}</span>
       {/* Operations that failed to sync are this device's own attention
           item: nothing on the server knows about them yet. */}
@@ -64,7 +64,7 @@ export default function SyncStatus() {
           <span className="flex-1">{installed ? t("install.installed") : t("install.notInstalled")}</span>
           {canPrompt && (
             <button type="button" onClick={() => prompt()}
-              className="rounded-control border border-line bg-surface px-3 py-1 text-sm font-medium hover:border-accent">
+              className="tap rounded-control border border-line bg-surface px-3 py-1 text-sm font-medium hover:border-accent">
               {t("install.button")}
             </button>
           )}
@@ -76,7 +76,7 @@ export default function SyncStatus() {
       </div>
       {errorKey && <p role="alert" className="mb-3 text-sm text-danger">{t(`improvements.${errorKey}`)}</p>}
       {error === "auth" && (
-        <a href="/login/" className="mb-3 inline-block rounded-control border border-line px-3 py-1 text-sm font-medium hover:border-accent">
+        <a href="/login/" className="tap mb-3 inline-block rounded-control border border-line px-3 py-1 text-sm font-medium hover:border-accent">
           {t("improvements.signInAgain")}
         </a>
       )}

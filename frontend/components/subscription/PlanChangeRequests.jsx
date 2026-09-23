@@ -6,6 +6,7 @@ import { ArrowUpDown } from "lucide-react";
 import { Badge, Button, Card, Input } from "@/components/ui/kit";
 import { platformPlanChanges as api } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
+import { errorText } from "@/lib/errors";
 
 const KIND_TONE = { upgrade: "ok", downgrade: "warn", addon: "ok", addon_remove: "warn", switch: "accent" };
 
@@ -27,7 +28,7 @@ export default function PlanChangeRequests({ canManage, onChanged }) {
   const decide = async (row, fn) => {
     setBusy(row.id); setError("");
     try { await fn(row.id, notes[row.id] || ""); await load(); onChanged?.(); }
-    catch (err) { setError(err?.response?.data?.detail || t("planChange.decideError")); }
+    catch (err) { setError(errorText(err, t, "planChange.decideError")); }
     finally { setBusy(null); }
   };
   const fmt = (v) => v ? new Date(v).toLocaleDateString(language === "ar" ? "ar" : "en") : "—";

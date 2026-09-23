@@ -26,7 +26,7 @@ function ThemeToggle() {
     <button
       onClick={cycleTheme}
       aria-label={t("shell.theme")}
-      className="grid h-10 w-10 place-items-center rounded-control text-muted hover:bg-surface hover:text-ink"
+      className="tap grid h-10 w-10 place-items-center rounded-control text-muted hover:bg-surface hover:text-ink"
     >
       <Icon size={18} />
     </button>
@@ -39,7 +39,7 @@ function LangToggle() {
     <button
       onClick={toggleLanguage}
       title={t("shell.switchLanguage")}
-      className="flex h-10 items-center gap-1.5 rounded-control px-2.5 text-sm font-medium text-muted hover:bg-surface hover:text-ink"
+      className="tap flex h-10 items-center gap-1.5 rounded-control px-2.5 text-sm font-medium text-muted hover:bg-surface hover:text-ink"
     >
       <Languages size={16} />
       {language === "ar" ? "العربية" : "EN"}
@@ -105,7 +105,7 @@ export function MarketingHeader() {
   const signIn = (
     <Link
       href={user ? "/dashboard" : "/login"}
-      className="inline-flex h-10 shrink-0 items-center whitespace-nowrap rounded-control bg-accent px-3.5 text-sm font-medium text-white hover:bg-accent-strong"
+      className="tap inline-flex h-10 shrink-0 items-center whitespace-nowrap rounded-control bg-accent px-3.5 text-sm font-medium text-white hover:bg-accent-strong"
     >
       {user ? t("nav.dashboard") : t("common.signIn")}
     </Link>
@@ -150,7 +150,7 @@ export function MarketingHeader() {
             aria-controls="landing-menu"
             aria-label={t("shell.menu")}
             onClick={() => setOpen((value) => !value)}
-            className="grid h-10 w-10 place-items-center rounded-control border border-line bg-surface p-2 text-ink hover:border-accent"
+            className="tap grid h-10 w-10 place-items-center rounded-control border border-line bg-surface p-2 text-ink hover:border-accent"
           >
             {open ? <X size={20} /> : <Menu size={20} />}
           </button>

@@ -31,7 +31,7 @@ export default function PhoneLink({ phone, country, empty = "—", className = "
           onClick={() => onContact?.("whatsapp")}
           title={t("common.whatsapp")}
           aria-label={t("common.whatsapp")}
-          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#25d366]/15 text-[#128c7e] hover:bg-[#25d366]/30"
+          className="tap inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#25d366]/15 text-[#128c7e] hover:bg-[#25d366]/30"
         >
           <MessageCircle size={14} />
         </a>

@@ -22,6 +22,12 @@ export function dirFor(lang) {
 }
 
 const en = {
+  confirm: {
+    title: "Are you sure?",
+    titleDanger: "This cannot be undone",
+    proceed: "Confirm",
+    proceedDanger: "Yes, continue",
+  },
   errors: {
     generic: "That did not work. Try again.",
     network: "Could not reach the server. Check the connection and try again.",
@@ -2709,6 +2715,12 @@ const en = {
 };
 
 const ar = {
+  confirm: {
+    title: "هل أنت متأكد؟",
+    titleDanger: "لا يمكن التراجع عن هذا",
+    proceed: "تأكيد",
+    proceedDanger: "نعم، تابع",
+  },
   errors: {
     generic: "لم تنجح العملية. حاول مرة أخرى.",
     network: "تعذّر الوصول إلى الخادم. تحقّق من الاتصال وحاول مرة أخرى.",

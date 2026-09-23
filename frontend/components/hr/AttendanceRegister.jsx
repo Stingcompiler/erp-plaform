@@ -10,6 +10,7 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import TabBar from "@/components/ui/TabBar";
 import { Badge, Card, Input, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 const STATUSES = ["present", "absent", "half_day", "leave"];
 const TONE = { present: "ok", absent: "danger", half_day: "warn", leave: "accent" };
@@ -92,8 +93,7 @@ export default function AttendanceRegister({ writable }) {
         }
       }
     } catch (err) {
-      const data = err?.response?.data;
-      toast.error((data && (data.detail || Object.values(data).flat().join(" "))) || t("hr.attendance.saveError"));
+      toast.error(errorText(err, t, "hr.attendance.saveError"));
     } finally { setBusy(null); }
   }
 

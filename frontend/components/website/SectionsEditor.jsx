@@ -7,6 +7,8 @@ import { website } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 const TYPES = [
   { value: "hero", key: "website.typeHero" },
@@ -70,10 +72,7 @@ function SectionForm({ open, onClose, onSaved, websiteId, section }) {
       onSaved();
       onClose();
     } catch (err) {
-      const data = err?.response?.data;
-      setError(
-        typeof data === "object" && data ? Object.values(data).flat().join(" ") : t("website.saveError")
-      );
+      setError(errorText(err, t, "website.saveError"));
     } finally {
       setSaving(false);
     }
@@ -133,6 +132,7 @@ function SectionForm({ open, onClose, onSaved, websiteId, section }) {
 
 export default function SectionsEditor({ websiteId, writable, onChanged }) {
   const { t } = useI18n();
+  const confirm = useConfirm();
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -162,7 +162,7 @@ export default function SectionsEditor({ websiteId, writable, onChanged }) {
   }
 
   async function remove(s) {
-    if (!window.confirm(t("website.deleteSectionConfirm", { name: s.title || typeLabel(t, s.type) }))) return;
+    if (!(await confirm(t("website.deleteSectionConfirm", { name: s.title || typeLabel(t, s.type) }), { tone: "danger" }))) return;
     await website.deleteSection(s.id).catch(() => {});
     changed();
   }

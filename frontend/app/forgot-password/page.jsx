@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
             <p className="mt-2 text-sm text-muted">
               {result.email_enabled ? t("passwordReset.sentBody", { email }) : t("passwordReset.noEmailBody")}
             </p>
-            <Link href="/login" className="mt-6 inline-flex min-h-10 items-center justify-center rounded-control bg-accent px-5 py-2 text-sm font-semibold text-white">
+            <Link href="/login" className="tap mt-6 inline-flex min-h-10 items-center justify-center rounded-control bg-accent px-5 py-2 text-sm font-semibold text-white">
               {t("passwordReset.backToLogin")}
             </Link>
           </div>

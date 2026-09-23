@@ -8,6 +8,7 @@ import { useI18n } from "../../providers/I18nProvider";
 import { registration } from "@/lib/api";
 import { Badge, Button, Card, PageHeader, Select } from "@/components/ui/kit";
 import FollowUpPanel, { ContactLinks, FollowUpBadge } from "@/components/platform/FollowUpPanel";
+import { errorText } from "@/lib/errors";
 
 const ACTIVE = ["submitted", "under_review", "needs_information", "approved"];
 const REVIEW = ["under_review", "needs_information", "rejected"];
@@ -85,7 +86,7 @@ export default function PlatformRegistrationsPage() {
       }
       await load();
     } catch (requestError) {
-      setError(requestError?.response?.data?.detail || requestError?.response?.data?.plan_version?.[0] || t("platformRegistration.saveError"));
+      setError(errorText(requestError, t, "platformRegistration.saveError"));
     } finally {
       setSaving(null);
     }

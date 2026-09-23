@@ -9,6 +9,7 @@ import { useI18n } from "../../providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, PageHeader } from "@/components/ui/kit";
 import LeadDrawer from "@/components/crm/LeadDrawer";
+import { errorText } from "@/lib/errors";
 
 const STAGE_LABEL = {
   new: "crm.stageNew",
@@ -79,7 +80,7 @@ export default function CrmPage() {
           : t("crm.alreadyConverted", { name: r.data.name }),
       );
     } catch (err) {
-      toast.error(err?.response?.data?.detail || t("crm.convertFailed"));
+      toast.error(errorText(err, t, "crm.convertFailed"));
     } finally {
       setConverting(null);
     }
@@ -156,7 +157,7 @@ export default function CrmPage() {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+            className={`tap rounded-full border px-3 py-1.5 text-sm transition-colors ${
               filter === f
                 ? "border-accent bg-accent text-white"
                 : "border-line bg-surface text-muted hover:text-ink"

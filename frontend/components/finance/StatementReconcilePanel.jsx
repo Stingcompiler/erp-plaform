@@ -8,6 +8,7 @@ import { accountLabel } from "@/lib/bankChannels";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, Field, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -49,8 +50,7 @@ export default function StatementReconcilePanel({ onApplied }) {
         onApplied?.();
       }
     } catch (err) {
-      const data = err?.response?.data;
-      setError(typeof data === "object" && data ? Object.values(data).flat().join(" ") : t("finance.reconcileFailed"));
+      setError(errorText(err, t, "finance.reconcileFailed"));
     } finally {
       setBusy(false);
     }

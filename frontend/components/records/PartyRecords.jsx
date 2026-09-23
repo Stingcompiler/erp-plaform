@@ -173,7 +173,7 @@ export default function PartyRecords({
               <button
                 key={p.id}
                 onClick={() => setSelected(p)}
-                className={`w-full rounded-control px-3 py-2 text-start text-sm transition-colors ${
+                className={`tap w-full rounded-control px-3 py-2 text-start text-sm transition-colors ${
                   selected?.id === p.id
                     ? "bg-accent text-white"
                     : "text-ink hover:bg-paper"

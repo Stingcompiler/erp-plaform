@@ -8,6 +8,7 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -55,8 +56,7 @@ function NewQuotationDrawer({ open, onClose, customers, onSaved }) {
       });
       onSaved?.(r.data); onClose();
     } catch (err) {
-      const data = err?.response?.data;
-      setError(typeof data === "object" && data ? Object.values(data).flat().join(" ") : t("quotes.saveError"));
+      setError(errorText(err, t, "quotes.saveError"));
     } finally { setBusy(false); }
   }
 
@@ -83,7 +83,7 @@ function NewQuotationDrawer({ open, onClose, customers, onSaved }) {
           {results.length > 0 && (
             <Card className="absolute z-10 mt-1 w-full overflow-hidden">
               {results.map((p) => (
-                <button key={p.id} onClick={() => add(p)} className="flex w-full items-center justify-between px-4 py-2 text-start text-sm hover:bg-paper">
+                <button key={p.id} onClick={() => add(p)} className="tap flex w-full items-center justify-between px-4 py-2 text-start text-sm hover:bg-paper">
                   <span><span className="tabular text-muted">{p.sku}</span> {p.name}</span>
                   <span className="tabular text-muted">{money(p.sale_price)}</span>
                 </button>
@@ -136,7 +136,7 @@ export default function QuotesOrders({ customers, writable, onInvoice, refreshKe
   const run = async (key, fn, okMsg) => {
     setBusy(key);
     try { await fn(); if (okMsg) toast.success(okMsg); load(); }
-    catch (err) { toast.error(err?.response?.data?.detail || t("quotes.actionError")); }
+    catch (err) { toast.error(errorText(err, t, "quotes.actionError")); }
     finally { setBusy(null); }
   };
   const fmt = (d) => (d ? new Date(d).toLocaleDateString(language === "ar" ? "ar" : "en") : "—");

@@ -8,6 +8,7 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card } from "@/components/ui/kit";
 import { channelLabel } from "@/lib/bankChannels";
+import { errorText } from "@/lib/errors";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -38,8 +39,7 @@ export default function PaymentVerificationPanel({ refreshKey }) {
       toast.success(t("finance.verifiedToast", { amount: money(payment.amount) }));
       load();
     } catch (err) {
-      const data = err?.response?.data;
-      toast.error(data?.detail || t("finance.verifyError"));
+      toast.error(errorText(err, t, "finance.verifyError"));
     } finally {
       setBusyId(null);
     }

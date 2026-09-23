@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import BarcodeScanInput from "@/components/inventory/BarcodeScanInput";
 import { cacheProducts } from "@/lib/productCache";
+import { errorText } from "@/lib/errors";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -141,11 +142,8 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived, i
       if (result.queued) toast.info(t("sync.savedForUpload"));
       else toast.success(t("purchasing.received"));
     } catch (err) {
-      const data = err?.response?.data;
       const msg =
-        typeof data === "object" && data
-          ? Object.values(data).flat().join(" ")
-          : t("purchasing.receivingFailed");
+        errorText(err, t, "purchasing.receivingFailed");
       setError(msg);
       toast.error(msg);
     } finally {
@@ -189,7 +187,7 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived, i
                 <button
                   key={p.id}
                   onClick={() => addProduct(p)}
-                  className="flex w-full items-center justify-between px-4 py-2.5 text-start text-sm hover:bg-paper"
+                  className="tap flex w-full items-center justify-between px-4 py-2.5 text-start text-sm hover:bg-paper"
                 >
                   <span>
                     <span className="tabular text-muted">{p.sku}</span>{" "}

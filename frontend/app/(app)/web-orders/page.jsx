@@ -14,6 +14,8 @@ import { Badge, Button, Card, Input, PageHeader } from "@/components/ui/kit";
 import PhoneLink from "@/components/ui/PhoneLink";
 import Drawer from "@/components/ui/Drawer";
 import PushPrompt from "@/components/orders/PushPrompt";
+import { errorText } from "@/lib/errors";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 const TABS = ["new", "confirmed", "rejected", "all"];
 const TONE = { new: "warn", confirmed: "ok", rejected: "danger", cancelled: "muted" };
@@ -30,6 +32,7 @@ function money(v, c) {
 function WebOrders() {
   const { canRead, canWrite } = useAuth();
   const { t, language } = useI18n();
+  const confirm = useConfirm();
   const { markSeen } = useAttention();
   const params = useSearchParams();
   const [tab, setTab] = useState("new");
@@ -50,7 +53,7 @@ function WebOrders() {
       setRows(res.data.results || res.data);
     } catch (err) {
       setRows([]);
-      setError(err?.response?.data?.detail || t("webOrders.loadError"));
+      setError(errorText(err, t, "webOrders.loadError"));
     } finally { setLoading(false); }
   }, [tab, t]);
   useEffect(() => { if (canRead("sales")) load(); }, [canRead, load]);
@@ -71,12 +74,12 @@ function WebOrders() {
   const decide = async (fn) => {
     setBusy(true); setError("");
     try { const res = await fn(open.id, note); setOpen(res.data); setNote(""); await load(); }
-    catch (err) { setError(err?.response?.data?.detail || t("webOrders.decideError")); }
+    catch (err) { setError(errorText(err, t, "webOrders.decideError")); }
     finally { setBusy(false); }
   };
   const decidePayment = async (claim, kind) => {
     const labels = { confirm: "webOrders.pay.confirmAsk", reject: "webOrders.pay.rejectAsk", fraud: "webOrders.pay.fraudAsk" };
-    if (!window.confirm(t(labels[kind], { amount: money(claim.amount, open.currency), last4: claim.reference_last4 }))) return;
+    if (!(await confirm(t(labels[kind], { amount: money(claim.amount, open.currency), last4: claim.reference_last4 })))) return;
     setBusy(true); setError("");
     try {
       const res = kind === "confirm"
@@ -85,7 +88,7 @@ function WebOrders() {
       setOpen(res.data); setPayNote(""); await load();
     } catch (err) {
       const d = err?.response?.data;
-      setError(d?.code === "approval_required" ? t("webOrders.pay.approvalRequired") : (d?.detail || (d && Object.values(d).flat()[0]) || t("webOrders.decideError")));
+      setError(d?.code === "approval_required" ? t("webOrders.pay.approvalRequired") : errorText(err, t, "webOrders.decideError"));
     } finally { setBusy(false); }
   };
   const customerMessage = (order, kind) => {
@@ -193,7 +196,7 @@ function WebOrders() {
                 ))}
               </div>
             )}
-            <a href={whatsappUrl(open.phone) + `?text=${encodeURIComponent(customerMessage(open, open.status))}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-control border border-line px-3 py-2 text-sm font-medium hover:bg-paper"><MessageCircle size={16} className="text-ok" />{t("webOrders.whatsappCustomer")}</a>
+            <a href={whatsappUrl(open.phone) + `?text=${encodeURIComponent(customerMessage(open, open.status))}`} target="_blank" rel="noreferrer" className="tap inline-flex items-center gap-2 rounded-control border border-line px-3 py-2 text-sm font-medium hover:bg-paper"><MessageCircle size={16} className="text-ok" />{t("webOrders.whatsappCustomer")}</a>
             {open.status === "new" && writable && (
               <div className="space-y-2 rounded-control bg-paper p-3">
                 <p className="text-muted">{t("webOrders.confirmHint")}</p>

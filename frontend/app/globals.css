@@ -162,3 +162,15 @@ a:hover .dashboard-stat { border-color: rgb(var(--accent) / .5); }
   .workspace-main .overflow-x-auto > table tbody tr:hover td:first-child { background: rgb(var(--surface)); }
 }
 
+
+/* Touch screens: a control marked .tap is at least 44 px tall and wide, the
+   size a thumb hits reliably (Apple HIG, WCAG 2.5.5). A mouse keeps the
+   compact size, so dense desktop tables stay dense. */
+@media (pointer: coarse) {
+  .tap { min-height: 44px; min-width: 44px; }
+  /* Links and buttons inside table cells (a customer's name, an invoice
+     number) are text with no size of their own; on a phone the whole line
+     height becomes the target instead of a 13 px strip of text. */
+  .workspace-main td a,
+  .workspace-main td button { display: inline-flex; align-items: center; min-height: 44px; }
+}

@@ -38,3 +38,21 @@ test("an unknown code falls back instead of showing the code", () => {
   const message = errorText(withResponse(400, { code: "not_a_known_code" }), t, "finance.saveError");
   assert.equal(message, translate("ar", "finance.saveError"));
 });
+
+test("the server's own sentence wins when it is in the reader's language", () => {
+  const arabic = withResponse(400, { amount: ["المبلغ يتجاوز المستحق (250.00)."] });
+  assert.equal(errorText(arabic, t, "finance.saveError"), "المبلغ يتجاوز المستحق (250.00).");
+  const detail = withResponse(403, { detail: "دورك لا يسمح بتعديل هذا الفرع." });
+  assert.equal(errorText(detail, t), "دورك لا يسمح بتعديل هذا الفرع.");
+});
+
+test("an untranslated English message never reaches an Arabic screen", () => {
+  const english = withResponse(400, { detail: "Target company already has products." });
+  assert.equal(errorText(english, t, "settings.restoreFailed"), translate("ar", "settings.restoreFailed"));
+});
+
+test("on an English screen the English message is shown", () => {
+  const en = (key, vars) => translate("en", key, vars);
+  const english = withResponse(400, { detail: "Target company already has products." });
+  assert.equal(errorText(english, en, "settings.restoreFailed"), "Target company already has products.");
+});
