@@ -10,6 +10,7 @@ import VoidDrawer from "@/components/finance/VoidDrawer";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
+import { SkeletonTableRows } from "@/components/ui/Skeleton";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -168,11 +169,7 @@ export default function BillList({ suppliersById, bankAccounts, writable, refres
           </thead>
           <tbody>
             {loading && (
-              <tr>
-                <td colSpan={writable ? 6 : 5} className="px-4 py-8 text-center text-muted">
-                  {t("common.loading")}
-                </td>
-              </tr>
+              <SkeletonTableRows cols={writable ? 6 : 5} />
             )}
             {!loading && rows.length === 0 && (
               <tr>

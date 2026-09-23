@@ -8,6 +8,7 @@ import { useI18n } from "../../providers/I18nProvider";
 import { platformLeads as platformLeadsApi } from "@/lib/api";
 import { Badge, Card, Input, PageHeader, Select } from "@/components/ui/kit";
 import FollowUpPanel, { ContactLinks, FollowUpBadge } from "@/components/platform/FollowUpPanel";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 
 const STATUSES = ["new", "contacted", "qualified", "closed"];
 const TONES = { new: "accent", contacted: "warn", qualified: "ok", closed: "muted" };
@@ -121,7 +122,7 @@ export default function PlatformLeadsPage() {
 
       {error && <p role="alert" className="mb-4 rounded-control bg-danger/10 p-3 text-sm text-danger">{error}</p>}
       {loading ? (
-        <Card className="p-8 text-center text-muted">{t("common.loading")}</Card>
+        <SkeletonCard />
       ) : rows.length === 0 ? (
         <Card className="p-10 text-center"><Inbox className="mx-auto text-muted" /><p className="mt-3 text-muted">{t("platformLeads.empty")}</p></Card>
       ) : (

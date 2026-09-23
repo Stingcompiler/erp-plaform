@@ -10,6 +10,7 @@ import TabBar from "@/components/ui/TabBar";
 import { Button, Field, Input, Select, controlClass } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { SkeletonLines } from "@/components/ui/Skeleton";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const DOC_TYPES = ["contract", "id", "certificate", "warning", "other"];
@@ -104,7 +105,7 @@ export default function EmployeeRecords({ employee, writable }) {
         </div>
       )}
 
-      {tab === "reviews" && (reviews === null ? <p className="py-4 text-sm text-muted">{t("common.loading")}</p> : reviews.length === 0 ? (
+      {tab === "reviews" && (reviews === null ? <SkeletonLines /> : reviews.length === 0 ? (
         <p className="py-4 text-sm text-muted">{t("hr.records.noReviews")}</p>
       ) : (
         <ul className="mt-3 divide-y divide-line">{reviews.map((r) => (
@@ -114,7 +115,7 @@ export default function EmployeeRecords({ employee, writable }) {
           </li>
         ))}</ul>
       ))}
-      {tab === "documents" && (docs === null ? <p className="py-4 text-sm text-muted">{t("common.loading")}</p> : docs.length === 0 ? (
+      {tab === "documents" && (docs === null ? <SkeletonLines /> : docs.length === 0 ? (
         <p className="py-4 text-sm text-muted">{t("hr.records.noDocuments")}</p>
       ) : (
         <ul className="mt-3 divide-y divide-line">{docs.map((d) => (

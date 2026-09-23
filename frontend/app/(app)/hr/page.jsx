@@ -14,6 +14,7 @@ import AttendanceRegister from "@/components/hr/AttendanceRegister";
 import LeaveBalances from "@/components/hr/LeaveBalances";
 import LeavePolicies from "@/components/hr/LeavePolicies";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { SkeletonRows } from "@/components/ui/Skeleton";
 
 const EMP_STATUS_TONE = { active: "ok", on_leave: "warn", terminated: "danger" };
 const EMP_STATUS_KEY = {
@@ -609,7 +610,7 @@ export default function HrPage() {
         ))}
       </div>
 
-      {loading && <p className="py-8 text-center text-muted">{t("common.loading")}</p>}
+      {loading && <SkeletonRows />}
       {tab === "attendance" && <AttendanceRegister writable={writable} />}
       {tab === "leave-balances" && <LeaveBalances writable={writable} />}
       {tab === "leave-policies" && <LeavePolicies writable={writable} />}

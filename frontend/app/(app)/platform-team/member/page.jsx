@@ -15,6 +15,7 @@ import { platformTeam } from "@/lib/api";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 
 function Row({ label, children }) {
   return (
@@ -157,7 +158,7 @@ function MemberDetail() {
       </Card>
     );
   }
-  if (loading) return <Card className="p-8 text-center text-muted">{t("common.loading")}</Card>;
+  if (loading) return <SkeletonCard />;
   if (error || !member) {
     return (
       <div>

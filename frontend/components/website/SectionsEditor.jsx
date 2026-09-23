@@ -9,6 +9,7 @@ import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { SkeletonLines } from "@/components/ui/Skeleton";
 
 const TYPES = [
   { value: "hero", key: "website.typeHero" },
@@ -186,7 +187,7 @@ export default function SectionsEditor({ websiteId, writable, onChanged }) {
       </div>
 
       {loading ? (
-        <p className="text-sm text-muted">{t("common.loading")}</p>
+        <SkeletonLines />
       ) : sections.length === 0 ? (
         <p className="text-sm text-muted">{t("website.addSectionsHint")}</p>
       ) : (

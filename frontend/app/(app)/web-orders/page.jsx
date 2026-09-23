@@ -16,6 +16,7 @@ import Drawer from "@/components/ui/Drawer";
 import PushPrompt from "@/components/orders/PushPrompt";
 import { errorText } from "@/lib/errors";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { SkeletonTableRows } from "@/components/ui/Skeleton";
 
 const TABS = ["new", "confirmed", "rejected", "all"];
 const TONE = { new: "warn", confirmed: "ok", rejected: "danger", cancelled: "muted" };
@@ -125,7 +126,7 @@ function WebOrders() {
             <tr><th className="px-4 py-3 text-start">{t("webOrders.reference")}</th><th className="px-3 py-3 text-start">{t("webOrders.customer")}</th><th className="px-3 py-3 text-start">{t("webOrders.branch")}</th><th className="px-3 py-3 text-start">{t("webOrders.items")}</th><th className="px-3 py-3 text-end">{t("webOrders.total")}</th><th className="px-3 py-3 text-start">{t("webOrders.received")}</th><th className="px-3 py-3 text-start">{t("common.status")}</th></tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {loading && <tr><td colSpan={7} className="px-4 py-8 text-center text-muted">{t("common.loading")}</td></tr>}
+            {loading && <SkeletonTableRows cols={7} />}
             {!loading && !rows.length && <tr><td colSpan={7} className="px-4 py-10 text-center text-muted"><Globe className="mx-auto mb-2 text-muted" />{t("webOrders.empty")}</td></tr>}
             {!loading && rows.map((r) => (
               <tr key={r.id} className="cursor-pointer hover:bg-paper" onClick={() => setOpen(r)}>

@@ -10,6 +10,7 @@ import DocumentDrawer from "@/components/print/DocumentDrawer";
 import RefundDrawer from "@/components/finance/RefundDrawer";
 import VoidDrawer from "@/components/finance/VoidDrawer";
 import { Badge, Card } from "@/components/ui/kit";
+import { SkeletonTableRows } from "@/components/ui/Skeleton";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, {
@@ -73,11 +74,7 @@ export default function NotesList({ kind }) {
           </thead>
           <tbody>
             {loading && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted">
-                  {t("common.loading")}
-                </td>
-              </tr>
+              <SkeletonTableRows cols={5} />
             )}
             {!loading && rows.length === 0 && (
               <tr>

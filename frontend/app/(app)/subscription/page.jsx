@@ -11,6 +11,7 @@ import UsageMeter from "@/components/subscription/UsageMeter";
 import DeviceList from "@/components/subscription/DeviceList";
 import PlanChangePanel from "@/components/subscription/PlanChangePanel";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 
 // Digits in day/month/year order, Latin numerals: an Arabic-locale date
 // inside an LTR span was bidi-reordered to "202026/9/".
@@ -133,7 +134,7 @@ export default function SubscriptionPage() {
   }, [payableKey]);
 
   if (user?.role_name !== "Business Owner") return <Card className="mx-auto mt-16 max-w-md p-8 text-center"><Lock className="mx-auto text-muted"/><p className="mt-3 text-muted">{t("subscription.ownerOnly")}</p></Card>;
-  if (!data && !error) return <Card className="p-8 text-center text-muted">{t("common.loading")}</Card>;
+  if (!data && !error) return <SkeletonCard />;
 
   const standalone = data?.deployment_mode === "standalone";
   const record = standalone ? data?.license : data?.subscription;

@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, PageHeader } from "@/components/ui/kit";
 import LeadDrawer from "@/components/crm/LeadDrawer";
 import { errorText } from "@/lib/errors";
+import { SkeletonRows } from "@/components/ui/Skeleton";
 
 const STAGE_LABEL = {
   new: "crm.stageNew",
@@ -170,7 +171,7 @@ export default function CrmPage() {
 
       {/* Lead list — cards on mobile, table-like rows scale up */}
       <div className="mt-4 space-y-2">
-        {loading && <p className="py-8 text-center text-muted">{t("common.loading")}</p>}
+        {loading && <SkeletonRows />}
         {!loading && visible.length === 0 && (
           <Card className="p-8 text-center text-muted">{t("crm.noLeads")}</Card>
         )}

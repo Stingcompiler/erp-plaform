@@ -8,6 +8,7 @@ import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { ean13Svg } from "@/lib/ean13";
 import { Button, Card, Input, PageHeader } from "@/components/ui/kit";
+import { SkeletonRows } from "@/components/ui/Skeleton";
 
 const money = (v, lang) =>
   Number(v ?? 0).toLocaleString(lang === "ar" ? "ar" : "en", {
@@ -110,7 +111,7 @@ export default function LabelsPage() {
           />
         </div>
 
-        {loading && <p className="py-8 text-center text-muted">{t("common.loading")}</p>}
+        {loading && <SkeletonRows />}
         {!loading && products.length === 0 && (
           <Card className="p-8 text-center text-muted">{t("inventory.noBarcodeProducts")}</Card>
         )}

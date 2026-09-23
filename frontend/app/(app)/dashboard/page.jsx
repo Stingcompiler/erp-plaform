@@ -26,6 +26,7 @@ import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { translateRole } from "@/lib/i18n";
 import BarList from "@/components/reports/BarList";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 
 function Stat({ icon: Icon, label, value, tone = "ink", sub }) {
   const toneClass =
@@ -109,7 +110,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {!data && !error && <div className="mt-6 text-muted">{t("common.loading")}</div>}
+      {!data && !error && <SkeletonCard className="mt-6" />}
 
       {data && (
         <div className="dashboard-overview">

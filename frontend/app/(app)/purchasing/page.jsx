@@ -16,6 +16,7 @@ import ReceivingTerminal from "@/components/purchasing/ReceivingTerminal";
 import PurchaseOrders from "@/components/purchasing/PurchaseOrders";
 import BillList from "@/components/purchasing/BillList";
 import NewBillDrawer from "@/components/purchasing/NewBillDrawer";
+import { SkeletonTableRows } from "@/components/ui/Skeleton";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -50,11 +51,7 @@ function SupplierList({ suppliers, loading, writable, onNew, onOpen, onImport })
             </thead>
             <tbody>
               {loading && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-muted">
-                    {t("common.loading")}
-                  </td>
-                </tr>
+                <SkeletonTableRows cols={4} />
               )}
               {!loading && suppliers.length === 0 && (
                 <tr>

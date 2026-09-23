@@ -15,6 +15,7 @@ import ImagePicker from "@/components/website/ImagePicker";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 
 const SETTINGS_FIELDS = ["google_site_verification", "bing_site_verification", "analytics_id", "robots_extra", "support_whatsapp", "support_phone", "support_email"];
 const EMPTY_OVERRIDE = { path: "/", language: "both", title: "", description: "", noindex: false, canonical: "" };
@@ -227,7 +228,7 @@ export default function PlatformSeoPage() {
       )}
 
       {loading || !form ? (
-        <Card className="p-8 text-center text-muted">{t("common.loading")}</Card>
+        <SkeletonCard />
       ) : (
         <>
           <Card className="mb-5 p-5">

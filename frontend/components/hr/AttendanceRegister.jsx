@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/Toast";
 import TabBar from "@/components/ui/TabBar";
 import { Badge, Card, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
+import { SkeletonRows } from "@/components/ui/Skeleton";
 
 const STATUSES = ["present", "absent", "half_day", "leave"];
 const TONE = { present: "ok", absent: "danger", half_day: "warn", leave: "accent" };
@@ -117,7 +118,7 @@ export default function AttendanceRegister({ writable }) {
         <TabBar value={view} onChange={setView} tabs={[{ id: "day", label: t("hr.attendance.dayView") }, { id: "month", label: t("hr.attendance.monthView") }]} />
       </div>
 
-      {view === "day" && (employees === null ? <p className="p-8 text-center text-muted">{t("common.loading")}</p> : employees.length === 0 ? (
+      {view === "day" && (employees === null ? <SkeletonRows /> : employees.length === 0 ? (
         <p className="p-8 text-center text-muted">{t("hr.noEmployees")}</p>
       ) : (
         <div className="overflow-x-auto">
@@ -153,7 +154,7 @@ export default function AttendanceRegister({ writable }) {
         </div>
       ))}
 
-      {view === "month" && (summary === null ? <p className="p-8 text-center text-muted">{t("common.loading")}</p> : summary.rows.length === 0 ? (
+      {view === "month" && (summary === null ? <SkeletonRows /> : summary.rows.length === 0 ? (
         <p className="p-8 text-center text-muted">{t("hr.attendance.emptyMonth", { month: fmtMonth(month) })}</p>
       ) : (
         <div className="overflow-x-auto">

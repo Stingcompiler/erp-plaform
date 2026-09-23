@@ -9,6 +9,7 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import { BANK_CHANNELS, channelLabel } from "@/lib/bankChannels";
+import { SkeletonTableRows } from "@/components/ui/Skeleton";
 
 const EMPTY = { channel: "bank", bank_name: "", account_name: "", account_number: "" };
 
@@ -113,11 +114,7 @@ export default function BankAccounts({ writable, onChanged }) {
             </thead>
             <tbody>
               {loading && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-muted">
-                    {t("common.loading")}
-                  </td>
-                </tr>
+                <SkeletonTableRows cols={4} />
               )}
               {!loading && rows.length === 0 && (
                 <tr>

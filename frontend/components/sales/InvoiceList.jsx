@@ -11,6 +11,7 @@ import DocumentDrawer from "@/components/print/DocumentDrawer";
 import CollectPaymentDrawer from "@/components/sales/CollectPaymentDrawer";
 import VoidDrawer from "@/components/finance/VoidDrawer";
 import { Badge, Button, Card, Input } from "@/components/ui/kit";
+import { SkeletonTableRows } from "@/components/ui/Skeleton";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -79,11 +80,7 @@ export default function InvoiceList({ refreshKey }) {
           </thead>
           <tbody>
             {loading && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted">
-                  {t("common.loading")}
-                </td>
-              </tr>
+              <SkeletonTableRows cols={5} />
             )}
             {!loading && !error && rows.length === 0 && (
               <tr>

@@ -11,6 +11,7 @@ import Drawer from "@/components/ui/Drawer";
 import { Button, Card, Field, Input } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { SkeletonLines } from "@/components/ui/Skeleton";
 
 function FeaturedForm({ open, onClose, onSaved, websiteId, item }) {
   const { t } = useI18n();
@@ -234,7 +235,7 @@ export default function FeaturedProducts({ websiteId, writable, onChanged }) {
       </div>
 
       {loading ? (
-        <p className="text-sm text-muted">{t("common.loading")}</p>
+        <SkeletonLines />
       ) : rows.length === 0 ? (
         <p className="text-sm text-muted">{t("website.featuredEmptyHint")}</p>
       ) : (
