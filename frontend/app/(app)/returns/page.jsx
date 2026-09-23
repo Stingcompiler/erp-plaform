@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Lock, Plus } from "lucide-react";
+import { Lock, Plus, Undo2 } from "lucide-react";
 
 import { returns } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
@@ -13,6 +13,7 @@ import NotesList from "@/components/returns/NotesList";
 import PurchaseReturnList from "@/components/returns/PurchaseReturnList";
 import TabBar from "@/components/ui/TabBar";
 import { SkeletonTableRows } from "@/components/ui/Skeleton";
+import { EmptyTableRow } from "@/components/ui/EmptyState";
 
 export default function ReturnsPage() {
   const { canRead, canWrite } = useAuth();
@@ -117,11 +118,13 @@ export default function ReturnsPage() {
                 <SkeletonTableRows cols={writable ? 6 : 5} />
               )}
               {!loading && rows.length === 0 && (
-                <tr>
-                  <td colSpan={writable ? 6 : 5} className="px-4 py-8 text-center text-muted">
-                    {t("returns.noReturns")}
-                  </td>
-                </tr>
+                <EmptyTableRow
+                  cols={writable ? 6 : 5}
+                  icon={Undo2}
+                  title={t("returns.emptyTitle")}
+                  body={t("returns.emptyBody")}
+                  action={writable && <Button onClick={() => setNewOpen(true)}><Plus size={16} /> {t("returns.newReturn")}</Button>}
+                />
               )}
               {!loading &&
                 rows.map((r) => {

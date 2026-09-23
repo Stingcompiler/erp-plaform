@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Archive, ArchiveRestore, Download, Lock, Pencil, Plus, RefreshCw, Search } from "lucide-react";
+import { AlertTriangle, Archive, ArchiveRestore, Download, Lock, Package, Pencil, Plus, RefreshCw, Search } from "lucide-react";
 
 import { inventory, settings } from "@/lib/api";
 import { offlineStore } from "@/lib/offlineStore";
@@ -15,6 +15,7 @@ import StockDrawer from "@/components/inventory/StockDrawer";
 import StockCountPanel from "@/components/inventory/StockCountPanel";
 import { errorText } from "@/lib/errors";
 import { SkeletonTableRows } from "@/components/ui/Skeleton";
+import { EmptyTableRow } from "@/components/ui/EmptyState";
 
 const PAGE_SIZE = 50;
 
@@ -278,11 +279,19 @@ export default function InventoryPage() {
                 </tr>
               )}
               {!loading && !error && rows.length === 0 && (
-                <tr>
-                  <td colSpan={writable ? 7 : 6} className="px-4 py-8 text-center text-muted">
-                    {t("inventory.noProducts")} {writable ? t("inventory.createFirst") : ""}
-                  </td>
-                </tr>
+                <EmptyTableRow
+                  cols={writable ? 7 : 6}
+                  icon={Package}
+                  title={t("inventory.emptyTitle")}
+                  body={t("inventory.emptyBody")}
+                  filtered={Boolean(search || lowOnly || negativeOnly || showArchived)}
+                  onClearFilters={() => { setSearch(""); setLowOnly(false); setNegativeOnly(false); setShowArchived(false); setPage(1); }}
+                  action={writable && (
+                    <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
+                      <Plus size={16} /> {t("inventory.newProduct")}
+                    </Button>
+                  )}
+                />
               )}
               {!loading &&
                 rows.map((p) => (
