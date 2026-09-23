@@ -373,10 +373,11 @@ def dashboard(request):
         from accounts.models import User
         from inventory.models import Product, StockMovement, Warehouse
         from sales.models import Invoice
+        from website.models import Website
         company = user.company
         checks = [
             ("companyStep",
-             "/settings",
+             "/settings#company",
              bool(
                  company.name and company.currency and (
                      company.phone or company.email)),
@@ -399,11 +400,10 @@ def dashboard(request):
                      is_active=True,
                      is_stock_tracked=True).exists()),
              "inventory"),
+            # The owner is always there; the step is inviting someone else.
             ("userStep",
              "/users",
-             User.objects.filter(
-                 company_id=company_id,
-                 is_active=True).exists(),
+             User.objects.filter(company_id=company_id, is_active=True).count() > 1,
              "users"),
             ("saleStep",
              "/sales",
@@ -411,6 +411,10 @@ def dashboard(request):
                  company_id=company_id,
                  is_void=False, is_opening_balance=False).exists(),
              "sales"),
+            ("websiteStep",
+             "/website",
+             Website.objects.filter(company_id=company_id, is_published=True).exists(),
+             "website"),
         ]
         setup = [{"key": key, "href": href, "done": done} for key, href, done, module in checks
                  if role_can(user, module, write=True)]
