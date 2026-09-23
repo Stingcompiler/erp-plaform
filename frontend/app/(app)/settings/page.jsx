@@ -576,58 +576,70 @@ export default function SettingsPage() {
           <p className="text-sm text-muted">{t("settings.noBackups")}</p>
         ) : (
           <div className="divide-y divide-line">
-            {backups.slice(0, 8).map((b) => (
-              <div key={b.id} className="flex items-center justify-between py-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <Badge tone={b.status === "success" ? "ok" : "danger"}>{b.kind}</Badge>
-                  <span className="tabular text-muted">
-                    {new Date(b.created_at).toLocaleString(language === "ar" ? "ar" : "en")}
-                  </span>
-                </div>
-                <span className="flex items-center gap-2 tabular text-muted">
-                  {b.storage_key && <Badge tone="accent">{t("settings.offSite")}</Badge>}
-                  {b.record_count} {t("settings.records")} · {bytes(b.size_bytes)}
-                  {b.downloadable && (
-                    <span className="inline-flex items-center gap-1">
-                      <Download size={13} className="text-muted" />
-                      {BACKUP_FORMATS.map(([format, labelKey]) => (
-                        <a
-                          key={format}
-                          href={settings.backupDownloadUrl(b.id, format, language)}
-                          download
-                          className="rounded-control border border-line px-2 py-1 text-xs text-ink hover:bg-paper"
-                          title={t(`settings.backupFormatHint.${format}`)}
-                        >
-                          {t(labelKey)}
-                        </a>
-                      ))}
+            {backups.slice(0, 8).map((b) => {
+              const canRestore = b.downloadable && writable && b.kind !== "restore";
+              const kindKey = `settings.backupKind.${b.kind}`;
+              const kindLabel = t(kindKey) === kindKey ? b.kind : t(kindKey);
+              return (
+                // Phone: three stacked lines (what/when, size, actions);
+                // wider screens: one row with the actions on the far side.
+                <div key={b.id} className="flex flex-col gap-2 py-3 text-sm lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                    <Badge tone={b.status === "success" ? "ok" : "danger"}>{kindLabel}</Badge>
+                    <span className="tabular whitespace-nowrap text-ink">
+                      {new Date(b.created_at).toLocaleString(language === "ar" ? "ar" : "en", { dateStyle: "medium", timeStyle: "short" })}
                     </span>
+                    <span className="tabular whitespace-nowrap text-xs text-muted">
+                      {b.record_count} {t("settings.records")} · {bytes(b.size_bytes)}
+                    </span>
+                    {b.storage_key && <Badge tone="accent">{t("settings.offSite")}</Badge>}
+                  </div>
+                  {(b.downloadable || canRestore) && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {b.downloadable && (
+                        <span className="inline-flex items-center gap-1" role="group" aria-label={t("settings.downloadBackup")}>
+                          <Download size={14} className="shrink-0 text-muted" aria-hidden="true" />
+                          {BACKUP_FORMATS.map(([format, labelKey]) => (
+                            <a
+                              key={format}
+                              href={settings.backupDownloadUrl(b.id, format, language)}
+                              download
+                              className="inline-flex h-8 items-center rounded-control border border-line px-2.5 text-xs text-ink hover:bg-paper"
+                              title={t(`settings.backupFormatHint.${format}`)}
+                            >
+                              {t(labelKey)}
+                            </a>
+                          ))}
+                        </span>
+                      )}
+                      {canRestore && (
+                        <>
+                          <span className="mx-0.5 hidden h-5 w-px bg-line sm:block" aria-hidden="true" />
+                          <button
+                            type="button"
+                            onClick={() => restore({ backup_id: b.id })}
+                            disabled={restoring}
+                            className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-control border border-line px-2.5 text-xs text-ink hover:bg-paper disabled:opacity-50"
+                            title={t("settings.restoreThis")}
+                          >
+                            <RotateCcw size={13} />{t("settings.restoreThis")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => restore({ backup_id: b.id }, { mode: "missing" })}
+                            disabled={restoring}
+                            className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-control border border-accent/40 bg-accent/5 px-2.5 text-xs text-accent hover:bg-accent/10 disabled:opacity-50"
+                            title={t("settings.restoreMissingHint")}
+                          >
+                            <RotateCcw size={13} />{t("settings.restoreMissing")}
+                          </button>
+                        </>
+                      )}
+                    </div>
                   )}
-                  {b.downloadable && writable && b.kind !== "restore" && (
-                    <button
-                      type="button"
-                      onClick={() => restore({ backup_id: b.id })}
-                      disabled={restoring}
-                      className="inline-flex items-center gap-1 rounded-control border border-line px-2 py-1 text-xs text-ink hover:bg-paper disabled:opacity-50"
-                      title={t("settings.restoreThis")}
-                    >
-                      <RotateCcw size={13} />{t("settings.restoreThis")}
-                    </button>
-                  )}
-                  {b.downloadable && writable && b.kind !== "restore" && (
-                    <button
-                      type="button"
-                      onClick={() => restore({ backup_id: b.id }, { mode: "missing" })}
-                      disabled={restoring}
-                      className="inline-flex items-center gap-1 rounded-control border border-line px-2 py-1 text-xs text-ink hover:bg-paper disabled:opacity-50"
-                      title={t("settings.restoreMissingHint")}
-                    >
-                      <RotateCcw size={13} />{t("settings.restoreMissing")}
-                    </button>
-                  )}
-                </span>
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         )}
         <p className="mt-3 text-xs text-muted">{t("settings.backupsNote")} {t("settings.backupFormatsNote")}</p>
