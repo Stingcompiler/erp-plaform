@@ -133,7 +133,7 @@ export default function PlatformFinancePage() {
 
           <Card className="mt-5 overflow-x-auto">
             <div className="flex items-center gap-2 px-5 pt-5 font-display font-semibold"><Banknote size={18} className="text-accent" />{t("platformFinance.byPlan")}</div>
-            <table className="mt-3 w-full min-w-[640px] text-sm">
+            <table className="stack-sm mt-3 w-full sm:min-w-[640px] text-sm">
               <thead className="bg-paper text-xs uppercase tracking-wide text-muted">
                 <tr><th className="px-4 py-2 text-start">{t("platformFinance.plan")}</th><th className="px-3 py-2 text-center">{t("platformCompanies.status.active")}</th><th className="px-3 py-2 text-center">{t("platformCompanies.status.trialing")}</th><th className="px-3 py-2 text-center">{t("platformFinance.otherStates")}</th><th className="px-3 py-2 text-end">{t("platformFinance.mrr")}</th><th className="px-3 py-2 text-end">{t("platformFinance.collectedN", { n: months })}</th><th className="px-3 py-2 text-end">{t("platformFinance.outstanding")}</th></tr>
               </thead>
@@ -147,7 +147,7 @@ export default function PlatformFinancePage() {
 
           <Card className="mt-5 overflow-x-auto">
             <div className="px-5 pt-5 font-display font-semibold">{t("platformFinance.byCompany")}</div>
-            <table className="mt-3 w-full min-w-[720px] text-sm">
+            <table className="stack-sm mt-3 w-full sm:min-w-[720px] text-sm">
               <thead className="bg-paper text-xs uppercase tracking-wide text-muted">
                 <tr><th className="px-4 py-2 text-start">{t("platformCompanies.company")}</th><th className="px-3 py-2 text-start">{t("platformFinance.plan")}</th><th className="px-3 py-2 text-end">{t("platformFinance.monthlyPrice")}</th><th className="px-3 py-2 text-end">{t("platformFinance.outstanding")}</th><th className="px-3 py-2 text-start">{t("platformFinance.lastPayment")}</th><th className="px-3 py-2 text-start">{t("platformFinance.renewal")}</th></tr>
               </thead>

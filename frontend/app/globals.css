@@ -174,3 +174,42 @@ a:hover .dashboard-stat { border-color: rgb(var(--accent) / .5); }
   .workspace-main td a,
   .workspace-main td button { display: inline-flex; align-items: center; min-height: 44px; }
 }
+
+/* Record tables become cards on phones (class "stack-sm" on the <table>).
+   Each cell shows its column heading beside the value; TableCardLabels
+   copies the <th> text into data-label. Full-width rows (loading, empty,
+   errors — anything with colspan) keep their own layout. */
+@media (max-width: 639px) {
+  table.stack-sm thead { display: none; }
+  table.stack-sm, table.stack-sm tbody, table.stack-sm tr, table.stack-sm td { display: block; width: 100%; }
+  table.stack-sm tbody tr {
+    margin: 0.5rem 0.75rem;
+    width: auto;
+    border: 1px solid rgb(var(--line));
+    border-radius: 0.75rem;
+    padding: 0.35rem 0.85rem;
+    background: rgb(var(--surface));
+  }
+  table.stack-sm tbody tr:has(> td[colspan]) { border: 0; margin: 0; padding: 0; background: transparent; }
+  table.stack-sm td { padding: 0.45rem 0 !important; }
+  table.stack-sm td:not([colspan]) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    text-align: end;
+    border-bottom: 1px dashed rgb(var(--line));
+  }
+  table.stack-sm td:not([colspan]):last-child { border-bottom: 0; }
+  table.stack-sm td:not([colspan])::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    max-width: 45%;
+    text-align: start;
+    font-size: 0.75rem;
+    color: rgb(var(--muted));
+  }
+  table.stack-sm td[data-label=""]::before { content: none; }
+  table.stack-sm td[data-label=""] { justify-content: flex-end; }
+  table.stack-sm td > * { min-width: 0; }
+}

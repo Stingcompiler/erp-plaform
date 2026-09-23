@@ -122,7 +122,7 @@ export default function AttendanceRegister({ writable }) {
         <p className="p-8 text-center text-muted">{t("hr.noEmployees")}</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="stack-sm w-full text-sm">
             <thead><tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
               <th className="px-3 py-2 text-start font-medium">{t("hr.fullName")}</th>
               <th className="px-3 py-2 text-start font-medium">{t("hr.status")}</th>
@@ -158,7 +158,7 @@ export default function AttendanceRegister({ writable }) {
         <p className="p-8 text-center text-muted">{t("hr.attendance.emptyMonth", { month: fmtMonth(month) })}</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="stack-sm w-full text-sm">
             <thead><tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
               <th className="px-3 py-2 text-start font-medium">{t("hr.fullName")}</th>
               {STATUSES.map((s) => <th key={s} className="px-3 py-2 text-end font-medium">{t(`hr.attendance.status.${s}`)}</th>)}

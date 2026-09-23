@@ -189,7 +189,7 @@ export default function FinancePage() {
         onClearFilters={() => { setFilters((f) => ({ ...f, search: "", start: "", end: "" })); setPage(1); }}
         action={writable && <Button onClick={() => setDrawerOpen(true)}><Plus size={16} />{t("finance.newExpense")}</Button>}
       /> :
-      <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-line text-muted">
+      <div className="overflow-x-auto"><table className="stack-sm w-full text-sm"><thead><tr className="border-b border-line text-muted">
         {["category","description","method","date","amount"].map((key) => <th key={key} scope="col" className="px-4 py-3 text-start">{t(`finance.${key}`)}</th>)}
       </tr></thead><tbody>{expenses.map((e) => <tr key={e.id} className="border-b border-line last:border-0">
         <td className="px-4 py-3"><span className="inline-flex items-center gap-2">

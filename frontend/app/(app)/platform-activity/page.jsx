@@ -131,7 +131,7 @@ export default function PlatformActivityPage() {
           <p className="p-8 text-center text-muted">{t("platformActivity.empty")}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
+            <table className="stack-sm w-full sm:min-w-[720px] text-sm">
               <thead className="bg-paper text-xs text-muted">
                 <tr>
                   <th className="px-4 py-3 text-start font-medium">{t("platformActivity.colWhen")}</th>

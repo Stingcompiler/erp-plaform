@@ -44,7 +44,7 @@ export default function PurchaseReturnList({ writable }) {
 
       <Card>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="stack-sm w-full text-sm">
             <thead>
               <tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
                 <th className="px-4 py-3 text-start font-medium">{t("returns.return")}</th>

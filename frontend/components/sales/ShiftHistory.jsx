@@ -71,7 +71,7 @@ export default function ShiftHistory({ refreshKey }) {
         <p className="p-8 text-center text-muted">{filter === "unreviewed" ? t("till.history.emptyUnreviewed") : t("till.history.empty")}</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="stack-sm w-full text-sm">
             <thead><tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
               <th className="px-3 py-2 text-start font-medium">{t("till.history.opened")}</th>
               <th className="px-3 py-2 text-start font-medium">{t("till.history.closed")}</th>

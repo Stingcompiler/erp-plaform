@@ -318,7 +318,7 @@ export default function PlatformSeoPage() {
               <p className="mt-4 text-sm text-muted">{t("platformSeo.noOverrides")}</p>
             ) : (
               <div className="mt-4 overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="stack-sm w-full text-sm">
                   <thead>
                     <tr className="text-start text-xs text-muted">
                       <th className="px-2 py-2 text-start font-medium">{t("platformSeo.colPath")}</th>

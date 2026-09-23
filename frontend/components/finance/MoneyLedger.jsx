@@ -87,7 +87,7 @@ export default function MoneyLedger({ refreshKey }) {
         <p className="p-8 text-center text-muted">{t("finance.ledger.empty")}</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="stack-sm w-full text-sm">
             <thead><tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
               <th className="px-3 py-2 text-start font-medium">{t("finance.ledger.when")}</th>
               <th className="px-3 py-2 text-start font-medium">{tab === "supplier" ? t("finance.ledger.supplier") : t("finance.ledger.customer")}</th>
