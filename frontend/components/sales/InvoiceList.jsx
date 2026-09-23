@@ -69,7 +69,7 @@ export default function InvoiceList({ refreshKey }) {
       </div>
       {error && <div className="p-4"><p role="alert" className="text-danger">{t("improvements.loadError")}</p><Button onClick={load}>{t("improvements.retry")}</Button></div>}
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="stack-sm w-full text-sm">
           <thead>
             <tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
               <th className="px-4 py-3 text-start font-medium">{t("sales.invoice")}</th>

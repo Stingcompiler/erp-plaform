@@ -83,7 +83,7 @@ export default function PlatformCompaniesPage() {
         <Input className="ps-9" placeholder={t("platformCompanies.search")} value={query} onChange={(e) => setQuery(e.target.value)} />
       </div>
       <Card className="overflow-x-auto">
-        <table className="w-full min-w-[880px] text-sm">
+        <table className="stack-sm w-full sm:min-w-[880px] text-sm">
           <thead className="bg-paper text-start text-xs uppercase tracking-wide text-muted">
             <tr>
               <th className="px-4 py-3 text-start">{t("platformCompanies.company")}</th>

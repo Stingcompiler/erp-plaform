@@ -7,6 +7,7 @@ import AppShell from "@/components/AppShell";
 import PlatformShell, { isPlatformPath } from "@/components/PlatformShell";
 import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
+import TableCardLabels from "@/components/ui/TableCardLabels";
 import { SyncProvider } from "@/components/sync/SyncProvider";
 import { AttentionProvider } from "@/components/attention/AttentionProvider";
 import ForcedPasswordChange from "@/components/auth/ForcedPasswordChange";
@@ -61,6 +62,7 @@ export default function AppLayoutClient({ children }) {
         <ConfirmProvider>
           <AttentionProvider>
             <PlatformShell>{children}</PlatformShell>
+            <TableCardLabels />
           </AttentionProvider>
         </ConfirmProvider>
       </ToastProvider>
@@ -73,6 +75,7 @@ export default function AppLayoutClient({ children }) {
         <SyncProvider>
           <AttentionProvider>
             <AppShell>{children}</AppShell>
+            <TableCardLabels />
           </AttentionProvider>
         </SyncProvider>
       </ConfirmProvider>

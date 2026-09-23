@@ -94,7 +94,7 @@ function VarianceTable({ budgetId }) {
   if (!data.rows.length) return <p className="px-4 py-3 text-sm text-muted">{t("budgets.noLines")}</p>;
   return (
     <div className="overflow-x-auto border-t border-line">
-      <table className="w-full text-sm">
+      <table className="stack-sm w-full text-sm">
         <thead><tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
           <th className="px-3 py-2 text-start font-medium">{t("budgets.category")}</th>
           <th className="px-3 py-2 text-end font-medium">{t("budgets.planned")}</th>
