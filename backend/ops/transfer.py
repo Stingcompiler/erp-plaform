@@ -315,10 +315,6 @@ def export_company(company, include_media=True):
     return payload, sorted(media_names)
 
 
-def payload_counts(payload):
-    return dict(payload.get("counts") or {})
-
-
 def write_export(company, destination, include_media=True, media_root=None):
     """
     Write a transfer archive (a zip) containing the payload, a manifest, and —

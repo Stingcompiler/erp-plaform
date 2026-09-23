@@ -278,12 +278,14 @@ class BarcodeTests(APITestCase):
         self.assertEqual(Product.objects.filter(barcode="").count(), 2)
 
     def test_generate_internal_barcode(self):
-        from inventory.barcodes import is_valid_ean13
+        from inventory.barcodes import ean13_check_digit
         local = Product.objects.create(company=self.company, sku="L1", name="Local")
         resp = self.client.post(reverse("product-generate-barcode", args=[local.id]))
         self.assertEqual(resp.status_code, 200, resp.data)
         code = resp.data["barcode"]
-        self.assertTrue(is_valid_ean13(code))
+        # A valid EAN-13: thirteen digits ending in the right check digit.
+        self.assertRegex(code, r"^\d{13}$")
+        self.assertEqual(ean13_check_digit(code[:12]), code[12])
         self.assertTrue(code.startswith("2"))  # GS1 internal-use prefix
 
     def test_generated_codes_are_unique(self):

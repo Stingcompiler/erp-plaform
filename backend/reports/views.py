@@ -933,12 +933,6 @@ class CashFlowReport(ReportView):
         )
 
 
-# Convenience default range helper (unused by endpoints but handy for clients).
-def default_range():
-    end = timezone.localdate()
-    return end - timedelta(days=30), end
-
-
 class ZakatReport(ReportView):
     """Zakat on trade goods for the hawl day: stock, cash, bank, receivables
     less payables, at 2.5%. `valuation=sale|cost`, `exclude_doubtful=1` drops

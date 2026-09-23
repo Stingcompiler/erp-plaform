@@ -326,18 +326,6 @@ def applied_credit_total(invoice):
     )["t"]
 
 
-def applied_debit_total(supplier):
-    """Debit notes that reduce what we owe the supplier but are not tied to a
-    specific bill. Notes linked to a bill are netted inside Bill.amount_due()
-    (see applied_debit_total_for_bill), so counting them here as well would
-    reduce AP twice."""
-    from django.db.models import Sum
-    from django.db.models.functions import Coalesce
-    return supplier.debit_notes.filter(is_void=False, bill__isnull=True).aggregate(
-        t=Coalesce(Sum("amount"), Decimal("0"))
-    )["t"]
-
-
 def applied_debit_total_for_bill(bill):
     from django.db.models import Sum
     from django.db.models.functions import Coalesce

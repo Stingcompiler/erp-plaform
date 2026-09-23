@@ -11,6 +11,7 @@ from datetime import timedelta
 from decimal import Decimal
 from unittest import mock
 
+from django.core.cache import cache
 from django.db import IntegrityError
 from django.urls import reverse
 from django.utils import timezone
@@ -230,3 +231,74 @@ class BatchSlotTests(APITestCase):
         SyncOperation.objects.create(batch=batch, index=0, op_type="x", status="applied")
         with self.assertRaises(IntegrityError):
             SyncOperation.objects.create(batch=batch, index=0, op_type="x", status="applied")
+
+
+class TwoTillsSameStockTests(OfflineBase):
+    """M7 acceptance: two tills offline at the same time sell the same last
+    units. When both reconnect, the total must not be corrupted by whichever
+    synced last, and the conflict must be surfaced rather than silently
+    resolved. The ledger keeps both sales (the goods did leave the shop), so
+    on-hand is exactly the sum of every movement — and a below-zero product is
+    raised to the owner as a stock alert to reconcile."""
+
+    def setUp(self):
+        super().setUp()
+        # Attention counts are cached per user id, and ids repeat between
+        # tests; a count cached by an earlier test must not answer here.
+        cache.clear()
+        self.second_till = User.objects.create_user(
+            email="till2@alpha.test", password="passw0rd123",
+            company=self.company, role=self.sales_role, branch=self.branch,
+        )
+        StockMovement.objects.create(
+            company=self.company, product=self.product, warehouse=self.wh,
+            movement_type=StockMovement.ADJUSTMENT, quantity=Decimal("3"),
+        )
+
+    def _sale(self, quantity):
+        return {
+            "op_type": "pos_checkout", "client_uuid": str(uuid.uuid4()),
+            "payload": {
+                "warehouse": self.wh.pk, "customer": self.customer.pk,
+                "lines": [{"product": self.product.pk, "quantity": str(quantity)}],
+                "payment": {"method": "cash", "amount": f"{quantity * 10}.00"},
+            },
+        }
+
+    def _push_as(self, user, operations):
+        self.client.force_authenticate(user)
+        return self.client.post(
+            reverse("sync-push"),
+            {
+                "batch_uuid": str(uuid.uuid4()), "expected_company": self.company.pk,
+                "expected_user": user.pk, "expected_branch": self.branch.pk,
+                "operations": operations,
+            },
+            format="json",
+        )
+
+    def test_both_offline_sales_keep_the_total_exact_and_the_deficit_is_raised(self):
+        from inventory.alerts import negative_stock
+
+        # Three on the shelf; each till sold two while the internet was down.
+        first = self._push_as(self.cashier, [self._sale(2)])
+        second = self._push_as(self.second_till, [self._sale(2)])
+        self.assertEqual(first.status_code, 201, first.data)
+        self.assertEqual(second.status_code, 201, second.data)
+
+        # Neither sale overwrote the other: both are in the ledger, and
+        # on-hand is exactly 3 - 2 - 2, not "whatever the last sync said".
+        sold = StockMovement.objects.filter(
+            product=self.product, movement_type=StockMovement.SALE_OUT
+        )
+        self.assertEqual(sold.count(), 2)
+        self.assertEqual(self.product.on_hand(), Decimal("-1"))
+        self.assertEqual(Invoice.objects.filter(company=self.company).count(), 2)
+
+        # Surfaced, not silently resolved: the product is on the negative
+        # stock list the owner's dashboard reads.
+        negative = negative_stock(self.company.pk).values_list("pk", flat=True)
+        self.assertIn(self.product.pk, negative)
+        self.client.force_authenticate(self.owner)
+        counts = self.client.get(reverse("attention")).data["counts"]
+        self.assertGreaterEqual(counts.get("stock", 0), 1)

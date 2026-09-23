@@ -54,17 +54,6 @@ def load_private_key(path):
     return key
 
 
-def public_pem_for(private_key):
-    return (
-        private_key.public_key()
-        .public_bytes(
-            serialization.Encoding.PEM,
-            serialization.PublicFormat.SubjectPublicKeyInfo,
-        )
-        .decode("utf-8")
-    )
-
-
 def _end_of_day_utc(day):
     """A date on a licence means 'through the end of that day', in UTC, so an
     installation in any timezone stops no earlier than the printed date."""

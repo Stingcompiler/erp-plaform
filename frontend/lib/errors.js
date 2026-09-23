@@ -67,9 +67,3 @@ export function errorText(error, t, fallbackKey = "errors.generic") {
   return known(STATUS_KEY[status]) || fallback();
 }
 
-/** Sentence plus the API's own words when they add something. */
-export function errorTextWithDetail(error, t, fallbackKey) {
-  const text = errorText(error, t, fallbackKey);
-  const detail = errorDetail(error);
-  return detail && detail !== text ? `${text} — ${detail}` : text;
-}

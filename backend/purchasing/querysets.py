@@ -8,7 +8,6 @@ from decimal import Decimal
 
 from django.db.models import DecimalField, ExpressionWrapper, F, OuterRef, Subquery, Sum
 from django.db.models.functions import Coalesce
-from django.utils import timezone
 
 MONEY = DecimalField(max_digits=20, decimal_places=2)
 ZERO = Decimal("0")
@@ -46,10 +45,6 @@ def with_outstanding(qs):
 
 def open_bills(qs):
     return with_outstanding(qs).filter(outstanding__gt=0)
-
-
-def overdue_bills(qs):
-    return open_bills(qs).filter(due_date__lt=timezone.localdate())
 
 
 def payable_total(qs):

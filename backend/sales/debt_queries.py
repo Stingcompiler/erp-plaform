@@ -74,17 +74,6 @@ def _money(value):
     return str(value.quantize(Decimal("0.01")))
 
 
-def _invoice_balance(invoice):
-    payments = sum((payment.amount for payment in invoice.payments.all()), ZERO)
-    credits = ZERO
-    refunds = ZERO
-    for note in invoice.credit_notes.all():
-        credits += note.amount
-        refunds += sum((refund.amount for refund in note.refunds.all()), ZERO)
-        refunds += sum((use.amount for use in note.applications.all()), ZERO)
-    return invoice.total - payments - credits + refunds
-
-
 def _customer_events(customer, invoices, standalone_credits):
     """Return statement events in ascending financial order.
 

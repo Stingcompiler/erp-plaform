@@ -103,7 +103,6 @@ export const rbac = {
 export const prefs = {
   get: () => api.get("/ops/preferences/"),
   update: (body) => api.patch("/ops/preferences/", body),
-  languages: () => api.get("/ops/languages/"),
 };
 
 export const dashboard = {
@@ -132,7 +131,6 @@ export const inventory = {
   updatePack: (id, body) => api.patch(`/product-packs/${id}/`, body),
   stockCounts: (params) => api.get("/stock-counts/", { params }),
   createStockCount: (body) => api.post("/stock-counts/", body),
-  updateStockCount: (id, body) => api.patch(`/stock-counts/${id}/`, body),
   submitStockCount: (id) => api.post(`/stock-counts/${id}/submit/`),
   approveStockCount: (id) => api.post(`/stock-counts/${id}/approve/`),
   cancelStockCount: (id) => api.post(`/stock-counts/${id}/cancel/`),
@@ -222,7 +220,6 @@ export const cashShifts = {
   open: (body) => api.post("/cash-shifts/", body),
   close: (id, body) => api.post(`/cash-shifts/${id}/close/`, body),
   review: (id) => api.post(`/cash-shifts/${id}/review/`),
-  movements: (shiftId) => api.get("/drawer-movements/", { params: { shift: shiftId } }),
   addMovement: (body) => api.post("/drawer-movements/", body),
 };
 
@@ -234,6 +231,10 @@ export const bankAccounts = {
 
 export const reports = {
   hrSummary: (params) => api.get("/reports/hr-summary/", { params }),
+  salesReturns: (params) => api.get("/reports/sales-returns/", { params }),
+  purchaseReturns: (params) => api.get("/reports/purchase-returns/", { params }),
+  paymentReconciliation: (params) => api.get("/reports/payment-reconciliation/", { params }),
+  crm: (params) => api.get("/reports/crm/", { params }),
   payroll: (params) => api.get("/reports/payroll/", { params }),
   incomeStatement: (params) => api.get("/reports/income-statement/", { params }),
   cashFlow: (params) => api.get("/reports/cash-flow/", { params }),
@@ -274,7 +275,6 @@ export const purchasing = {
   // Purchase orders: raise, send, confirm, receive against (the receiving
   // call carries purchase_order), cancel.
   purchaseOrders: (params) => api.get("/purchase-orders/", { params }),
-  purchaseOrder: (id) => api.get(`/purchase-orders/${id}/`),
   createPurchaseOrder: (body) => api.post("/purchase-orders/", body),
   setPurchaseOrderStatus: (id, status) => api.post(`/purchase-orders/${id}/set_status/`, { status }),
   supplierPayments: (params) => api.get("/supplier-payments/", { params }),
@@ -344,7 +344,6 @@ export const hr = {
   attendance: (params) => api.get("/attendance/", { params }),
   createAttendance: (body) => api.post("/attendance/", body),
   updateAttendance: (id, body) => api.patch(`/attendance/${id}/`, body),
-  deleteAttendance: (id) => api.delete(`/attendance/${id}/`),
   attendanceSummary: (month) => api.get("/attendance/summary/", { params: { month } }),
   performanceRecords: (params) => api.get("/performance-records/", { params }),
   createPerformanceRecord: (body) => api.post("/performance-records/", body),
@@ -612,8 +611,6 @@ export const platformSubscriptions = {
   list: (params) => listAll("/platform/subscriptions/", params),
   plans: () => listAll("/platform/plans/"),
   configure: (id, body) => api.post(`/platform/subscriptions/${id}/configure/`, body),
-  transition: (id, status, reason = "") =>
-    api.post(`/platform/subscriptions/${id}/transition/`, { status, reason }),
   payments: (params) => listAll("/platform/subscription-payments/", params),
   invoices: (params) => listAll("/platform/subscription-invoices/", params),
   createInvoice: (body) => api.post("/platform/subscription-invoices/", body),

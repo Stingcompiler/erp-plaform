@@ -86,13 +86,9 @@ export function usePlatformRoleLabel() {
   return translated && !translated.startsWith("platformTeam.") ? translated : t("shell.platformOperator");
 }
 
-// The nav entries this member may open.
-export function visiblePlatformNav(can) {
-  return PLATFORM_NAV.filter(({ capability }) => !capability || can(capability));
-}
-
-// The same, grouped; a desk with nothing this member may open disappears.
-export function visiblePlatformGroups(can) {
+// The areas this member may open, grouped; a desk with nothing this member
+// may open disappears.
+function visiblePlatformGroups(can) {
   return PLATFORM_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter(({ capability }) => !capability || can(capability)),
