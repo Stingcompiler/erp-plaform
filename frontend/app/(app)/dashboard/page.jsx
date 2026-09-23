@@ -89,6 +89,21 @@ export default function DashboardPage() {
     setAdvanceAlertDismissed(window.localStorage.getItem(key) === advanceRequestSignature);
   }, [advanceRequestSignature, user?.company, user?.id]);
 
+  // The setup checklist can be put away (a one-person shop never "adds a
+  // team"); it is a per-person convenience, so browser storage is enough.
+  const setupKey = user?.id && user?.company ? `vezano.setup-hidden:${user.company}:${user.id}` : "";
+  const [setupHidden, setSetupHidden] = useState(false);
+  useEffect(() => {
+    if (!setupKey) return;
+    try { setSetupHidden(window.localStorage.getItem(setupKey) === "1"); } catch { /* storage blocked */ }
+  }, [setupKey]);
+  const hideSetup = () => {
+    setSetupHidden(true);
+    try { window.localStorage.setItem(setupKey, "1"); } catch { /* storage blocked */ }
+  };
+  const setupTotal = data?.setup?.length || 1;
+  const setupDone = data?.setup?.filter((step) => step.done).length || 0;
+
   const dismissAdvanceRequestAlert = () => {
     const key = `vezano.advance-request-alert:${user.company}:${user.id}`;
     window.localStorage.setItem(key, advanceRequestSignature);
@@ -114,10 +129,21 @@ export default function DashboardPage() {
 
       {data && (
         <div className="dashboard-overview">
-          {data.setup?.some((step) => !step.done) && <section className="mb-6 rounded-card border border-accent/30 bg-surface p-5">
-            <h2 className="font-display text-lg font-semibold">{t("improvements.checklist")}</h2>
-            <p className="mt-1 text-sm text-muted">{t("improvements.checklistHint")}</p>
-            <ol className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{data.setup.map((step,index) =>
+          {data.setup?.some((step) => !step.done) && !setupHidden && <section className="mb-6 rounded-card border border-accent/30 bg-surface p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="font-display text-lg font-semibold">{t("improvements.checklist")}</h2>
+                <p className="mt-1 text-sm text-muted">{t("improvements.checklistHint")}</p>
+              </div>
+              <Button variant="ghost" onClick={hideSetup}>{t("improvements.checklistHide")}</Button>
+            </div>
+            <div className="mt-4 flex items-center gap-3">
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-line" role="progressbar" aria-valuemin={0} aria-valuemax={setupTotal} aria-valuenow={setupDone}>
+                <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${(setupDone / setupTotal) * 100}%` }} />
+              </div>
+              <span className="shrink-0 text-xs font-medium text-muted">{t("improvements.checklistProgress", { done: setupDone, total: setupTotal })}</span>
+            </div>
+            <ol className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{data.setup.map((step,index) =>
               <li key={step.key}><Link href={step.href} className="block h-full rounded-control border border-line p-3 hover:border-accent">
                 <span className={step.done ? "text-ok" : "text-muted"}>{step.done ? "✓" : index+1}</span>
                 <span className="mt-2 block text-sm font-medium">{t(`improvements.${step.key}`)}</span>
