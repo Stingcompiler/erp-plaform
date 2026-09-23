@@ -56,3 +56,15 @@ test("on an English screen the English message is shown", () => {
   const english = withResponse(400, { detail: "Target company already has products." });
   assert.equal(errorText(english, en, "settings.restoreFailed"), "Target company already has products.");
 });
+
+test("a bare validation list (raise ValidationError('…')) shows its sentence", () => {
+  const sentence = "أضف سطر جرد واحدًا على الأقل قبل الإرسال.";
+  assert.equal(errorText(withResponse(400, [sentence]), t, "count.saveError"), sentence);
+});
+
+test("a nested line error is found, not replaced by the generic sentence", () => {
+  const sentence = "الكمية لا يمكن أن تكون سالبة.";
+  const payload = { lines: [{}, { counted_quantity: [sentence] }] };
+  assert.equal(errorText(withResponse(400, payload), t, "count.saveError"), sentence);
+  assert.equal(errorDetail(withResponse(400, payload)), sentence);
+});

@@ -30,6 +30,16 @@ def submit_count(count_id, actor, request=None):
     lines = list(count.lines.select_related("product"))
     if not lines:
         raise ValidationError(_("Add at least one counted line before submitting."))
+    # Two counts awaiting approval for one warehouse would post the same
+    # difference twice.
+    if StockCount.objects.filter(
+        company_id=count.company_id, warehouse_id=count.warehouse_id,
+        status=StockCount.SUBMITTED,
+    ).exclude(pk=count.pk).exists():
+        raise ValidationError(_(
+            "Another count for this warehouse is awaiting approval; "
+            "approve or cancel it first."
+        ))
     for line in lines:
         line.expected_quantity = line.product.on_hand(
             warehouse=count.warehouse, batch=line.batch
@@ -50,6 +60,23 @@ def submit_count(count_id, actor, request=None):
 def can_approve_count(user):
     role = getattr(user, "role", None)
     return bool(role and role.name in (APPROVER_ROLES | {"Branch Manager"}))
+
+
+def may_approve(count, user):
+    """What approve_count accepts, for the UI to show the right button."""
+    return (
+        count.status == StockCount.SUBMITTED
+        and can_approve_count(user)
+        and count.counted_by_id != user.pk
+    )
+
+
+def may_cancel(count, user):
+    """The counter may withdraw their own draft or submitted count; a manager
+    may cancel any count that is not yet in the ledger."""
+    if count.status not in (StockCount.DRAFT, StockCount.SUBMITTED):
+        return False
+    return count.counted_by_id == user.pk or can_approve_count(user)
 
 
 @transaction.atomic
@@ -98,6 +125,10 @@ def cancel_count(count_id, actor, request=None):
     count = _locked(count_id, actor.company_id)
     if count.status == StockCount.APPROVED:
         raise ValidationError(_("An approved count is part of the ledger and cannot be cancelled."))
+    if count.status == StockCount.CANCELLED:
+        raise ValidationError(_("This count is already cancelled."))
+    if not may_cancel(count, actor):
+        raise ValidationError(_("Only the person who counted or a manager may cancel this count."))
     count.status = StockCount.CANCELLED
     count.save(update_fields=["status"])
     log_activity(

@@ -23,18 +23,29 @@ const STATUS_KEY = {
   503: "errors.unavailable",
 };
 
+// DRF answers in three shapes: {"detail": "…"}, {"field": ["…"]} and — for
+// a bare `raise ValidationError("…")` — a plain list ["…"]. Nested
+// serializers add depth: {"lines": [{}, {"counted_quantity": ["…"]}]}.
 function payloadOf(error) {
   const data = error?.response?.data;
-  return data && typeof data === "object" && !Array.isArray(data) ? data : null;
+  return data && typeof data === "object" ? data : null;
+}
+
+// The first sentence anywhere in the payload, depth-first, `detail` first.
+function firstSentence(value, depth = 0) {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object" || depth > 4) return "";
+  if (!Array.isArray(value) && typeof value.detail === "string") return value.detail;
+  for (const item of Array.isArray(value) ? value : Object.values(value)) {
+    const found = firstSentence(item, depth + 1);
+    if (found) return found;
+  }
+  return "";
 }
 
 /** The API's own words, for a secondary line — never the whole payload. */
 export function errorDetail(error) {
-  const data = payloadOf(error);
-  if (!data) return "";
-  if (typeof data.detail === "string") return data.detail;
-  const first = Object.values(data).flat().find((v) => typeof v === "string");
-  return first || "";
+  return firstSentence(payloadOf(error));
 }
 
 /**
@@ -58,7 +69,7 @@ export function errorText(error, t, fallbackKey = "errors.generic") {
   const data = payloadOf(error);
   // A `code` is the backend saying exactly what went wrong; translate it when
   // we have words for it (errors.codes.<code>).
-  const coded = typeof data?.code === "string" ? known(`errors.codes.${data.code}`) : null;
+  const coded = !Array.isArray(data) && typeof data?.code === "string" ? known(`errors.codes.${data.code}`) : null;
   if (coded) return coded;
 
   // The status is the one technical fact worth showing on a 5xx: it is what
@@ -80,10 +91,7 @@ const ARABIC = /[\u0600-\u06FF]/;
 const LATIN = /[A-Za-z]/;
 
 function serverSentence(data, t) {
-  if (!data) return "";
-  const message = typeof data.detail === "string"
-    ? data.detail
-    : Object.values(data).flat().find((v) => typeof v === "string") || "";
+  const message = firstSentence(data);
   if (!message || message.length > 300) return "";
   const arabicScreen = ARABIC.test(t("errors.generic"));
   return arabicScreen ? (ARABIC.test(message) ? message : "") : (LATIN.test(message) ? message : "");
