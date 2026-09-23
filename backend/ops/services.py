@@ -113,7 +113,9 @@ def restore_master(target_company, dump, user=None, mode=EMPTY_ONLY, dry_run=Fal
     from sales.models import Customer
 
     if mode not in MODES:
-        raise ValidationError({"mode": f"Choose one of {', '.join(MODES)}."})
+        raise ValidationError({"mode": _("Choose one of %(options)s.") % {
+            "options": ", ".join(MODES),
+        }})
     if mode == EMPTY_ONLY and Product.objects.filter(company=target_company).exists():
         raise ValidationError(
             _("Target company already has products; restore only into an empty company.")

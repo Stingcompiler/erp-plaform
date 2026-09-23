@@ -1,5 +1,6 @@
 from decimal import Decimal, InvalidOperation
 
+from django.utils.translation import gettext as _
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -40,7 +41,7 @@ class TaxProfileView(APIView):
         profile = self._profile(request)
         if profile is None:
             return Response(
-                {"detail": "A company-scoped user is required."},
+                {"detail": _("A company-scoped user is required.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return Response(self._serialize(profile))
@@ -49,14 +50,14 @@ class TaxProfileView(APIView):
         profile = self._profile(request)
         if profile is None:
             return Response(
-                {"detail": "A company-scoped user is required."},
+                {"detail": _("A company-scoped user is required.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         fmt = request.data.get("invoice_format")
         if fmt is not None:
             if fmt not in REGISTRY:
                 return Response(
-                    {"detail": f"Unknown invoice_format '{fmt}'."},
+                    {"detail": _("Unknown invoice_format '%(fmt)s'.") % {"fmt": fmt}},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             profile.invoice_format = fmt
@@ -69,7 +70,7 @@ class TaxProfileView(APIView):
             country = str(request.data["country"] or "").strip().upper()
             if len(country) != 2 or not country.isalpha():
                 return Response(
-                    {"country": "Use a two-letter ISO 3166-1 country code."},
+                    {"country": _("Use a two-letter ISO 3166-1 country code.")},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             profile.country = country
@@ -80,13 +81,13 @@ class TaxProfileView(APIView):
                 rate = Decimal(str(request.data["flat_tax_rate"]))
             except (InvalidOperation, TypeError):
                 return Response(
-                    {"detail": "flat_tax_rate must be a number."},
+                    {"detail": _("flat_tax_rate must be a number.")},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             # A typo of 150 would inflate every subsequent invoice by 150%.
             if not get_handler(profile).validate_rate(rate):
                 return Response(
-                    {"flat_tax_rate": "The rate must be between 0 and 100 percent."},
+                    {"flat_tax_rate": _("The rate must be between 0 and 100 percent.")},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             profile.flat_tax_rate = rate
@@ -129,7 +130,7 @@ class InvoiceDocumentView(APIView):
         company_id = getattr(request.user, "company_id", None)
         if company_id is None:
             return Response(
-                {"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND
+                {"detail": _("Not found.")}, status=status.HTTP_404_NOT_FOUND
             )
         qs = Invoice.objects.select_related(
             "company__tax_profile", "customer", "branch", "created_by"
@@ -143,7 +144,7 @@ class InvoiceDocumentView(APIView):
             invoice = qs.get(pk=invoice_id)
         except Invoice.DoesNotExist:
             return Response(
-                {"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND
+                {"detail": _("Not found.")}, status=status.HTTP_404_NOT_FOUND
             )
         profile = getattr(invoice.company, "tax_profile", None)
         handler = get_handler(profile)

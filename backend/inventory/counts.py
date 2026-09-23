@@ -8,6 +8,7 @@ in the ledger and the existing adjustment screens show it.
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from rest_framework.exceptions import ValidationError
 
 from core.activity import log_activity
@@ -25,10 +26,10 @@ def _locked(count_id, company_id):
 def submit_count(count_id, actor, request=None):
     count = _locked(count_id, actor.company_id)
     if count.status != StockCount.DRAFT:
-        raise ValidationError("Only a draft count can be submitted.")
+        raise ValidationError(_("Only a draft count can be submitted."))
     lines = list(count.lines.select_related("product"))
     if not lines:
-        raise ValidationError("Add at least one counted line before submitting.")
+        raise ValidationError(_("Add at least one counted line before submitting."))
     for line in lines:
         line.expected_quantity = line.product.on_hand(
             warehouse=count.warehouse, batch=line.batch
@@ -56,12 +57,12 @@ def approve_count(count_id, actor, request=None):
     """Post one adjustment per variance line. The approver may not be the
     person who counted: that is the whole point of the second step."""
     if not can_approve_count(actor):
-        raise ValidationError("Your role cannot approve stock counts.")
+        raise ValidationError(_("Your role cannot approve stock counts."))
     count = _locked(count_id, actor.company_id)
     if count.status != StockCount.SUBMITTED:
-        raise ValidationError("Only a submitted count can be approved.")
+        raise ValidationError(_("Only a submitted count can be approved."))
     if count.counted_by_id == actor.pk:
-        raise ValidationError("The person who counted cannot approve their own count.")
+        raise ValidationError(_("The person who counted cannot approve their own count."))
     posted = 0
     for line in count.lines.select_related("product").order_by("pk"):
         variance = line.variance
@@ -96,7 +97,7 @@ def approve_count(count_id, actor, request=None):
 def cancel_count(count_id, actor, request=None):
     count = _locked(count_id, actor.company_id)
     if count.status == StockCount.APPROVED:
-        raise ValidationError("An approved count is part of the ledger and cannot be cancelled.")
+        raise ValidationError(_("An approved count is part of the ledger and cannot be cancelled."))
     count.status = StockCount.CANCELLED
     count.save(update_fields=["status"])
     log_activity(

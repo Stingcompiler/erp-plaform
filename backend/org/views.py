@@ -25,6 +25,7 @@ from org.serializers import (
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from django.db import transaction
+from django.utils.translation import gettext as _
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -115,7 +116,7 @@ class CompanyProfileView(APIView):
         company = self._company(request)
         if company is None:
             return Response(
-                {"detail": "A company-scoped user is required."},
+                {"detail": _("A company-scoped user is required.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return Response(self._serialize(company))
@@ -124,13 +125,13 @@ class CompanyProfileView(APIView):
         company = self._company(request)
         if company is None:
             return Response(
-                {"detail": "A company-scoped user is required."},
+                {"detail": _("A company-scoped user is required.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         changed = []
         if "business_type" in request.data and not is_system_mode_owner(request.user):
             return Response(
-                {"detail": "Only the Business Owner may change the operating mode."},
+                {"detail": _("Only the Business Owner may change the operating mode.")},
                 status=status.HTTP_403_FORBIDDEN,
             )
         for field in self.EDITABLE:
@@ -140,48 +141,48 @@ class CompanyProfileView(APIView):
                 # leave every document without an issuer.
                 if field == "name" and not str(value).strip():
                     return Response(
-                        {"detail": "Company name cannot be empty."},
+                        {"detail": _("Company name cannot be empty.")},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 if field == "business_type" and value not in dict(Company.BUSINESS_TYPE_CHOICES):
                     return Response(
-                        {"business_type": "Unknown business type."},
+                        {"business_type": _("Unknown business type.")},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 if field.endswith("_threshold"):
                     if not can_approve_high_value(request.user):
                         return Response(
-                            {field: "Only a manager or owner may set approval thresholds."},
+                            {field: _("Only a manager or owner may set approval thresholds.")},
                             status=status.HTTP_403_FORBIDDEN,
                         )
                     try:
                         value = Decimal(str(value))
                     except (InvalidOperation, TypeError, ValueError):
-                        return Response({field: "Must be a number."}, status=400)
+                        return Response({field: _("Must be a number.")}, status=400)
                     if value < 0:
-                        return Response({field: "Cannot be negative."}, status=400)
+                        return Response({field: _("Cannot be negative.")}, status=400)
                 if field == "default_payment_terms_days":
                     try:
                         value = int(value)
                     except (TypeError, ValueError):
-                        return Response({field: "Must be a whole number of days."}, status=400)
+                        return Response({field: _("Must be a whole number of days.")}, status=400)
                     if value < 0 or value > 365:
-                        return Response({field: "Must be between 0 and 365 days."}, status=400)
+                        return Response({field: _("Must be between 0 and 365 days.")}, status=400)
                 if field == "receipt_paper" and value not in dict(Company.PAPER_CHOICES):
-                    return Response({field: "Choose a4, 80mm or 58mm."}, status=400)
+                    return Response({field: _("Choose a4, 80mm or 58mm.")}, status=400)
                 if field == "receipt_footer":
                     value = str(value or "").strip()[:240]
                 if field == "reference_currency":
                     value = str(value).strip().upper()
                     if not (2 <= len(value) <= 8):
                         return Response(
-                            {field: "Use a currency code such as USD."}, status=400
+                            {field: _("Use a currency code such as USD.")}, status=400
                         )
                 if field == "timezone" and not is_valid_timezone(value):
                     return Response(
                         {
                             "timezone": (
-                                "Unknown time zone; use an IANA name such as Africa/Khartoum."
+                                _("Unknown time zone; use an IANA name such as Africa/Khartoum.")
                             )
                         },
                         status=status.HTTP_400_BAD_REQUEST,
@@ -232,7 +233,7 @@ class StoreModeSettingsView(APIView):
         company = self._company(request)
         if company is None:
             return Response(
-                {"detail": "Only the Business Owner may manage operating mode."},
+                {"detail": _("Only the Business Owner may manage operating mode.")},
                 status=status.HTTP_403_FORBIDDEN,
             )
         return Response(self._serialize(company))
@@ -241,14 +242,14 @@ class StoreModeSettingsView(APIView):
         company = self._company(request)
         if company is None:
             return Response(
-                {"detail": "Only the Business Owner may manage operating mode."},
+                {"detail": _("Only the Business Owner may manage operating mode.")},
                 status=status.HTTP_403_FORBIDDEN,
             )
         user_ids = request.data.get("additional_user_ids", [])
         role_ids = request.data.get("additional_role_ids", [])
         if not isinstance(user_ids, list) or not isinstance(role_ids, list):
             return Response(
-                {"detail": "Exception lists must be arrays."},
+                {"detail": _("Exception lists must be arrays.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         from accounts.models import Role, User
@@ -257,7 +258,7 @@ class StoreModeSettingsView(APIView):
         roles = Role.objects.filter(id__in=role_ids)
         if users.count() != len(set(user_ids)) or roles.count() != len(set(role_ids)):
             return Response(
-                {"detail": "An exception must refer to a company user or known role."},
+                {"detail": _("An exception must refer to a company user or known role.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         StoreModeAccessException.objects.filter(company=company).delete()
@@ -310,7 +311,7 @@ class BranchViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     def create(self, request, *args, **kwargs):
         if getattr(getattr(request.user, "role", None), "name", None) == "Branch Manager":
             return Response(
-                {"detail": "A Branch Manager cannot create another branch."},
+                {"detail": _("A Branch Manager cannot create another branch.")},
                 status=status.HTTP_403_FORBIDDEN,
             )
         return super().create(request, *args, **kwargs)
@@ -318,7 +319,7 @@ class BranchViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     def destroy(self, request, *args, **kwargs):
         if getattr(getattr(request.user, "role", None), "name", None) == "Branch Manager":
             return Response(
-                {"detail": "A Branch Manager cannot archive a branch."},
+                {"detail": _("A Branch Manager cannot archive a branch.")},
                 status=status.HTTP_403_FORBIDDEN,
             )
         return super().destroy(request, *args, **kwargs)
@@ -370,8 +371,9 @@ class CompanyDeviceViewSet(viewsets.GenericViewSet):
             return Response(
                 {
                     "code": "device_in_use",
-                    "detail": "You are using this device right now. "
-                              "Revoke it from another one.",
+                    "detail": _(
+                        "You are using this device right now. Revoke it from another one."
+                    ),
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -393,8 +395,9 @@ class CompanyDeviceViewSet(viewsets.GenericViewSet):
             return Response(
                 {
                     "code": "device_in_use",
-                    "detail": "You are using this device right now. "
-                              "Remove it from another one.",
+                    "detail": _(
+                        "You are using this device right now. Remove it from another one."
+                    ),
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -422,7 +425,7 @@ class ExchangeRateViewSet(
     def create(self, request, *args, **kwargs):
         if not can_approve_high_value(request.user):
             return Response(
-                {"detail": "Only a manager or owner may record the exchange rate."},
+                {"detail": _("Only a manager or owner may record the exchange rate.")},
                 status=status.HTTP_403_FORBIDDEN,
             )
         return super().create(request, *args, **kwargs)

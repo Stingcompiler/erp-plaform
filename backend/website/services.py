@@ -5,6 +5,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext as _
 
 from accounts.models import Role, User
 from core.activity import log_activity
@@ -60,24 +61,24 @@ def provision_registration_request(request_id, actor, request=None):
     if registration.status == RegistrationRequest.PROVISIONED:
         return registration, None
     if registration.status != RegistrationRequest.APPROVED:
-        raise ValueError("Only approved registration requests can be provisioned.")
+        raise ValueError(_("Only approved registration requests can be provisioned."))
     if registration.delivery_mode != RegistrationRequest.SAAS:
         raise ValueError(
-            "Standalone requests are prepared through the standalone delivery process."
+            _("Standalone requests are prepared through the standalone delivery process.")
         )
     if not registration.plan_version_id:
-        raise ValueError("A SaaS registration needs a published plan.")
+        raise ValueError(_("A SaaS registration needs a published plan."))
     if User.objects.filter(email__iexact=registration.email).exists():
-        raise ValueError("The contact email already belongs to an account.")
+        raise ValueError(_("The contact email already belongs to an account."))
 
-    owner_role, _ = Role.objects.get_or_create(
+    owner_role, _created = Role.objects.get_or_create(
         name="Business Owner", defaults={"scope_level": Role.SCOPE_BUSINESS}
     )
     if owner_role.scope_level != Role.SCOPE_BUSINESS:
-        raise ValueError("The Business Owner role has an invalid scope.")
+        raise ValueError(_("The Business Owner role has an invalid scope."))
 
     if not plan_version_is_available(registration.plan_version):
-        raise ValueError("The selected plan is no longer available for registration.")
+        raise ValueError(_("The selected plan is no longer available for registration."))
 
     company = Company.objects.create(
         name=registration.company_name,
@@ -146,14 +147,14 @@ def reissue_owner_invitation(request_id, actor, request=None):
         .get(pk=request_id)
     )
     if registration.status != RegistrationRequest.PROVISIONED or not registration.company_id:
-        raise ValueError("Only provisioned registration requests have an owner invitation.")
+        raise ValueError(_("Only provisioned registration requests have an owner invitation."))
     owner = (
         registration.company.users.filter(role__name="Business Owner", is_active=True)
         .order_by("pk")
         .first()
     )
     if owner is None:
-        raise ValueError("The company has no active owner to invite.")
+        raise ValueError(_("The company has no active owner to invite."))
     now = timezone.now()
     token = _issue_owner_invitation(registration, owner, now)
     log_activity(
@@ -173,10 +174,10 @@ def accept_owner_invitation(token, password, request=None):
         .first()
     )
     if invitation is None or not invitation.is_usable:
-        raise ValueError("This invitation is invalid, expired, or already used.")
+        raise ValueError(_("This invitation is invalid, expired, or already used."))
     owner = invitation.owner
     if not owner.is_active or (owner.company_id and not owner.company.is_active):
-        raise ValueError("This account is no longer active. Contact the platform team.")
+        raise ValueError(_("This account is no longer active. Contact the platform team."))
     invitation.owner.set_password(password)
     invitation.owner.save(update_fields=["password"])
     invitation.accepted_at = timezone.now()

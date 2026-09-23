@@ -1,8 +1,9 @@
+from django.utils.translation import gettext_lazy as _
 from rest_framework.permissions import BasePermission
 
 
 class IsBusinessOwner(BasePermission):
-    message = "Only the company owner can manage its subscription."
+    message = _("Only the company owner can manage its subscription.")
 
     def has_permission(self, request, view):
         user = request.user

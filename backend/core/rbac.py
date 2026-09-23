@@ -12,6 +12,7 @@ Platform identities use their dedicated platform endpoints and never inherit
 tenant business permissions. Unknown and missing roles fail closed.
 """
 
+from django.utils.translation import gettext_lazy as _
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
@@ -281,7 +282,7 @@ def can_view_audit_log(user):
 
 
 class RoleModuleAccess(BasePermission):
-    message = "Your role does not permit this action."
+    message = _("Your role does not permit this action.")
 
     def has_permission(self, request, view):
         user = request.user
@@ -290,7 +291,7 @@ class RoleModuleAccess(BasePermission):
         scope_error = tenant_scope_error(user)
         if scope_error:
             raise PermissionDenied(
-                {"code": scope_error, "detail": "Your account scope is incomplete."}
+                {"code": scope_error, "detail": _("Your account scope is incomplete.")}
             )
         # Explicit permission lists replace DRF's defaults. Keep the commercial
         # gate active wherever this shared role gate is used.

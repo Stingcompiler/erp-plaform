@@ -18,6 +18,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from rest_framework.exceptions import ValidationError
 
 MODE_RATE = "rate"
@@ -37,7 +38,7 @@ def round_to_step(value, step):
     """Round ``value`` to the nearest multiple of ``step`` (half up)."""
     step = Decimal(str(step))
     if step <= 0:
-        raise ValidationError({"step": "The rounding step must be positive."})
+        raise ValidationError({"step": _("The rounding step must be positive.")})
     units = (Decimal(value) / step).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     return (units * step).quantize(CENTS)
 
@@ -46,42 +47,44 @@ def _decimal(params, key, required=False):
     raw = params.get(key)
     if raw in (None, ""):
         if required:
-            raise ValidationError({key: "This value is required."})
+            raise ValidationError({key: _("This value is required.")})
         return None
     try:
         return Decimal(str(raw))
     except ArithmeticError:
-        raise ValidationError({key: "Must be a number."})
+        raise ValidationError({key: _("Must be a number.")})
 
 
 def parse_reprice(params, company):
     """Validate a reprice request into plain values; raises ValidationError."""
     mode = params.get("mode") or MODE_RATE
     if mode not in MODES:
-        raise ValidationError({"mode": "Choose rate or percent."})
+        raise ValidationError({"mode": _("Choose rate or percent.")})
     target = params.get("target") or TARGET_SALE
     if target not in TARGETS:
-        raise ValidationError({"target": "Choose sale, cost or both."})
+        raise ValidationError({"target": _("Choose sale, cost or both.")})
     step = str(params.get("step") or "1")
     if step not in STEPS:
-        raise ValidationError({"step": f"Choose one of {', '.join(STEPS)}."})
+        raise ValidationError({"step": _("Choose one of %(options)s.") % {
+            "options": ", ".join(STEPS),
+        }})
     rate = percent = None
     if mode == MODE_RATE:
         rate = _decimal(params, "rate") or company.exchange_rate
         if not rate or rate <= 0:
             raise ValidationError(
-                {"rate": "Record today's exchange rate first, or pass one."}
+                {"rate": _("Record today's exchange rate first, or pass one.")}
             )
     else:
         percent = _decimal(params, "percent", required=True)
         if percent <= Decimal("-100"):
-            raise ValidationError({"percent": "A cut of 100% or more leaves no price."})
+            raise ValidationError({"percent": _("A cut of 100%% or more leaves no price.") % {}})
     category_id = params.get("category") or None
     if category_id is not None:
         try:
             category_id = int(category_id)
         except (TypeError, ValueError):
-            raise ValidationError({"category": "Must be a category id."})
+            raise ValidationError({"category": _("Must be a category id.")})
     return {
         "mode": mode, "target": target, "step": step, "rate": rate,
         "percent": percent, "category_id": category_id,

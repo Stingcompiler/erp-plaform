@@ -144,12 +144,12 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def validate_reference_price(self, value):
         if value is not None and value < 0:
-            raise serializers.ValidationError("Cannot be negative.")
+            raise serializers.ValidationError(_("Cannot be negative."))
         return value
 
     def validate_reference_cost(self, value):
         if value is not None and value < 0:
-            raise serializers.ValidationError("Cannot be negative.")
+            raise serializers.ValidationError(_("Cannot be negative."))
         return value
 
     def create(self, validated_data):

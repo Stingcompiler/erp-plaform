@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from rest_framework import status, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -72,7 +73,7 @@ class LoginView(APIView):
             return Response(
                 {
                     "code": "account_locked",
-                    "detail": "Too many failed sign-in attempts. Try again later.",
+                    "detail": _("Too many failed sign-in attempts. Try again later."),
                 },
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
@@ -91,12 +92,18 @@ class LoginView(APIView):
         scope_error = tenant_scope_error(user)
         if scope_error:
             detail = {
-                "role_assignment_required": "Your account needs an assigned role.",
-                "branch_assignment_required": "Your branch assignment is missing or inactive.",
-                "company_assignment_required": "Your account needs an assigned company.",
-            }.get(scope_error, "Your account assignment is invalid.")
+                "role_assignment_required": _(
+                    "Your account needs an assigned role. Contact a company owner."
+                ),
+                "branch_assignment_required": _(
+                    "Your branch assignment is missing or inactive. Contact a company owner."
+                ),
+                "company_assignment_required": _(
+                    "Your account needs an assigned company. Contact a company owner."
+                ),
+            }.get(scope_error) or _("Your account assignment is invalid. Contact a company owner.")
             return Response(
-                {"code": scope_error, "detail": f"{detail} Contact a company owner."},
+                {"code": scope_error, "detail": detail},
                 status=status.HTTP_403_FORBIDDEN,
             )
         if not is_store_mode_allowed(user):
@@ -112,7 +119,7 @@ class LoginView(APIView):
             return Response(
                 {
                     "code": "store_mode_restricted",
-                    "detail": "The system is currently operating in shop mode.",
+                    "detail": _("The system is currently operating in shop mode."),
                     "owner_contact": owner.email if owner else "",
                 },
                 status=status.HTTP_403_FORBIDDEN,
@@ -130,11 +137,11 @@ class LoginView(APIView):
                 metadata={"reason": refused.code, "device_id": device_id[:64]},
             )
             detail = {
-                "device_limit_reached": "This company's plan has no room for another device.",
-                "device_revoked": (
+                "device_limit_reached": _("This company's plan has no room for another device."),
+                "device_revoked": _(
                     "This device was removed by the company. Ask the owner to allow it again."
                 ),
-                "device_required": (
+                "device_required": _(
                     "Sign in from the Vezano app or website so this device can be "
                     "identified; company accounts cannot sign in without a device id."
                 ),
@@ -186,7 +193,7 @@ class LogoutView(APIView):
 
         log_activity(action="logout", user=request.user, request=request)
 
-        response = Response({"detail": "Logged out."}, status=status.HTTP_200_OK)
+        response = Response({"detail": _("Logged out.")}, status=status.HTTP_200_OK)
         clear_auth_cookies(response)
         return response
 
@@ -205,13 +212,13 @@ class RefreshView(APIView):
     def post(self, request):
         refresh_cookie = request.COOKIES.get(settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"])
         if not refresh_cookie:
-            return Response({"detail": "No refresh token."}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"detail": _("No refresh token.")}, status=status.HTTP_401_UNAUTHORIZED)
         try:
             refresh = RefreshToken(refresh_cookie)
             user = User.objects.get(pk=refresh["user_id"], is_active=True)
         except (TokenError, KeyError, User.DoesNotExist, ValueError):
             response = Response(
-                {"detail": "Invalid refresh token."},
+                {"detail": _("Invalid refresh token.")},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
             clear_auth_cookies(response)
@@ -220,7 +227,7 @@ class RefreshView(APIView):
         device_id = refresh.get("device")
         if device_id and is_revoked(user.company_id, device_id):
             response = Response(
-                {"code": "device_revoked", "detail": "This device was removed by the company."},
+                {"code": "device_revoked", "detail": _("This device was removed by the company.")},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
             clear_auth_cookies(response)
@@ -229,7 +236,7 @@ class RefreshView(APIView):
             # A session minted before device identity was mandatory: it ends
             # here and the next sign-in registers the device.
             response = Response(
-                {"code": "device_required", "detail": "Sign in again from this device."},
+                {"code": "device_required", "detail": _("Sign in again from this device.")},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
             clear_auth_cookies(response)
@@ -242,7 +249,7 @@ class RefreshView(APIView):
         except (TokenError, AttributeError):
             pass
 
-        response = Response({"detail": "Refreshed."}, status=status.HTTP_200_OK)
+        response = Response({"detail": _("Refreshed.")}, status=status.HTTP_200_OK)
         set_auth_cookies(response, str(rotated.access_token), str(rotated))
         return response
 
@@ -330,7 +337,7 @@ class UserViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
             )
             if active_owners.count() <= 1:
                 raise ValidationError(
-                    {"role": "The company must retain at least one active owner."}
+                    {"role": _("The company must retain at least one active owner.")}
                 )
         password_set = bool(serializer.validated_data.get("password"))
         by_someone_else = password_set and target.pk != self.request.user.pk
@@ -378,7 +385,7 @@ class UserViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     def _guard_removal(self, target, request):
         """Shared refusals for deactivating or removing an account."""
         if target.pk == request.user.pk:
-            return "You cannot deactivate your own account."
+            return _("You cannot deactivate your own account.")
         if target.role and target.role.name == "Business Owner":
             remaining = User.objects.filter(
                 company_id=target.company_id,
@@ -386,7 +393,7 @@ class UserViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
                 is_active=True,
             ).exclude(pk=target.pk).exists()
             if not remaining:
-                return "The company must retain at least one active owner."
+                return _("The company must retain at least one active owner.")
         return None
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsBusinessOwner])

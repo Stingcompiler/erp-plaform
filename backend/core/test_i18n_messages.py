@@ -26,7 +26,9 @@ class CatalogueTests(SimpleTestCase):
         mo = po.with_suffix(".mo")
         self.assertTrue(mo.exists(), "run manage.py compilemessages -l ar")
         text = po.read_text(encoding="utf-8")
-        empty = re.findall(r'msgid "([^"]+)"\nmsgstr ""', text)
+        # A long translation is wrapped as `msgstr ""` followed by quoted
+        # continuation lines; only a msgstr with nothing after it is empty.
+        empty = re.findall(r'msgid "([^"]+)"\nmsgstr ""\n(?!")', text + "\n")
         self.assertEqual(empty, [], f"untranslated: {empty[:5]}")
 
     def test_placeholders_survive_translation(self):

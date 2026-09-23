@@ -10,6 +10,7 @@ on the other's returns.
 
 from decimal import Decimal
 
+from django.conf import settings
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
@@ -177,6 +178,7 @@ class ReturnsAccessTests(APITestCase):
         """The offline queue applies ops through the same role check; if it
         didn't, queueing a sales return would route around the module gate."""
         self.client.force_authenticate(self._user("Purchasing Officer"))
+        self.client.cookies[settings.LANGUAGE_COOKIE_NAME] = "en"
         resp = self.client.post(
             reverse("sync-push"),
             {

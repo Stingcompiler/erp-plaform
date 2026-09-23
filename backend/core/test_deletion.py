@@ -9,7 +9,9 @@ are restricted to a manager-level role.
 from datetime import date
 from decimal import Decimal
 
+from django.conf import settings
 from django.urls import reverse
+from django.utils import translation
 from rest_framework.test import APITestCase
 
 from accounts.models import Role, User
@@ -60,6 +62,8 @@ class TierANeverDeletableTests(DeletionPolicyTestCase):
             company=self.company, category="Rent",
             amount=Decimal("1"), date=date.today(),
         )
+        # The API picks the language from the cookie the frontend sets.
+        self.client.cookies[settings.LANGUAGE_COOKIE_NAME] = "en"
         resp = self.client.delete(reverse("expense-detail", args=[exp.id]))
         self.assertIn("offsetting", resp.data["detail"].lower())
 
@@ -288,7 +292,8 @@ class ProtectedErrorTests(DeletionPolicyTestCase):
             wh.delete()
             self.fail("expected ProtectedError")
         except ProtectedError as exc:
-            resp = api_exception_handler(exc, {})
+            with translation.override("en"):
+                resp = api_exception_handler(exc, {})
 
         self.assertEqual(resp.status_code, 409)
         self.assertIn("stock movement", resp.data["detail"].lower())

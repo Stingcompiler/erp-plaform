@@ -8,6 +8,7 @@ from decimal import Decimal
 from django.db.models import CharField, DecimalField, ExpressionWrapper, F, Func, Q, Sum
 from django.db.models.functions import Cast, Coalesce
 from django.utils.dateparse import parse_date
+from django.utils.translation import gettext as _
 from rest_framework.exceptions import ValidationError
 
 ZERO = Decimal("0")
@@ -44,10 +45,10 @@ def date_range(params):
         except (ValueError, TypeError):
             value = None
         if raw and value is None:
-            raise ValidationError({key: "Use a valid YYYY-MM-DD date."})
+            raise ValidationError({key: _("Use a valid YYYY-MM-DD date.")})
         dates.append(value)
     if all(dates) and dates[0] > dates[1]:
-        raise ValidationError({"end": "End date must not precede start date."})
+        raise ValidationError({"end": _("End date must not precede start date.")})
     return dates
 
 
@@ -121,7 +122,7 @@ def operating_summary(company_id, start=None, end=None, method="standard"):
     from returns.models import SalesReturnLine
 
     if method not in METHODS:
-        raise ValidationError({"method": "Choose standard, average or fifo."})
+        raise ValidationError({"method": _("Choose standard, average or fifo.")})
     lines, gross_sales, returned_sales, adjustments, revenue = _revenue_terms(
         company_id, start, end
     )

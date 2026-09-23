@@ -11,6 +11,7 @@ from datetime import timedelta
 from decimal import Decimal
 from unittest import mock
 
+from django.conf import settings
 from django.core.cache import cache
 from django.db import IntegrityError
 from django.urls import reverse
@@ -144,6 +145,7 @@ class BatchRaceTests(OfflineBase):
     def test_duplicate_identifier_error_does_not_leak_constraint_names(self):
         cu = uuid.uuid4()
         self._push([self._op(cu)])
+        self.client.cookies[settings.LANGUAGE_COOKIE_NAME] = "en"
         with mock.patch(
             "sync.services.POSCheckoutSerializer.save", side_effect=IntegrityError("x")
         ):

@@ -6,6 +6,8 @@ from django.db import transaction
 from django.db.models.functions import Coalesce
 from django.http import FileResponse, Http404
 from django.utils import timezone
+from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -144,7 +146,7 @@ class AttendanceViewSet(CompanyScopedModelViewSet):
             year, mon = (int(part) for part in month.split("-"))
             first = date(year, mon, 1)
         except (TypeError, ValueError):
-            raise ValidationError({"month": "Use YYYY-MM."})
+            raise ValidationError({"month": _("Use YYYY-MM.")})
         last = (first.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
         counts = (
             self.get_queryset()
@@ -188,7 +190,7 @@ class LeaveRequestViewSet(CompanyScopedModelViewSet):
     @transaction.atomic
     def destroy(self, request, *args, **kwargs):
         if self.get_object().status != LeaveRequest.PENDING:
-            return Response({"detail": "A decided leave request cannot be deleted."}, status=405)
+            return Response({"detail": _("A decided leave request cannot be deleted.")}, status=405)
         return super().destroy(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -223,10 +225,12 @@ class LeaveRequestViewSet(CompanyScopedModelViewSet):
         if leave.status == LeaveRequest.CANCELLED:
             return Response(self.get_serializer(leave).data)
         if leave.status != LeaveRequest.APPROVED:
-            raise ValidationError({"detail": "Only approved leave can be cancelled."})
+            raise ValidationError({"detail": _("Only approved leave can be cancelled.")})
         reason = str(request.data.get("reason", "")).strip()
         if not reason or len(reason) > 1000:
-            raise ValidationError({"reason": "Provide a cancellation reason (1–1000 characters)."})
+            raise ValidationError(
+                {"reason": _("Provide a cancellation reason (1–1000 characters).")}
+            )
         Employee.objects.select_for_update().get(pk=leave.employee_id)
         if PayrollRun.objects.filter(
             company_id=leave.company_id,
@@ -236,7 +240,7 @@ class LeaveRequestViewSet(CompanyScopedModelViewSet):
         ).exists():
             raise ValidationError(
                 {
-                    "detail": (
+                    "detail": _(
                         "This leave overlaps approved payroll; "
                         "a payroll correction is required first."
                     ),
@@ -251,7 +255,7 @@ class LeaveRequestViewSet(CompanyScopedModelViewSet):
         if rows.exclude(source_leave=leave).exists():
             raise ValidationError(
                 {
-                    "detail": (
+                    "detail": _(
                         "Legacy or independently recorded attendance "
                         "needs review before cancellation."
                     ),
@@ -280,7 +284,7 @@ class LeaveRequestViewSet(CompanyScopedModelViewSet):
         if instance.status == status_value:
             return Response(self.get_serializer(instance).data)
         if instance.status != LeaveRequest.PENDING:
-            raise ValidationError({"detail": "This leave request has already been decided."})
+            raise ValidationError({"detail": _("This leave request has already been decided.")})
         if status_value == LeaveRequest.APPROVED:
             # Revalidate current employment and overlaps, including legacy rows.
             validator = self.get_serializer(instance, data={}, partial=True)
@@ -291,7 +295,11 @@ class LeaveRequestViewSet(CompanyScopedModelViewSet):
             conflicts = attendance_conflicts(instance)
             if conflicts.exists():
                 raise ValidationError(
-                    {"detail": "Correct existing attendance records before approving this leave."}
+                    {
+                        "detail": _(
+                            "Correct existing attendance records before approving this leave."
+                        )
+                    }
                 )
         instance.status = status_value
         instance.reviewed_by = request.user
@@ -353,7 +361,7 @@ class LeaveAllowanceViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
             try:
                 year = int(year)
             except (TypeError, ValueError):
-                raise ValidationError({"year": "Invalid year."})
+                raise ValidationError({"year": _("Invalid year.")})
             qs = qs.filter(year=year)
         return qs
 
@@ -379,9 +387,9 @@ class LeaveAccrualPolicyViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet)
         try:
             year = int(request.data.get("year"))
         except (TypeError, ValueError):
-            raise ValidationError({"year": "Use a valid year."})
+            raise ValidationError({"year": _("Use a valid year.")})
         if not 1900 <= year <= 9998:
-            raise ValidationError({"year": "Use a year from 1900 to 9998."})
+            raise ValidationError({"year": _("Use a year from 1900 to 9998.")})
         from hr.leave_balances import carryover, eligible, policy_entitlement
 
         policies = list(self.get_queryset().filter(is_active=True))
@@ -445,7 +453,7 @@ class SalaryAdvanceViewSet(CompanyScopedModelViewSet):
         if advance.status != SalaryAdvance.PENDING:
             return Response(
                 {
-                    "detail": (
+                    "detail": _(
                         "A salary advance that has been decided cannot be "
                         "deleted, because it records money owed by the "
                         "employee. Record a repayment instead."
@@ -481,7 +489,7 @@ class SalaryAdvanceViewSet(CompanyScopedModelViewSet):
         if instance.status == status_value:
             return Response(self.get_serializer(instance).data)
         if instance.status != SalaryAdvance.PENDING:
-            raise ValidationError({"detail": "This advance has already been decided."})
+            raise ValidationError({"detail": _("This advance has already been decided.")})
         instance.status = status_value
         instance.reviewed_by = request.user
         instance.reviewed_at = timezone.now()
@@ -576,7 +584,7 @@ class PayrollRunViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         if request.user.company_id is None:
-            raise ValidationError({"detail": "Select a company before creating payroll."})
+            raise ValidationError({"detail": _("Select a company before creating payroll.")})
         raw_period = request.data.get("period")
         try:
             period = (
@@ -586,7 +594,7 @@ class PayrollRunViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
             )
             period = period.replace(day=1)
         except (TypeError, ValueError):
-            raise ValidationError({"period": "Use YYYY-MM for the payroll month."})
+            raise ValidationError({"period": _("Use YYYY-MM for the payroll month.")})
         run, created = PayrollRun.objects.get_or_create(
             company_id=request.user.company_id,
             period=period,
@@ -604,7 +612,7 @@ class PayrollRunViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
         run = self.get_object()
         if run.status != PayrollRun.DRAFT:
             raise ValidationError(
-                {"detail": "An approved payroll is locked and cannot be recalculated."}
+                {"detail": _("An approved payroll is locked and cannot be recalculated.")}
             )
         self._recalculate_run(run)
         log_activity(
@@ -652,7 +660,7 @@ class DeductionViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
     ).all()
     serializer_class = DeductionSerializer
     activity_entity_type = "Deduction"
-    delete_denied_detail = (
+    delete_denied_detail = gettext_lazy(
         "A deduction cannot be deleted because it affects payroll. Record an "
         "offsetting entry if it was issued in error."
     )

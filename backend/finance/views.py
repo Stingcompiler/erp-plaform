@@ -8,6 +8,8 @@ from finance.metrics import date_range, in_range, operating_summary
 from rest_framework.response import Response
 
 from django.utils import timezone
+from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 from rest_framework import status
 
 from core.activity import log_activity
@@ -35,7 +37,7 @@ class ExpenseViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
     search_fields = ["category", "description"]
     ordering_fields = ["date", "amount", "category"]
     ordering = ["-date", "-id"]
-    delete_denied_detail = (
+    delete_denied_detail = gettext_lazy(
         "An expense cannot be deleted because it feeds the income statement "
         "and budget variance. Record an offsetting negative expense instead."
     )
@@ -61,7 +63,7 @@ class ExpenseViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
 
     def update(self, request, *args, **kwargs):
         return Response(
-            {"detail": "Expenses are append-only. Record an offsetting correction."},
+            {"detail": _("Expenses are append-only. Record an offsetting correction.")},
             status=status.HTTP_405_METHOD_NOT_ALLOWED,
         )
 
@@ -117,7 +119,7 @@ class BudgetViewSet(CompanyScopedModelViewSet):
         if budget.status != Budget.DRAFT:
             return Response(
                 {
-                    "detail": (
+                    "detail": _(
                         "An approved budget cannot be deleted because variance "
                         "reports are measured against it. Reopen it to draft "
                         "first if it must be removed."
@@ -130,7 +132,7 @@ class BudgetViewSet(CompanyScopedModelViewSet):
     def _guard_approver(self, request):
         if not can_approve_high_value(request.user):
             return Response(
-                {"detail": "Only a CFO, owner or general manager may approve a budget."},
+                {"detail": _("Only a CFO, owner or general manager may approve a budget.")},
                 status=status.HTTP_403_FORBIDDEN,
             )
         return None
@@ -143,12 +145,12 @@ class BudgetViewSet(CompanyScopedModelViewSet):
             return denied
         if budget.status == Budget.APPROVED:
             return Response(
-                {"detail": "This budget is already approved."},
+                {"detail": _("This budget is already approved.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if not budget.lines.exists():
             return Response(
-                {"detail": "A budget needs at least one line before approval."},
+                {"detail": _("A budget needs at least one line before approval.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         budget.status = Budget.APPROVED

@@ -90,7 +90,7 @@ class UserSerializer(serializers.ModelSerializer):
             and not getattr(actor, "is_platform_admin", False)
         ):
             raise serializers.ValidationError(
-                {"role": "Only a platform administrator may assign a platform role."}
+                {"role": _("Only a platform administrator may assign a platform role.")}
             )
 
         if actor_company_id is not None:
@@ -104,16 +104,16 @@ class UserSerializer(serializers.ModelSerializer):
                 or (actor_role_name == "Branch Manager" and role_rank(current_role) >= 1)
             ):
                 raise serializers.ValidationError(
-                    {"role": "You cannot modify an account with equal or higher authority."}
+                    {"role": _("You cannot modify an account with equal or higher authority.")}
                 )
             if role is not None and role_rank(role) > actor_rank:
                 raise serializers.ValidationError(
-                    {"role": "You cannot assign a role above your own authority."}
+                    {"role": _("You cannot assign a role above your own authority.")}
                 )
             if actor_role_name == "General Manager":
                 if role and role.name == "Business Owner":
                     raise serializers.ValidationError(
-                        {"role": "Only a Business Owner may assign the owner role."}
+                        {"role": _("Only a Business Owner may assign the owner role.")}
                     )
                 if (
                     self.instance
@@ -121,16 +121,16 @@ class UserSerializer(serializers.ModelSerializer):
                     and self.instance.role.name == "Business Owner"
                 ):
                     raise serializers.ValidationError(
-                        {"role": "A General Manager cannot modify a Business Owner."}
+                        {"role": _("A General Manager cannot modify a Business Owner.")}
                     )
             elif actor_role_name == "Branch Manager":
                 if branch is None or branch.pk != getattr(actor, "branch_id", None):
                     raise serializers.ValidationError(
-                        {"branch": "A Branch Manager may manage only their own branch."}
+                        {"branch": _("A Branch Manager may manage only their own branch.")}
                     )
                 if self.instance and self.instance.branch_id != actor.branch_id:
                     raise serializers.ValidationError(
-                        {"branch": "This user is outside your branch."}
+                        {"branch": _("This user is outside your branch.")}
                     )
                 if (
                     role is None
@@ -138,31 +138,33 @@ class UserSerializer(serializers.ModelSerializer):
                     or role.name == "Branch Manager"
                 ):
                     raise serializers.ValidationError(
-                        {"role": "A Branch Manager may assign only branch staff roles."}
+                        {"role": _("A Branch Manager may assign only branch staff roles.")}
                     )
             elif actor_role_name != "Business Owner":
-                raise serializers.ValidationError("Your role cannot administer company users.")
+                raise serializers.ValidationError(_("Your role cannot administer company users."))
 
         target_company_id = (
             self.instance.company_id if self.instance is not None else actor_company_id
         )
         if target_company_id is not None and role is None:
             raise serializers.ValidationError(
-                {"role": "A company user must have an assigned role."}
+                {"role": _("A company user must have an assigned role.")}
             )
         if role is not None and role.scope_level == Role.SCOPE_BRANCH:
             if branch is None:
                 raise serializers.ValidationError(
-                    {"branch": "A branch-scoped role requires an assigned branch."}
+                    {"branch": _("A branch-scoped role requires an assigned branch.")}
                 )
             if not branch.is_active:
-                raise serializers.ValidationError({"branch": "The assigned branch is inactive."})
+                raise serializers.ValidationError({"branch": _("The assigned branch is inactive.")})
         if (
             branch is not None
             and actor_company_id is not None
             and branch.company_id != actor_company_id
         ):
-            raise serializers.ValidationError({"branch": "The branch must belong to your company."})
+            raise serializers.ValidationError(
+                {"branch": _("The branch must belong to your company.")}
+            )
 
         if (
             self.instance is not None
@@ -171,7 +173,7 @@ class UserSerializer(serializers.ModelSerializer):
             and attrs.get("is_active") is False
         ):
             raise serializers.ValidationError(
-                {"is_active": "You cannot deactivate your own account."}
+                {"is_active": _("You cannot deactivate your own account.")}
             )
         if (
             self.instance is not None
@@ -180,7 +182,7 @@ class UserSerializer(serializers.ModelSerializer):
             and "role" in attrs
             and role != self.instance.role
         ):
-            raise serializers.ValidationError({"role": "You cannot change your own role."})
+            raise serializers.ValidationError({"role": _("You cannot change your own role.")})
         return attrs
 
     class Meta:
@@ -431,8 +433,8 @@ class LoginSerializer(serializers.Serializer):
             password=attrs["password"],
         )
         if user is None:
-            raise serializers.ValidationError("Invalid email or password.")
+            raise serializers.ValidationError(_("Invalid email or password."))
         if not user.is_active:
-            raise serializers.ValidationError("This account is inactive.")
+            raise serializers.ValidationError(_("This account is inactive."))
         attrs["user"] = user
         return attrs

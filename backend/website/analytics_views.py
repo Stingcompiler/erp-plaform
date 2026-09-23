@@ -12,6 +12,7 @@ from datetime import timedelta
 
 from django.db.models import Sum
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -252,7 +253,7 @@ class CompanyVisitsView(APIView):
 
         company_id = getattr(request.user, "company_id", None)
         if company_id is None:
-            return Response({"detail": "A company workspace is required."}, status=403)
+            return Response({"detail": _("A company workspace is required.")}, status=403)
 
         today = timezone.localdate()
         start = today - timedelta(days=29)

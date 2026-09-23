@@ -4,6 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.db.models import F, OuterRef, Subquery, Sum
 from django.db.models.functions import Coalesce
+from django.utils.translation import gettext as _
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
@@ -151,7 +152,7 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
 
         if not can_approve_high_value(request.user):
             return Response(
-                {"detail": "Only a manager or owner may reprice the catalogue."},
+                {"detail": _("Only a manager or owner may reprice the catalogue.")},
                 status=status.HTTP_403_FORBIDDEN,
             )
         company = Company.objects.get(pk=request.user.company_id)
@@ -258,7 +259,7 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         product = self.get_object()
         if product.barcode:
             return Response(
-                {"detail": "This product already has a barcode.", "barcode": product.barcode},
+                {"detail": _("This product already has a barcode."), "barcode": product.barcode},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         company_id = product.company_id
@@ -286,7 +287,7 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         code = (request.query_params.get("code") or "").strip()
         if not code:
             return Response(
-                {"detail": "A barcode is required."},
+                {"detail": _("A barcode is required.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         product = pack = None
@@ -309,7 +310,7 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
                 break
         if product is None:
             return Response(
-                {"detail": "No product matches this barcode.", "code": code},
+                {"detail": _("No product matches this barcode."), "code": code},
                 status=status.HTTP_404_NOT_FOUND,
             )
         data = self.get_serializer(product).data

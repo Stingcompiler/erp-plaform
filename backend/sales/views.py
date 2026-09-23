@@ -409,7 +409,9 @@ class CashShiftViewSet(AppendOnlyScopedViewSet):
         # with no owner.
         if shift.opened_by_id != request.user.pk and not can_approve_high_value(request.user):
             return Response(
-                {"detail": "Only the cashier who opened this drawer, or a manager, may close it."},
+                {"detail": _(
+                    "Only the cashier who opened this drawer, or a manager, may close it."
+                )},
                 status=status.HTTP_403_FORBIDDEN,
             )
         with transaction.atomic():
@@ -419,25 +421,25 @@ class CashShiftViewSet(AppendOnlyScopedViewSet):
     def _close_locked(self, request, shift):
         if shift.status == CashShift.CLOSED:
             return Response(
-                {"detail": "This session is already closed."},
+                {"detail": _("This session is already closed.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         raw = request.data.get("counted_cash")
         if raw is None or str(raw).strip() == "":
             return Response(
-                {"counted_cash": "Count the drawer and enter the amount."},
+                {"counted_cash": _("Count the drawer and enter the amount.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
             counted = Decimal(str(raw))
         except (InvalidOperation, TypeError):
             return Response(
-                {"counted_cash": "Must be a number."},
+                {"counted_cash": _("Must be a number.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if counted < 0:
             return Response(
-                {"counted_cash": "A drawer cannot hold less than nothing."},
+                {"counted_cash": _("A drawer cannot hold less than nothing.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -483,25 +485,27 @@ class CashShiftViewSet(AppendOnlyScopedViewSet):
         shift = self.get_object()
         if shift.status != CashShift.CLOSED:
             return Response(
-                {"detail": "Only a closed session can be reviewed."},
+                {"detail": _("Only a closed session can be reviewed.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if not can_approve_high_value(request.user):
             return Response(
-                {"detail": "Only a manager or owner may sign off a till count."},
+                {"detail": _("Only a manager or owner may sign off a till count.")},
                 status=status.HTTP_403_FORBIDDEN,
             )
         if shift.closed_by_id and shift.closed_by_id == request.user.id:
             return Response(
                 {
-                    "detail": "You closed this session, so you cannot also sign "
-                    "off its count. Another manager must review it."
+                    "detail": _(
+                        "You closed this session, so you cannot also sign "
+                        "off its count. Another manager must review it."
+                    )
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
         if shift.reviewed_at is not None:
             return Response(
-                {"detail": "Already reviewed."}, status=status.HTTP_400_BAD_REQUEST
+                {"detail": _("Already reviewed.")}, status=status.HTTP_400_BAD_REQUEST
             )
         shift.reviewed_by = request.user
         shift.reviewed_at = timezone.now()
@@ -548,7 +552,7 @@ class QuotationViewSet(AppendOnlyScopedViewSet):
         valid = dict(Quotation.STATUS_CHOICES)
         if new_status not in valid:
             return Response(
-                {"detail": "Invalid status."}, status=status.HTTP_400_BAD_REQUEST
+                {"detail": _("Invalid status.")}, status=status.HTTP_400_BAD_REQUEST
             )
         quotation.status = new_status
         quotation.save(update_fields=["status"])
@@ -706,26 +710,26 @@ class InvoiceViewSet(
 
         if not can_approve_high_value(request.user):
             return Response(
-                {"detail": "Only a manager or owner may void an invoice."},
+                {"detail": _("Only a manager or owner may void an invoice.")},
                 status=status.HTTP_403_FORBIDDEN,
             )
         reason = str(request.data.get("reason") or "").strip()
         if not reason:
             return Response(
-                {"reason": "A reason is required to void an invoice."},
+                {"reason": _("A reason is required to void an invoice.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         with transaction.atomic():
             invoice = Invoice.objects.select_for_update().get(pk=self.get_object().pk)
             if invoice.is_void:
                 return Response(
-                    {"detail": "This invoice is already void."},
+                    {"detail": _("This invoice is already void.")},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             if invoice.sales_returns.exists():
                 return Response(
                     {
-                        "detail": (
+                        "detail": _(
                             "This invoice has a return against it. Return the "
                             "remaining lines instead of voiding the whole sale."
                         )
@@ -737,10 +741,10 @@ class InvoiceViewSet(
             if paid > 0 and not isinstance(refund_body, dict):
                 return Response(
                     {
-                        "refund": (
-                            f"{paid} was paid on this invoice. Say how it is being "
+                        "refund": _(
+                            "%(paid)s was paid on this invoice. Say how it is being "
                             "refunded (method, account/reference or till session)."
-                        )
+                        ) % {"paid": paid}
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
@@ -897,10 +901,10 @@ class PaymentViewSet(AppendOnlyScopedViewSet):
             pk=account_id or 0, company_id=request.user.company_id,
         ).first()
         if account is None:
-            return Response({"account": ["Choose a receiving account."]}, status=400)
+            return Response({"account": [_("Choose a receiving account.")]}, status=400)
         uploaded = request.FILES.get("file")
         if uploaded is None:
-            return Response({"file": ["Upload the statement export."]}, status=400)
+            return Response({"file": [_("Upload the statement export.")]}, status=400)
         dry_run = str(request.data.get("dry_run", "")).lower() in ("1", "true", "yes")
         result = reconcile(
             request.user.company, account, uploaded, request.user, dry_run=dry_run,
@@ -923,7 +927,7 @@ class PaymentViewSet(AppendOnlyScopedViewSet):
         payment = self.get_object()
         if payment.verified_at is not None:
             return Response(
-                {"detail": "Already verified."}, status=status.HTTP_400_BAD_REQUEST
+                {"detail": _("Already verified.")}, status=status.HTTP_400_BAD_REQUEST
             )
         # Segregation of duties: the person who recorded the money may not be
         # the one who confirms it. This is the control that makes the
@@ -931,8 +935,10 @@ class PaymentViewSet(AppendOnlyScopedViewSet):
         if payment.recorded_by_id and payment.recorded_by_id == request.user.id:
             return Response(
                 {
-                    "detail": "You recorded this payment, so you cannot verify it. "
-                    "Verification must be done by a different user."
+                    "detail": _(
+                        "You recorded this payment, so you cannot verify it. "
+                        "Verification must be done by a different user."
+                    )
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
@@ -946,10 +952,10 @@ class PaymentViewSet(AppendOnlyScopedViewSet):
         ):
             return Response(
                 {
-                    "detail": (
-                        f"Payments of {threshold} or more must be approved by a "
+                    "detail": _(
+                        "Payments of %(threshold)s or more must be approved by a "
                         "CFO, owner or general manager."
-                    ),
+                    ) % {"threshold": threshold},
                     "threshold": str(threshold),
                     "requires_role": sorted(APPROVER_ROLES),
                 },

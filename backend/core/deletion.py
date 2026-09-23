@@ -31,6 +31,7 @@ from the Django admin, bypassing every control in this module.
 
 from rest_framework import status
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -53,7 +54,7 @@ class ManagerOnlyDeleteMixin:
         if self.manager_only_delete and not can_delete(request.user):
             return Response(
                 {
-                    "detail": (
+                    "detail": _(
                         "Your role can edit this record but not delete it. "
                         "Ask a manager to remove it if that is really needed."
                     )
@@ -66,7 +67,7 @@ class ManagerOnlyDeleteMixin:
 class NoDeleteMixin:
     """Tier A: the record can never be removed, only corrected."""
 
-    delete_denied_detail = (
+    delete_denied_detail = _(
         "This record is part of the financial trail and cannot be deleted. "
         "Record a correcting entry instead."
     )

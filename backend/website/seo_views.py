@@ -6,6 +6,7 @@ platform_roles). Every change is written to the activity log under the
 model's name, so the platform activity page shows who changed what.
 """
 from rest_framework import serializers, viewsets
+from django.utils.translation import gettext as _
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -44,14 +45,14 @@ class SeoSettingsSerializer(serializers.ModelSerializer):
         value = (value or "").strip()
         if value and not ANALYTICS_ID.match(value):
             raise serializers.ValidationError(
-                "Use the measurement id as Google shows it, such as G-XXXXXXXXXX."
+                _("Use the measurement id as Google shows it, such as G-XXXXXXXXXX.")
             )
         return value
 
     def _token(self, value):
         value = (value or "").strip()
         if any(ch in value for ch in "<>\"'"):
-            raise serializers.ValidationError("Paste only the content value of the tag.")
+            raise serializers.ValidationError(_("Paste only the content value of the tag."))
         return value
 
     def validate_google_site_verification(self, value):
@@ -61,7 +62,7 @@ class SeoSettingsSerializer(serializers.ModelSerializer):
         value = " ".join((value or "").split())
         digits = sum(ch.isdigit() for ch in value)
         if value and (digits < 7 or digits > 15):
-            raise serializers.ValidationError("Enter a number in international form.")
+            raise serializers.ValidationError(_("Enter a number in international form."))
         return value
 
     def validate_support_whatsapp(self, value):
@@ -88,7 +89,7 @@ class SeoPageOverrideSerializer(serializers.ModelSerializer):
     def validate_path(self, value):
         value = normalize_seo_path(value)
         if any(ch in value for ch in " <>\"'?#"):
-            raise serializers.ValidationError("Enter a path such as /pricing or /s/shop.")
+            raise serializers.ValidationError(_("Enter a path such as /pricing or /s/shop."))
         return value
 
     def validate(self, attrs):
@@ -99,7 +100,7 @@ class SeoPageOverrideSerializer(serializers.ModelSerializer):
             clash = clash.exclude(pk=self.instance.pk)
         if clash.exists():
             raise serializers.ValidationError(
-                {"path": "There is already an override for this path and language."}
+                {"path": _("There is already an override for this path and language.")}
             )
         return attrs
 

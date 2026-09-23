@@ -9,6 +9,7 @@ from decimal import Decimal
 
 from django.db.models import Prefetch, Q
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from rest_framework.exceptions import ValidationError
 
 from returns.models import CreditNote
@@ -149,7 +150,7 @@ def _date_param(params, key, end=False):
     try:
         parsed = datetime.strptime(raw, "%Y-%m-%d").date()
     except ValueError as exc:
-        raise ValidationError({key: "Use a valid YYYY-MM-DD date."}) from exc
+        raise ValidationError({key: _("Use a valid YYYY-MM-DD date.")}) from exc
     return timezone.make_aware(datetime.combine(parsed, time.max if end else time.min))
 
 
@@ -163,7 +164,7 @@ def statement_for_period(user, customer, params):
     start = _date_param(params, "start")
     end = _date_param(params, "end", end=True)
     if start and end and start > end:
-        raise ValidationError({"end": "End date must not precede start date."})
+        raise ValidationError({"end": _("End date must not precede start date.")})
     opening = ZERO
     rows = []
     for event in statement(user, customer):
@@ -228,11 +229,11 @@ def customer_debts(user, params):
     try:
         page = max(int(params.get("page", 1)), 1)
     except (TypeError, ValueError):
-        raise ValidationError({"page": "Use a positive integer."})
+        raise ValidationError({"page": _("Use a positive integer.")})
     try:
         page_size = min(max(int(params.get("page_size", 50)), 1), 200)
     except (TypeError, ValueError):
-        raise ValidationError({"page_size": "Use a positive integer."})
+        raise ValidationError({"page_size": _("Use a positive integer.")})
     balances = _customer_balances(user)
     # The ledger lists accounts with a balance. A settled or brand-new
     # customer is still reachable — by name, or through the "settled" filter —

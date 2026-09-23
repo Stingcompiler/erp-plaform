@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.db.models import Count, Sum
 from django.db.models.functions import Coalesce
+from django.utils.translation import gettext as _
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -95,7 +96,7 @@ class LeadViewSet(CompanyScopedModelViewSet):
             return Response(
                 {
                     "detail": (
-                        "Only a won lead can be converted. Move it to Won first."
+                        _("Only a won lead can be converted. Move it to Won first.")
                     )
                 },
                 status=status.HTTP_400_BAD_REQUEST,

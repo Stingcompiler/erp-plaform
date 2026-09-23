@@ -17,6 +17,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from rest_framework.exceptions import ValidationError
 
 from core import mailer
@@ -55,8 +56,8 @@ def catalogue(site):
 
 
 def _new_reference():
-    for _ in range(20):
-        ref = "W" + "".join(secrets.choice(REFERENCE_ALPHABET) for _ in range(6))
+    for _attempt in range(20):
+        ref = "W" + "".join(secrets.choice(REFERENCE_ALPHABET) for _i in range(6))
         if not PublicOrder.objects.filter(reference=ref).exists():
             return ref
     raise RuntimeError("could not allocate an order reference")
@@ -65,7 +66,7 @@ def _new_reference():
 def clean_phone(raw):
     digits = re.sub(r"[^\d+]", "", str(raw or ""))
     if len(re.sub(r"\D", "", digits)) < 8:
-        raise ValidationError({"phone": "Enter a phone number we can reach you on."})
+        raise ValidationError({"phone": _("Enter a phone number we can reach you on.")})
     return digits[:32]
 
 
@@ -73,28 +74,28 @@ def clean_phone(raw):
 def place_order(site, payload, request=None):
     """Record a visitor's order. ``payload`` is the public form."""
     if not site.is_published or not site.accept_orders:
-        raise ValidationError({"detail": "This page does not take orders."})
+        raise ValidationError({"detail": _("This page does not take orders.")})
     company = site.company
     name = str(payload.get("contact_name") or "").strip()[:120]
     if not name:
-        raise ValidationError({"contact_name": "Tell us who to ask for."})
+        raise ValidationError({"contact_name": _("Tell us who to ask for.")})
     phone = clean_phone(payload.get("phone"))
     email = str(payload.get("email") or "").strip()[:254]
     if email and "@" not in email:
-        raise ValidationError({"email": "That email address does not look right."})
+        raise ValidationError({"email": _("That email address does not look right.")})
     mode = payload.get("delivery_mode") or PublicOrder.PICKUP
     if mode not in (PublicOrder.PICKUP, PublicOrder.DELIVERY):
-        raise ValidationError({"delivery_mode": "Choose pickup or delivery."})
+        raise ValidationError({"delivery_mode": _("Choose pickup or delivery.")})
     address = str(payload.get("address") or "").strip()[:255]
     if mode == PublicOrder.DELIVERY and not address:
-        raise ValidationError({"address": "Where should we deliver?"})
+        raise ValidationError({"address": _("Where should we deliver?")})
     branch = None
     branch_id = payload.get("branch")
     branches = company.branches.filter(is_active=True)
     if branch_id:
         branch = branches.filter(pk=branch_id).first()
         if branch is None:
-            raise ValidationError({"branch": "Choose one of the listed branches."})
+            raise ValidationError({"branch": _("Choose one of the listed branches.")})
     elif branches.count() == 1:
         branch = branches.first()
 
@@ -105,21 +106,21 @@ def place_order(site, payload, request=None):
     }
     raw_lines = payload.get("lines") or []
     if not isinstance(raw_lines, list) or not raw_lines:
-        raise ValidationError({"lines": "Add at least one product."})
+        raise ValidationError({"lines": _("Add at least one product.")})
     if len(raw_lines) > MAX_LINES:
-        raise ValidationError({"lines": "Too many lines for one order."})
+        raise ValidationError({"lines": _("Too many lines for one order.")})
     lines, total, priced = [], Decimal("0"), True
     for raw in raw_lines:
         try:
             product_id = int(raw.get("product"))
             quantity = Decimal(str(raw.get("quantity", 1)))
         except (TypeError, ValueError, ArithmeticError):
-            raise ValidationError({"lines": "Each line needs a product and a quantity."})
+            raise ValidationError({"lines": _("Each line needs a product and a quantity.")})
         item = offered.get(product_id)
         if item is None:
-            raise ValidationError({"lines": "One of the products cannot be ordered here."})
+            raise ValidationError({"lines": _("One of the products cannot be ordered here.")})
         if quantity <= 0 or quantity > MAX_QTY:
-            raise ValidationError({"lines": "Quantity must be between 1 and 9999."})
+            raise ValidationError({"lines": _("Quantity must be between 1 and 9999.")})
         price = item.product.sale_price if item.show_price else None
         if price is None:
             priced = False
@@ -136,7 +137,7 @@ def place_order(site, payload, request=None):
     from website.order_payments import is_blocked
 
     if is_blocked(company, phone, visitor):
-        raise ValidationError({"detail": "This page cannot take your order."})
+        raise ValidationError({"detail": _("This page cannot take your order.")})
     order = PublicOrder.objects.create(
         company=company, website=site, branch=branch, reference=_new_reference(),
         contact_name=name, phone=phone, email=email, delivery_mode=mode, address=address,
@@ -281,7 +282,7 @@ def confirm(order, actor, note=""):
 
     order = PublicOrder.objects.select_for_update().get(pk=order.pk)
     if order.status != PublicOrder.NEW:
-        raise ValidationError({"detail": "This order was already answered."})
+        raise ValidationError({"detail": _("This order was already answered.")})
     company = order.company
     customer = Customer.objects.filter(company=company, phone=order.phone).first()
     if customer is None:
@@ -297,7 +298,9 @@ def confirm(order, actor, note=""):
     subtotal, tax = Decimal("0"), Decimal("0")
     for line in order.lines.select_related("product"):
         if line.product is None or not line.product.is_active:
-            raise ValidationError({"detail": f"{line.name} is no longer in the catalogue."})
+            raise ValidationError({
+                "detail": _("%(name)s is no longer in the catalogue.") % {"name": line.name},
+            })
         price = line.unit_price if line.unit_price is not None else line.product.sale_price
         lt = _q2(line.quantity * price)
         SalesOrderLine.objects.create(
@@ -324,7 +327,7 @@ def confirm(order, actor, note=""):
 def reject(order, actor, note=""):
     order = PublicOrder.objects.select_for_update().get(pk=order.pk)
     if order.status != PublicOrder.NEW:
-        raise ValidationError({"detail": "This order was already answered."})
+        raise ValidationError({"detail": _("This order was already answered.")})
     order.status = PublicOrder.REJECTED
     order.decided_by = actor
     order.decided_at = timezone.now()

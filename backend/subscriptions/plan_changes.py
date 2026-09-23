@@ -25,6 +25,7 @@ from uuid import uuid4
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from rest_framework.exceptions import ValidationError
 
 from subscriptions.models import (
@@ -127,17 +128,22 @@ def clean_delta(version, raw):
     delta = {}
     for resource, units in (raw or {}).items():
         if resource not in prices:
-            raise ValidationError({"extra_delta": f"{resource} cannot be added to this plan."})
+            raise ValidationError(
+                {
+                    "extra_delta": _("%(resource)s cannot be added to this plan.")
+                    % {"resource": resource}
+                }
+            )
         try:
             units = int(units)
         except (TypeError, ValueError):
-            raise ValidationError({"extra_delta": "Units must be whole numbers."})
+            raise ValidationError({"extra_delta": _("Units must be whole numbers.")})
         if units:
             delta[resource] = units
     if not delta:
-        raise ValidationError({"extra_delta": "Say how many units to add or remove."})
+        raise ValidationError({"extra_delta": _("Say how many units to add or remove.")})
     if any(u > 0 for u in delta.values()) and any(u < 0 for u in delta.values()):
-        raise ValidationError({"extra_delta": "Add or remove units in one request, not both."})
+        raise ValidationError({"extra_delta": _("Add or remove units in one request, not both.")})
     return delta
 
 
@@ -147,7 +153,10 @@ def extra_after(subscription, delta):
         extra[resource] = int(extra.get(resource, 0)) + units
         if extra[resource] < 0:
             raise ValidationError(
-                {"extra_delta": f"The company has no {resource} add-on to remove."}
+                {
+                    "extra_delta": _("The company has no %(resource)s add-on to remove.")
+                    % {"resource": resource}
+                }
             )
     return {k: v for k, v in extra.items() if v}
 
@@ -176,13 +185,13 @@ def open_request(company):
 def request_change(company, to_version, actor, note=""):
     subscription = Subscription.objects.select_for_update().filter(company=company).first()
     if subscription is None:
-        raise ValidationError({"detail": "This company has no subscription to change."})
+        raise ValidationError({"detail": _("This company has no subscription to change.")})
     if to_version.published_at is None or not to_version.plan.is_active:
-        raise ValidationError({"to_version": "That plan is not available."})
+        raise ValidationError({"to_version": _("That plan is not available.")})
     if to_version.pk == subscription.plan_version_id:
-        raise ValidationError({"to_version": "The company is already on that plan."})
+        raise ValidationError({"to_version": _("The company is already on that plan.")})
     if open_request(company) is not None:
-        raise ValidationError({"detail": "A plan change is already waiting for a decision."})
+        raise ValidationError({"detail": _("A plan change is already waiting for a decision.")})
     kind = classify(subscription.plan_version, to_version)
     # A smaller plan (or one in another currency that may be smaller) must
     # still fit what the company already uses.
@@ -206,9 +215,9 @@ def request_change(company, to_version, actor, note=""):
 def request_addon(company, raw_delta, actor, note=""):
     subscription = Subscription.objects.select_for_update().filter(company=company).first()
     if subscription is None:
-        raise ValidationError({"detail": "This company has no subscription to change."})
+        raise ValidationError({"detail": _("This company has no subscription to change.")})
     if open_request(company) is not None:
-        raise ValidationError({"detail": "A plan change is already waiting for a decision."})
+        raise ValidationError({"detail": _("A plan change is already waiting for a decision.")})
     version = subscription.plan_version
     delta = clean_delta(version, raw_delta)
     adding = all(u > 0 for u in delta.values())
@@ -233,7 +242,7 @@ def request_addon(company, raw_delta, actor, note=""):
 @transaction.atomic
 def cancel_request(request, actor):
     if request.status not in (PlanChangeRequest.PENDING, PlanChangeRequest.APPROVED):
-        raise ValidationError({"detail": "This request is already closed."})
+        raise ValidationError({"detail": _("This request is already closed.")})
     if request.invoice_id and request.invoice.status == SubscriptionInvoice.ISSUED:
         request.invoice.status = SubscriptionInvoice.VOID
         request.invoice.save(update_fields=["status"])
@@ -251,7 +260,7 @@ def cancel_request(request, actor):
 def approve_request(request, actor, note=""):
     request = PlanChangeRequest.objects.select_for_update().get(pk=request.pk)
     if request.status != PlanChangeRequest.PENDING:
-        raise ValidationError({"detail": "Only a pending request can be approved."})
+        raise ValidationError({"detail": _("Only a pending request can be approved.")})
     subscription = Subscription.objects.select_for_update().get(pk=request.subscription_id)
     now = timezone.now()
     request.status = PlanChangeRequest.APPROVED
@@ -341,7 +350,7 @@ def approve_request(request, actor, note=""):
 def reject_request(request, actor, note=""):
     request = PlanChangeRequest.objects.select_for_update().get(pk=request.pk)
     if request.status != PlanChangeRequest.PENDING:
-        raise ValidationError({"detail": "Only a pending request can be rejected."})
+        raise ValidationError({"detail": _("Only a pending request can be rejected.")})
     request.status = PlanChangeRequest.REJECTED
     request.decided_by = actor
     request.decided_at = timezone.now()

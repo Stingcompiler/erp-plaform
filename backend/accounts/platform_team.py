@@ -13,6 +13,7 @@ from datetime import timedelta
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from rest_framework.exceptions import ValidationError
 
 from accounts.models import PlatformInvitation, Role, User
@@ -35,10 +36,10 @@ def platform_members():
 
 def platform_role(name):
     if name not in PLATFORM_ROLES:
-        raise ValidationError({"role": "Choose one of the platform roles."})
+        raise ValidationError({"role": _("Choose one of the platform roles.")})
     role = ensure_platform_roles()[name]
     if role.scope_level != Role.SCOPE_PLATFORM:
-        raise ValidationError({"role": "The platform role is misconfigured; contact support."})
+        raise ValidationError({"role": _("The platform role is misconfigured; contact support.")})
     return role
 
 
@@ -58,7 +59,7 @@ def _issue_invitation(user, actor, now):
 def invite_platform_member(email, full_name, role_name, actor, request=None):
     email = User.objects.normalize_email(email).strip()
     if User.objects.filter(email__iexact=email).exists():
-        raise ValidationError({"email": "This email already belongs to an account."})
+        raise ValidationError({"email": _("This email already belongs to an account.")})
     user = User.objects.create_user(
         email=email, password=None, full_name=full_name.strip(),
         company=None, branch=None, role=platform_role(role_name),
@@ -80,7 +81,7 @@ def set_platform_member_role(user_id, role_name, actor, request=None):
     system, and the last Super Administrator cannot be demoted."""
     user = platform_members().select_for_update(of=("self",)).get(pk=user_id)
     if user.is_superuser:
-        raise ValidationError("Django superusers are managed outside platform roles.")
+        raise ValidationError(_("Django superusers are managed outside platform roles."))
     role = platform_role(role_name)
     if user.role_id == role.pk:
         return user
@@ -93,7 +94,7 @@ def set_platform_member_role(user_id, role_name, actor, request=None):
             .count()
         )
         if remaining == 0:
-            raise ValidationError("Keep at least one active Super Administrator.")
+            raise ValidationError(_("Keep at least one active Super Administrator."))
     previous = user.role.name if user.role_id else None
     user.role = role
     user.save(update_fields=["role"])
@@ -109,7 +110,7 @@ def set_platform_member_role(user_id, role_name, actor, request=None):
 def reissue_platform_invitation(user_id, actor, request=None):
     user = platform_members().select_for_update(of=("self",)).get(pk=user_id)
     if not user.is_active:
-        raise ValidationError("Reactivate the member before sending a new link.")
+        raise ValidationError(_("Reactivate the member before sending a new link."))
     token = _issue_invitation(user, actor, timezone.now())
     log_activity(
         action="update", user=actor, request=request,
@@ -125,7 +126,7 @@ def set_platform_member_active(user_id, is_active, actor, request=None):
     and nobody can lock themselves out."""
     user = platform_members().select_for_update(of=("self",)).get(pk=user_id)
     if user.pk == actor.pk and not is_active:
-        raise ValidationError("You cannot deactivate your own account.")
+        raise ValidationError(_("You cannot deactivate your own account."))
     if not is_active and user.is_active:
         # Deactivating a member must leave someone who can still manage the
         # team, not merely someone who can read it.
@@ -137,7 +138,9 @@ def set_platform_member_active(user_id, is_active, actor, request=None):
             .count()
         )
         if remaining_admins == 0:
-            raise ValidationError("The platform must keep at least one active Super Administrator.")
+            raise ValidationError(
+                _("The platform must keep at least one active Super Administrator.")
+            )
     if user.is_active != is_active:
         user.is_active = is_active
         user.save(update_fields=["is_active"])
@@ -162,10 +165,10 @@ def accept_platform_invitation(token, password, request=None):
         .first()
     )
     if invitation is None or not invitation.is_usable:
-        raise ValueError("This invitation is invalid, expired, or already used.")
+        raise ValueError(_("This invitation is invalid, expired, or already used."))
     user = invitation.user
     if not user.is_active:
-        raise ValueError("This account is no longer active. Contact the platform team.")
+        raise ValueError(_("This account is no longer active. Contact the platform team."))
     user.set_password(password)
     user.save(update_fields=["password"])
     invitation.accepted_at = timezone.now()
@@ -190,7 +193,7 @@ def set_platform_member_profile(user_id, full_name, email, actor, request=None):
         email = User.objects.normalize_email(email).strip()
         if email.lower() != user.email.lower():
             if User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists():
-                raise ValidationError({"email": "This email already belongs to an account."})
+                raise ValidationError({"email": _("This email already belongs to an account.")})
             changes["email"] = [user.email, email]
             user.email = email
     if changes:
@@ -210,13 +213,13 @@ def delete_platform_member(user_id, actor, request=None):
     its author; superusers and the caller are never deleted here."""
     user = platform_members().select_for_update(of=("self",)).get(pk=user_id)
     if user.pk == actor.pk:
-        raise ValidationError("You cannot delete your own account.")
+        raise ValidationError(_("You cannot delete your own account."))
     if user.is_superuser:
-        raise ValidationError("Django superusers are managed outside the platform team.")
+        raise ValidationError(_("Django superusers are managed outside the platform team."))
     if user.has_usable_password() or user.last_login:
         raise ValidationError(
-            "This member has signed in before. Deactivate the account instead; "
-            "it keeps their name on everything they did."
+            _("This member has signed in before. Deactivate the account instead; "
+              "it keeps their name on everything they did.")
         )
     remaining = (
         platform_members().filter(is_active=True)
@@ -224,7 +227,7 @@ def delete_platform_member(user_id, actor, request=None):
         .exclude(pk=user.pk).count()
     )
     if remaining == 0:
-        raise ValidationError("The platform must keep at least one active Super Administrator.")
+        raise ValidationError(_("The platform must keep at least one active Super Administrator."))
     log_activity(
         action="delete", user=actor, request=request,
         entity_type="PlatformMember", entity_id=user.pk,

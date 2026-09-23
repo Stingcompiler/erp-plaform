@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from django.db import models
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from django.db.models import Q
 from django.http import Http404
 from rest_framework import mixins, status, viewsets
@@ -382,7 +383,7 @@ class PlatformRegistrationRequestViewSet(
             RegistrationRequest.REJECTED,
         }:
             return Response(
-                {"detail": "This status transition is not allowed."},
+                {"detail": _("This status transition is not allowed.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         registration.status = target
@@ -410,18 +411,18 @@ class PlatformRegistrationRequestViewSet(
             RegistrationRequest.NEEDS_INFORMATION,
         }:
             return Response(
-                {"detail": "This request cannot be approved from its current state."},
+                {"detail": _("This request cannot be approved from its current state.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if registration.delivery_mode == RegistrationRequest.SAAS:
             if not registration.plan_version_id:
                 return Response(
-                    {"detail": "Choose a published plan before approval."},
+                    {"detail": _("Choose a published plan before approval.")},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             if not plan_version_is_available(registration.plan_version):
                 return Response(
-                    {"detail": "The selected plan is no longer available; pick another plan."},
+                    {"detail": _("The selected plan is no longer available; pick another plan.")},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         registration.status = RegistrationRequest.APPROVED
@@ -696,12 +697,12 @@ class PublicSiteView(APIView):
             company = Company.objects.get(slug=slug, is_active=True)
         except Company.DoesNotExist:
             return Response(
-                {"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND
+                {"detail": _("Not found.")}, status=status.HTTP_404_NOT_FOUND
             )
         site = getattr(company, "website", None)
         if site is None or not site.is_published:
             return Response(
-                {"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND
+                {"detail": _("Not found.")}, status=status.HTTP_404_NOT_FOUND
             )
         return Response(PublicSiteSerializer(site).data)
 
@@ -763,10 +764,10 @@ class PublicOrderCreateView(APIView):
         try:
             company = Company.objects.get(slug=slug, is_active=True)
         except Company.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": _("Not found.")}, status=status.HTTP_404_NOT_FOUND)
         site = getattr(company, "website", None)
         if site is None or not site.is_published or not site.accept_orders:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": _("Not found.")}, status=status.HTTP_404_NOT_FOUND)
         if str(request.data.get("website_url") or "").strip():
             return Response({"reference": "W" + "0" * 6, "whatsapp": ""}, status=201)
         order = place_order(site, request.data, request)
@@ -808,7 +809,7 @@ class PublicOrderStatusView(APIView):
 
         order = self._order(slug, reference)
         if order is None:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": _("Not found.")}, status=status.HTTP_404_NOT_FOUND)
         return Response(public_order_payload(order))
 
     def post(self, request, slug, reference):
@@ -816,7 +817,7 @@ class PublicOrderStatusView(APIView):
 
         order = self._order(slug, reference)
         if order is None:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": _("Not found.")}, status=status.HTTP_404_NOT_FOUND)
         claim = declare_payment(order, request.data, request.FILES, request)
         return Response(claim_payload(claim), status=status.HTTP_201_CREATED)
 
@@ -940,12 +941,12 @@ class PushSubscriptionView(APIView):
         from core.push import push_is_enabled
 
         if not push_is_enabled():
-            return Response({"detail": "Push is not configured."}, status=503)
+            return Response({"detail": _("Push is not configured.")}, status=503)
         endpoint = str(request.data.get("endpoint") or "")[:1000]
         keys = request.data.get("keys") or {}
         if not endpoint.startswith("https://") or not keys.get("p256dh") or not keys.get("auth"):
-            return Response({"detail": "A push subscription is required."}, status=400)
-        sub, _ = PushSubscription.objects.update_or_create(
+            return Response({"detail": _("A push subscription is required.")}, status=400)
+        sub, _created = PushSubscription.objects.update_or_create(
             endpoint=endpoint,
             defaults={
                 "user": request.user, "company_id": request.user.company_id,

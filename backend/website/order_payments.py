@@ -15,6 +15,7 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from rest_framework.exceptions import ValidationError
 
 from core.activity import log_activity
@@ -101,35 +102,35 @@ def public_order_payload(order):
 @transaction.atomic
 def declare_payment(order, payload, files=None, request=None):
     if order.status not in (PublicOrder.NEW, PublicOrder.CONFIRMED):
-        raise ValidationError({"detail": "This order is closed."})
+        raise ValidationError({"detail": _("This order is closed.")})
     if order.total is None:
-        raise ValidationError({"detail": "The shop has not confirmed the amount yet."})
+        raise ValidationError({"detail": _("The shop has not confirmed the amount yet.")})
     accounts = {a.pk: a for a in public_bank_accounts(order.company)}
     try:
         account = accounts[int(payload.get("bank_account"))]
     except (TypeError, ValueError, KeyError):
-        raise ValidationError({"bank_account": "Choose the account you transferred to."})
+        raise ValidationError({"bank_account": _("Choose the account you transferred to.")})
     sender = str(payload.get("sender_bank_name") or "").strip()[:120]
     if not sender:
-        raise ValidationError({"sender_bank_name": "Which bank did you transfer from?"})
+        raise ValidationError({"sender_bank_name": _("Which bank did you transfer from?")})
     ref = re.sub(r"\D", "", str(payload.get("reference_last4") or ""))
     if len(ref) != 4:
-        raise ValidationError({"reference_last4": "Enter the last four digits of the transfer."})
+        raise ValidationError({"reference_last4": _("Enter the last four digits of the transfer.")})
     try:
         amount = Decimal(str(payload.get("amount"))).quantize(Decimal("0.01"))
     except Exception:  # noqa: BLE001
-        raise ValidationError({"amount": "Enter the amount you transferred."})
+        raise ValidationError({"amount": _("Enter the amount you transferred.")})
     if amount <= 0:
-        raise ValidationError({"amount": "Enter the amount you transferred."})
+        raise ValidationError({"amount": _("Enter the amount you transferred.")})
     if order.payments.filter(reference_last4=ref).exists():
-        raise ValidationError({"reference_last4": "This transfer was already declared."})
+        raise ValidationError({"reference_last4": _("This transfer was already declared.")})
     visitor = ""
     if request is not None:
         from website.analytics import _visitor_hash
 
         visitor = _visitor_hash(request, timezone.localdate())
     if is_blocked(order.company, order.phone, visitor):
-        raise ValidationError({"detail": "This order is closed."})
+        raise ValidationError({"detail": _("This order is closed.")})
     proof = (files or {}).get("proof")
     if proof is not None:
         from core.uploads import validate_proof
@@ -168,7 +169,7 @@ def _notify_claim(claim):
 
 def _closed(claim):
     if claim.status != PublicOrderPayment.VERIFYING:
-        raise ValidationError({"detail": "This claim was already answered."})
+        raise ValidationError({"detail": _("This claim was already answered.")})
 
 
 def _decide(claim, actor, status, note):
@@ -195,12 +196,12 @@ def confirm_payment(claim, actor, request, warehouse=None, note=""):
     if order.status == PublicOrder.NEW:
         order = confirm_order(order, actor, note)
     if order.status != PublicOrder.CONFIRMED or order.sales_order is None:
-        raise ValidationError({"detail": "Only a confirmed order can be paid."})
+        raise ValidationError({"detail": _("Only a confirmed order can be paid.")})
     threshold = getattr(order.company, "payment_approval_threshold", 0) or 0
     if threshold and claim.amount >= threshold and not can_approve_high_value(actor):
         raise ValidationError({
             "code": "approval_required",
-            "detail": "Confirming a transfer of this size needs an approver (owner, GM or CFO).",
+            "detail": _("Confirming a transfer of this size needs an approver (owner, GM or CFO)."),
         })
     sales_order = order.sales_order
     if warehouse is None:
@@ -209,7 +210,7 @@ def confirm_payment(claim, actor, request, warehouse=None, note=""):
             candidates.filter(branch_id=order.branch_id).first() if order.branch_id else None
         ) or candidates.first()
         if warehouse is None:
-            raise ValidationError({"warehouse": "Create a warehouse to sell from first."})
+            raise ValidationError({"warehouse": _("Create a warehouse to sell from first.")})
     if sales_order.status == sales_order.CONFIRMED:
         amount = min(claim.amount, sales_order.total)
         serializer = POSCheckoutSerializer(
@@ -241,7 +242,7 @@ def confirm_payment(claim, actor, request, warehouse=None, note=""):
         # payment on that invoice.
         invoice = sales_order.invoices.order_by("-pk").first()
         if invoice is None:
-            raise ValidationError({"detail": "This order was fulfilled without an invoice."})
+            raise ValidationError({"detail": _("This order was fulfilled without an invoice.")})
         # Through the one payment service: locked, capped at the balance due
         # (review F01: 800 + 800 on a 1,000 order used to be accepted), the
         # currency taken from the invoice. The shop's confirmation stays the
