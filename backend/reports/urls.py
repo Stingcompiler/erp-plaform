@@ -1,5 +1,9 @@
 from django.urls import path
 
+from reports.operational import (
+    CrmReport, PaymentReconciliationReport, PurchaseReturnsReport, SalesReturnsReport,
+)
+
 from reports.views import (
     APAgingReport,
     ARAgingReport,
@@ -62,6 +66,16 @@ urlpatterns = [
     ),
     path("reports/cfo-kpis/", CfoKpiReport.as_view(), name="report-cfo-kpis"),
     path("reports/zakat/", ZakatReport.as_view(), name="report-zakat"),
+    path("reports/sales-returns/", SalesReturnsReport.as_view(), name="report-sales-returns"),
+    path(
+        "reports/purchase-returns/", PurchaseReturnsReport.as_view(),
+        name="report-purchase-returns",
+    ),
+    path(
+        "reports/payment-reconciliation/", PaymentReconciliationReport.as_view(),
+        name="report-payment-reconciliation",
+    ),
+    path("reports/crm/", CrmReport.as_view(), name="report-crm"),
     path(
         "reports/cash-flow-forecast/",
         CashFlowForecastReport.as_view(), name="report-cash-flow-forecast",

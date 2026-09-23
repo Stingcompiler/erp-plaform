@@ -9,6 +9,7 @@ import { useI18n } from "../../providers/I18nProvider";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import BarList from "@/components/reports/BarList";
 import ZakatCard from "@/components/reports/ZakatCard";
+import OperationalReports from "@/components/reports/OperationalReports";
 
 function Kpi({ label, value, tone = "ink" }) {
   const toneClass = tone === "accent" ? "text-accent" : tone === "ok" ? "text-ok" : "text-ink";
@@ -627,6 +628,7 @@ export default function ReportsPage() {
           </SectionCard>}
         </div>
       )}
+      <OperationalReports range={range} areas={reportAreas} />
     </div>
   );
 }
