@@ -13,6 +13,8 @@ import { platformSeo } from "@/lib/api";
 import { SITE_URL } from "@/lib/site";
 import ImagePicker from "@/components/website/ImagePicker";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 const SETTINGS_FIELDS = ["google_site_verification", "bing_site_verification", "analytics_id", "robots_extra", "support_whatsapp", "support_phone", "support_email"];
 const EMPTY_OVERRIDE = { path: "/", language: "both", title: "", description: "", noindex: false, canonical: "" };
@@ -54,6 +56,7 @@ function SerpPreview({ form, t }) {
 export default function PlatformSeoPage() {
   const { can } = useAuth();
   const { t, language } = useI18n();
+  const confirm = useConfirm();
   const canView = can("platform.seo.view");
   const canManage = can("platform.seo.manage");
 
@@ -79,8 +82,7 @@ export default function PlatformSeoPage() {
       const list = overridesResponse.data;
       setOverrides(Array.isArray(list) ? list : list.results || []);
     } catch (requestError) {
-      const status = requestError?.response?.status;
-      setError([t("platformSeo.loadError"), status && `HTTP ${status}`].filter(Boolean).join(" · "));
+      setError(errorText(requestError, t, "platformSeo.loadError"));
     } finally {
       setLoading(false);
     }
@@ -88,12 +90,7 @@ export default function PlatformSeoPage() {
   useEffect(() => { load(); }, [load]);
 
   const fail = (requestError) => {
-    const data = requestError?.response?.data;
-    const first = data?.detail
-      || ["path", "title", "description", "canonical", "analytics_id", "google_site_verification", "bing_site_verification", "image"]
-        .map((key) => data?.[key]?.[0]).find(Boolean)
-      || (Array.isArray(data) ? data[0] : null);
-    setError(typeof first === "string" ? first : t("platformSeo.saveError"));
+    setError(errorText(requestError, t, "platformSeo.saveError"));
   };
   const flash = (message) => {
     setNotice(message);
@@ -150,7 +147,7 @@ export default function PlatformSeoPage() {
   };
 
   const removeOverride = async (row) => {
-    if (!window.confirm(t("platformSeo.confirmDelete", { path: row.path }))) return;
+    if (!(await confirm(t("platformSeo.confirmDelete", { path: row.path }), { tone: "danger" }))) return;
     setSaving(`delete-${row.id}`);
     setError("");
     try {

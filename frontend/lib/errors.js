@@ -64,6 +64,28 @@ export function errorText(error, t, fallbackKey = "errors.generic") {
   // The status is the one technical fact worth showing on a 5xx: it is what
   // support will ask for, and it is not a payload dump.
   if (status >= 500) return `${t("errors.server")} (HTTP ${status})`;
+
+  // The server translates its refusals into the reader's language (the
+  // language cookie drives Django's LocaleMiddleware), and a specific
+  // sentence — "the amount exceeds the balance due (250.00)" — beats any
+  // generic one. It is shown only when it really is in the reader's
+  // language: an untranslated English message on an Arabic screen is the
+  // raw text this helper exists to keep away.
+  const own = serverSentence(data, t);
+  if (own) return own;
   return known(STATUS_KEY[status]) || fallback();
+}
+
+const ARABIC = /[\u0600-\u06FF]/;
+const LATIN = /[A-Za-z]/;
+
+function serverSentence(data, t) {
+  if (!data) return "";
+  const message = typeof data.detail === "string"
+    ? data.detail
+    : Object.values(data).flat().find((v) => typeof v === "string") || "";
+  if (!message || message.length > 300) return "";
+  const arabicScreen = ARABIC.test(t("errors.generic"));
+  return arabicScreen ? (ARABIC.test(message) ? message : "") : (LATIN.test(message) ? message : "");
 }
 

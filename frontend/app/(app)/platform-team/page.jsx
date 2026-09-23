@@ -8,6 +8,7 @@ import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { platformTeam } from "@/lib/api";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 const DEFAULT_ROLE = "Support Agent";
 
@@ -39,11 +40,9 @@ export default function PlatformTeamPage() {
       setRows(members.data);
       setRoles(roleList.data);
     } catch (requestError) {
-      // Surface what the server said: a generic "could not load" hides
-      // whether this was a 403 (role), a 500 (server) or a network drop.
-      const status = requestError?.response?.status;
-      const detail = requestError?.response?.data?.detail;
-      setError([t("platformTeam.loadError"), status && `HTTP ${status}`, typeof detail === "string" && detail].filter(Boolean).join(" · "));
+      // errorText tells a 403 (role), a 500 (server) and a network drop
+      // apart in a sentence; a generic "could not load" would hide which.
+      setError(errorText(requestError, t, "platformTeam.loadError"));
     } finally {
       setLoading(false);
     }
@@ -51,9 +50,7 @@ export default function PlatformTeamPage() {
   useEffect(() => { load(); }, [load]);
 
   const fail = (requestError) => {
-    const data = requestError?.response?.data;
-    const first = data?.detail || data?.email?.[0] || data?.role?.[0] || (Array.isArray(data) ? data[0] : null);
-    setError(typeof first === "string" ? first : t("platformTeam.saveError"));
+    setError(errorText(requestError, t, "platformTeam.saveError"));
   };
 
   const submitInvite = async (event) => {

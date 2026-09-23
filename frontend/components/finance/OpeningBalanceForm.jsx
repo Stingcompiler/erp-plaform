@@ -8,6 +8,7 @@ import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Field, Input } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -42,8 +43,7 @@ export default function OpeningBalanceForm({ kind, account, onSaved }) {
       toast.success(t("openingBalance.saved"));
       onSaved?.();
     } catch (err) {
-      const data = err?.response?.data;
-      setError((data && (data.detail || Object.values(data).flat().join(" "))) || t("openingBalance.error"));
+      setError(errorText(err, t, "openingBalance.error"));
     } finally {
       setBusy(false);
     }

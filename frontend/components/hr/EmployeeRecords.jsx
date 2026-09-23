@@ -8,6 +8,8 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import TabBar from "@/components/ui/TabBar";
 import { Button, Field, Input, Select, controlClass } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const DOC_TYPES = ["contract", "id", "certificate", "warning", "other"];
@@ -27,6 +29,7 @@ function Stars({ value }) {
  */
 export default function EmployeeRecords({ employee, writable }) {
   const { t, language } = useI18n();
+  const confirm = useConfirm();
   const toast = useToast();
   const [tab, setTab] = useState("reviews");
   const [reviews, setReviews] = useState(null);
@@ -43,8 +46,7 @@ export default function EmployeeRecords({ employee, writable }) {
   useEffect(() => { load(); }, [load]);
 
   const fail = (err, fallback) => {
-    const data = err?.response?.data;
-    toast.error((data && (data.detail || Object.values(data).flat().join(" "))) || fallback);
+    toast.error(errorText(err, t, fallback));
   };
 
   async function saveReview() {
@@ -64,7 +66,7 @@ export default function EmployeeRecords({ employee, writable }) {
     } catch (err) { fail(err, t("hr.records.saveError")); } finally { setBusy(false); }
   }
   async function removeDoc(d) {
-    if (!window.confirm(t("hr.records.removeDocConfirm", { title: d.title }))) return;
+    if (!(await confirm(t("hr.records.removeDocConfirm", { title: d.title }), { tone: "danger" }))) return;
     try { await hr.deleteEmployeeDocument(d.id); load(); } catch (err) { fail(err, t("hr.records.saveError")); }
   }
 

@@ -21,7 +21,7 @@ const PasswordInput = forwardRef(function PasswordInput({ className = "", ...pro
         aria-label={t(shown ? "auth.hidePassword" : "auth.showPassword")}
         title={t(shown ? "auth.hidePassword" : "auth.showPassword")}
         aria-pressed={shown}
-        className="absolute inset-y-0 end-2 my-auto grid h-8 w-8 place-items-center rounded-control text-muted hover:bg-paper hover:text-ink"
+        className="tap absolute inset-y-0 end-2 my-auto grid h-8 w-8 place-items-center rounded-control text-muted hover:bg-paper hover:text-ink"
       >
         {shown ? <EyeOff size={17} /> : <Eye size={17} />}
       </button>

@@ -119,7 +119,7 @@ function PlatformNav({ onNavigate }) {
                   href={href}
                   onClick={() => { if (attentionKey) markSeen(attentionKey); onNavigate?.(); }}
                   aria-current={active ? "page" : undefined}
-                  className={`relative flex items-center gap-3 rounded-control px-3 py-2.5 text-sm transition-colors ${
+                  className={`tap relative flex items-center gap-3 rounded-control px-3 py-2.5 text-sm transition-colors ${
                     active
                       ? "bg-accent/20 font-semibold text-sidebarText ring-1 ring-inset ring-white/10"
                       : "text-sidebarText/70 hover:bg-white/5 hover:text-sidebarText"
@@ -185,7 +185,7 @@ export default function PlatformShell({ children }) {
             <button
               onClick={() => setMenuOpen(false)}
               aria-label={t("common.close")}
-              className="absolute end-3 top-4 grid h-9 w-9 place-items-center rounded-control text-sidebarText/70 hover:bg-white/10"
+              className="tap absolute end-3 top-4 grid h-9 w-9 place-items-center rounded-control text-sidebarText/70 hover:bg-white/10"
             >
               <X size={18} />
             </button>
@@ -200,7 +200,7 @@ export default function PlatformShell({ children }) {
             <button
               onClick={() => setMenuOpen(true)}
               aria-label={t("shell.menu")}
-              className="grid h-10 w-10 place-items-center rounded-control border border-line bg-surface text-ink hover:border-accent lg:hidden"
+              className="tap grid h-10 w-10 place-items-center rounded-control border border-line bg-surface text-ink hover:border-accent lg:hidden"
             >
               <Menu size={20} />
             </button>
@@ -210,13 +210,13 @@ export default function PlatformShell({ children }) {
             </div>
           </div>
           <div className="flex items-center gap-0.5 sm:gap-1">
-            <button onClick={toggleLanguage} title={t("shell.switchLanguage")} className="flex h-10 items-center gap-1.5 rounded-control px-2.5 text-sm text-muted hover:bg-paper hover:text-ink">
+            <button onClick={toggleLanguage} title={t("shell.switchLanguage")} className="tap flex h-10 items-center gap-1.5 rounded-control px-2.5 text-sm text-muted hover:bg-paper hover:text-ink">
               <Languages size={16} />{language === "ar" ? "العربية" : "EN"}
             </button>
-            <button onClick={cycleTheme} title={t("shell.theme")} aria-label={t("shell.theme")} className="grid h-10 w-10 place-items-center rounded-control text-muted hover:bg-paper hover:text-ink">
+            <button onClick={cycleTheme} title={t("shell.theme")} aria-label={t("shell.theme")} className="tap grid h-10 w-10 place-items-center rounded-control text-muted hover:bg-paper hover:text-ink">
               <ThemeIcon size={16} />
             </button>
-            <button onClick={logout} aria-label={t("common.signOut")} className="flex h-10 items-center gap-1.5 rounded-control px-2.5 text-sm text-muted hover:bg-paper hover:text-danger">
+            <button onClick={logout} aria-label={t("common.signOut")} className="tap flex h-10 items-center gap-1.5 rounded-control px-2.5 text-sm text-muted hover:bg-paper hover:text-danger">
               <LogOut size={16} />
               <span className="hidden sm:inline">{t("common.signOut")}</span>
             </button>

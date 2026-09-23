@@ -8,6 +8,7 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import { useOfflineMutation } from "@/components/sync/useOfflineMutation";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Field, Input, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 // Mirrors StockAdjustment.REASON_CHOICES on the server: a coded reason is
 // what lets shrinkage be reported by cause rather than as free text.
@@ -87,8 +88,7 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
       onChanged?.();
       setMsg(result.queued ? t("sync.savedForUpload") : t("inventory.stockAdjusted"));
     } catch (err) {
-      const data = err?.response?.data;
-      setMsg(typeof data === "object" ? Object.values(data).flat().join(" ") : t("inventory.adjustmentFailed"));
+      setMsg(errorText(err, t, "inventory.adjustmentFailed"));
     } finally {
       setBusy(false);
     }
@@ -118,8 +118,7 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
       onChanged?.();
       setMsg(result.queued ? t("sync.savedForUpload") : t("inventory.transferred"));
     } catch (err) {
-      const data = err?.response?.data;
-      setMsg(typeof data === "object" ? Object.values(data).flat().join(" ") : t("inventory.transferError"));
+      setMsg(errorText(err, t, "inventory.transferError"));
     } finally {
       setBusy(false);
     }

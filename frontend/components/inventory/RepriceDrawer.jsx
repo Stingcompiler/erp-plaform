@@ -7,6 +7,7 @@ import { inventory } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Field, Input, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 // Mirrors inventory.pricing.STEPS on the server.
 const STEPS = ["0.01", "1", "5", "10", "50", "100", "500", "1000"];
@@ -62,8 +63,7 @@ export default function RepriceDrawer({ open, onClose, categories, exchangeRate,
         onClose();
       }
     } catch (err) {
-      const data = err?.response?.data;
-      setError(typeof data === "object" && data ? Object.values(data).flat().join(" ") : t("inventory.repriceFailed"));
+      setError(errorText(err, t, "inventory.repriceFailed"));
     } finally {
       setBusy(false);
     }

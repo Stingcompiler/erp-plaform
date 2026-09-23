@@ -9,6 +9,7 @@ import PasswordInput from "@/components/ui/PasswordInput";
 import { Button, Field, Input, controlClass as INPUT_CLASS } from "@/components/ui/kit";
 import { registration } from "@/lib/api";
 import { useI18n } from "../providers/I18nProvider";
+import { errorText } from "@/lib/errors";
 
 export default function ActivateOwnerPage() {
   const { t } = useI18n();
@@ -49,7 +50,7 @@ export default function ActivateOwnerPage() {
       await registration.activateOwner(token, password, kind);
       setActivated(true);
     } catch (requestError) {
-      setError(requestError?.response?.data?.detail || t("ownerActivation.failed"));
+      setError(errorText(requestError, t, "ownerActivation.failed"));
     } finally {
       setSaving(false);
     }
@@ -72,7 +73,7 @@ export default function ActivateOwnerPage() {
             </h1>
             <Link
               href="/login"
-              className="mt-6 inline-flex min-h-10 items-center justify-center rounded-control bg-accent px-5 py-2 text-sm font-semibold text-white"
+              className="tap mt-6 inline-flex min-h-10 items-center justify-center rounded-control bg-accent px-5 py-2 text-sm font-semibold text-white"
             >
               {t("ownerActivation.signIn")}
             </Link>

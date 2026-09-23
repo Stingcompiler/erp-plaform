@@ -41,7 +41,7 @@ export default function OfflineBanner() {
           type="button"
           onClick={() => flush(true)}
           disabled={flushing}
-          className="rounded-control border border-line bg-surface px-3 py-1 text-sm font-medium hover:border-accent disabled:opacity-60"
+          className="tap rounded-control border border-line bg-surface px-3 py-1 text-sm font-medium hover:border-accent disabled:opacity-60"
         >
           {t("sync.syncNow")}
         </button>

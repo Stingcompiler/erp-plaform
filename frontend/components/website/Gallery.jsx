@@ -7,9 +7,11 @@ import { ImagePlus, Trash2 } from "lucide-react";
 import { useI18n } from "@/app/providers/I18nProvider";
 import { website } from "@/lib/api";
 import { Button, Card } from "@/components/ui/kit";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 export default function Gallery({ writable, onChanged }) {
   const { t } = useI18n();
+  const confirm = useConfirm();
   const input = useRef(null);
   const [rows, setRows] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -44,7 +46,7 @@ export default function Gallery({ writable, onChanged }) {
   }
 
   async function remove(item) {
-    if (!window.confirm(t("website.removeImageConfirm"))) return;
+    if (!(await confirm(t("website.removeImageConfirm"), { tone: "danger" }))) return;
     await website.deleteGalleryImage(item.id).catch(() => {});
     load();
     onChanged?.();

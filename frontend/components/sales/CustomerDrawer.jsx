@@ -8,6 +8,7 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Field, Input } from "@/components/ui/kit";
 import OpeningBalanceForm from "@/components/finance/OpeningBalanceForm";
+import { errorText } from "@/lib/errors";
 
 const EMPTY = { name: "", phone: "", email: "", address: "", payment_terms_days: "", credit_limit: "", credit_hold: false };
 
@@ -55,8 +56,7 @@ export default function CustomerDrawer({ open, onClose, customer, onSaved }) {
       onSaved?.(r.data);
       onClose();
     } catch (err) {
-      const data = err?.response?.data;
-      setError(typeof data === "object" && data ? Object.values(data).flat().join(" ") : t("customers.saveError"));
+      setError(errorText(err, t, "customers.saveError"));
     } finally {
       setBusy(false);
     }

@@ -8,6 +8,7 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, {
@@ -86,12 +87,7 @@ function MovementDrawer({ shift, open, onClose, onSaved }) {
       onSaved();
       onClose();
     } catch (err) {
-      const data = err?.response?.data;
-      toast.error(
-        typeof data === "object" && data
-          ? Object.values(data).flat().join(" ")
-          : t("till.saveError"),
-      );
+      toast.error(errorText(err, t, "till.saveError"));
     } finally {
       setBusy(false);
     }
@@ -188,12 +184,7 @@ function CloseDrawer({ shift, open, onClose, onClosed }) {
       onClosed();
       onClose();
     } catch (err) {
-      const data = err?.response?.data;
-      toast.error(
-        typeof data === "object" && data
-          ? Object.values(data).flat().join(" ")
-          : t("till.saveError"),
-      );
+      toast.error(errorText(err, t, "till.saveError"));
     } finally {
       setBusy(false);
     }
@@ -300,12 +291,7 @@ export default function CashDrawer({ currency = "", onShiftChange }) {
       setOpeningFloat("");
       load();
     } catch (err) {
-      const data = err?.response?.data;
-      toast.error(
-        typeof data === "object" && data
-          ? Object.values(data).flat().join(" ")
-          : t("till.saveError"),
-      );
+      toast.error(errorText(err, t, "till.saveError"));
     } finally {
       setBusy(false);
     }

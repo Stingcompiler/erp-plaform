@@ -9,6 +9,7 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 const TONES = { draft: "muted", submitted: "warn", approved: "ok", cancelled: "danger" };
 
@@ -50,9 +51,7 @@ export default function StockCountPanel({ warehouses, canWrite }) {
   };
 
   const fail = (err) => {
-    const data = err?.response?.data;
-    const first = data?.detail || (data && Object.values(data).flat()[0]);
-    const msg = typeof first === "string" ? first : t("count.saveError");
+    const msg = errorText(err, t, "count.saveError");
     setError(msg);
     toast.error(msg);
   };
@@ -150,7 +149,7 @@ export default function StockCountPanel({ warehouses, canWrite }) {
           </Field>
           {results.length > 0 && (
             <ul className="divide-y divide-line rounded-card border border-line">
-              {results.map((p) => <li key={p.id}><button type="button" className="flex w-full items-center justify-between px-3 py-2 text-start text-sm hover:bg-paper" onClick={() => addLine(p)}><span>{p.name}</span><span className="text-muted">{p.sku}</span></button></li>)}
+              {results.map((p) => <li key={p.id}><button type="button" className="tap flex w-full items-center justify-between px-3 py-2 text-start text-sm hover:bg-paper" onClick={() => addLine(p)}><span>{p.name}</span><span className="text-muted">{p.sku}</span></button></li>)}
             </ul>
           )}
           {draft.lines.length > 0 && (

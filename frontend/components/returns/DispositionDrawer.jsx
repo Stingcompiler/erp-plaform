@@ -6,6 +6,7 @@ import { returns } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 export default function DispositionDrawer({ salesReturn, open, onClose, onDone }) {
   const { t } = useI18n();
@@ -57,12 +58,7 @@ export default function DispositionDrawer({ salesReturn, open, onClose, onDone }
       onDone();
       onClose();
     } catch (err) {
-      const data = err?.response?.data;
-      setError(
-        typeof data === "object" && data
-          ? Object.values(data).flat().join(" ")
-          : t("returns.dispositionFailed")
-      );
+      setError(errorText(err, t, "returns.dispositionFailed"));
     } finally {
       setBusy(false);
     }
@@ -106,7 +102,7 @@ export default function DispositionDrawer({ salesReturn, open, onClose, onDone }
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => setAction(line.id, { action: "restock" })}
-                  className={`rounded-control border px-3 py-1.5 text-sm ${
+                  className={`tap rounded-control border px-3 py-1.5 text-sm ${
                     d.action === "restock"
                       ? "border-accent bg-accent/10 text-accent"
                       : "border-line text-muted hover:bg-paper"
@@ -116,7 +112,7 @@ export default function DispositionDrawer({ salesReturn, open, onClose, onDone }
                 </button>
                 <button
                   onClick={() => setAction(line.id, { action: "scrap", warehouse: undefined })}
-                  className={`rounded-control border px-3 py-1.5 text-sm ${
+                  className={`tap rounded-control border px-3 py-1.5 text-sm ${
                     d.action === "scrap"
                       ? "border-danger bg-danger/10 text-danger"
                       : "border-line text-muted hover:bg-paper"

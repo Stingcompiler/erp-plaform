@@ -6,6 +6,7 @@ import { org } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Field, Input } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 const EMPTY = { name: "", code: "", address: "", phone: "", is_active: true };
 
@@ -49,12 +50,7 @@ export default function BranchForm({ open, onClose, onSaved, branch }) {
       onSaved();
       onClose();
     } catch (err) {
-      const data = err?.response?.data;
-      setError(
-        typeof data === "object" && data
-          ? Object.values(data).flat().join(" ")
-          : t("org.saveError")
-      );
+      setError(errorText(err, t, "org.saveError"));
     } finally {
       setSaving(false);
     }

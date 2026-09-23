@@ -16,6 +16,7 @@ import BarcodeScanInput from "@/components/inventory/BarcodeScanInput";
 import { heldCarts } from "@/lib/syncQueue";
 import { cacheProducts, searchProductsOffline } from "@/lib/productCache";
 import { nextLocalReference } from "@/lib/localReference";
+import { errorText } from "@/lib/errors";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -411,11 +412,8 @@ export default function PosTerminal({
         await saveOffline();
         return;
       }
-      const data = err?.response?.data;
       const msg =
-        typeof data === "object" && data
-          ? Object.values(data).flat().join(" ")
-          : t("sales.checkoutFailed");
+        errorText(err, t, "sales.checkoutFailed");
       setError(msg);
       toast.error(msg);
     } finally {
@@ -530,7 +528,7 @@ export default function PosTerminal({
                 <button
                   key={p.id}
                   onClick={() => addProduct(p)}
-                  className="flex w-full items-center justify-between px-4 py-2.5 text-start text-sm hover:bg-paper"
+                  className="tap flex w-full items-center justify-between px-4 py-2.5 text-start text-sm hover:bg-paper"
                 >
                   <span className="min-w-0">
                     <span className="tabular text-muted">{p.sku}</span>{" "}

@@ -13,6 +13,7 @@ import EmployeeDrawer from "@/components/hr/EmployeeDrawer";
 import AttendanceRegister from "@/components/hr/AttendanceRegister";
 import LeaveBalances from "@/components/hr/LeaveBalances";
 import LeavePolicies from "@/components/hr/LeavePolicies";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 const EMP_STATUS_TONE = { active: "ok", on_leave: "warn", terminated: "danger" };
 const EMP_STATUS_KEY = {
@@ -416,6 +417,7 @@ const TABS = [
 export default function HrPage() {
   const { user, canRead, canWrite } = useAuth();
   const { t, language } = useI18n();
+  const confirm = useConfirm();
   const toast = useToast();
   const writable = canWrite("hr");
   // Mirrors core.permissions.PayrollReportAccess: HR/finance oversight, but
@@ -506,9 +508,10 @@ export default function HrPage() {
   }
 
   async function cancelLeave(id) {
-    const reason = window.prompt(t("hr.cancelLeavePrompt"));
-    if (!reason?.trim()) return;
-    if (!window.confirm(t("hr.cancelLeaveConfirm"))) return;
+    const reason = await confirm(t("hr.cancelLeaveConfirm"), {
+      tone: "danger", input: { label: t("hr.cancelLeavePrompt"), required: true },
+    });
+    if (reason === false) return;
     try {
       await hr.cancelLeave(id, reason.trim());
       toast.success(t("hr.leaveCancelled"));
@@ -597,7 +600,7 @@ export default function HrPage() {
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`-mb-px shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+            className={`tap -mb-px shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
               tab === key ? "border-accent text-ink" : "border-transparent text-muted hover:text-ink"
             }`}
           >

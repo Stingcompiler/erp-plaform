@@ -69,7 +69,7 @@ export default function DocumentDrawer({ open, onClose, fetcher, id, title }) {
               {PAPERS.map((p) => (
                 <button
                   key={p} type="button" onClick={() => choosePaper(p)}
-                  className={`rounded-control px-2.5 py-1.5 ${paper === p ? "bg-accent text-white" : "text-muted hover:text-ink"}`}
+                  className={`tap rounded-control px-2.5 py-1.5 ${paper === p ? "bg-accent text-white" : "text-muted hover:text-ink"}`}
                 >
                   {t(`doc.paper_${p}`)}
                 </button>

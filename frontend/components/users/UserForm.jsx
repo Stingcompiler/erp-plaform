@@ -8,6 +8,7 @@ import { translateRole } from "@/lib/i18n";
 import { groupRoles, roleHint } from "@/lib/roles";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Field, Input, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 const EMPTY = { email: "", full_name: "", role: "", branch: "", is_active: true, password: "" };
 
@@ -86,12 +87,7 @@ export default function UserForm({
       onSaved();
       onClose();
     } catch (err) {
-      const data = err?.response?.data;
-      setError(
-        typeof data === "object" && data
-          ? Object.values(data).flat().join(" ")
-          : t("users.saveError")
-      );
+      setError(errorText(err, t, "users.saveError"));
     } finally {
       setSaving(false);
     }

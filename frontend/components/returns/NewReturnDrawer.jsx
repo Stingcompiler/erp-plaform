@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
 import BarcodeScanInput from "@/components/inventory/BarcodeScanInput";
 import { Button, Field, Input, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 // Rule #4: a return is a child of the original invoice, so the form is driven
 // by that invoice's own lines rather than a free product search. This is what
@@ -109,12 +110,7 @@ export default function NewReturnDrawer({ open, onClose, onCreated }) {
       onCreated();
       onClose();
     } catch (err) {
-      const data = err?.response?.data;
-      setError(
-        typeof data === "object" && data
-          ? Object.values(data).flat().join(" ")
-          : t("returns.createError")
-      );
+      setError(errorText(err, t, "returns.createError"));
     } finally {
       setSaving(false);
     }

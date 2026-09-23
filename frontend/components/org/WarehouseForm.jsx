@@ -6,6 +6,7 @@ import { inventory } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Field, Input, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 const EMPTY = { name: "", code: "", branch: "", is_active: true };
 
@@ -46,12 +47,7 @@ export default function WarehouseForm({ open, onClose, onSaved, warehouse, branc
       onSaved();
       onClose();
     } catch (err) {
-      const data = err?.response?.data;
-      setError(
-        typeof data === "object" && data
-          ? Object.values(data).flat().join(" ")
-          : t("org.warehouseSaveError")
-      );
+      setError(errorText(err, t, "org.warehouseSaveError"));
     } finally {
       setSaving(false);
     }

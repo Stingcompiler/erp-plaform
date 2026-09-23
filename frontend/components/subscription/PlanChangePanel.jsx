@@ -6,6 +6,8 @@ import { ArrowUpDown } from "lucide-react";
 import { Badge, Button, Card, Input } from "@/components/ui/kit";
 import { subscription as api } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
+import { errorText } from "@/lib/errors";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 const STATUS_TONE = { pending: "warn", approved: "accent", applied: "ok", rejected: "danger", cancelled: "muted" };
 
@@ -13,6 +15,7 @@ const STATUS_TONE = { pending: "warn", approved: "accent", applied: "ok", reject
 // the rest of this period, and the one request that may be open.
 export default function PlanChangePanel({ onChanged }) {
   const { t, language } = useI18n();
+  const confirm = useConfirm();
   const [data, setData] = useState(null);
   const [note, setNote] = useState("");
   const [units, setUnits] = useState({});
@@ -29,7 +32,7 @@ export default function PlanChangePanel({ onChanged }) {
 
   const ask = async (option) => {
     const confirmKey = option.kind === "switch" ? "planChange.confirmSwitch" : option.kind === "upgrade" ? "planChange.confirmUpgrade" : "planChange.confirmDowngrade";
-    if (!window.confirm(t(confirmKey, { plan: option.plan, amount: money(option.due_now, option.currency), currency: option.currency }))) return;
+    if (!(await confirm(t(confirmKey, { plan: option.plan, amount: money(option.due_now, option.currency), currency: option.currency })))) return;
     setBusy(true); setError("");
     try { await api.requestPlanChange(option.version, note); setNote(""); await load(); onChanged?.(); }
     catch (err) {
@@ -41,7 +44,7 @@ export default function PlanChangePanel({ onChanged }) {
   };
   const askAddon = async (addon, delta) => {
     const total = Number(addon.unit_due_now) * delta;
-    if (!window.confirm(t(delta > 0 ? "planChange.confirmAddon" : "planChange.confirmAddonRemove", { n: Math.abs(delta), what: t(`usage.${addon.resource}`), amount: money(total, addon.currency) }))) return;
+    if (!(await confirm(t(delta > 0 ? "planChange.confirmAddon" : "planChange.confirmAddonRemove", { n: Math.abs(delta), what: t(`usage.${addon.resource}`), amount: money(total, addon.currency) }), { tone: "danger" }))) return;
     setBusy(true); setError("");
     try { await api.requestAddon({ [addon.resource]: delta }, note); setNote(""); setUnits({}); await load(); onChanged?.(); }
     catch (err) {
@@ -54,7 +57,7 @@ export default function PlanChangePanel({ onChanged }) {
   const cancel = async () => {
     setBusy(true); setError("");
     try { await api.cancelPlanChange(data.current.id); await load(); onChanged?.(); }
-    catch (err) { setError(err?.response?.data?.detail || t("planChange.requestError")); }
+    catch (err) { setError(errorText(err, t, "planChange.requestError")); }
     finally { setBusy(false); }
   };
 

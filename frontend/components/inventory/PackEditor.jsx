@@ -6,6 +6,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { inventory } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { Button, Input } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 // Selling units for an existing product: "Carton = 12, barcode, price".
 // Saved row by row against /product-packs/ so a manager can add a carton
@@ -38,8 +39,7 @@ export default function PackEditor({ product, baseUnit }) {
       setDraft({ name: "", quantity: "", barcode: "", sale_price: "" });
       load();
     } catch (err) {
-      const data = err?.response?.data;
-      setError(typeof data === "object" && data ? Object.values(data).flat().join(" ") : t("packs.saveError"));
+      setError(errorText(err, t, "packs.saveError"));
     } finally { setBusy(false); }
   };
 

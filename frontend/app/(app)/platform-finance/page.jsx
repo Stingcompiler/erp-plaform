@@ -99,7 +99,7 @@ export default function PlatformFinancePage() {
     <div>
       <PageHeader
         title={t("platformFinance.title")} subtitle={t("platformFinance.subtitle")}
-        actions={<a href={api.csvUrl()} className="inline-flex min-h-10 items-center gap-2 rounded-control border border-line bg-surface px-4 py-2 text-sm font-semibold"><Download size={16} />{t("platformFinance.exportCsv")}</a>}
+        actions={<a href={api.csvUrl()} className="tap inline-flex min-h-10 items-center gap-2 rounded-control border border-line bg-surface px-4 py-2 text-sm font-semibold"><Download size={16} />{t("platformFinance.exportCsv")}</a>}
       />
       {error && <div role="alert" className="mb-4 rounded-control bg-danger/10 p-3 text-sm text-danger">{error}</div>}
       {data && !data.currencies.length && <Card className="p-10 text-center text-muted">{t("platformFinance.empty")}</Card>}

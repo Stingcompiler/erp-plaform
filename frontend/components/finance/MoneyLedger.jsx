@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/Toast";
 import DocumentDrawer from "@/components/print/DocumentDrawer";
 import TabBar from "@/components/ui/TabBar";
 import { Badge, Button, Card, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -52,7 +53,7 @@ export default function MoneyLedger({ refreshKey }) {
       toast.success(t("finance.ledger.verified"));
       load();
     } catch (err) {
-      toast.error(err?.response?.data?.detail || t("finance.verifyError"));
+      toast.error(errorText(err, t, "finance.verifyError"));
     } finally { setBusy(null); }
   }
 

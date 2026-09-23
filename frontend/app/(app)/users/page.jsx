@@ -12,10 +12,12 @@ import { translateRole } from "@/lib/i18n";
 import { Badge, Button, Card, PageHeader } from "@/components/ui/kit";
 import { useToast } from "@/components/ui/Toast";
 import UserForm from "@/components/users/UserForm";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 export default function UsersPage() {
   const { user: currentUser, canRead, canWrite, can } = useAuth();
   const { t } = useI18n();
+  const confirm = useConfirm();
   const toast = useToast();
   const writable = canWrite("users");
   const [busyId, setBusyId] = useState(null);
@@ -52,13 +54,7 @@ export default function UsersPage() {
       .then((r) => setRows(r.data.results))
       .catch((err) => {
         setRows([]);
-        const data = err?.response?.data;
-        const status = err?.response?.status;
-        setLoadError(
-          data?.detail || data?.code
-            ? `${data.detail || data.code}${status ? ` (${status})` : ""}`
-            : status ? t("users.loadFailed", { status }) : t("users.loadOffline")
-        );
+        setLoadError(errorText(err, t, "users.loadOffline"));
       })
       .finally(() => setLoading(false));
   }, [t]);
@@ -66,7 +62,7 @@ export default function UsersPage() {
   // Owner-only: the account goes for good when nothing references it, and is
   // deactivated with an explanation when its name is on the company's records.
   async function removeAccount(u) {
-    if (!window.confirm(t("users.removeConfirm", { email: u.email }))) return;
+    if (!(await confirm(t("users.removeConfirm", { email: u.email }), { tone: "danger" }))) return;
     setBusyId(u.id);
     try {
       const { data } = await usersApi.remove(u.id);
@@ -85,7 +81,7 @@ export default function UsersPage() {
   }
 
   async function toggleActive(u) {
-    if (u.is_active && !window.confirm(t("users.deactivateConfirm", { email: u.email }))) return;
+    if (u.is_active && !(await confirm(t("users.deactivateConfirm", { email: u.email }), { tone: "danger" }))) return;
     setBusyId(u.id);
     try {
       await (u.is_active ? usersApi.deactivate(u.id) : usersApi.reactivate(u.id));

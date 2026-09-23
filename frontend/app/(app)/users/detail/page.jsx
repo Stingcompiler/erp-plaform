@@ -17,6 +17,8 @@ import { users as usersApi } from "@/lib/api";
 import { translateRole } from "@/lib/i18n";
 import { Badge, Button, Card, PageHeader } from "@/components/ui/kit";
 import UserForm from "@/components/users/UserForm";
+import { errorText } from "@/lib/errors";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 function Row({ label, children }) {
   return (
@@ -67,6 +69,7 @@ function describeHistory(row, t) {
 function UserDetail() {
   const { user: currentUser, canRead, canWrite, can } = useAuth();
   const { t, language, dir } = useI18n();
+  const confirm = useConfirm();
   const params = useSearchParams();
   const id = params.get("id");
   const [person, setPerson] = useState(null);
@@ -125,15 +128,13 @@ function UserDetail() {
       await fn();
       load();
     } catch (requestError) {
-      const data = requestError?.response?.data;
-      const first = data?.detail || data?.role?.[0] || (Array.isArray(data) ? data[0] : null);
-      setActionError(typeof first === "string" ? first : t("users.detail.saveError"));
+      setActionError(errorText(requestError, t, "users.detail.saveError"));
     } finally {
       setSaving(null);
     }
   };
-  const deactivate = () => {
-    if (!window.confirm(t("users.detail.deactivateConfirm", { email: person.email }))) return;
+  const deactivate = async () => {
+    if (!(await confirm(t("users.detail.deactivateConfirm", { email: person.email }), { tone: "danger" }))) return;
     run("deactivate", () => usersApi.deactivate(person.id));
   };
 

@@ -234,7 +234,7 @@ export default function LeadDrawer({ open, lead, groups, writable, onClose, onSa
                   <li key={fu.id} className="flex items-center gap-2 rounded-control border border-line px-3 py-2">
                     <button
                       onClick={() => writable && toggleFollowup(fu)}
-                      className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border ${
+                      className={`tap grid h-6 w-6 shrink-0 place-items-center rounded-full border ${
                         fu.done ? "border-ok bg-ok text-white" : "border-line text-transparent hover:border-accent"
                       }`}
                       aria-label={t("crm.markDone")}

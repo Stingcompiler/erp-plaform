@@ -9,6 +9,8 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import ImagePicker from "@/components/website/ImagePicker";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Card, Field, Input } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 function FeaturedForm({ open, onClose, onSaved, websiteId, item }) {
   const { t } = useI18n();
@@ -68,10 +70,7 @@ function FeaturedForm({ open, onClose, onSaved, websiteId, item }) {
       onSaved();
       onClose();
     } catch (err) {
-      const data = err?.response?.data;
-      setError(
-        typeof data === "object" && data ? Object.values(data).flat().join(" ") : t("website.saveError")
-      );
+      setError(errorText(err, t, "website.saveError"));
     } finally {
       setSaving(false);
     }
@@ -122,7 +121,7 @@ function FeaturedForm({ open, onClose, onSaved, websiteId, item }) {
                         setQuery("");
                         setResults([]);
                       }}
-                      className="flex w-full items-center justify-between px-3 py-2 text-start text-sm hover:bg-paper"
+                      className="tap flex w-full items-center justify-between px-3 py-2 text-start text-sm hover:bg-paper"
                     >
                       <span className="text-ink">{p.name}</span>
                       <span className="tabular text-muted">{p.sku}</span>
@@ -155,6 +154,7 @@ function FeaturedForm({ open, onClose, onSaved, websiteId, item }) {
 
 export default function FeaturedProducts({ websiteId, writable, onChanged }) {
   const { t } = useI18n();
+  const confirm = useConfirm();
   const [rows, setRows] = useState([]);
   const [productsById, setProductsById] = useState({});
   const [loading, setLoading] = useState(true);
@@ -206,7 +206,7 @@ export default function FeaturedProducts({ websiteId, writable, onChanged }) {
   }
 
   async function remove(item) {
-    if (!window.confirm(t("website.removeFeaturedConfirm"))) return;
+    if (!(await confirm(t("website.removeFeaturedConfirm"), { tone: "danger" }))) return;
     await website.deleteFeatured(item.id).catch(() => {});
     load();
     onChanged?.();

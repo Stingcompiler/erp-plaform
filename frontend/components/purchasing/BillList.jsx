@@ -9,6 +9,7 @@ import { useOfflineMutation } from "@/components/sync/useOfflineMutation";
 import VoidDrawer from "@/components/finance/VoidDrawer";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
+import { errorText } from "@/lib/errors";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -56,12 +57,7 @@ function PaymentDrawer({ bill, supplierName, bankAccounts, open, onClose, onPaid
       onPaid();
       onClose();
     } catch (err) {
-      const data = err?.response?.data;
-      setError(
-        typeof data === "object" && data
-          ? Object.values(data).flat().join(" ")
-          : t("purchasing.saveError")
-      );
+      setError(errorText(err, t, "purchasing.saveError"));
     } finally {
       setBusy(false);
     }

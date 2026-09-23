@@ -12,12 +12,15 @@ import VisitsCard from "@/components/website/VisitsCard";
 import FeaturedProducts from "@/components/website/FeaturedProducts";
 import Gallery from "@/components/website/Gallery";
 import ImagePicker from "@/components/website/ImagePicker";
+import { errorText } from "@/lib/errors";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 const CATEGORIES = ["grocery", "pharmacy", "wholesale", "electronics", "fashion", "cosmetics", "hardware", "restaurant", "services", "other"];
 
 export default function WebsitePage() {
   const { canRead, canWrite } = useAuth();
   const { t } = useI18n();
+  const confirm = useConfirm();
   const writable = canWrite("website");
   const [page, setPage] = useState(null);
   // Why the page could not be read — shown instead of spinning forever.
@@ -34,11 +37,7 @@ export default function WebsitePage() {
       setLoadError("");
       website.page().then((r) => setPage(r.data)).catch((err) => {
         setPage(null);
-        const data = err?.response?.data;
-        const status = err?.response?.status;
-        setLoadError(data?.detail || data?.code
-          ? `${data.detail || data.code}${status ? ` (${status})` : ""}`
-          : status ? t("website.loadFailed", { status }) : t("website.loadOffline"));
+        setLoadError(errorText(err, t, "website.loadOffline"));
       });
     }
   }, [canRead, t]);
@@ -95,7 +94,7 @@ export default function WebsitePage() {
 
   async function togglePublish() {
     setMsg("");
-    if (!page.is_published && page.missing?.length && !window.confirm(t("website.publishIncompleteConfirm"))) return;
+    if (!page.is_published && page.missing?.length && !(await confirm(t("website.publishIncompleteConfirm")))) return;
     try {
       const r = await website.publish(!page.is_published);
       setPage((p) => ({ ...p, is_published: r.data.is_published ?? !p.is_published }));
@@ -133,7 +132,7 @@ export default function WebsitePage() {
             <span>{t("website.previewHint")}</span>
             <div className="flex items-center gap-1">
               <Button variant="ghost" onClick={refreshPreview} aria-label={t("website.refreshPreview")}><RefreshCw size={14} /></Button>
-              <a href={website.previewUrl()} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-control px-2 py-1 hover:text-ink"><ExternalLink size={13} />{t("website.openPreview")}</a>
+              <a href={website.previewUrl()} target="_blank" rel="noreferrer" className="tap inline-flex items-center gap-1 rounded-control px-2 py-1 hover:text-ink"><ExternalLink size={13} />{t("website.openPreview")}</a>
             </div>
           </div>
           <iframe

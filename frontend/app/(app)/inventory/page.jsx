@@ -13,6 +13,7 @@ import ProductForm from "@/components/inventory/ProductForm";
 import RepriceDrawer from "@/components/inventory/RepriceDrawer";
 import StockDrawer from "@/components/inventory/StockDrawer";
 import StockCountPanel from "@/components/inventory/StockCountPanel";
+import { errorText } from "@/lib/errors";
 
 const PAGE_SIZE = 50;
 
@@ -112,7 +113,7 @@ export default function InventoryPage() {
     } catch (err) {
       // The server explains *why* (e.g. a role that may edit but not archive),
       // and that reason is more useful than a generic failure message.
-      toast.error(err?.response?.data?.detail || t("inventory.archiveFailed"));
+      toast.error(errorText(err, t, "inventory.archiveFailed"));
     }
   }
 

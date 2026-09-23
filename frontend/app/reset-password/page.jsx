@@ -9,6 +9,7 @@ import PasswordInput from "@/components/ui/PasswordInput";
 import { Button, Field, controlClass as INPUT_CLASS } from "@/components/ui/kit";
 import { auth } from "@/lib/api";
 import { useI18n } from "../providers/I18nProvider";
+import { errorText } from "@/lib/errors";
 
 export default function ResetPasswordPage() {
   const { t } = useI18n();
@@ -42,8 +43,7 @@ export default function ResetPasswordPage() {
       await auth.confirmPasswordReset(uid, token, password);
       setDone(true);
     } catch (err) {
-      const data = err?.response?.data;
-      setError(data?.detail || (data?.password ? data.password.join(" ") : t("passwordReset.failed")));
+      setError(errorText(err, t, "passwordReset.failed"));
     } finally {
       setBusy(false);
     }
@@ -61,7 +61,7 @@ export default function ResetPasswordPage() {
             <CheckCircle2 className="mx-auto text-ok" size={44} />
             <h1 className="mt-4 font-display text-2xl font-semibold">{t("passwordReset.doneTitle")}</h1>
             <p className="mt-2 text-sm text-muted">{t("passwordReset.doneBody")}</p>
-            <Link href="/login" className="mt-6 inline-flex min-h-10 items-center justify-center rounded-control bg-accent px-5 py-2 text-sm font-semibold text-white">
+            <Link href="/login" className="tap mt-6 inline-flex min-h-10 items-center justify-center rounded-control bg-accent px-5 py-2 text-sm font-semibold text-white">
               {t("ownerActivation.signIn")}
             </Link>
           </div>
