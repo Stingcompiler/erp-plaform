@@ -235,23 +235,6 @@ export const registerAr = {
   backHome: "العودة للرئيسية",
 };
 
-// Module slugs from the plan catalogue → navigation labels that already exist
-// in the main catalogue, so the pricing page never shows raw slugs.
-export const MODULE_LABEL_KEYS = {
-  users: "nav.users",
-  org: "nav.org",
-  inventory: "nav.inventory",
-  sales: "nav.sales",
-  purchasing: "nav.purchasing",
-  sales_returns: "nav.returns",
-  purchase_returns: "nav.returns",
-  reports: "nav.reports",
-  hr: "nav.hr",
-  crm: "nav.crm",
-  finance: "nav.finance",
-  website: "nav.website",
-};
-
 // Landing page (public home). Screenshots are real captures of the demo
 // company; the copy must describe what is in the picture.
 export const homeEn = {

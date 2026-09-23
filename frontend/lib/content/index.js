@@ -68,6 +68,3 @@ export function contentPages() {
   return pages;
 }
 
-export function contentPaths() {
-  return contentPages().map((page) => page.path);
-}

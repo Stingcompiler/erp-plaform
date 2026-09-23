@@ -123,10 +123,6 @@ def platform_role_choices():
     ]
 
 
-def platform_role_names():
-    return set(PLATFORM_ROLES)
-
-
 def ensure_platform_roles():
     """Idempotently create the Role rows; used by seed_roles and invitations."""
     roles = {}

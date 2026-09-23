@@ -36,13 +36,6 @@ def build_ean13(company_id, sequence):
     return body + ean13_check_digit(body)
 
 
-def is_valid_ean13(code):
-    code = str(code or "").strip()
-    if len(code) != 13 or not code.isdigit():
-        return False
-    return ean13_check_digit(code[:12]) == code[12]
-
-
 @transaction.atomic
 def next_internal_sku(company_id):
     """
