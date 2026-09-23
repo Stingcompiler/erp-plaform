@@ -333,3 +333,44 @@ class RepairableRefusalTests(OfflineBase):
             result = self._push([self._op()]).data["results"][0]
         self.assertEqual(result["status"], "error")
         self.assertNotIn("boom", result["error"])
+
+
+class TaxRateDriftTests(OfflineBase):
+    """A till keeps the tax rate it had when it last reached the server. The
+    owner raised the rate from 0 to 10% while it was offline."""
+
+    def setUp(self):
+        super().setUp()
+        profile = self.company.tax_profile
+        profile.flat_tax_rate = Decimal("10.00")
+        profile.save(update_fields=["flat_tax_rate"])
+
+    def test_at_the_counter_a_stale_rate_is_refused_with_a_reason(self):
+        response = self._checkout(uuid.uuid4(), tax_rate="0.00")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("tax_rate", response.data)
+
+    def test_a_queued_sale_keeps_the_rate_the_customer_paid(self):
+        cu = uuid.uuid4()
+        op = {
+            "op_type": "pos_checkout", "client_uuid": str(cu),
+            "payload": {
+                "warehouse": self.wh.pk, "tax_rate": "0.00",
+                "lines": [{"product": self.product.pk, "quantity": "1"}],
+                "payment": {"method": "cash", "amount": "10.00"},
+            },
+        }
+        result = self._push([op]).data["results"][0]
+        self.assertEqual(result["status"], "applied", result)
+        invoice = Invoice.objects.get(client_uuid=cu)
+        self.assertEqual(invoice.total, Decimal("10.00"))  # what was collected
+        self.assertEqual(invoice.tax_amount, Decimal("0.00"))
+        self.assertTrue(ActivityLog.objects.filter(action="tax_rate_mismatch").exists())
+
+    def test_a_matching_rate_changes_nothing(self):
+        response = self._checkout(
+            uuid.uuid4(), tax_rate="10.00",
+            payment={"method": "cash", "amount": "11.00"},
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(Decimal(response.data["total"]), Decimal("11.00"))

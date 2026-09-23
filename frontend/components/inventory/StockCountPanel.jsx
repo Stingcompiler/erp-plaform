@@ -44,13 +44,26 @@ export default function StockCountPanel({ warehouses, canWrite }) {
     return () => clearTimeout(timer);
   }, [query]);
 
+  // A lot-tracked product is counted lot by lot: each line names its lot, so
+  // the difference is posted to that lot and expiry reports stay right.
+  const [lotsByProduct, setLotsByProduct] = useState({});
+  const newLine = (product) => ({
+    key: crypto.randomUUID(), product: product.id, sku: product.sku, name: product.name,
+    tracked: Boolean(product.track_batches), batch: "", counted_quantity: "",
+  });
   const addLine = (product) => {
-    setDraft((d) => d.lines.some((l) => l.product === product.id)
+    setDraft((d) => (!product.track_batches && d.lines.some((l) => l.product === product.id))
       ? d
-      : { ...d, lines: [...d.lines, { product: product.id, sku: product.sku, name: product.name, counted_quantity: "" }] });
+      : { ...d, lines: [...d.lines, newLine(product)] });
+    if (product.track_batches && !lotsByProduct[product.id]) {
+      inventory.stockBatches({ product: product.id, page_size: 200 })
+        .then((r) => setLotsByProduct((m) => ({ ...m, [product.id]: r.data.results || r.data })))
+        .catch(() => setLotsByProduct((m) => ({ ...m, [product.id]: [] })));
+    }
     setQuery("");
     setResults([]);
   };
+  const updateLine = (key, patch) => setDraft((d) => ({ ...d, lines: d.lines.map((x) => (x.key === key ? { ...x, ...patch } : x)) }));
 
   const fail = (err, setter = setError) => {
     const msg = errorText(err, t, "count.saveError");
@@ -65,12 +78,16 @@ export default function StockCountPanel({ warehouses, canWrite }) {
     if (!draft.warehouse) return setDrawerError(t("count.chooseWarehouse"));
     if (draft.lines.length === 0) return setDrawerError(t("count.addLines"));
     if (draft.lines.some((l) => l.counted_quantity === "")) return setDrawerError(t("count.fillQuantities"));
+    if (draft.lines.some((l) => l.tracked && !l.batch)) return setDrawerError(t("count.chooseLot"));
     setBusy("save");
     try {
       await inventory.createStockCount({
         warehouse: Number(draft.warehouse),
         note: draft.note,
-        lines: draft.lines.map((l) => ({ product: l.product, counted_quantity: String(l.counted_quantity) })),
+        lines: draft.lines.map((l) => ({
+          product: l.product, counted_quantity: String(l.counted_quantity),
+          ...(l.tracked ? { batch: Number(l.batch) } : {}),
+        })),
       });
       setOpen(false);
       setDraft({ warehouse: "", note: "", lines: [] });
@@ -128,6 +145,7 @@ export default function StockCountPanel({ warehouses, canWrite }) {
                         {row.status === "draft" && canWrite && <Button variant="outline" disabled={busy === `submit-${row.id}`} onClick={() => run(row, "submit")}>{t("count.submit")}</Button>}
                         {row.can_approve && <Button disabled={busy === `approve-${row.id}`} onClick={() => run(row, "approve")}>{t("count.approve")}</Button>}
                         {row.status === "submitted" && mine && <span className="text-xs text-muted">{t("count.awaitingOther")}</span>}
+                        {row.can_approve && row.moved_since > 0 && <span className="text-xs text-warn">{t("count.movedSince", { count: row.moved_since })}</span>}
                         {row.can_cancel && <Button variant="ghost" disabled={busy === `cancel-${row.id}`} onClick={() => run(row, "cancel")}>{t("common.cancel")}</Button>}
                       </div>
                     </td>
@@ -160,16 +178,27 @@ export default function StockCountPanel({ warehouses, canWrite }) {
           )}
           {draft.lines.length > 0 && (
             <table className="w-full text-sm">
-              <thead><tr className="text-xs uppercase text-muted"><th className="py-1 text-start">{t("inventory.product")}</th><th className="py-1 text-start">{t("count.counted")}</th><th /></tr></thead>
+              <thead><tr className="text-xs uppercase text-muted"><th className="py-1 text-start">{t("inventory.product")}</th><th className="py-1 text-start">{t("count.lot")}</th><th className="py-1 text-start">{t("count.counted")}</th><th /></tr></thead>
               <tbody>
                 {draft.lines.map((l) => (
-                  <tr key={l.product} className="border-t border-line">
+                  <tr key={l.key} className="border-t border-line">
                     <td className="py-2">{l.name} <span className="text-muted">{l.sku}</span></td>
                     <td className="py-2">
-                      <Input type="number" inputMode="decimal" step="0.001" min="0" className="w-28" value={l.counted_quantity} aria-label={`${t("count.counted")} ${l.sku}`}
-                        onChange={(e) => setDraft((d) => ({ ...d, lines: d.lines.map((x) => x.product === l.product ? { ...x, counted_quantity: e.target.value } : x) }))} />
+                      {l.tracked ? (
+                        <div className="flex flex-wrap items-center gap-1">
+                          <Select className="w-36" value={l.batch} aria-label={`${t("count.lot")} ${l.sku}`} onChange={(e) => updateLine(l.key, { batch: e.target.value })}>
+                            <option value="">{t("common.choose")}</option>
+                            {(lotsByProduct[l.product] || []).map((b) => <option key={b.id} value={b.id}>{b.lot_number}{b.expiry_date ? ` · ${b.expiry_date}` : ""}</option>)}
+                          </Select>
+                          <button type="button" className="tap text-xs text-accent hover:underline" onClick={() => setDraft((d) => ({ ...d, lines: [...d.lines, { ...newLine({ id: l.product, sku: l.sku, name: l.name, track_batches: true }) }] }))}>{t("count.anotherLot")}</button>
+                        </div>
+                      ) : <span className="text-muted">—</span>}
                     </td>
-                    <td className="py-2 text-end"><button type="button" aria-label={t("common.remove")} className="rounded-control p-1 text-muted hover:text-danger" onClick={() => setDraft((d) => ({ ...d, lines: d.lines.filter((x) => x.product !== l.product) }))}><Trash2 size={14} /></button></td>
+                    <td className="py-2">
+                      <Input type="number" inputMode="decimal" step="0.001" min="0" className="w-28" value={l.counted_quantity} aria-label={`${t("count.counted")} ${l.sku}`}
+                        onChange={(e) => updateLine(l.key, { counted_quantity: e.target.value })} />
+                    </td>
+                    <td className="py-2 text-end"><button type="button" aria-label={t("common.remove")} className="rounded-control p-1 text-muted hover:text-danger" onClick={() => setDraft((d) => ({ ...d, lines: d.lines.filter((x) => x.key !== l.key) }))}><Trash2 size={14} /></button></td>
                   </tr>
                 ))}
               </tbody>

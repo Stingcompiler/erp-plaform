@@ -524,6 +524,11 @@ class StockCountLineSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"counted_quantity": _("A count cannot be negative.")}
             )
+        if product is not None and product.track_batches and batch is None:
+            raise serializers.ValidationError(
+                {"batch": _("%(sku)s is tracked by lot: choose the lot you counted.")
+                 % {"sku": product.sku}}
+            )
         if product is not None and not product.is_active:
             raise serializers.ValidationError(
                 {"product": _("%(sku)s is archived; restore it before counting it.")
@@ -539,6 +544,7 @@ class StockCountSerializer(serializers.ModelSerializer):
     # refusal nobody could explain.
     can_approve = serializers.SerializerMethodField()
     can_cancel = serializers.SerializerMethodField()
+    moved_since = serializers.SerializerMethodField()
     warehouse_name = serializers.CharField(source="warehouse.name", read_only=True)
     counted_by_name = serializers.SerializerMethodField()
     approved_by_name = serializers.SerializerMethodField()
@@ -551,11 +557,11 @@ class StockCountSerializer(serializers.ModelSerializer):
             "id", "company", "warehouse", "warehouse_name", "status", "note", "lines",
             "counted_by", "counted_by_name", "submitted_at",
             "approved_by", "approved_by_name", "approved_at", "client_uuid", "created_at",
-            "can_approve", "can_cancel",
+            "can_approve", "can_cancel", "counted_at", "moved_since",
         ]
         read_only_fields = [
             "company", "status", "counted_by", "submitted_at", "approved_by", "approved_at",
-            "created_at",
+            "created_at", "counted_at",
         ]
 
     def _person(self, user):
@@ -582,6 +588,19 @@ class StockCountSerializer(serializers.ModelSerializer):
 
         user = self._viewer()
         return bool(user and may_cancel(obj, user))
+
+    def get_moved_since(self, obj):
+        """Stock movements of the counted products in this warehouse since the
+        count was taken. Approval posts the counted difference on top of them
+        (it does not reset stock to the count), so they are kept — the
+        approver is only told they happened."""
+        if obj.status != obj.SUBMITTED or obj.counted_at is None:
+            return 0
+        products = [line.product_id for line in obj.lines.all()]
+        return StockMovement.objects.filter(
+            company_id=obj.company_id, warehouse_id=obj.warehouse_id,
+            product_id__in=products, created_at__gt=obj.counted_at,
+        ).exclude(reference_type="StockCount", reference_id=str(obj.pk)).count()
 
     def validate_lines(self, lines):
         # An empty draft used to save and then fail at submit, far from the
@@ -619,7 +638,11 @@ class StockCountSerializer(serializers.ModelSerializer):
                     }
                 )
             seen.add(key)
-            StockCountLine.objects.create(count=count, **line)
+            # Frozen now, when the shelf was counted (see StockCount.counted_at).
+            expected = line["product"].on_hand(warehouse=count.warehouse, batch=line.get("batch"))
+            StockCountLine.objects.create(count=count, expected_quantity=expected, **line)
+        count.counted_at = timezone.now()
+        count.save(update_fields=["counted_at"])
 
     @transaction.atomic
     def create(self, validated_data):

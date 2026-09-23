@@ -825,6 +825,13 @@ class POSCheckoutSerializer(serializers.Serializer):
         max_digits=14, decimal_places=6, required=False, min_value=Decimal("0.000001")
     )
     client_uuid = serializers.UUIDField(required=False, allow_null=True)
+    # The flat rate the till computed its receipt with. A till that stayed
+    # offline keeps the rate it had when it last reached the server; if the
+    # owner changed it meanwhile, the customer still paid the old one.
+    tax_rate = serializers.DecimalField(
+        max_digits=5, decimal_places=2, required=False, allow_null=True,
+        min_value=Decimal("0"), max_value=Decimal("100"),
+    )
     # Optional override; otherwise the customer's terms, else the company's.
     payment_terms_days = serializers.IntegerField(required=False, min_value=0)
     # Invoicing a confirmed sales order: the invoice links back to it and
@@ -900,6 +907,25 @@ class POSCheckoutSerializer(serializers.Serializer):
         company = Company.objects.get(pk=company_id)
         rate = _company_tax_rate(company)
         handler = tax_handler_for(company)
+        rate_override = None
+        till_rate = validated_data.get("tax_rate")
+        if till_rate is not None and till_rate != rate:
+            if not self.context.get("via_sync"):
+                # Live at the counter: the cashier can reload and charge the
+                # right amount before the customer leaves.
+                raise serializers.ValidationError({"tax_rate": _(
+                    "The tax rate changed to %(rate)s%%. Reload the page, then ring the sale again."
+                ) % {"rate": rate}})
+            # Replayed from the offline queue: the sale already happened at
+            # the till's rate, and that is what the customer paid. Record it
+            # as it was — a refusal here lost the whole paid sale — and leave
+            # an audit row so the difference is visible.
+            log_activity(
+                action="tax_rate_mismatch", request=self.context.get("request"),
+                entity_type="Company", entity_id=company.pk,
+                metadata={"till_rate": str(till_rate), "company_rate": str(rate)},
+            )
+            rate = rate_override = till_rate
 
         # Reports sum invoice totals per company without converting, so a
         # foreign-currency invoice would silently corrupt every figure. Until
@@ -1028,7 +1054,10 @@ class POSCheckoutSerializer(serializers.Serializer):
         for ln, product, qty, price, gross, own, share in priced:
             discount = own + share
             line_subtotal = gross - discount
-            line_tax = handler.compute_tax(line_subtotal, product)
+            line_tax = (
+                handler.compute_tax(line_subtotal, product) if rate_override is None
+                else (line_subtotal * rate_override / Decimal("100")).quantize(Decimal("0.01"))
+            )
             pack_info = ln.get("_pack")
             InvoiceLine.objects.create(
                 invoice=invoice, product=product,

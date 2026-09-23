@@ -180,3 +180,62 @@ class StockCountTests(APITestCase):
         )
         again = self.client.post(reverse("stockcount-cancel", args=[count_id]))
         self.assertEqual(again.status_code, 400)
+
+    def test_a_sale_between_counting_and_submitting_is_not_a_surplus(self):
+        # Counted at nine (8 of A on the shelf, ledger 10), one sold before
+        # submit: the difference is still -2, not -1, and the sale survives.
+        self.client.force_authenticate(self.officer)
+        count_id = self._create(self.client).data["id"]
+        StockMovement.objects.create(
+            company=self.company, product=self.a, warehouse=self.wh,
+            movement_type=StockMovement.SALE_OUT, quantity=-1,
+        )
+        submitted = self.client.post(reverse("stockcount-submit", args=[count_id])).data
+        line = next(row for row in submitted["lines"] if row["product"] == self.a.id)
+        self.assertEqual(Decimal(line["expected_quantity"]), Decimal("10"))
+        self.assertEqual(Decimal(line["variance"]), Decimal("-2"))
+        self.assertEqual(submitted["moved_since"], 1)  # told to the approver
+        self.client.force_authenticate(self.manager)
+        self.client.post(reverse("stockcount-approve", args=[count_id]))
+        # 10 received - 1 sold - 2 missing = 7.
+        self.assertEqual(self.a.on_hand(warehouse=self.wh), Decimal("7"))
+
+    def test_a_lot_tracked_product_is_counted_per_lot(self):
+        from inventory.models import StockBatch
+
+        self.a.track_batches = True
+        self.a.save()
+        lot = StockBatch.objects.create(company=self.company, product=self.a, lot_number="L1")
+        StockMovement.objects.create(
+            company=self.company, product=self.a, warehouse=self.wh, batch=lot,
+            movement_type=StockMovement.PURCHASE_IN, quantity=5,
+        )
+        self.client.force_authenticate(self.officer)
+        without_lot = self._create(self.client)
+        self.assertEqual(without_lot.status_code, 400)
+        self.assertIn("lines", without_lot.data)
+        created = self.client.post(
+            reverse("stockcount-list"),
+            {"warehouse": self.wh.id, "lines": [
+                {"product": self.a.id, "batch": lot.id, "counted_quantity": "4"},
+            ]},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        count_id = created.data["id"]
+        self.client.post(reverse("stockcount-submit", args=[count_id]))
+        self.client.force_authenticate(self.manager)
+        self.client.post(reverse("stockcount-approve", args=[count_id]))
+        adjustment = StockAdjustment.objects.get()
+        self.assertEqual(adjustment.batch_id, lot.id)  # the difference stays in its lot
+        self.assertEqual(adjustment.quantity, Decimal("-1"))
+
+    def test_lots_can_be_listed_for_one_product(self):
+        from inventory.models import StockBatch
+
+        StockBatch.objects.create(company=self.company, product=self.a, lot_number="LA")
+        StockBatch.objects.create(company=self.company, product=self.b, lot_number="LB")
+        self.client.force_authenticate(self.officer)
+        rows = self.client.get(reverse("stockbatch-list"), {"product": self.a.id}).data
+        rows = rows.get("results", rows)
+        self.assertEqual([row["lot_number"] for row in rows], ["LA"])

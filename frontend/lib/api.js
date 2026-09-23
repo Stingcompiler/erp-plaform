@@ -130,6 +130,7 @@ export const inventory = {
   createPack: (body) => api.post("/product-packs/", body),
   updatePack: (id, body) => api.patch(`/product-packs/${id}/`, body),
   stockCounts: (params) => api.get("/stock-counts/", { params }),
+  stockBatches: (params) => api.get("/stock-batches/", { params }),
   createStockCount: (body) => api.post("/stock-counts/", body),
   submitStockCount: (id) => api.post(`/stock-counts/${id}/submit/`),
   approveStockCount: (id) => api.post(`/stock-counts/${id}/approve/`),
