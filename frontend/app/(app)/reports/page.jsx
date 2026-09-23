@@ -10,6 +10,8 @@ import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/compone
 import BarList from "@/components/reports/BarList";
 import ZakatCard from "@/components/reports/ZakatCard";
 import OperationalReports from "@/components/reports/OperationalReports";
+import TabBar from "@/components/ui/TabBar";
+import { useHashTab } from "@/lib/useHashTab";
 
 function Kpi({ label, value, tone = "ink" }) {
   const toneClass = tone === "accent" ? "text-accent" : tone === "ok" ? "text-ok" : "text-ink";
@@ -45,7 +47,18 @@ export default function ReportsPage() {
   const financeReports = reportAreas.includes("finance");
   const hrReports = reportAreas.includes("hr");
   const payrollReports = hrReports || financeReports;
-  const onlyHrReports = hrReports && reportAreas.length === 1;
+  // One tab per report area the role can read; the date range above them
+  // applies to every tab. Payroll sits with HR, or with finance for a CFO
+  // who has no HR area.
+  const reportTabs = [
+    ...(salesReports || inventoryReports || financeReports ? [{ id: "overview", label: t("reports.tabOverview") }] : []),
+    ...(salesReports ? [{ id: "sales", label: t("reports.tabSales") }] : []),
+    ...(purchasingReports ? [{ id: "purchasing", label: t("reports.tabPurchasing") }] : []),
+    ...(financeReports ? [{ id: "finance", label: t("reports.tabFinance") }] : []),
+    ...(hrReports ? [{ id: "hr", label: t("reports.tabHr") }] : []),
+  ];
+  const payrollTab = hrReports ? "hr" : "finance";
+  const [tab, setTab] = useHashTab(reportTabs.map((x) => x.id));
   const money = (v) =>
     Number(v ?? 0).toLocaleString(language === "ar" ? "ar" : "en", {
       minimumFractionDigits: 2,
@@ -184,9 +197,11 @@ export default function ReportsPage() {
 
       {loading && <div className="text-muted">{t("reports.loadingReports")}</div>}
 
+      {reportTabs.length > 1 && <TabBar value={tab} onChange={setTab} tabs={reportTabs} />}
+
       {!loading && (
         <div className="space-y-6">
-          {hrReports && hrSummary && (
+          {tab === "hr" && hrReports && hrSummary && (
             <>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <Kpi label={t("reports.hrEmployees")} value={hrSummary.employee_total} />
@@ -218,19 +233,19 @@ export default function ReportsPage() {
             </>
           )}
 
-          {payrollReports && <SectionCard title={t("reports.payrollTitle")} action={<a href={csv("/reports/payroll/")}><Button variant="ghost"><Download size={15} /> CSV</Button></a>}>
+          {tab === payrollTab && payrollReports && <SectionCard title={t("reports.payrollTitle")} action={<a href={csv("/reports/payroll/")}><Button variant="ghost"><Download size={15} /> CSV</Button></a>}>
             {payroll.length === 0 ? <p className="text-sm text-muted">{t("reports.noPayroll")}</p> : <div className="space-y-4">{payroll.map((run) => <div key={run.id} className="rounded-control border border-line p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="font-medium text-ink">{t("reports.payrollFor", { period: run.period.slice(0, 7) })}</div><Badge tone={run.status === "approved" ? "ok" : "warn"}>{run.status === "approved" ? t("hr.approved") : t("hr.pending")}</Badge></div><div className="grid gap-3 sm:grid-cols-4"><Kpi label={t("reports.payrollEmployees")} value={run.employee_count} /><Kpi label={t("reports.payrollBase")} value={money(run.base_total)} /><Kpi label={t("reports.payrollDeductions")} value={money(run.deductions_total)} /><Kpi label={t("reports.payrollNet")} tone="ok" value={money(run.net_total)} /></div><div className="mt-3 divide-y divide-line text-sm">{run.entries.map((entry) => <div key={`${run.id}-${entry.employee_name}`} className="flex flex-wrap items-center justify-between gap-2 py-2"><span className="text-ink">{entry.employee_name} <span className="text-muted">· {entry.department_name || "—"} · {entry.position_title || "—"}</span></span><span className="tabular font-medium">{money(entry.net_salary)}</span></div>)}</div></div>)}</div>}
           </SectionCard>}
 
           {/* Headline KPIs */}
-          {!onlyHrReports && <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {tab === "overview" && <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {salesReports && <Kpi label={t("reports.invoices")} value={summary?.totals?.invoice_count ?? "—"} />}
             {salesReports && <Kpi label={t("reports.revenue")} tone="accent" value={money(summary?.totals?.total)} />}
             {financeReports && <Kpi label={t("reports.grossProfit")} tone="ok" value={money(profit?.gross_profit)} />}
             {inventoryReports && <Kpi label={t("reports.inventoryValue")} value={money(valuation?.total_value)} />}
           </div>}
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          {tab === "overview" && <div className="grid gap-6 lg:grid-cols-2">
             {salesReports && <SectionCard
               title={t("reports.topProducts")}
               action={
@@ -256,10 +271,10 @@ export default function ReportsPage() {
             >
               <BarList items={valuationBars} />
             </SectionCard>}
-          </div>
+          </div>}
 
           {/* Profit breakdown */}
-          {financeReports && <SectionCard
+          {tab === "finance" && financeReports && <SectionCard
             title={t("reports.profitTitle", {
               method: {
                 standard: t("reports.standardCost"),
@@ -277,7 +292,7 @@ export default function ReportsPage() {
           </SectionCard>}
 
           {/* CFO financial KPIs — liquidity + profitability ratios */}
-          {financeReports && kpis && (
+          {tab === "finance" && financeReports && kpis && (
             <SectionCard title={t("reports.cfoTitle")}>
               <p className="mb-3 text-xs text-muted">{t("reports.cfoHint")}</p>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -319,7 +334,7 @@ export default function ReportsPage() {
           )}
 
           {/* Obligations due (AP side of the worklist) */}
-          {purchasingReports && purchases && (
+          {tab === "purchasing" && purchasingReports && purchases && (
             <SectionCard title={t("reports.purchasesSummaryTitle")}>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div className="rounded-control bg-paper p-3"><div className="text-xs text-muted">{t("reports.purchasesTotal")}</div><div className="mt-1 tabular text-xl font-semibold">{money(purchases.purchases_total)}</div></div>
@@ -328,7 +343,7 @@ export default function ReportsPage() {
               </div>
             </SectionCard>
           )}
-          {purchasingReports && (
+          {tab === "purchasing" && purchasingReports && (
             <SectionCard title={t("reports.apAgingTitle")}>
               {apAging.length === 0 ? (
                 <p className="py-6 text-center text-sm text-muted">{t("reports.nothingOutstanding")}</p>
@@ -364,7 +379,7 @@ export default function ReportsPage() {
               )}
             </SectionCard>
           )}
-          {purchasingReports && payables && (
+          {tab === "purchasing" && purchasingReports && payables && (
             <SectionCard
               title={t("reports.payablesDue")}
               action={
@@ -416,7 +431,7 @@ export default function ReportsPage() {
           )}
 
           {/* Income statement (P&L) */}
-          {financeReports && income && (
+          {tab === "finance" && financeReports && income && (
             <SectionCard
               title={t("reports.incomeStatement")}
               action={
@@ -455,7 +470,7 @@ export default function ReportsPage() {
           )}
 
           {/* Cash flow (direct method) */}
-          {financeReports && cash && (
+          {tab === "finance" && financeReports && cash && (
             <SectionCard
               title={t("reports.cashFlow")}
               action={
@@ -480,10 +495,10 @@ export default function ReportsPage() {
             </SectionCard>
           )}
 
-          {financeReports && <ZakatCard />}
+          {tab === "finance" && financeReports && <ZakatCard />}
 
           {/* Cash-flow forecast (committed documents, by week) */}
-          {financeReports && forecast && (
+          {tab === "finance" && financeReports && forecast && (
             <SectionCard
               title={t("reports.forecastTitle")}
               action={
@@ -538,7 +553,7 @@ export default function ReportsPage() {
           )}
 
           {/* Collections worklist */}
-          {salesReports && collections && (
+          {tab === "sales" && salesReports && collections && (
             <SectionCard
               title={t("reports.collections")}
               action={
@@ -590,7 +605,7 @@ export default function ReportsPage() {
           )}
 
           {/* AR aging */}
-          {salesReports && <SectionCard title={t("reports.arAgingTitle")}>
+          {tab === "sales" && salesReports && <SectionCard title={t("reports.arAgingTitle")}>
             {aging.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted">{t("reports.nothingOutstanding")}</p>
             ) : (
@@ -628,7 +643,7 @@ export default function ReportsPage() {
           </SectionCard>}
         </div>
       )}
-      <OperationalReports range={range} areas={reportAreas} />
+      <OperationalReports range={range} areas={reportAreas.filter((area) => area === tab)} />
     </div>
   );
 }

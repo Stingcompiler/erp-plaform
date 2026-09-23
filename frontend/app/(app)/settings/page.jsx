@@ -9,6 +9,8 @@ import { errorText } from "@/lib/errors";
 import { useI18n } from "../../providers/I18nProvider";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import TabBar from "@/components/ui/TabBar";
+import { useHashTab } from "@/lib/useHashTab";
 
 const bytes = (n) => (n > 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
 
@@ -52,6 +54,16 @@ export default function SettingsPage() {
   const [pendingMode, setPendingMode] = useState(null);
   const [savingMode, setSavingMode] = useState(false);
   const ownerControlsMode = Boolean(user?.can_manage_system_mode);
+
+  // One long page became four tabs: who the company is on paper, money
+  // (currency and tax), how the system runs, and backups.
+  const tabs = [
+    { id: "company", label: t("settings.tabCompany") },
+    { id: "money", label: t("settings.tabMoney") },
+    ...(ownerControlsMode ? [{ id: "system", label: t("settings.tabSystem") }] : []),
+    { id: "backups", label: t("settings.tabBackups") },
+  ];
+  const [tab, setTab] = useHashTab(tabs.map((x) => x.id));
 
   // Exchange rate: the company row carries the current rate; the list is the
   // history. Recording goes through /exchange-rates/ so each change is kept.
@@ -283,6 +295,9 @@ export default function SettingsPage() {
     <div className="max-w-2xl">
       <PageHeader title={t("settings.title")} subtitle={t("settings.subtitle")} />
 
+      <TabBar value={tab} onChange={setTab} tabs={tabs} />
+
+      {tab === "company" && (<>
       {/* Issuer identity — printed at the top of every document. */}
       <Card className="mb-6 p-6">
         <h2 className="mb-1 font-display text-sm font-semibold uppercase tracking-wide text-muted">
@@ -411,8 +426,9 @@ export default function SettingsPage() {
           )}
         </Card>
       )}
+      </>)}
 
-      {company && (
+      {tab === "money" && company && (
         <Card className="mb-6 p-6">
           <h2 className="mb-1 flex items-center gap-2 font-display text-sm font-semibold uppercase tracking-wide text-muted">
             <TrendingUp size={16} /> {t("settings.exchangeRate")}
@@ -483,7 +499,7 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      {ownerControlsMode && (
+      {tab === "system" && ownerControlsMode && (
         <Card className="mb-6 p-6">
           <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">{t("settings.systemMode")}</h2>
           <p className="mt-1 text-sm text-muted">{t("settings.systemModeHint")}</p>
@@ -506,6 +522,7 @@ export default function SettingsPage() {
       )}
 
       {/* Tax profile */}
+      {tab === "money" && (
       <Card className="p-6">
         <h2 className="mb-4 font-display text-sm font-semibold uppercase tracking-wide text-muted">
           {t("settings.taxInvoicing")}
@@ -554,11 +571,13 @@ export default function SettingsPage() {
           </div>
         )}
       </Card>
+      )}
 
       {pendingMode && <div className="fixed inset-0 z-50 grid place-items-center bg-ink/50 p-4"><Card className="w-full max-w-lg p-6"><h2 className="font-display text-xl font-bold">{pendingMode === "shop" ? t("settings.confirmShopModeTitle") : t("settings.confirmCompanyModeTitle")}</h2><p className="mt-3 text-sm leading-6 text-muted">{pendingMode === "shop" ? t("settings.confirmShopModeBody") : t("settings.confirmCompanyModeBody")}</p><div className="mt-6 flex justify-end gap-2"><Button variant="ghost" onClick={() => setPendingMode(null)}>{t("common.cancel")}</Button><Button onClick={saveStoreMode} disabled={savingMode}>{savingMode ? t("common.saving") : pendingMode === "shop" ? t("settings.activateShopMode") : t("settings.activateCompanyMode")}</Button></div></Card></div>}
 
       {/* Backups */}
-      <Card className="mt-6 p-6">
+      {tab === "backups" && (
+      <Card className="mb-6 p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
             {t("settings.backups")}
@@ -668,6 +687,7 @@ export default function SettingsPage() {
           </div>
         )}
       </Card>
+      )}
     </div>
   );
 }
