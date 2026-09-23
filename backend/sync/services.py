@@ -120,7 +120,9 @@ def process_operation(request, op):
 
     try:
         with transaction.atomic():  # savepoint — isolates this op
-            serializer = spec.serializer(data=payload, context={"request": request})
+            serializer = spec.serializer(
+                data=payload, context={"request": request, "via_sync": True}
+            )
             serializer.is_valid(raise_exception=True)
             if spec.kind == MODEL:
                 obj = serializer.save(company_id=company_id)

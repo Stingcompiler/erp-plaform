@@ -40,11 +40,14 @@ def submit_count(count_id, actor, request=None):
             "Another count for this warehouse is awaiting approval; "
             "approve or cancel it first."
         ))
+    # Expected quantities were frozen when the lines were saved; only a count
+    # saved before that rule (no figure yet) is filled in now.
     for line in lines:
-        line.expected_quantity = line.product.on_hand(
-            warehouse=count.warehouse, batch=line.batch
-        )
-        line.save(update_fields=["expected_quantity"])
+        if line.expected_quantity is None:
+            line.expected_quantity = line.product.on_hand(
+                warehouse=count.warehouse, batch=line.batch
+            )
+            line.save(update_fields=["expected_quantity"])
     count.status = StockCount.SUBMITTED
     count.counted_by = actor
     count.submitted_at = timezone.now()

@@ -94,7 +94,17 @@ export default function PosTerminal({
     return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("beforeunload", unload); };
   }, []);
   const { online, enqueue, confirmation, lookupReceipt } = useSync();
-  const { user } = useAuth();
+  const { user, refresh: refreshSession } = useAuth();
+  // The tax rate travels with the signed-in user. A till left open (or
+  // offline) for days kept the old rate after the owner changed it, so the
+  // session is re-read when the till opens and whenever the connection
+  // comes back.
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && navigator.onLine) refreshSession?.();
+    const onOnline = () => refreshSession?.();
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [refreshSession]);
   const confirmedId = receipt?.queued ? confirmation(receipt.reference)?.id : null;
   useEffect(() => {
     if (receipt?.queued && !confirmedId) lookupReceipt(receipt.reference);
@@ -362,6 +372,9 @@ export default function PosTerminal({
         ...(Number(l.discountPercent || 0) > 0 ? { discount_percent: String(Number(l.discountPercent)) } : {}),
       })),
       ...(ticket > 0 ? { discount_amount: String(round2(ticket)) } : {}),
+      // The rate this receipt was computed with, so the server can tell a
+      // changed rate from a wrong total (see POSCheckoutSerializer.tax_rate).
+      tax_rate: String(taxRate),
       payment,
       ...(creditApplied > 0 ? { apply_credit: { credit_note: Number(creditNote), amount: String(creditApplied) } } : {}),
       // Stamped from the client, not the server clock: an offline sale can
@@ -424,6 +437,9 @@ export default function PosTerminal({
         errorText(err, t, "sales.checkoutFailed");
       setError(msg);
       toast.error(msg);
+      // The owner changed the tax rate since this till loaded: pick up the
+      // new rate now, so the totals update and the next attempt goes through.
+      if (err?.response?.data?.tax_rate) refreshSession?.();
     } finally {
       checkoutBusy.current = false;
       setSubmitting(false);

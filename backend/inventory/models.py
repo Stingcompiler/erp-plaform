@@ -542,6 +542,10 @@ class StockCount(models.Model):
         related_name="stock_counts_counted",
     )
     submitted_at = models.DateTimeField(null=True, blank=True)
+    # When the lines were counted (last saved). The expected quantities are
+    # frozen at this moment, not at submit: a counter who counts at nine and
+    # submits at noon must not see the morning's sales as a surplus.
+    counted_at = models.DateTimeField(null=True, blank=True)
     approved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="stock_counts_approved",

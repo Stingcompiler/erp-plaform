@@ -96,6 +96,14 @@ class StockBatchViewSet(CompanyScopedModelViewSet):
     serializer_class = StockBatchSerializer
     activity_entity_type = "StockBatch"
 
+    def get_queryset(self):
+        # The count drawer asks for one product's lots (?product=<id>).
+        queryset = super().get_queryset()
+        product = self.request.query_params.get("product")
+        if product and product.isdigit():
+            queryset = queryset.filter(product_id=int(product))
+        return queryset
+
 
 def _current_rate(user):
     company_id = getattr(user, "company_id", None)
