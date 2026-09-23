@@ -5,6 +5,7 @@ import logging
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from rest_framework.exceptions import ValidationError
 
 from core.entitlements import resolve_entitlements
@@ -87,7 +88,8 @@ def assert_capacity(company, resource, increment=1):
         raise ValidationError(
             {
                 "code": "plan_limit_reached",
-                "detail": f"The {resource} limit for the current plan has been reached.",
+                "detail": _("The %(resource)s limit for the current plan has been reached.")
+                % {"resource": resource},
                 "limit": int(maximum),
             }
         )
@@ -203,9 +205,9 @@ def reject_payment(payment_id, actor, reason):
     if payment.status == SubscriptionPayment.REJECTED:
         return payment
     if payment.status != SubscriptionPayment.PENDING:
-        raise ValidationError("Only pending payments can be rejected.")
+        raise ValidationError(_("Only pending payments can be rejected."))
     if not reason.strip():
-        raise ValidationError({"reason": "Give the company a reason for the rejection."})
+        raise ValidationError({"reason": _("Give the company a reason for the rejection.")})
     payment.status = SubscriptionPayment.REJECTED
     payment.rejection_reason = reason.strip()
     payment.verified_by = actor
@@ -221,17 +223,19 @@ def verify_and_allocate_payment(payment_id, actor, allocations):
         return payment
     requested = sum(item["amount"] for item in allocations)
     if requested != payment.amount:
-        raise ValidationError("Allocations must equal the full payment amount.")
+        raise ValidationError(_("Allocations must equal the full payment amount."))
     touched_invoices = []
     for item in allocations:
         invoice = SubscriptionInvoice.objects.select_for_update().get(
             pk=item["invoice_id"], company=payment.company
         )
         if invoice.status != SubscriptionInvoice.ISSUED:
-            raise ValidationError(f"Invoice {invoice.number} is not open for payment.")
+            raise ValidationError(
+                _("Invoice %(number)s is not open for payment.") % {"number": invoice.number}
+            )
         if invoice.currency != payment.currency:
             raise ValidationError(
-                f"Invoice {invoice.number} uses a different currency."
+                _("Invoice %(number)s uses a different currency.") % {"number": invoice.number}
             )
         allocated = (
             invoice.allocations.filter(
@@ -241,7 +245,7 @@ def verify_and_allocate_payment(payment_id, actor, allocations):
         )
         if allocated + item["amount"] > invoice.amount:
             raise ValidationError(
-                f"Allocation exceeds invoice {invoice.number} balance."
+                _("Allocation exceeds invoice %(number)s balance.") % {"number": invoice.number}
             )
         PaymentAllocation.objects.create(
             payment=payment, invoice=invoice, amount=item["amount"]

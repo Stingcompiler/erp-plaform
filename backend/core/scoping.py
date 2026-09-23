@@ -2,6 +2,7 @@ import uuid
 
 from django.db import IntegrityError
 from django.db.models import Q
+from django.utils.translation import gettext as _
 from rest_framework import mixins, status, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
@@ -17,7 +18,7 @@ def assert_user_branch(user, obj, field_name):
         return
     if getattr(obj, "branch_id", None) != getattr(user, "branch_id", None):
         raise ValidationError(
-            {field_name: "This record is outside your assigned branch."}
+            {field_name: _("This record is outside your assigned branch.")}
         )
 
 
@@ -99,7 +100,7 @@ class CompanyScopedQuerySetMixin:
     def perform_create(self, serializer):
         if self.is_platform_user():
             raise PermissionDenied(
-                "Platform accounts cannot create tenant business records."
+                _("Platform accounts cannot create tenant business records.")
             )
         kwargs = {self.company_field + "_id": self._user_company_id()}
         branch_id = self._branch_scope()

@@ -65,7 +65,7 @@ class EntitlementAccess(BasePermission):
             raise PermissionDenied(
                 {
                     "code": code,
-                    "detail": (
+                    "detail": _(
                         "Commercial access is read-only. The company owner can "
                         "review renewal details."
                     ),
@@ -86,7 +86,7 @@ class IsAuditViewer(BasePermission):
     the other authority lists rather than being buried in a permission class.
     """
 
-    message = "The audit log is restricted to administrators."
+    message = _("The audit log is restricted to administrators.")
 
     def has_permission(self, request, view):
         user = request.user
@@ -108,7 +108,7 @@ class CanVerifyPayment(BasePermission):
     The viewset declares which module it belongs to via `approval_module`.
     """
 
-    message = "You are not permitted to verify payments."
+    message = _("You are not permitted to verify payments.")
 
     def has_permission(self, request, view):
         user = request.user
@@ -171,7 +171,7 @@ class IsPlatformAdmin(BasePermission):
     See core.platform_roles for the role -> capability map.
     """
 
-    message = "This area is restricted to platform administrators."
+    message = _("This area is restricted to platform administrators.")
 
     def has_permission(self, request, view):
         user = request.user
@@ -183,7 +183,7 @@ class IsPlatformAdmin(BasePermission):
             view_capability = getattr(view, "platform_view_capability", None)
             if view_capability is None or user_has_platform_capability(user, view_capability):
                 return True
-            self.message = "Your platform role does not include this area."
+            self.message = _("Your platform role does not include this area.")
             return False
         action = getattr(view, "action", None)
         per_action = getattr(view, "platform_action_capabilities", {}) or {}
@@ -195,14 +195,14 @@ class IsPlatformAdmin(BasePermission):
             return True
         if user_has_platform_capability(user, capability):
             return True
-        self.message = "Your platform role does not include this action."
+        self.message = _("Your platform role does not include this action.")
         return False
 
 
 class ReportAreaAccess(BasePermission):
     """Restrict each report endpoint to the department family it belongs to."""
 
-    message = "Your role does not permit this report."
+    message = _("Your role does not permit this report.")
 
     def has_permission(self, request, view):
         return getattr(view, "report_area", None) in report_areas_for(request.user)
@@ -211,7 +211,7 @@ class ReportAreaAccess(BasePermission):
 class PayrollReportAccess(BasePermission):
     """Payroll is shared oversight for HR and finance, but no other area."""
 
-    message = "Your role does not permit this payroll report."
+    message = _("Your role does not permit this payroll report.")
 
     def has_permission(self, request, view):
         if getattr(getattr(request.user, "role", None), "name", None) == "Branch Manager":

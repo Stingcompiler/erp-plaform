@@ -21,6 +21,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from django.utils import timezone
+from django.utils.translation import gettext as _
 
 from core.permissions import PayrollReportAccess, ReportAreaAccess
 from core.rbac import RoleModuleAccess
@@ -336,7 +337,7 @@ class InventoryValuationReport(ReportView):
         else:
             if self.branch_id(request):
                 return Response(
-                    {"detail": "Branch valuation currently supports standard costing only."},
+                    {"detail": _("Branch valuation currently supports standard costing only.")},
                     status=400,
                 )
             totals = company_totals(cid, method=method)

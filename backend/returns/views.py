@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.db import IntegrityError, transaction
 from django.db.models import Q
+from django.utils.translation import gettext as _
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -142,7 +143,7 @@ class SalesReturnViewSet(
             # stock.
             if d.get("line_id") in seen:
                 return Response(
-                    {"detail": f"Line {d.get('line_id')} appears twice."},
+                    {"detail": _("Line %(line)s appears twice.") % {"line": d.get("line_id")}},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             seen.add(d.get("line_id"))
@@ -150,12 +151,12 @@ class SalesReturnViewSet(
                 line = sales_return.lines.get(id=d.get("line_id"))
             except SalesReturnLine.DoesNotExist:
                 return Response(
-                    {"detail": f"Line {d.get('line_id')} not in this return."},
+                    {"detail": _("Line %(line)s not in this return.") % {"line": d.get("line_id")}},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             if line.disposition != SalesReturnLine.QUARANTINE:
                 return Response(
-                    {"detail": f"Line {line.id} already dispositioned."},
+                    {"detail": _("Line %(line)s already dispositioned.") % {"line": line.id}},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -176,7 +177,7 @@ class SalesReturnViewSet(
                 if not allowed_warehouses.filter(pk=wh_id).exists():
                     return Response(
                         {
-                            "detail": (
+                            "detail": _(
                                 "That warehouse is not one you can restock into. "
                                 "Choose a warehouse in your own branch."
                             ),
@@ -337,13 +338,13 @@ class DebitNoteViewSet(AppendOnlyScopedViewSet):
 def _void_note(viewset, request, entity_type):
     if not can_approve_high_value(request.user):
         return Response(
-            {"detail": "Only a manager or owner may void a note."},
+            {"detail": _("Only a manager or owner may void a note.")},
             status=status.HTTP_403_FORBIDDEN,
         )
     reason = str(request.data.get("reason") or "").strip()
     if not reason:
         return Response(
-            {"reason": "A reason is required to void a note."},
+            {"reason": _("A reason is required to void a note.")},
             status=status.HTTP_400_BAD_REQUEST,
         )
     with transaction.atomic():
@@ -353,15 +354,15 @@ def _void_note(viewset, request, entity_type):
         target = viewset.get_object()
         note = type(target).objects.select_for_update().get(pk=target.pk)
         if note.is_void:
-            return Response({"detail": "This note is already void."}, status=400)
+            return Response({"detail": _("This note is already void.")}, status=400)
         if entity_type == "CreditNote" and note.refunds.exists():
             return Response(
-                {"detail": "Money was refunded against this note; it cannot be voided."},
+                {"detail": _("Money was refunded against this note; it cannot be voided.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if entity_type == "CreditNote" and note.invoice_id and note.invoice.is_void:
             return Response(
-                {"detail": "This note voided an invoice; it stands with that invoice."},
+                {"detail": _("This note voided an invoice; it stands with that invoice.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         note.is_void = True

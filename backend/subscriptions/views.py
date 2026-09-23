@@ -206,7 +206,7 @@ class PlatformPlanVersionViewSet(_PlatformAuditMixin, viewsets.ModelViewSet):
             or serializer.instance.subscriptions.exists()
         ):
             raise ValidationError(
-                "A plan version in use is immutable; create a new version."
+                _("A plan version in use is immutable; create a new version.")
             )
         super().perform_update(serializer)
 
@@ -214,7 +214,7 @@ class PlatformPlanVersionViewSet(_PlatformAuditMixin, viewsets.ModelViewSet):
         if instance.subscriptions.exists():
             from rest_framework.exceptions import ValidationError
 
-            raise ValidationError("A plan version in use cannot be deleted.")
+            raise ValidationError(_("A plan version in use cannot be deleted."))
         super().perform_destroy(instance)
 
 
@@ -281,7 +281,7 @@ class PlatformSubscriptionViewSet(viewsets.ModelViewSet):
         allowed = {choice[0] for choice in Subscription.STATES} - {Subscription.LEGACY}
         if target not in allowed:
             return Response(
-                {"status": ["Invalid target state."]},
+                {"status": [_("Invalid target state.")]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         required_end = {
@@ -292,7 +292,11 @@ class PlatformSubscriptionViewSet(viewsets.ModelViewSet):
         current = self.get_object()
         if required_end and not getattr(current, required_end):
             return Response(
-                {required_end: [f"Set {required_end} before this transition."]},
+                {
+                    required_end: [
+                        _("Set %(field)s before this transition.") % {"field": required_end}
+                    ]
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         subscription, previous = transition_subscription(
@@ -500,14 +504,14 @@ class CompanyPlanChangeViewSet(viewsets.GenericViewSet):
                     )
                 except (PlanVersion.DoesNotExist, ValueError, TypeError):
                     return Response(
-                        {"to_version": "Choose a plan."}, status=status.HTTP_400_BAD_REQUEST
+                        {"to_version": _("Choose a plan.")}, status=status.HTTP_400_BAD_REQUEST
                     )
                 change = request_change(request.user.company, version, request.user, note)
         except UsageExceedsTarget as exc:
             return Response(
                 {
                     "code": "usage_exceeds_target",
-                    "detail": "Reduce usage to fit the new plan first.",
+                    "detail": _("Reduce usage to fit the new plan first."),
                     "over": exc.over,
                 },
                 status=status.HTTP_400_BAD_REQUEST,

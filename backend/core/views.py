@@ -5,6 +5,7 @@ from django.utils import timezone
 from django.db import connection
 from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
+from django.utils.translation import gettext as _
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import (
     api_view,
@@ -434,6 +435,6 @@ def attention_seen(request):
 
     key = str(request.data.get("key") or "").strip()
     if not key:
-        return Response({"key": ["This field is required."]}, status=400)
+        return Response({"key": [_("This field is required.")]}, status=400)
     known = attention_service.mark_seen(request.user, key)
     return Response({"key": key, "known": known, "seen_at": timezone.now().isoformat()})

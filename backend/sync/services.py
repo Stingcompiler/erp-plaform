@@ -12,6 +12,7 @@ op is:
 from dataclasses import dataclass
 
 from django.db import IntegrityError, transaction
+from django.utils.translation import gettext as _
 from rest_framework.exceptions import ValidationError
 
 from core.activity import log_activity
@@ -93,13 +94,14 @@ def process_operation(request, op):
 
     spec = OP_REGISTRY.get(op_type)
     if spec is None:
-        return ERROR, "", "", f"Unknown op_type '{op_type}'.", client_uuid
+        error = _("Unknown op_type '%(op_type)s'.") % {"op_type": op_type}
+        return ERROR, "", "", error, client_uuid
 
     user = request.user
     company_id = getattr(user, "company_id", None)
 
     if not role_can(user, spec.module, write=True):
-        return ERROR, "", "", "Your role does not permit this operation.", client_uuid
+        return ERROR, "", "", _("Your role does not permit this operation."), client_uuid
 
     # Idempotency: if this op's client_uuid already produced a record, skip it.
     # Attendance carries no client_uuid; it is idempotent by nature (one row
@@ -143,7 +145,7 @@ def process_operation(request, op):
                 return DUPLICATE, spec.model.__name__, str(existing.pk), "", client_uuid
         # The raw message names constraints and tables; a client only needs
         # to know the identifier is taken.
-        return ERROR, "", "", "This operation identifier is already in use.", client_uuid
+        return ERROR, "", "", _("This operation identifier is already in use."), client_uuid
     except Exception as exc:  # noqa: BLE001 - report, don't crash the batch
         return ERROR, "", "", str(exc), client_uuid
 

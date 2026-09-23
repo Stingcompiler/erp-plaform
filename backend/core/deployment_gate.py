@@ -16,6 +16,7 @@ website is theirs to serve.
 import re
 
 from django.http import JsonResponse
+from django.utils.translation import gettext as _
 
 from config.deployment import get_deployment_config
 
@@ -39,5 +40,5 @@ class StandaloneSurfaceGate:
 
     def __call__(self, request):
         if self._is_standalone() and SAAS_ONLY.match(request.path):
-            return JsonResponse({"detail": "Not found."}, status=404)
+            return JsonResponse({"detail": _("Not found.")}, status=404)
         return self.get_response(request)

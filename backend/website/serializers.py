@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.utils.translation import gettext as _
 
 from subscriptions.models import PlanVersion
 from core.public_media import stored_public_url
@@ -75,7 +76,7 @@ class WebsiteSerializer(serializers.ModelSerializer):
     def validate_services(self, value):
         lines = service_lines(value)
         if any(len(line) > 60 for line in lines):
-            raise serializers.ValidationError("Keep each service under 60 characters.")
+            raise serializers.ValidationError(_("Keep each service under 60 characters."))
         return "\n".join(lines)
 
 
@@ -105,7 +106,7 @@ class SectionSerializer(serializers.ModelSerializer):
         user = getattr(request, "user", None)
         if user is not None and not getattr(user, "is_platform_admin", False):
             if website.company_id != getattr(user, "company_id", None):
-                raise serializers.ValidationError("Not your company's website.")
+                raise serializers.ValidationError(_("Not your company's website."))
         return website
 
 
@@ -127,7 +128,7 @@ class FeaturedProductSerializer(serializers.ModelSerializer):
                 obj = attrs.get(key)
                 if obj is not None and obj.company_id != cid:
                     raise serializers.ValidationError(
-                        {key: "Not your company's record."}
+                        {key: _("Not your company's record.")}
                     )
         return attrs
 
@@ -226,21 +227,21 @@ class DemoRequestSerializer(serializers.Serializer):
 
     def validate_website(self, value):
         if value:
-            raise serializers.ValidationError("Leave this field empty.")
+            raise serializers.ValidationError(_("Leave this field empty."))
         return value
 
     def validate_phone(self, value):
         value = " ".join((value or "").split())
         digits = sum(ch.isdigit() for ch in value)
         if value and (digits < 7 or digits > 15 or len(value) > 32):
-            raise serializers.ValidationError("Enter a phone number we can call.")
+            raise serializers.ValidationError(_("Enter a phone number we can call."))
         return value
 
     def validate(self, attrs):
         attrs["email"] = (attrs.get("email") or "").strip()
         if not attrs.get("phone") and not attrs["email"]:
             raise serializers.ValidationError(
-                {"phone": "Leave a phone number or an email so we can reach you."}
+                {"phone": _("Leave a phone number or an email so we can reach you.")}
             )
         # A channel we cannot use falls back to one we can.
         channel = attrs.get("preferred_channel") or PlatformLead.CHANNEL_WHATSAPP
@@ -321,14 +322,14 @@ class RegistrationRequestSerializer(serializers.ModelSerializer):
     def validate_plan_version(self, value):
         if value is not None and not plan_version_is_available(value):
             raise serializers.ValidationError(
-                "This plan is not available for registration."
+                _("This plan is not available for registration.")
             )
         return value
 
     def validate_country(self, value):
         value = value.upper()
         if len(value) != 2 or not value.isalpha():
-            raise serializers.ValidationError("Use a two-letter country code.")
+            raise serializers.ValidationError(_("Use a two-letter country code."))
         return value
 
     def validate(self, attrs):
@@ -337,7 +338,7 @@ class RegistrationRequestSerializer(serializers.ModelSerializer):
             and not attrs.get("plan_version")
         ):
             raise serializers.ValidationError(
-                {"plan_version": "Choose a plan for a SaaS trial."}
+                {"plan_version": _("Choose a plan for a SaaS trial.")}
             )
         return attrs
 
@@ -370,15 +371,15 @@ class PlatformRegistrationRequestSerializer(serializers.ModelSerializer):
     # the request is still open; once provisioned the subscription owns it.
     def validate_plan_version(self, value):
         if value is None:
-            raise serializers.ValidationError("A SaaS request needs a plan.")
+            raise serializers.ValidationError(_("A SaaS request needs a plan."))
         if not plan_version_is_available(value):
-            raise serializers.ValidationError("This plan is not available for registration.")
+            raise serializers.ValidationError(_("This plan is not available for registration."))
         if self.instance and self.instance.status in {
             RegistrationRequest.PROVISIONED,
             RegistrationRequest.REJECTED,
             RegistrationRequest.WITHDRAWN,
         }:
-            raise serializers.ValidationError("The plan of a closed request cannot change.")
+            raise serializers.ValidationError(_("The plan of a closed request cannot change."))
         return value
 
 

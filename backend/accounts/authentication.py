@@ -49,11 +49,11 @@ class CookieJWTAuthentication(JWTAuthentication):
         device_id = validated_token.get("device")
         if device_id and is_revoked(user.company_id, device_id):
             raise AuthenticationFailed(
-                "This device was removed by the company.", code="device_revoked"
+                _("This device was removed by the company."), code="device_revoked"
             )
         if not is_store_mode_allowed(user):
             raise AuthenticationFailed(
-                "The system is currently operating in shop mode.",
+                _("The system is currently operating in shop mode."),
                 code="store_mode_restricted",
             )
         if getattr(user, "must_change_password", False) and not request.path.startswith(

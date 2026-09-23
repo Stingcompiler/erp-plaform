@@ -8,6 +8,7 @@ upload is identified by its magic bytes and renamed to match, and every
 download goes out as an attachment with ``nosniff``.
 """
 from django.http import FileResponse
+from django.utils.translation import gettext as _
 from rest_framework.exceptions import ValidationError
 
 SIGNATURES = (
@@ -43,12 +44,16 @@ def validate_proof(uploaded, *, field="proof", max_bytes, allow_pdf=False):
     and rename the file to its true extension. Returns the sniffed mime."""
     if uploaded.size > max_bytes:
         raise ValidationError(
-            {field: f"The file must be under {max_bytes // (1024 * 1024)} MB."}
+            {field: _("The file must be under %(mb)s MB.") % {"mb": max_bytes // (1024 * 1024)}}
         )
     mime, ext = sniff(uploaded)
     if mime is None or (mime == "application/pdf" and not allow_pdf):
-        wanted = "a PNG, JPEG or WebP image" + (" or a PDF" if allow_pdf else "")
-        raise ValidationError({field: f"Upload {wanted}; other files are not accepted."})
+        message = (
+            _("Upload a PNG, JPEG or WebP image or a PDF; other files are not accepted.")
+            if allow_pdf
+            else _("Upload a PNG, JPEG or WebP image; other files are not accepted.")
+        )
+        raise ValidationError({field: message})
     stem = (uploaded.name or "proof").rsplit("/", 1)[-1].rsplit(".", 1)[0][:60] or "proof"
     uploaded.name = f"{stem}.{ext}"
     return mime
@@ -57,7 +62,7 @@ def validate_proof(uploaded, *, field="proof", max_bytes, allow_pdf=False):
 def proof_response(fieldfile):
     """Download a stored proof as an attachment, typed by its bytes."""
     handle = fieldfile.open("rb")
-    mime, _ = sniff(handle)
+    mime, _ext = sniff(handle)
     response = FileResponse(
         handle, as_attachment=True, content_type=mime or "application/octet-stream",
         filename=fieldfile.name.rsplit("/", 1)[-1],

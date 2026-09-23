@@ -6,6 +6,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.utils.translation import gettext as _
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -56,7 +57,7 @@ class SyncPushView(APIView):
     def post(self, request):
         company_id = getattr(request.user, "company_id", None)
         if company_id is None:
-            return Response({"detail": "A company is required."}, status=400)
+            return Response({"detail": _("A company is required.")}, status=400)
         # A second tab can replace the shared auth cookie while this tab still
         # holds another user's cart. Never replay it under the new identity.
         # A client that identifies the account it queued under must send both
@@ -69,7 +70,7 @@ class SyncPushView(APIView):
         for field, value in expected.items():
             if field in request.data and request.data[field] != value:
                 return Response(
-                    {"detail": "The signed-in account or branch changed."}, status=409
+                    {"detail": _("The signed-in account or branch changed.")}, status=409
                 )
         sent = [f for f in ("expected_company", "expected_user") if f in request.data]
         if len(sent) == 1:
@@ -94,18 +95,18 @@ class SyncPushView(APIView):
         try:
             UUID(str(batch_uuid))
             if len(operations) > 100:
-                raise ValueError("At most 100 operations per batch.")
+                raise ValueError(_("At most 100 operations per batch."))
             for op in operations:
                 if not isinstance(op, dict) or not isinstance(op.get("payload"), dict):
-                    raise ValueError("Each operation requires a payload object.")
+                    raise ValueError(_("Each operation requires a payload object."))
                 cu = op.get("client_uuid") or op["payload"].get("client_uuid")
                 if not cu:
-                    raise ValueError("Every operation requires client_uuid.")
+                    raise ValueError(_("Every operation requires client_uuid."))
                 UUID(str(cu))
                 if op.get("client_uuid") and op["payload"].get("client_uuid"):
                     if str(op["client_uuid"]) != str(op["payload"]["client_uuid"]):
                         raise ValueError(
-                            "Operation and payload identifiers must match."
+                            _("Operation and payload identifiers must match.")
                         )
         except (ValueError, TypeError, AttributeError) as exc:
             return Response({"detail": str(exc)}, status=400)
@@ -117,7 +118,7 @@ class SyncPushView(APIView):
         if existing:
             if existing.user_id != request.user.pk:
                 return Response(
-                    {"detail": "Batch identifier is unavailable."}, status=409
+                    {"detail": _("Batch identifier is unavailable.")}, status=409
                 )
             if existing.operations.count() == existing.operation_count:
                 return Response(
@@ -128,13 +129,13 @@ class SyncPushView(APIView):
             # operations carry UUIDs, so the same request can safely finish it.
             if existing.operation_count != len(operations):
                 return Response(
-                    {"detail": "Incomplete batch payload does not match."}, status=409
+                    {"detail": _("Incomplete batch payload does not match.")}, status=409
                 )
             batch = existing
         else:
             if SyncBatch.objects.filter(batch_uuid=batch_uuid).exists():
                 return Response(
-                    {"detail": "Batch identifier is unavailable."}, status=409
+                    {"detail": _("Batch identifier is unavailable.")}, status=409
                 )
             try:
                 with transaction.atomic():
@@ -149,7 +150,7 @@ class SyncPushView(APIView):
                 # Two tabs pushed the same batch at the same instant. The
                 # loser answers 409; the client retries and gets the replay.
                 return Response(
-                    {"detail": "This batch is already being processed."}, status=409
+                    {"detail": _("This batch is already being processed.")}, status=409
                 )
 
         applied = batch.applied_count
@@ -307,7 +308,7 @@ class SyncPullView(APIView):
                 completed = set(page.get("completed", []))
             except (BadSignature, SignatureExpired, KeyError, TypeError, ValueError):
                 return Response(
-                    {"detail": "Invalid or expired page_cursor."}, status=400
+                    {"detail": _("Invalid or expired page_cursor.")}, status=400
                 )
         else:
             since_raw = request.query_params.get("since")
@@ -409,17 +410,19 @@ class SyncDiscardView(APIView):
     def post(self, request):
         company_id = getattr(request.user, "company_id", None)
         if company_id is None:
-            return Response({"detail": "A company is required."}, status=400)
+            return Response({"detail": _("A company is required.")}, status=400)
         try:
             client_uuid = UUID(str(request.data.get("client_uuid")))
         except (TypeError, ValueError, AttributeError):
-            return Response({"client_uuid": "A valid client_uuid is required."}, status=400)
+            return Response({"client_uuid": _("A valid client_uuid is required.")}, status=400)
         reason = str(request.data.get("reason") or "").strip()
         if not reason:
-            return Response({"reason": "A reason is required to discard an operation."}, status=400)
+            return Response(
+                {"reason": _("A reason is required to discard an operation.")}, status=400
+            )
         payload = request.data.get("payload")
         if not isinstance(payload, dict):
-            return Response({"payload": "The operation payload is required."}, status=400)
+            return Response({"payload": _("The operation payload is required.")}, status=400)
         record, created = DiscardedOperation.objects.get_or_create(
             company_id=company_id,
             client_uuid=client_uuid,
@@ -455,7 +458,7 @@ class DiscardedOperationListView(APIView):
         from core.rbac import can_approve_high_value
 
         if not can_approve_high_value(request.user):
-            return Response({"detail": "Managers only."}, status=403)
+            return Response({"detail": _("Managers only.")}, status=403)
         rows = DiscardedOperation.objects.filter(
             company_id=request.user.company_id
         ).select_related("user", "branch")
@@ -481,16 +484,16 @@ class DiscardedOperationResolveView(APIView):
         from core.rbac import can_approve_high_value
 
         if not can_approve_high_value(request.user):
-            return Response({"detail": "Managers only."}, status=403)
+            return Response({"detail": _("Managers only.")}, status=403)
         try:
             record = DiscardedOperation.objects.get(pk=pk, company_id=request.user.company_id)
         except DiscardedOperation.DoesNotExist:
-            return Response({"detail": "Not found."}, status=404)
+            return Response({"detail": _("Not found.")}, status=404)
         if record.resolved_at is not None:
-            return Response({"detail": "Already resolved."}, status=400)
+            return Response({"detail": _("Already resolved.")}, status=400)
         resolution = str(request.data.get("resolution") or "").strip()
         if not resolution:
-            return Response({"resolution": "Say how it was handled."}, status=400)
+            return Response({"resolution": _("Say how it was handled.")}, status=400)
         record.resolved_at = timezone.now()
         record.resolved_by = request.user
         record.resolution = resolution[:255]

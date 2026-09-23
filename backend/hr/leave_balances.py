@@ -3,6 +3,7 @@
 from datetime import date
 from decimal import Decimal
 
+from django.utils.translation import gettext as _
 from rest_framework.exceptions import ValidationError
 
 from hr.models import LeaveAllowance, LeaveRequest
@@ -68,7 +69,7 @@ def check_leave_balance(leave):
         ):
             raise ValidationError(
                 {
-                    "detail": "Insufficient configured leave balance.",
+                    "detail": _("Insufficient configured leave balance."),
                     "code": "insufficient_leave_balance",
                     "year": year,
                 }

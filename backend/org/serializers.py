@@ -1,3 +1,4 @@
+from django.utils.translation import gettext as _
 from rest_framework import serializers
 
 from org.models import Branch, Company, Department, Device, ExchangeRate, TaxProfile
@@ -45,7 +46,7 @@ class CompanySerializer(serializers.ModelSerializer):
 
         if not is_valid_timezone(value):
             raise serializers.ValidationError(
-                "Unknown time zone; use an IANA name such as Africa/Khartoum."
+                _("Unknown time zone; use an IANA name such as Africa/Khartoum.")
             )
         return value
 
@@ -81,7 +82,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
         if user is not None and not getattr(user, "is_platform_admin", False):
             if branch.company_id != getattr(user, "company_id", None):
                 raise serializers.ValidationError(
-                    "Branch does not belong to your company."
+                    _("Branch does not belong to your company.")
                 )
         return branch
 
@@ -116,5 +117,5 @@ class ExchangeRateSerializer(serializers.ModelSerializer):
 
     def validate_rate(self, value):
         if value <= 0:
-            raise serializers.ValidationError("The rate must be greater than zero.")
+            raise serializers.ValidationError(_("The rate must be greater than zero."))
         return value

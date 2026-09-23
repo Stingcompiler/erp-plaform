@@ -193,6 +193,7 @@ class ReturnsAccessTests(APITestCase):
                 }],
             },
             format="json",
+            HTTP_ACCEPT_LANGUAGE="en",
         )
 
         # The batch is accepted (201) but the individual op is refused — that is

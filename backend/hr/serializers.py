@@ -10,6 +10,7 @@ request user, never the request body.
 """
 
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from rest_framework import serializers
 
 from hr.models import (
@@ -56,7 +57,7 @@ class PositionSerializer(serializers.ModelSerializer):
 
     def validate_base_salary(self, value):
         if value < 0:
-            raise serializers.ValidationError("Salary cannot be negative.")
+            raise serializers.ValidationError(_("Salary cannot be negative."))
         return value
 
     class Meta:
@@ -81,7 +82,7 @@ class EmployeeSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
 
     def validate_base_salary_override(self, value):
         if value is not None and value < 0:
-            raise serializers.ValidationError("Salary cannot be negative.")
+            raise serializers.ValidationError(_("Salary cannot be negative."))
         return value
 
     status_display = serializers.CharField(source="get_status_display", read_only=True)
@@ -124,7 +125,7 @@ class AttendanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
             end_date__gte=day,
         ).exists():
             raise serializers.ValidationError(
-                "Attendance is protected by approved leave. Use the leave cancellation process."
+                _("Attendance is protected by approved leave. Use the leave cancellation process.")
             )
 
     def validate(self, attrs):
@@ -209,17 +210,17 @@ class LeaveRequestSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer)
         if value is None:
             return value
         if value.size > MEDICAL_REPORT_MAX_BYTES:
-            raise serializers.ValidationError("A medical report must be 10 MB or smaller.")
+            raise serializers.ValidationError(_("A medical report must be 10 MB or smaller."))
         name = (value.name or "").lower()
         extension = name.rsplit(".", 1)[-1] if "." in name else ""
         if extension not in MEDICAL_REPORT_TYPES:
             raise serializers.ValidationError(
-                "Upload the report as a PDF, JPEG, PNG or WebP file."
+                _("Upload the report as a PDF, JPEG, PNG or WebP file.")
             )
         declared = getattr(value, "content_type", "") or ""
         if declared and declared not in MEDICAL_REPORT_TYPES.values():
             raise serializers.ValidationError(
-                "Upload the report as a PDF, JPEG, PNG or WebP file."
+                _("Upload the report as a PDF, JPEG, PNG or WebP file.")
             )
         return value
 
@@ -248,22 +249,26 @@ class LeaveRequestSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer)
 
     def validate(self, attrs):
         if "status" in attrs:
-            raise serializers.ValidationError({"status": "Use the approval or rejection action."})
+            raise serializers.ValidationError(
+                {"status": _("Use the approval or rejection action.")}
+            )
         if self.instance and self.instance.status != LeaveRequest.PENDING:
-            raise serializers.ValidationError("A decided leave request cannot be edited.")
+            raise serializers.ValidationError(_("A decided leave request cannot be edited."))
         start = attrs.get("start_date", getattr(self.instance, "start_date", None))
         end = attrs.get("end_date", getattr(self.instance, "end_date", None))
         if start and end and end < start:
-            raise serializers.ValidationError("end_date cannot be before start_date.")
+            raise serializers.ValidationError(_("end_date cannot be before start_date."))
         employee = attrs.get("employee", getattr(self.instance, "employee", None))
         if employee:
             # All leave write endpoints run within a transaction. Lock the
             # employee to serialize overlap checks even for the first request.
             employee = Employee.objects.select_for_update().get(pk=employee.pk)
             if employee.status == Employee.STATUS_TERMINATED:
-                raise serializers.ValidationError("Cannot request leave for a terminated employee.")
+                raise serializers.ValidationError(
+                    _("Cannot request leave for a terminated employee.")
+                )
             if employee.hire_date and start and start < employee.hire_date:
-                raise serializers.ValidationError("Leave cannot start before the hire date.")
+                raise serializers.ValidationError(_("Leave cannot start before the hire date."))
             if start and end:
                 overlaps = LeaveRequest.objects.filter(
                     company_id=employee.company_id,
@@ -276,7 +281,7 @@ class LeaveRequestSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer)
                     overlaps = overlaps.exclude(pk=self.instance.pk)
                 if overlaps.exists():
                     raise serializers.ValidationError(
-                        "This leave overlaps another pending or approved request."
+                        _("This leave overlaps another pending or approved request.")
                     )
         return attrs
 
@@ -329,19 +334,19 @@ class LeaveAllowanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerialize
             and user.branch_id
             and employee.branch_id not in (None, user.branch_id)
         ):
-            raise serializers.ValidationError({"employee": "Employee is outside your branch."})
+            raise serializers.ValidationError({"employee": _("Employee is outside your branch.")})
         Employee.objects.select_for_update().get(pk=employee.pk)
         year = attrs.get("year", getattr(self.instance, "year", None))
         leave_type = attrs.get("leave_type", getattr(self.instance, "leave_type", None))
         if not 1900 <= year <= 9998:
-            raise serializers.ValidationError({"year": "Use a year from 1900 to 9998."})
+            raise serializers.ValidationError({"year": _("Use a year from 1900 to 9998.")})
         if self.instance and (
             employee.pk != self.instance.employee_id
             or year != self.instance.year
             or leave_type != self.instance.leave_type
         ):
             raise serializers.ValidationError(
-                "Employee, year and leave type cannot be changed on an existing allocation."
+                _("Employee, year and leave type cannot be changed on an existing allocation.")
             )
         if (
             LeaveAllowance.objects.filter(
@@ -351,19 +356,19 @@ class LeaveAllowanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerialize
             .exists()
         ):
             raise serializers.ValidationError(
-                "An allocation already exists for this employee, year and leave type."
+                _("An allocation already exists for this employee, year and leave type.")
             )
         entitled = attrs.get("entitled_days", getattr(self.instance, "entitled_days", 0))
         carried = attrs.get("carried_days", getattr(self.instance, "carried_days", 0))
         if entitled < 0 or carried < 0:
-            raise serializers.ValidationError("Allocated days cannot be negative.")
+            raise serializers.ValidationError(_("Allocated days cannot be negative."))
         if entitled + carried < usage(employee.pk, employee.company_id, year, leave_type):
             raise serializers.ValidationError(
-                "The allocation cannot be less than already approved leave."
+                _("The allocation cannot be less than already approved leave.")
             )
         if not str(attrs.get("note", "")).strip():
             raise serializers.ValidationError(
-                {"note": "Provide the allocation or adjustment reason."}
+                {"note": _("Provide the allocation or adjustment reason.")}
             )
         return attrs
 
@@ -395,12 +400,12 @@ class LeaveAccrualPolicySerializer(serializers.ModelSerializer):
             .exists()
         ):
             raise serializers.ValidationError(
-                {"leave_type": "A policy already exists for this leave type."}
+                {"leave_type": _("A policy already exists for this leave type.")}
             )
         for name in ("annual_days", "carryover_limit"):
             value = attrs.get(name, getattr(self.instance, name, None))
             if value is not None and value < 0:
-                raise serializers.ValidationError({name: "Days cannot be negative."})
+                raise serializers.ValidationError({name: _("Days cannot be negative.")})
         return attrs
 
 
@@ -425,7 +430,7 @@ class PerformanceRecordSerializer(_CompanyScopedFKMixin, serializers.ModelSerial
 
     def validate_rating(self, value):
         if not 1 <= value <= 5:
-            raise serializers.ValidationError("Rating must be between 1 and 5.")
+            raise serializers.ValidationError(_("Rating must be between 1 and 5."))
         return value
 
     def create(self, validated_data):
@@ -472,15 +477,15 @@ class SalaryAdvanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer
     def validate(self, attrs):
         if "status" in attrs:
             raise serializers.ValidationError(
-                {"status": "Use the authorised approval or rejection action."}
+                {"status": _("Use the authorised approval or rejection action.")}
             )
         if self.instance and self.instance.status != SalaryAdvance.PENDING:
-            raise serializers.ValidationError("A decided advance cannot be edited.")
+            raise serializers.ValidationError(_("A decided advance cannot be edited."))
         return attrs
 
     def validate_amount(self, value):
         if value <= 0:
-            raise serializers.ValidationError("An advance must be greater than zero.")
+            raise serializers.ValidationError(_("An advance must be greater than zero."))
         return value
 
     class Meta:

@@ -1,4 +1,6 @@
 import re
+
+from django.utils.translation import gettext as _
 from rest_framework import serializers
 
 from subscriptions.models import (
@@ -55,7 +57,8 @@ class PlanVersionSerializer(serializers.ModelSerializer):
         unknown = set(value) - allowed
         if unknown:
             raise serializers.ValidationError(
-                f"Unknown modules: {', '.join(sorted(unknown))}"
+                _("Unknown modules: %(modules)s")
+                % {"modules": ", ".join(sorted(unknown))}
             )
         dependencies = {
             "sales_returns": {"sales", "inventory"},
@@ -66,7 +69,8 @@ class PlanVersionSerializer(serializers.ModelSerializer):
                 missing = required - set(value) if module in value else set()
                 if missing:
                     raise serializers.ValidationError(
-                        f"{module} also requires {', '.join(sorted(missing))}."
+                        _("%(module)s also requires %(required)s.")
+                        % {"module": module, "required": ", ".join(sorted(missing))}
                     )
         return value
 
@@ -75,25 +79,25 @@ class PlanVersionSerializer(serializers.ModelSerializer):
 
         allowed = set(LIMIT_KEYS) - {"storage_mb"}
         if set(value) - allowed:
-            raise serializers.ValidationError("One or more add-ons are unknown.")
+            raise serializers.ValidationError(_("One or more add-ons are unknown."))
         for item in value.values():
             try:
                 if Decimal(str(item)) < 0:
                     raise ValueError
             except (InvalidOperation, ValueError):
-                raise serializers.ValidationError("Add-on prices must be non-negative amounts.")
+                raise serializers.ValidationError(_("Add-on prices must be non-negative amounts."))
         return {key: str(Decimal(str(item))) for key, item in value.items()}
 
     def validate_limits(self, value):
         allowed = set(LIMIT_KEYS)
         if set(value) - allowed:
-            raise serializers.ValidationError("One or more usage limits are unknown.")
+            raise serializers.ValidationError(_("One or more usage limits are unknown."))
         if any(
             not isinstance(item, int) or isinstance(item, bool) or item < 0
             for item in value.values()
         ):
             raise serializers.ValidationError(
-                "Usage limits must be non-negative integers."
+                _("Usage limits must be non-negative integers.")
             )
         return value
 
@@ -181,20 +185,20 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             required_end, getattr(self.instance, required_end, None)
         ):
             raise serializers.ValidationError(
-                {required_end: f"Required for {status_value}."}
+                {required_end: _("Required for %(status)s.") % {"status": status_value}}
             )
         for field in ("period_ends_at", "trial_ends_at", "grace_ends_at"):
             value = attrs.get(field, getattr(self.instance, field, None))
             if value and starts_at and value <= starts_at:
                 raise serializers.ValidationError(
-                    {field: "Must be after the subscription start."}
+                    {field: _("Must be after the subscription start.")}
                 )
         return attrs
 
     def validate_plan_version(self, value):
         if value.published_at is None:
             raise serializers.ValidationError(
-                "Publish the plan version before assigning it to a company."
+                _("Publish the plan version before assigning it to a company.")
             )
         return value
 
@@ -254,7 +258,7 @@ class SubscriptionInvoiceSerializer(serializers.ModelSerializer):
         )
         if company and subscription and subscription.company_id != company.pk:
             raise serializers.ValidationError(
-                "Invoice and subscription must belong to the same company."
+                _("Invoice and subscription must belong to the same company.")
             )
         period_start = attrs.get(
             "period_start", getattr(self.instance, "period_start", None)
@@ -264,7 +268,7 @@ class SubscriptionInvoiceSerializer(serializers.ModelSerializer):
         )
         if period_start and period_end and period_end < period_start:
             raise serializers.ValidationError(
-                {"period_end": "The invoice period cannot end before it starts."}
+                {"period_end": _("The invoice period cannot end before it starts.")}
             )
         return attrs
 
@@ -331,14 +335,14 @@ class SubscriptionPaymentSerializer(serializers.ModelSerializer):
         if attrs.get("method") == "bank_transfer":
             if len(last4) != 4:
                 raise serializers.ValidationError(
-                    {"transfer_reference": "Enter the transfer reference from the app."}
+                    {"transfer_reference": _("Enter the transfer reference from the app.")}
                 )
             company = self.context["request"].user.company
             if full and SubscriptionPayment.objects.filter(
                 company=company, transfer_reference=full,
             ).exclude(status=SubscriptionPayment.REJECTED).exists():
                 raise serializers.ValidationError(
-                    {"transfer_reference": "This transfer reference was already submitted."}
+                    {"transfer_reference": _("This transfer reference was already submitted.")}
                 )
         return attrs
 
@@ -370,14 +374,14 @@ class PaymentVerificationSerializer(serializers.Serializer):
                 ).to_internal_value(row["amount"])
             except (KeyError, TypeError, ValueError):
                 raise serializers.ValidationError(
-                    "Each allocation needs invoice_id and amount."
+                    _("Each allocation needs invoice_id and amount.")
                 )
             if amount <= 0:
                 raise serializers.ValidationError(
-                    "Allocation amounts must be positive."
+                    _("Allocation amounts must be positive.")
                 )
             if invoice_id in invoice_ids:
-                raise serializers.ValidationError("Each invoice may appear only once.")
+                raise serializers.ValidationError(_("Each invoice may appear only once."))
             invoice_ids.add(invoice_id)
             cleaned.append({"invoice_id": invoice_id, "amount": amount})
         return cleaned

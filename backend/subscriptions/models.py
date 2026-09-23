@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
+from django.utils.translation import gettext as _
 
 # What a plan may cap. The counted ones have a resolver in
 # subscriptions.services.LIMIT_RESOLVERS; storage_mb is priced, not counted.
@@ -90,7 +91,8 @@ class PlanVersion(models.Model):
         unknown = modules - allowed
         if unknown:
             raise ValidationError(
-                {"modules": f"Unknown modules: {', '.join(sorted(unknown))}"}
+                {"modules": _("Unknown modules: %(modules)s")
+                 % {"modules": ", ".join(sorted(unknown))}}
             )
         dependencies = {
             "sales_returns": {"sales", "inventory"},
@@ -102,24 +104,27 @@ class PlanVersion(models.Model):
                 if missing:
                     names = ", ".join(sorted(missing))
                     raise ValidationError(
-                        {"modules": f"{module} also requires {names}."}
+                        {"modules": _("%(module)s also requires %(required)s.")
+                         % {"module": module, "required": names}}
                     )
         for name, value in (self.limits or {}).items():
             if name not in LIMIT_KEYS:
-                raise ValidationError({"limits": f"Unknown limit: {name}"})
+                raise ValidationError({"limits": _("Unknown limit: %(name)s") % {"name": name}})
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
                 raise ValidationError(
-                    {"limits": f"{name} must be a non-negative integer."}
+                    {"limits": _("%(name)s must be a non-negative integer.") % {"name": name}}
                 )
         for name, value in (self.addon_prices or {}).items():
             if name not in LIMIT_KEYS or name == "storage_mb":
-                raise ValidationError({"addon_prices": f"Unknown add-on: {name}"})
+                raise ValidationError(
+                    {"addon_prices": _("Unknown add-on: %(name)s") % {"name": name}}
+                )
             try:
                 if Decimal(str(value)) < 0:
                     raise ValueError
             except (InvalidOperation, ValueError):
                 raise ValidationError(
-                    {"addon_prices": f"{name} must be a non-negative amount."}
+                    {"addon_prices": _("%(name)s must be a non-negative amount.") % {"name": name}}
                 )
 
     def save(self, *args, **kwargs):
@@ -146,7 +151,7 @@ class PlanVersion(models.Model):
                 getattr(previous, field) != getattr(self, field) for field in fields
             ):
                 raise ValidationError(
-                    "A published or used plan version is immutable; create a new version."
+                    _("A published or used plan version is immutable; create a new version.")
                 )
         super().save(*args, **kwargs)
 
@@ -293,7 +298,7 @@ class SubscriptionPayment(models.Model):
     def clean(self):
         if self.method == "bank_transfer" and len(self.reference_last4) != 4:
             raise ValidationError(
-                {"reference_last4": "Enter the last four reference characters."}
+                {"reference_last4": _("Enter the last four reference characters.")}
             )
 
 
@@ -324,7 +329,7 @@ class PaymentAllocation(models.Model):
             and self.payment.company_id != self.invoice.company_id
         ):
             raise ValidationError(
-                "Payment and invoice must belong to the same company."
+                _("Payment and invoice must belong to the same company.")
             )
 
 

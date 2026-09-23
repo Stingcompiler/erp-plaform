@@ -238,15 +238,17 @@ class PurchaseOrderViewSet(AppendOnlyScopedViewSet):
         po = self.get_object()
         new_status = request.data.get("status")
         if new_status not in dict(PurchaseOrder.STATUS_CHOICES):
-            return Response({"detail": "Invalid status."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": _("Invalid status.")}, status=status.HTTP_400_BAD_REQUEST)
         if new_status not in self.TRANSITIONS.get(po.status, set()):
             return Response(
-                {"detail": f"An order that is {po.status} cannot be set to {new_status}."},
+                {"detail": _("An order that is %(current)s cannot be set to %(new)s.") % {
+                    "current": po.status, "new": new_status,
+                }},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if new_status == PurchaseOrder.CANCELLED and po.goods_receipts.exists():
             return Response(
-                {"detail": "Goods were received against this order; it cannot be cancelled."},
+                {"detail": _("Goods were received against this order; it cannot be cancelled.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         po.status = new_status
@@ -344,13 +346,13 @@ class BillViewSet(AppendOnlyScopedViewSet):
         debit note or correct the payment instead. Manager-only."""
         if not can_approve_high_value(request.user):
             return Response(
-                {"detail": "Only a manager or owner may void a bill."},
+                {"detail": _("Only a manager or owner may void a bill.")},
                 status=status.HTTP_403_FORBIDDEN,
             )
         reason = str(request.data.get("reason") or "").strip()
         if not reason:
             return Response(
-                {"reason": "A reason is required to void a bill."},
+                {"reason": _("A reason is required to void a bill.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         from django.db import transaction
@@ -358,10 +360,10 @@ class BillViewSet(AppendOnlyScopedViewSet):
         with transaction.atomic():
             bill = Bill.objects.select_for_update().get(pk=self.get_object().pk)
             if bill.is_void:
-                return Response({"detail": "This bill is already void."}, status=400)
+                return Response({"detail": _("This bill is already void.")}, status=400)
             if bill.payments.exists():
                 return Response(
-                    {"detail": "Payments were recorded against this bill; it cannot be voided."},
+                    {"detail": _("Payments were recorded against this bill; it cannot be voided.")},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             bill.is_void = True
@@ -414,14 +416,16 @@ class SupplierPaymentViewSet(AppendOnlyScopedViewSet):
     def verify(self, request, pk=None):
         payment = self.get_object()
         if payment.verified_at is not None:
-            return Response({"detail": "Already verified."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": _("Already verified.")}, status=status.HTTP_400_BAD_REQUEST)
         # Segregation of duties — mirrors the AR side: the recorder of an
         # outgoing payment cannot also be its approver.
         if payment.recorded_by_id and payment.recorded_by_id == request.user.id:
             return Response(
                 {
-                    "detail": "You recorded this payment, so you cannot verify it. "
-                    "Verification must be done by a different user."
+                    "detail": _(
+                        "You recorded this payment, so you cannot verify it. "
+                        "Verification must be done by a different user."
+                    )
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
@@ -430,10 +434,10 @@ class SupplierPaymentViewSet(AppendOnlyScopedViewSet):
         if threshold and payment.amount >= threshold and not can_approve_high_value(request.user):
             return Response(
                 {
-                    "detail": (
-                        f"Payments of {threshold} or more must be approved by a "
+                    "detail": _(
+                        "Payments of %(threshold)s or more must be approved by a "
                         "CFO, owner or general manager."
-                    ),
+                    ) % {"threshold": threshold},
                     "threshold": str(threshold),
                     "requires_role": sorted(APPROVER_ROLES),
                 },

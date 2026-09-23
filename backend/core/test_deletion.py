@@ -10,6 +10,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.urls import reverse
+from django.utils import translation
 from rest_framework.test import APITestCase
 
 from accounts.models import Role, User
@@ -60,7 +61,9 @@ class TierANeverDeletableTests(DeletionPolicyTestCase):
             company=self.company, category="Rent",
             amount=Decimal("1"), date=date.today(),
         )
-        resp = self.client.delete(reverse("expense-detail", args=[exp.id]))
+        resp = self.client.delete(
+            reverse("expense-detail", args=[exp.id]), HTTP_ACCEPT_LANGUAGE="en"
+        )
         self.assertIn("offsetting", resp.data["detail"].lower())
 
     def test_expense_cannot_be_edited_in_place(self):
@@ -288,7 +291,8 @@ class ProtectedErrorTests(DeletionPolicyTestCase):
             wh.delete()
             self.fail("expected ProtectedError")
         except ProtectedError as exc:
-            resp = api_exception_handler(exc, {})
+            with translation.override("en"):
+                resp = api_exception_handler(exc, {})
 
         self.assertEqual(resp.status_code, 409)
         self.assertIn("stock movement", resp.data["detail"].lower())

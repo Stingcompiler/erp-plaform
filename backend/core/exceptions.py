@@ -10,6 +10,7 @@ nothing about what is actually holding the record.
 """
 
 from django.db.models import ProtectedError, RestrictedError
+from django.utils.translation import gettext as _
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import exception_handler as drf_exception_handler
@@ -40,14 +41,17 @@ def _blocking_summary(exc):
 def api_exception_handler(exc, context):
     if isinstance(exc, (ProtectedError, RestrictedError)):
         blocking = _blocking_summary(exc)
-        detail = "This record is still in use and cannot be deleted."
+        detail = _(
+            "This record is still in use and cannot be deleted. "
+            "Archive it instead to hide it from new work."
+        )
         if blocking:
-            detail = (
-                f"This record is still referenced by {blocking}, "
-                "so deleting it would break that history."
-            )
+            detail = _(
+                "This record is still referenced by %(blocking)s, so deleting it would "
+                "break that history. Archive it instead to hide it from new work."
+            ) % {"blocking": blocking}
         return Response(
-            {"detail": f"{detail} Archive it instead to hide it from new work."},
+            {"detail": detail},
             status=status.HTTP_409_CONFLICT,
         )
     return drf_exception_handler(exc, context)

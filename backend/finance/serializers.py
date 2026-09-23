@@ -85,7 +85,7 @@ class BudgetSerializer(serializers.ModelSerializer):
         start = attrs.get("period_start", getattr(self.instance, "period_start", None))
         end = attrs.get("period_end", getattr(self.instance, "period_end", None))
         if start and end and end < start:
-            raise serializers.ValidationError("period_end cannot be before period_start.")
+            raise serializers.ValidationError(_("period_end cannot be before period_start."))
         return attrs
 
     def create(self, validated_data):
@@ -101,7 +101,7 @@ class BudgetSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         if instance.status == Budget.APPROVED:
             raise serializers.ValidationError(
-                "An approved budget is locked. Reopen it before making changes."
+                _("An approved budget is locked. Reopen it before making changes.")
             )
         lines = validated_data.pop("lines", None)
         from django.db import transaction

@@ -2,6 +2,7 @@ import json
 
 from django.conf import settings
 from django.http import HttpResponse
+from django.utils.translation import gettext as _
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -50,7 +51,7 @@ class BackupView(APIView):
         company_id = getattr(request.user, "company_id", None)
         if company_id is None:
             return Response(
-                {"detail": "A company-scoped user is required."},
+                {"detail": _("A company-scoped user is required.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         company = Company.objects.get(pk=company_id)
@@ -88,7 +89,7 @@ class RestoreView(APIView):
         company_id = getattr(request.user, "company_id", None)
         if company_id is None:
             return Response(
-                {"detail": "A company-scoped user is required."},
+                {"detail": _("A company-scoped user is required.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         dump = request.data.get("data")
@@ -105,20 +106,20 @@ class RestoreView(APIView):
             record = BackupRecord.objects.filter(company_id=company_id, **lookup).first()
             if record is None or not record.is_downloadable:
                 return Response(
-                    {"detail": "That backup does not belong to your company."},
+                    {"detail": _("That backup does not belong to your company.")},
                     status=status.HTTP_404_NOT_FOUND,
                 )
             payload = snapshots.read(record)
             if not payload:
                 return Response(
-                    {"detail": "Could not read that backup from storage."},
+                    {"detail": _("Could not read that backup from storage.")},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             try:
                 dump = json.loads(payload)
             except (ValueError, TypeError):
                 return Response(
-                    {"detail": "Stored backup payload is not valid JSON."},
+                    {"detail": _("Stored backup payload is not valid JSON.")},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         if not isinstance(dump, dict):
@@ -171,11 +172,13 @@ class BackupDownloadView(APIView):
         record = BackupRecord.objects.filter(company_id=company_id, pk=pk).first()
         payload = snapshots.read(record) if record is not None else None
         if not payload:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": _("Not found.")}, status=status.HTTP_404_NOT_FOUND)
         wanted = (request.query_params.get("format") or "json").lower()
         if wanted not in exporters.FORMATS:
             return Response(
-                {"format": f"Choose one of {', '.join(exporters.FORMATS)}."},
+                {"format": _("Choose one of %(options)s.") % {
+                    "options": ", ".join(exporters.FORMATS),
+                }},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         stamp = record.created_at.strftime("%Y-%m-%dT%H-%M-%S")
@@ -225,14 +228,14 @@ class PreferenceView(APIView):
         if language is not None:
             if language not in dict(UserPreference.LANGUAGE_CHOICES):
                 return Response(
-                    {"detail": "Unsupported language."},
+                    {"detail": _("Unsupported language.")},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             pref.language = language
         if theme is not None:
             if theme not in dict(UserPreference.THEME_CHOICES):
                 return Response(
-                    {"detail": "Unsupported theme."},
+                    {"detail": _("Unsupported theme.")},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             pref.theme = theme

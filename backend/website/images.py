@@ -11,6 +11,7 @@ import io
 import uuid
 
 from django.core.files.base import ContentFile
+from django.utils.translation import gettext as _
 from PIL import Image, ImageOps, UnidentifiedImageError
 from rest_framework.exceptions import ValidationError
 
@@ -29,17 +30,17 @@ def prepare_image(uploaded, max_side, *, square=False):
     """Return a ContentFile (WebP) ready for an ImageField, or raise a
     ValidationError the API can show to the merchant."""
     if uploaded is None:
-        raise ValidationError({"image": "Choose an image file."})
+        raise ValidationError({"image": _("Choose an image file.")})
     if uploaded.size > MAX_UPLOAD_BYTES:
-        raise ValidationError({"image": "The image is larger than 8 MB."})
+        raise ValidationError({"image": _("The image is larger than 8 MB.")})
     try:
         image = Image.open(uploaded)
         image_format = image.format
         image.load()
     except (UnidentifiedImageError, OSError):
-        raise ValidationError({"image": "This file is not a JPEG, PNG or WebP image."})
+        raise ValidationError({"image": _("This file is not a JPEG, PNG or WebP image.")})
     if image_format not in ALLOWED_FORMATS:
-        raise ValidationError({"image": "Use a JPEG, PNG or WebP image."})
+        raise ValidationError({"image": _("Use a JPEG, PNG or WebP image.")})
 
     # Honour the phone's rotation flag, then drop it with the rest of the EXIF.
     image = ImageOps.exif_transpose(image)
