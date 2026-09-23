@@ -285,6 +285,9 @@ class UserDetailSerializer(UserSerializer):
 
 class MeSerializer(serializers.ModelSerializer):
     role_name = serializers.SerializerMethodField()
+    # "branch" for a role limited to one branch: screens hide what the server
+    # only offers company-wide (e.g. average/FIFO valuation).
+    role_scope = serializers.SerializerMethodField()
     must_change_password = serializers.BooleanField(read_only=True)
     company_name = serializers.SerializerMethodField()
     is_platform_admin = serializers.BooleanField(read_only=True)
@@ -296,6 +299,9 @@ class MeSerializer(serializers.ModelSerializer):
 
     def get_role_name(self, obj):
         return obj.role.name if obj.role_id else None
+
+    def get_role_scope(self, obj):
+        return obj.role.scope_level if obj.role_id else None
 
     # Shapes how much of the app the client puts on screen. Sent here rather
     # than fetched separately so the shell can render the right navigation on
@@ -390,6 +396,7 @@ class MeSerializer(serializers.ModelSerializer):
             "branch",
             "role",
             "role_name",
+            "role_scope",
             "tax_rate",
             "entitlements",
             "deployment_mode",

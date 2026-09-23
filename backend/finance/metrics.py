@@ -71,14 +71,20 @@ def _revenue_terms(company_id, start=None, end=None, branch_id=None):
     lines = in_range(InvoiceLine.objects.filter(
         invoice__company_id=company_id, invoice__is_void=False,
     ), "invoice__issued_at__date", start, end)
+    # A return whose credit note was voided put the debt back on the
+    # customer's account, so its goods count as sold again.
     returned_lines = in_range(
-        SalesReturnLine.objects.filter(sales_return__company_id=company_id),
+        SalesReturnLine.objects.filter(sales_return__company_id=company_id)
+        .exclude(sales_return__credit_notes__is_void=True),
         "sales_return__created_at__date", start, end,
     )
+    # A note that corrects an opening balance moves last year's receivable,
+    # not this period's sales (the app itself tells people to use one).
     notes = in_range(
         CreditNote.objects.filter(
             company_id=company_id, is_void=False, sales_return__isnull=True,
-        ).filter(Q(invoice__isnull=True) | Q(invoice__is_void=False)),
+        ).filter(Q(invoice__isnull=True) | Q(invoice__is_void=False))
+        .exclude(invoice__is_opening_balance=True),
         "created_at__date", start, end,
     )
     if branch_id is not None:
