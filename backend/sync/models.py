@@ -47,6 +47,9 @@ class SyncOperation(models.Model):
     result_model = models.CharField(max_length=64, blank=True)
     result_id = models.CharField(max_length=64, blank=True)
     error_detail = models.TextField(blank=True)
+    # The field the refusal is about ("customer", "payment", "shift"): lets
+    # the till offer the matching repair instead of only retry or discard.
+    error_field = models.CharField(max_length=64, blank=True, default="")
 
     class Meta:
         ordering = ["batch", "index"]
@@ -64,6 +67,7 @@ class SyncOperation(models.Model):
             "status": self.status,
             "id": int(self.result_id) if self.result_id.isdigit() else None,
             "error": self.error_detail or None,
+            "error_field": self.error_field or None,
         }
 
 

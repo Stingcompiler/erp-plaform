@@ -525,6 +525,14 @@ class CashShift(models.Model):
     counted_cash = models.DecimalField(
         max_digits=16, decimal_places=2, null=True, blank=True
     )
+    # The expected figure shown when the drawer was counted. Offline sales
+    # rung up during the shift can sync after the close and still land here
+    # (their cash was in the drawer at the count); the live expected_cash()
+    # then includes them, and the gap to this frozen figure is shown as late
+    # cash instead of silently rewriting what the cashier was held to.
+    expected_at_close = models.DecimalField(
+        max_digits=16, decimal_places=2, null=True, blank=True
+    )
     status = models.CharField(max_length=8, choices=STATUS_CHOICES, default=OPEN)
     note = models.CharField(max_length=255, blank=True)
 

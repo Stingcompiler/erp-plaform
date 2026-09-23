@@ -304,3 +304,32 @@ class TwoTillsSameStockTests(OfflineBase):
         self.client.force_authenticate(self.owner)
         counts = self.client.get(reverse("attention")).data["counts"]
         self.assertGreaterEqual(counts.get("stock", 0), 1)
+
+
+class RepairableRefusalTests(OfflineBase):
+    """A queued sale refused for a reason the cashier can fix says which
+    field it was, so the till can offer the repair instead of only discard;
+    an unexpected failure never sends Python's own text to the cashier."""
+
+    _op = BatchRaceTests._op
+
+    def test_an_unpaid_sale_without_customer_names_the_customer_field(self):
+        op = self._op()
+        op["payload"]["customer"] = None
+        op["payload"]["payment"]["amount"] = "4.00"  # less than the total
+        result = self._push([op]).data["results"][0]
+        self.assertEqual(result["status"], "error")
+        self.assertEqual(result["error_field"], "customer")
+        # Repaired in place (same client_uuid) and sent again: applied once.
+        op["payload"]["customer"] = self.customer.pk
+        again = self._push([op]).data["results"][0]
+        self.assertEqual(again["status"], "applied", again)
+        self.assertEqual(Invoice.objects.filter(client_uuid=op["client_uuid"]).count(), 1)
+
+    def test_an_unexpected_failure_is_reported_in_words(self):
+        with mock.patch(
+            "sync.services.POSCheckoutSerializer.save", side_effect=RuntimeError("boom internals")
+        ):
+            result = self._push([self._op()]).data["results"][0]
+        self.assertEqual(result["status"], "error")
+        self.assertNotIn("boom", result["error"])

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-23 21:26+0000\n"
+"POT-Creation-Date: 2026-09-23 22:13+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -524,7 +524,9 @@ msgstr "لا يُرسَل إلا الجرد الذي في حالة مسودة."
 msgid "Add at least one counted line before submitting."
 msgstr "أضف سطر جرد واحدًا على الأقل قبل الإرسال."
 
-msgid "Another count for this warehouse is awaiting approval; approve or cancel it first."
+msgid ""
+"Another count for this warehouse is awaiting approval; approve or cancel it "
+"first."
 msgstr "يوجد جرد آخر لهذا المستودع بانتظار الاعتماد؛ اعتمده أو ألغِه أولًا."
 
 msgid "Your role cannot approve stock counts."
@@ -1094,6 +1096,9 @@ msgstr "استخدم نسبة الخصم أو مبلغه في السطر، لا 
 msgid "Amount must not be zero."
 msgstr "المبلغ لا يمكن أن يكون صفرًا."
 
+msgid "Record a refund from its return or invoice; the drawer is updated for you."
+msgstr "سجّل الاسترداد من المرتجع أو الفاتورة، وسيُحدَّث الصندوق تلقائيًا."
+
 #, python-format
 msgid "A '%(kind)s' takes money out — the amount must be negative."
 msgstr "حركة '%(kind)s' تُخرج نقدًا — المبلغ يجب أن يكون سالبًا."
@@ -1155,6 +1160,9 @@ msgid ""
 "of %(limit)s."
 msgstr ""
 "هذا البيع يرفع رصيد العميل إلى %(exposure)s متجاوزًا حد ائتمانه %(limit)s."
+
+msgid "That till session belongs to another cashier."
+msgstr "جلسة الصندوق هذه تخص كاشيرًا آخر."
 
 msgid ""
 "Payment exceeds the invoice total (tax included). Give change instead of "
@@ -1431,6 +1439,9 @@ msgstr "دورك لا يسمح بهذه العملية."
 
 msgid "This operation identifier is already in use."
 msgstr "معرّف هذه العملية مستخدم بالفعل."
+
+msgid "The server could not apply this operation; it has been reported."
+msgstr "تعذر على الخادم تنفيذ هذه العملية، وتم الإبلاغ عنها."
 
 msgid "A company is required."
 msgstr "يلزم وجود شركة."

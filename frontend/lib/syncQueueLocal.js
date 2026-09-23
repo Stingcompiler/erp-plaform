@@ -52,8 +52,20 @@ export const queue = {
       } else {
         const current = localStorage.getItem(key);
         if (current) localStorage.setItem(key, JSON.stringify({ ...JSON.parse(current),
-          error: result?.error || "No confirmation received for this operation." }));
+          error: result?.error || "No confirmation received for this operation.",
+          error_field: result?.error_field || null }));
       }
     }
+  },
+  // Repair a refused operation in place (e.g. attach the customer a sale on
+  // account needs) and clear its error so the next sync sends it again.
+  amend(id, patch, scope) {
+    const key = prefix(scope) + id;
+    const current = localStorage.getItem(key);
+    if (!current) return null;
+    const row = JSON.parse(current);
+    const next = { ...row, payload: { ...row.payload, ...patch }, error: null, error_field: null };
+    localStorage.setItem(key, JSON.stringify(next));
+    return next;
   },
 };

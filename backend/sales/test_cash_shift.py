@@ -241,13 +241,14 @@ class DrawerMovementTests(CashShiftTestCase):
         self.assertEqual(resp.status_code, expect, resp.data)
         return resp
 
-    def test_a_refund_lowers_the_expectation(self):
-        """Without this a walk-in refund hands money back with nothing recording
-        it, and the drawer can never reconcile."""
+    def test_a_loose_refund_is_refused(self):
+        """A refund moves the drawer from its Refund document (linked, so the
+        customer's credit closes too). A loose refund typed into the drawer
+        form paid the customer a second time, so it is refused."""
         shift = self._shift("200")
         self._sell(shift, "100", number=1)
-        self._move(shift, CashDrawerMovement.REFUND, "-40")
-        self.assertEqual(shift.expected_cash(), Decimal("260"))
+        self._move(shift, CashDrawerMovement.REFUND, "-40", expect=400)
+        self.assertEqual(shift.expected_cash(), Decimal("300"))
 
     def test_a_drop_to_the_safe_lowers_the_expectation(self):
         shift = self._shift("500")
@@ -431,23 +432,62 @@ class PosIntegrationTests(CashShiftTestCase):
         self.assertEqual(resp.status_code, 201, resp.data)
         self.assertIsNone(Payment.objects.get(invoice_id=resp.data["id"]).shift_id)
 
+    def _checkout_into(self, shift, occurred_at=None):
+        body = {
+            "warehouse": self.warehouse.id,
+            "shift": shift.id,
+            "lines": [{"product": self.product.id, "quantity": "1"}],
+            "payment": {"method": "cash", "amount": "100"},
+        }
+        if occurred_at is not None:
+            body["occurred_at"] = occurred_at.isoformat()
+        return self.client.post(reverse("pos-checkout"), body, format="json")
+
     def test_a_sale_cannot_be_rung_into_a_closed_drawer(self):
         shift = self._shift("100")
         self.client.post(
             reverse("cashshift-close", args=[shift.id]),
             {"counted_cash": "100"}, format="json",
         )
-        resp = self.client.post(
-            reverse("pos-checkout"),
-            {
-                "warehouse": self.warehouse.id,
-                "shift": shift.id,
-                "lines": [{"product": self.product.id, "quantity": "1"}],
-                "payment": {"method": "cash", "amount": "100"},
-            },
-            format="json",
-        )
+        resp = self._checkout_into(shift)
         self.assertEqual(resp.status_code, 400, resp.data)
+
+    def test_an_offline_sale_made_during_the_shift_lands_after_the_close(self):
+        # Rung up while the drawer was open, synced after it was counted:
+        # the cash was in that drawer, so the sale belongs to it. It used to
+        # be refused for ever, losing a paid sale.
+        from datetime import timedelta
+        from django.utils import timezone
+
+        shift = self._shift("100")
+        rung_at = timezone.now()
+        closed = self.client.post(
+            reverse("cashshift-close", args=[shift.id]),
+            {"counted_cash": "200"}, format="json",
+        )
+        self.assertEqual(closed.data["expected_at_close"], "100.00")
+        resp = self._checkout_into(shift, occurred_at=rung_at)
+        self.assertEqual(resp.status_code, 201, resp.data)
+        shift.refresh_from_db()
+        # Live variance now explains the extra 100 counted; the frozen
+        # figure still shows what the cashier was held to at the count.
+        self.assertEqual(shift.expected_cash(), Decimal("200"))
+        detail = self.client.get(reverse("cashshift-detail", args=[shift.id])).data
+        self.assertEqual(detail["late_cash"], "100.00")
+        # A sale stamped after the close is still refused.
+        late = self._checkout_into(shift, occurred_at=timezone.now() + timedelta(minutes=5))
+        self.assertEqual(late.status_code, 400, late.data)
+
+    def test_a_cashier_cannot_ring_into_another_cashiers_drawer(self):
+        colleague = User.objects.create_user(
+            email="other@shop.test", password="passw0rd12345", company=self.company,
+            role=self.cashier_role, branch=self.branch,
+        )
+        theirs = CashShift.objects.create(
+            company=self.company, branch=self.branch, opened_by=colleague,
+            opening_float=Decimal("0"),
+        )
+        self.assertEqual(self._checkout_into(theirs).status_code, 400)
 
     def test_a_sale_cannot_be_rung_into_another_companys_drawer(self):
         other = Company.objects.create(name="Beta")

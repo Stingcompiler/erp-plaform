@@ -88,7 +88,12 @@ export default function ShiftHistory({ refreshKey }) {
                 <tr key={s.id} className="border-b border-line last:border-0">
                   <td className="px-3 py-2"><div>{fmt(s.opened_at)}</div><div className="text-xs text-muted">{s.opened_by_name || "—"}</div></td>
                   <td className="px-3 py-2"><div>{fmt(s.closed_at)}</div><div className="text-xs text-muted">{s.closed_by_name || "—"}</div></td>
-                  <td className="tabular px-3 py-2 text-end">{money(s.expected_cash)}</td>
+                  <td className="tabular px-3 py-2 text-end">
+                    {money(s.expected_cash)}
+                    {/* Offline sales rung up in this shift that synced after
+                        the count: they explain an overage at close. */}
+                    {s.late_cash && <div className="text-xs font-normal text-warn">{t("till.history.lateCash", { amount: money(s.late_cash) })}</div>}
+                  </td>
                   <td className="tabular px-3 py-2 text-end">{s.counted_cash == null ? "—" : money(s.counted_cash)}</td>
                   <td className={`tabular px-3 py-2 text-end font-medium ${s.variance == null || Number(s.variance) === 0 ? "text-muted" : Number(s.variance) < 0 ? "text-danger" : "text-ok"}`}>{s.variance == null ? "—" : money(s.variance)}</td>
                   <td className="px-3 py-2"><Badge tone={tone(s)}>{label(s)}</Badge>{s.reviewed_by_name && <div className="mt-0.5 text-xs text-muted">{s.reviewed_by_name}</div>}</td>

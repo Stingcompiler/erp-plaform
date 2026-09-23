@@ -217,6 +217,16 @@ export function SyncProvider({ children }) {
     refresh();
   }, [scope, refresh]);
 
+  // A refused operation the cashier can repair (a sale on account that
+  // needs its customer): patch the queued body, keep its client_uuid so the
+  // server still sees one sale, and send it again straight away.
+  const amend = useCallback(async (clientUuid, patch) => {
+    if (!scope) return;
+    await queue.amend(clientUuid, patch, scope);
+    refresh();
+    flush();
+  }, [scope, refresh, flush]);
+
   // A fresh sign-in clears the auth error and lets the next flush run at once.
   useEffect(() => {
     if (user?.id) { retryAt.current = 0; failures.current = 0; setError((e) => (e === "auth" ? "" : e)); }
@@ -231,6 +241,6 @@ export function SyncProvider({ children }) {
   }, [scope]);
 
   return <SyncContext.Provider value={{ online, pending: operations.length, operations,
-    flushing, error, legacy, enqueue, discard, flush, refresh, pull, lastPulledAt, lastSyncedAt, persisted,
+    flushing, error, legacy, enqueue, discard, amend, flush, refresh, pull, lastPulledAt, lastSyncedAt, persisted,
     storageLow, confirmation: (id) => receipts[id] || null, lookupReceipt }}>{children}</SyncContext.Provider>;
 }
