@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, FileText, Lock, Plus, RefreshCw, Stethoscope, X } from "lucide-react";
+import { Check, FileText, Lock, Plus, RefreshCw, Stethoscope, Users, X } from "lucide-react";
 
 import { hr, org } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
@@ -15,6 +15,7 @@ import LeaveBalances from "@/components/hr/LeaveBalances";
 import LeavePolicies from "@/components/hr/LeavePolicies";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { SkeletonRows } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 const EMP_STATUS_TONE = { active: "ok", on_leave: "warn", terminated: "danger" };
 const EMP_STATUS_KEY = {
@@ -619,7 +620,16 @@ export default function HrPage() {
       {!loading && tab === "employees" && (
         <div className="mt-4 space-y-2">
           {employees.length === 0 && (
-            <Card className="p-8 text-center text-muted">{t("hr.noEmployees")}</Card>
+            <Card>
+              <EmptyState
+                icon={Users}
+                title={t("hr.emptyEmployeesTitle")}
+                body={t("hr.emptyEmployeesBody")}
+                action={writable && (
+                  <Button onClick={() => setEmpDrawer({ open: true, employee: null })}><Plus size={16} /> {t("hr.newEmployee")}</Button>
+                )}
+              />
+            </Card>
           )}
           {employees.map((e) => (
             <button

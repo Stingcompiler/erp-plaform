@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { FileText, Plus } from "lucide-react";
 
 import { purchasing } from "@/lib/api";
 import { useAuth } from "../../app/providers/AuthProvider";
@@ -11,6 +12,7 @@ import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { SkeletonTableRows } from "@/components/ui/Skeleton";
+import { EmptyTableRow } from "@/components/ui/EmptyState";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -131,7 +133,7 @@ function PaymentDrawer({ bill, supplierName, bankAccounts, open, onClose, onPaid
   );
 }
 
-export default function BillList({ suppliersById, bankAccounts, writable, refreshKey }) {
+export default function BillList({ suppliersById, bankAccounts, writable, refreshKey, onNew }) {
   const { t } = useI18n();
   const { can } = useAuth();
   const canVoid = can("finance.approve");
@@ -172,11 +174,15 @@ export default function BillList({ suppliersById, bankAccounts, writable, refres
               <SkeletonTableRows cols={writable ? 6 : 5} />
             )}
             {!loading && rows.length === 0 && (
-              <tr>
-                <td colSpan={writable ? 6 : 5} className="px-4 py-8 text-center text-muted">
-                  {t("purchasing.noBills")}
-                </td>
-              </tr>
+              <EmptyTableRow
+                cols={writable ? 6 : 5}
+                icon={FileText}
+                title={t("purchasing.emptyBillsTitle")}
+                body={t("purchasing.emptyBillsBody")}
+                action={writable && onNew && (
+                  <Button onClick={onNew}><Plus size={16} /> {t("purchasing.newBill")}</Button>
+                )}
+              />
             )}
             {!loading &&
               rows.map((b) => (

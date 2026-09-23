@@ -11,6 +11,7 @@ import { Badge, Button, Card, PageHeader } from "@/components/ui/kit";
 import LeadDrawer from "@/components/crm/LeadDrawer";
 import { errorText } from "@/lib/errors";
 import { SkeletonRows } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 const STAGE_LABEL = {
   new: "crm.stageNew",
@@ -173,7 +174,16 @@ export default function CrmPage() {
       <div className="mt-4 space-y-2">
         {loading && <SkeletonRows />}
         {!loading && visible.length === 0 && (
-          <Card className="p-8 text-center text-muted">{t("crm.noLeads")}</Card>
+          <Card>
+            <EmptyState
+              icon={UserPlus}
+              title={t("crm.emptyTitle")}
+              body={t("crm.emptyBody")}
+              filtered={filter !== "all" && leads.length > 0}
+              onClearFilters={() => setFilter("all")}
+              action={writable && <Button onClick={openNew}><Plus size={16} /> {t("crm.newLead")}</Button>}
+            />
+          </Card>
         )}
         {!loading &&
           visible.map((lead) => (

@@ -22,6 +22,11 @@ export function dirFor(lang) {
 }
 
 const en = {
+  empty: {
+    noResultsTitle: "Nothing matches",
+    noResultsBody: "No records match this search or filter.",
+    clearFilters: "Clear search and filters",
+  },
   confirm: {
     title: "Are you sure?",
     titleDanger: "This cannot be undone",
@@ -1250,6 +1255,8 @@ const en = {
     publicError: "We could not save your request. Please check the details and try again.",
   },
   crm: {
+    emptyTitle: "No leads yet",
+    emptyBody: "A lead is a possible customer you are following up. Record one with a phone number and the next follow-up date so nothing is forgotten.",
     title: "CRM",
     subtitle: "Leads, pipeline and follow-ups",
     noAccess: "Your role doesn't include CRM.",
@@ -1302,6 +1309,8 @@ const en = {
     activity: "Activity",
   },
   hr: {
+    emptyEmployeesTitle: "No employees yet",
+    emptyEmployeesBody: "Add your staff with their department and salary; attendance, leave and payroll all start from here.",
     attendance: {
       tab: "Attendance",
       title: "Attendance register",
@@ -1877,6 +1886,9 @@ const en = {
     noPayroll: "No payroll reports match this period.",
   },
   webOrders: {
+    emptyNewTitle: "No new orders",
+    emptyBody: "Orders placed by visitors on your public page arrive here. Publish your page and share its link so customers can order.",
+    openWebsite: "Open your page settings",
     title: "External orders",
     subtitle: "Orders visitors sent from your public page. Confirm one to create the customer and a sales order the till can finish; reject with a reason.",
     settingsLink: "Page settings",
@@ -2070,6 +2082,8 @@ const en = {
     featuredEmptyHint: "No featured products yet. Highlight your best sellers on the public page.",
   },
   inventory: {
+    emptyTitle: "No products yet",
+    emptyBody: "Products are what you sell and keep in stock. Add one with its price and opening quantity — it appears at the till straight away.",
     reasonCode: "Reason type",
     reasonRequired: "Say why the stock is being adjusted.",
     reasonCodes: {
@@ -2235,6 +2249,8 @@ const en = {
     failed: "The action could not be completed.",
   },
   sales: {
+    emptyInvoicesTitle: "No invoices yet",
+    emptyInvoicesBody: "Every sale at the till becomes an invoice here, ready to print, collect or void. Open the POS tab to make the first sale.",
     title: "Sales",
     subtitle: "Point of sale, invoices and bank accounts.",
     noAccess: "Your role doesn't include Sales.",
@@ -2339,6 +2355,10 @@ const en = {
     searchToAddShort: "Search a product to add…",
   },
   purchasing: {
+    emptySuppliersTitle: "No suppliers yet",
+    emptySuppliersBody: "Suppliers are who you buy stock from. Add them one by one, or import your list from a spreadsheet.",
+    emptyBillsTitle: "No bills yet",
+    emptyBillsBody: "A bill records what you owe a supplier for goods received, so you can pay it and see what is due.",
     title: "Purchasing",
     subtitle: "Suppliers, receiving and bills.",
     noAccess: "Your role doesn't include Purchasing.",
@@ -2431,6 +2451,8 @@ const en = {
     qty: "Qty",
   },
   returns: {
+    emptyTitle: "No returns — good news",
+    emptyBody: "When a customer brings something back, record it here against its invoice: the stock and the customer's balance are corrected together.",
     title: "Returns",
     subtitle: "Sales returns are quarantined until you restock or scrap them.",
     noAccess: "Your role doesn't include Returns.",
@@ -2636,6 +2658,8 @@ const en = {
     statusSet: "Status → {value}",
   },
   finance: {
+    emptyTitle: "No expenses in this period",
+    emptyBody: "Record rent, salaries, transport and other running costs here, so the profit in your reports is the real profit.",
     ledger: {
       title: "Money ledger",
       payments: "Customer payments",
@@ -2724,6 +2748,11 @@ const en = {
 };
 
 const ar = {
+  empty: {
+    noResultsTitle: "لا توجد نتائج",
+    noResultsBody: "لا توجد سجلات تطابق هذا البحث أو التصفية.",
+    clearFilters: "مسح البحث والتصفية",
+  },
   confirm: {
     title: "هل أنت متأكد؟",
     titleDanger: "لا يمكن التراجع عن هذا",
@@ -3950,6 +3979,8 @@ const ar = {
     publicError: "تعذر حفظ طلبك. راجع البيانات وحاول مرة أخرى.",
   },
   crm: {
+    emptyTitle: "لا يوجد عملاء محتملون بعد",
+    emptyBody: "العميل المحتمل هو زبون تتابعه. سجّله برقم هاتفه وموعد المتابعة التالي حتى لا يُنسى.",
     title: "إدارة العملاء",
     subtitle: "العملاء المحتملون والمسار والمتابعات",
     noAccess: "دورك لا يشمل إدارة العملاء.",
@@ -4002,6 +4033,8 @@ const ar = {
     activity: "النشاط",
   },
   hr: {
+    emptyEmployeesTitle: "لا يوجد موظفون بعد",
+    emptyEmployeesBody: "أضف موظفيك بإداراتهم ورواتبهم؛ الحضور والإجازات والرواتب كلها تبدأ من هنا.",
     attendance: {
       tab: "الحضور",
       title: "سجل الحضور",
@@ -4573,6 +4606,9 @@ const ar = {
     noPayroll: "لا توجد كشوف رواتب مطابقة لهذه الفترة.",
   },
   webOrders: {
+    emptyNewTitle: "لا توجد طلبات جديدة",
+    emptyBody: "الطلبات التي يرسلها الزوار من صفحتك العامة تصل هنا. انشر صفحتك وشارك رابطها ليطلب منها العملاء.",
+    openWebsite: "إعدادات صفحتك",
     title: "الطلبات الخارجية",
     subtitle: "طلبات أرسلها الزوار من صفحتك العامة. أكّد الطلب لإنشاء العميل وأمر بيع يكمله الكاشير، أو ارفضه بسبب.",
     settingsLink: "إعدادات الصفحة",
@@ -4766,6 +4802,8 @@ const ar = {
     featuredEmptyHint: "لا توجد منتجات مميزة بعد. أبرِز أفضل مبيعاتك على الصفحة العامة.",
   },
   inventory: {
+    emptyTitle: "لا توجد منتجات بعد",
+    emptyBody: "المنتجات هي ما تبيعه وتحتفظ به في المخزون. أضف منتجًا بسعره وكميته الافتتاحية، ويظهر في نقطة البيع فورًا.",
     reasonCode: "نوع السبب",
     reasonRequired: "اذكر سبب تسوية المخزون.",
     reasonCodes: {
@@ -4931,6 +4969,8 @@ const ar = {
     failed: "تعذّر إتمام العملية.",
   },
   sales: {
+    emptyInvoicesTitle: "لا توجد فواتير بعد",
+    emptyInvoicesBody: "كل عملية بيع في نقطة البيع تصبح فاتورة هنا، جاهزة للطباعة أو التحصيل أو الإبطال. افتح تبويب نقطة البيع لإجراء أول عملية بيع.",
     title: "المبيعات",
     subtitle: "نقطة البيع والفواتير والحسابات البنكية.",
     noAccess: "دورك لا يشمل المبيعات.",
@@ -5035,6 +5075,10 @@ const ar = {
     searchToAddShort: "ابحث عن منتج لإضافته…",
   },
   purchasing: {
+    emptySuppliersTitle: "لا يوجد موردون بعد",
+    emptySuppliersBody: "الموردون هم من تشتري منهم البضاعة. أضفهم واحدًا واحدًا، أو استورد قائمتك من جدول بيانات.",
+    emptyBillsTitle: "لا توجد فواتير مشتريات بعد",
+    emptyBillsBody: "فاتورة المشتريات تسجّل ما عليك للمورد مقابل البضاعة المستلمة، لتسددها وتعرف المستحق.",
     title: "المشتريات",
     subtitle: "الموردون والاستلام والفواتير.",
     noAccess: "دورك لا يشمل المشتريات.",
@@ -5127,6 +5171,8 @@ const ar = {
     qty: "الكمية",
   },
   returns: {
+    emptyTitle: "لا توجد مرتجعات — خبر جيد",
+    emptyBody: "عندما يعيد عميل شيئًا، سجّله هنا على فاتورته: يُصحَّح المخزون ورصيد العميل معًا.",
     title: "المرتجعات",
     subtitle: "تُحجز مرتجعات المبيعات حتى تعيد تخزينها أو تشطبها.",
     noAccess: "دورك لا يشمل المرتجعات.",
@@ -5331,6 +5377,8 @@ const ar = {
     statusSet: "الحالة ← {value}",
   },
   finance: {
+    emptyTitle: "لا توجد مصروفات في هذه الفترة",
+    emptyBody: "سجّل الإيجار والرواتب والنقل وغيرها من مصاريف التشغيل هنا، ليكون الربح في تقاريرك هو الربح الحقيقي.",
     ledger: {
       title: "دفتر الحركات المالية",
       payments: "مدفوعات العملاء",

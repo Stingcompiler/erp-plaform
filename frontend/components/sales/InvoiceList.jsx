@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Ban, Download, Printer, HandCoins } from "lucide-react";
+import { Ban, Download, Printer, HandCoins, Receipt } from "lucide-react";
 
 import { sales } from "@/lib/api";
 import { useAuth } from "../../app/providers/AuthProvider";
@@ -12,6 +12,7 @@ import CollectPaymentDrawer from "@/components/sales/CollectPaymentDrawer";
 import VoidDrawer from "@/components/finance/VoidDrawer";
 import { Badge, Button, Card, Input } from "@/components/ui/kit";
 import { SkeletonTableRows } from "@/components/ui/Skeleton";
+import { EmptyTableRow } from "@/components/ui/EmptyState";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -83,11 +84,14 @@ export default function InvoiceList({ refreshKey }) {
               <SkeletonTableRows cols={5} />
             )}
             {!loading && !error && rows.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted">
-                  {t("sales.noInvoices")}
-                </td>
-              </tr>
+              <EmptyTableRow
+                cols={5}
+                icon={Receipt}
+                title={t("sales.emptyInvoicesTitle")}
+                body={t("sales.emptyInvoicesBody")}
+                filtered={Boolean(search || overdue)}
+                onClearFilters={() => { setSearch(""); setOverdue(false); setPage(1); }}
+              />
             )}
             {!loading &&
               rows.map((inv) => (

@@ -15,6 +15,7 @@ import StatementReconcilePanel from "@/components/finance/StatementReconcilePane
 import BudgetsPanel from "@/components/finance/BudgetsPanel";
 import MoneyLedger from "@/components/finance/MoneyLedger";
 import { SkeletonRows } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 function StatTile({ label, value, tone = "ink", icon: Icon }) {
   const toneClass = tone === "ok" ? "text-ok" : tone === "danger" ? "text-danger" : "text-ink";
@@ -180,7 +181,14 @@ export default function FinancePage() {
     </div>
     {loading && !invalidDates && <SkeletonRows />}
     {!loading && !invalidDates && <Card>
-      {expenses.length === 0 ? <p className="p-8 text-center text-muted">{t("finance.noExpenses")}</p> :
+      {expenses.length === 0 ? <EmptyState
+        icon={Receipt}
+        title={t("finance.emptyTitle")}
+        body={t("finance.emptyBody")}
+        filtered={Boolean(filters.search || filters.start || filters.end)}
+        onClearFilters={() => { setFilters((f) => ({ ...f, search: "", start: "", end: "" })); setPage(1); }}
+        action={writable && <Button onClick={() => setDrawerOpen(true)}><Plus size={16} />{t("finance.newExpense")}</Button>}
+      /> :
       <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-line text-muted">
         {["category","description","method","date","amount"].map((key) => <th key={key} scope="col" className="px-4 py-3 text-start">{t(`finance.${key}`)}</th>)}
       </tr></thead><tbody>{expenses.map((e) => <tr key={e.id} className="border-b border-line last:border-0">

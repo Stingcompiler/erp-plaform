@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FileSpreadsheet, Lock, Plus } from "lucide-react";
+import { FileSpreadsheet, Lock, Plus, Truck } from "lucide-react";
 
 import { inventory, purchasing, bankAccounts as bankApi } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
@@ -17,6 +17,7 @@ import PurchaseOrders from "@/components/purchasing/PurchaseOrders";
 import BillList from "@/components/purchasing/BillList";
 import NewBillDrawer from "@/components/purchasing/NewBillDrawer";
 import { SkeletonTableRows } from "@/components/ui/Skeleton";
+import { EmptyTableRow } from "@/components/ui/EmptyState";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -54,11 +55,18 @@ function SupplierList({ suppliers, loading, writable, onNew, onOpen, onImport })
                 <SkeletonTableRows cols={4} />
               )}
               {!loading && suppliers.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-muted">
-                    {t("purchasing.noSuppliers")}
-                  </td>
-                </tr>
+                <EmptyTableRow
+                  cols={4}
+                  icon={Truck}
+                  title={t("purchasing.emptySuppliersTitle")}
+                  body={t("purchasing.emptySuppliersBody")}
+                  action={writable && (
+                    <>
+                      <Button onClick={onNew}><Plus size={16} /> {t("purchasing.newSupplier")}</Button>
+                      <Button variant="outline" onClick={onImport}><FileSpreadsheet size={16} /> {t("importParties.button")}</Button>
+                    </>
+                  )}
+                />
               )}
               {!loading &&
                 suppliers.map((s) => (
@@ -207,6 +215,7 @@ export default function PurchasingPage() {
           bankAccounts={accounts}
           writable={writable}
           refreshKey={refreshKey}
+          onNew={() => setBillOpen(true)}
         />
       )}
 
