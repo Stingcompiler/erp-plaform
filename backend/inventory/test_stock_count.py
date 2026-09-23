@@ -92,13 +92,11 @@ class StockCountTests(APITestCase):
 
     def test_officer_cannot_approve_and_empty_count_cannot_be_submitted(self):
         self.client.force_authenticate(self.officer)
-        empty = self.client.post(
-            reverse("stockcount-list"), {"warehouse": self.wh.id, "lines": []}, format="json"
-        )
-        self.assertEqual(empty.status_code, 201, empty.data)
+        # An empty count is refused when saved (it used to save and fail only
+        # at submit); a count stripped of its lines still cannot be submitted.
+        empty = StockCount.objects.create(company=self.company, warehouse=self.wh)
         self.assertEqual(
-            self.client.post(reverse("stockcount-submit", args=[empty.data["id"]])).status_code,
-            400,
+            self.client.post(reverse("stockcount-submit", args=[empty.id])).status_code, 400,
         )
         full = self._create(self.client).data["id"]
         self.client.post(reverse("stockcount-submit", args=[full]))
@@ -126,3 +124,59 @@ class StockCountTests(APITestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(StockCount.objects.count(), 0)
+
+    # Rules added after a production report: an empty draft that could only
+    # fail at submit, and buttons that disagreed with what the server accepts.
+
+    def test_an_empty_count_is_refused_at_save(self):
+        self.client.force_authenticate(self.officer)
+        response = self.client.post(
+            reverse("stockcount-list"), {"warehouse": self.wh.id, "lines": []}, format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("lines", response.data)
+        self.assertEqual(StockCount.objects.count(), 0)
+
+    def test_an_archived_product_cannot_be_counted(self):
+        self.a.is_active = False
+        self.a.save()
+        self.client.force_authenticate(self.officer)
+        self.assertEqual(self._create(self.client).status_code, 400)
+
+    def test_only_one_count_per_warehouse_awaits_approval(self):
+        self.client.force_authenticate(self.officer)
+        first = self._create(self.client).data["id"]
+        second = self._create(self.client).data["id"]
+        self.assertEqual(
+            self.client.post(reverse("stockcount-submit", args=[first])).status_code, 200,
+        )
+        refused = self.client.post(reverse("stockcount-submit", args=[second]))
+        self.assertEqual(refused.status_code, 400)
+
+    def test_buttons_follow_the_server_rules(self):
+        self.client.force_authenticate(self.officer)
+        count_id = self._create(self.client).data["id"]
+        self.client.post(reverse("stockcount-submit", args=[count_id]))
+        mine = self.client.get(reverse("stockcount-detail", args=[count_id])).data
+        self.assertFalse(mine["can_approve"])  # the counter never approves
+        self.assertTrue(mine["can_cancel"])  # but may withdraw their count
+        self.client.force_authenticate(self.manager)
+        theirs = self.client.get(reverse("stockcount-detail", args=[count_id])).data
+        self.assertTrue(theirs["can_approve"])
+
+    def test_a_stranger_cannot_cancel_and_a_cancelled_count_stays_cancelled(self):
+        self.client.force_authenticate(self.officer)
+        count_id = self._create(self.client).data["id"]
+        other = User.objects.create_user(
+            "other@store.test", "passw0rd123", company=self.company,
+            branch=self.officer.branch, role=self.officer.role,
+        )
+        self.client.force_authenticate(other)
+        refused = self.client.post(reverse("stockcount-cancel", args=[count_id]))
+        self.assertEqual(refused.status_code, 400)
+        self.client.force_authenticate(self.officer)
+        self.assertEqual(
+            self.client.post(reverse("stockcount-cancel", args=[count_id])).status_code, 200,
+        )
+        again = self.client.post(reverse("stockcount-cancel", args=[count_id]))
+        self.assertEqual(again.status_code, 400)

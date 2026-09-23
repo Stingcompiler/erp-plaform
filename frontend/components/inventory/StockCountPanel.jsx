@@ -18,16 +18,18 @@ const TONES = { draft: "muted", submitted: "warn", approved: "ok", cancelled: "d
 // counter approves — which posts the differences as ordinary adjustments.
 export default function StockCountPanel({ warehouses, canWrite }) {
   const { t, language } = useI18n();
-  const { user, can } = useAuth();
+  const { user } = useAuth();
   const toast = useToast();
   const [rows, setRows] = useState([]);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(null);
+  // The list and the drawer keep their own errors: one shared message used
+  // to follow the user into a fresh "new count" drawer before they typed.
   const [error, setError] = useState("");
+  const [drawerError, setDrawerError] = useState("");
   const [draft, setDraft] = useState({ warehouse: "", note: "", lines: [] });
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
-  const canApprove = can("users.manage_company") || can("users.manage_branch");
 
   const load = useCallback(() => {
     inventory.stockCounts().then((r) => setRows(r.data.results || r.data)).catch(() => setRows([]));
@@ -50,16 +52,19 @@ export default function StockCountPanel({ warehouses, canWrite }) {
     setResults([]);
   };
 
-  const fail = (err) => {
+  const fail = (err, setter = setError) => {
     const msg = errorText(err, t, "count.saveError");
-    setError(msg);
+    setter(msg);
     toast.error(msg);
   };
 
+  const openNew = () => { setDrawerError(""); setOpen(true); };
+
   const saveDraft = async () => {
-    setError("");
-    if (!draft.warehouse) return setError(t("count.chooseWarehouse"));
-    if (draft.lines.some((l) => l.counted_quantity === "")) return setError(t("count.fillQuantities"));
+    setDrawerError("");
+    if (!draft.warehouse) return setDrawerError(t("count.chooseWarehouse"));
+    if (draft.lines.length === 0) return setDrawerError(t("count.addLines"));
+    if (draft.lines.some((l) => l.counted_quantity === "")) return setDrawerError(t("count.fillQuantities"));
     setBusy("save");
     try {
       await inventory.createStockCount({
@@ -70,8 +75,9 @@ export default function StockCountPanel({ warehouses, canWrite }) {
       setOpen(false);
       setDraft({ warehouse: "", note: "", lines: [] });
       toast.success(t("count.saved"));
+      setError("");
       load();
-    } catch (err) { fail(err); } finally { setBusy(null); }
+    } catch (err) { fail(err, setDrawerError); } finally { setBusy(null); }
   };
 
   const run = async (row, action) => {
@@ -91,10 +97,10 @@ export default function StockCountPanel({ warehouses, canWrite }) {
     <Card className="mb-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 font-medium text-ink"><ClipboardCheck size={16} /> {t("count.title")}</div>
-        {canWrite && <Button variant="outline" onClick={() => setOpen(true)}><Plus size={16} /> {t("count.new")}</Button>}
+        {canWrite && <Button variant="outline" onClick={openNew}><Plus size={16} /> {t("count.new")}</Button>}
       </div>
       <p className="mt-1 text-xs text-muted">{t("count.hint")}</p>
-      {error && !open && <p role="alert" className="mt-2 text-sm text-danger">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-sm text-danger">{error}</p>}
       {rows.length > 0 && (
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-sm">
@@ -120,9 +126,9 @@ export default function StockCountPanel({ warehouses, canWrite }) {
                     <td className="px-2 py-2">
                       <div className="flex justify-end gap-1">
                         {row.status === "draft" && canWrite && <Button variant="outline" disabled={busy === `submit-${row.id}`} onClick={() => run(row, "submit")}>{t("count.submit")}</Button>}
-                        {row.status === "submitted" && canApprove && !mine && <Button disabled={busy === `approve-${row.id}`} onClick={() => run(row, "approve")}>{t("count.approve")}</Button>}
+                        {row.can_approve && <Button disabled={busy === `approve-${row.id}`} onClick={() => run(row, "approve")}>{t("count.approve")}</Button>}
                         {row.status === "submitted" && mine && <span className="text-xs text-muted">{t("count.awaitingOther")}</span>}
-                        {["draft", "submitted"].includes(row.status) && canWrite && <Button variant="ghost" disabled={busy === `cancel-${row.id}`} onClick={() => run(row, "cancel")}>{t("common.cancel")}</Button>}
+                        {row.can_cancel && <Button variant="ghost" disabled={busy === `cancel-${row.id}`} onClick={() => run(row, "cancel")}>{t("common.cancel")}</Button>}
                       </div>
                     </td>
                   </tr>
@@ -134,9 +140,9 @@ export default function StockCountPanel({ warehouses, canWrite }) {
       )}
 
       <Drawer open={open} onClose={() => setOpen(false)} title={t("count.new")} wide
-        footer={<div className="flex gap-2"><Button disabled={busy === "save"} onClick={saveDraft}>{t("count.saveDraft")}</Button><Button variant="outline" onClick={() => setOpen(false)}>{t("common.cancel")}</Button></div>}>
+        footer={<div className="flex gap-2"><Button disabled={busy === "save" || draft.lines.length === 0} onClick={saveDraft}>{t("count.saveDraft")}</Button><Button variant="outline" onClick={() => setOpen(false)}>{t("common.cancel")}</Button></div>}>
         <div className="space-y-4">
-          {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+          {drawerError && <p role="alert" className="text-sm text-danger">{drawerError}</p>}
           <Field label={t("inventory.warehouse")}>
             <Select value={draft.warehouse} onChange={(e) => setDraft((d) => ({ ...d, warehouse: e.target.value }))}>
               <option value="">{t("common.choose")}</option>

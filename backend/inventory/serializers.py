@@ -524,11 +524,21 @@ class StockCountLineSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"counted_quantity": _("A count cannot be negative.")}
             )
+        if product is not None and not product.is_active:
+            raise serializers.ValidationError(
+                {"product": _("%(sku)s is archived; restore it before counting it.")
+                 % {"sku": product.sku}}
+            )
         return attrs
 
 
 class StockCountSerializer(serializers.ModelSerializer):
     lines = StockCountLineSerializer(many=True)
+    # Worked out by the server, so the buttons match what it will accept:
+    # the Approve button used to follow a different rule and ended in a
+    # refusal nobody could explain.
+    can_approve = serializers.SerializerMethodField()
+    can_cancel = serializers.SerializerMethodField()
     warehouse_name = serializers.CharField(source="warehouse.name", read_only=True)
     counted_by_name = serializers.SerializerMethodField()
     approved_by_name = serializers.SerializerMethodField()
@@ -541,6 +551,7 @@ class StockCountSerializer(serializers.ModelSerializer):
             "id", "company", "warehouse", "warehouse_name", "status", "note", "lines",
             "counted_by", "counted_by_name", "submitted_at",
             "approved_by", "approved_by_name", "approved_at", "client_uuid", "created_at",
+            "can_approve", "can_cancel",
         ]
         read_only_fields = [
             "company", "status", "counted_by", "submitted_at", "approved_by", "approved_at",
@@ -556,8 +567,36 @@ class StockCountSerializer(serializers.ModelSerializer):
     def get_approved_by_name(self, obj):
         return self._person(obj.approved_by)
 
+    def _viewer(self):
+        request = self.context.get("request")
+        return request.user if request is not None else None
+
+    def get_can_approve(self, obj):
+        from inventory.counts import may_approve
+
+        user = self._viewer()
+        return bool(user and may_approve(obj, user))
+
+    def get_can_cancel(self, obj):
+        from inventory.counts import may_cancel
+
+        user = self._viewer()
+        return bool(user and may_cancel(obj, user))
+
+    def validate_lines(self, lines):
+        # An empty draft used to save and then fail at submit, far from the
+        # moment the counter could have fixed it.
+        if not lines:
+            raise serializers.ValidationError(_("Add at least one product to the count."))
+        return lines
+
     def validate(self, attrs):
         _assert_tenant_relations(self, attrs, ("warehouse",))
+        warehouse = attrs.get("warehouse")
+        if warehouse is not None and not warehouse.is_active:
+            raise serializers.ValidationError(
+                {"warehouse": _("That warehouse is archived.")}
+            )
         request = self.context.get("request")
         if request is not None and attrs.get("warehouse") is not None:
             assert_user_branch(request.user, attrs["warehouse"], "warehouse")

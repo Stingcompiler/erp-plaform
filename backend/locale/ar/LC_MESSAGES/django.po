@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-23 13:48+0000\n"
+"POT-Creation-Date: 2026-09-23 21:26+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -360,8 +360,12 @@ msgstr "لا يمكن أن يكون تاريخ نهاية الفترة قبل ت
 msgid "An approved budget is locked. Reopen it before making changes."
 msgstr "الميزانية المعتمدة مقفلة. أعِد فتحها قبل إجراء أي تعديل."
 
-msgid "An expense cannot be deleted because it feeds the income statement and budget variance. Record an offsetting negative expense instead."
-msgstr "لا يمكن حذف المصروف لأنه يدخل في قائمة الدخل ومقارنة الميزانية. سجّل مصروفًا سالبًا مقابلًا بدلًا من ذلك."
+msgid ""
+"An expense cannot be deleted because it feeds the income statement and "
+"budget variance. Record an offsetting negative expense instead."
+msgstr ""
+"لا يمكن حذف المصروف لأنه يدخل في قائمة الدخل ومقارنة الميزانية. سجّل مصروفًا "
+"سالبًا مقابلًا بدلًا من ذلك."
 
 msgid "Expenses are append-only. Record an offsetting correction."
 msgstr "المصروفات لا تُعدَّل بعد تسجيلها. سجّل قيدًا تصحيحيًا معاكسًا."
@@ -508,14 +512,20 @@ msgstr "استخدم الصيغة YYYY-MM لشهر الرواتب."
 msgid "An approved payroll is locked and cannot be recalculated."
 msgstr "مسيّر الرواتب المعتمد مقفل ولا يمكن إعادة احتسابه."
 
-msgid "A deduction cannot be deleted because it affects payroll. Record an offsetting entry if it was issued in error."
-msgstr "لا يمكن حذف الخصم لأنه يؤثر على الرواتب. إن سُجّل خطأً فسجّل قيدًا مقابلًا له."
+msgid ""
+"A deduction cannot be deleted because it affects payroll. Record an "
+"offsetting entry if it was issued in error."
+msgstr ""
+"لا يمكن حذف الخصم لأنه يؤثر على الرواتب. إن سُجّل خطأً فسجّل قيدًا مقابلًا له."
 
 msgid "Only a draft count can be submitted."
 msgstr "لا يُرسَل إلا الجرد الذي في حالة مسودة."
 
 msgid "Add at least one counted line before submitting."
 msgstr "أضف سطر جرد واحدًا على الأقل قبل الإرسال."
+
+msgid "Another count for this warehouse is awaiting approval; approve or cancel it first."
+msgstr "يوجد جرد آخر لهذا المستودع بانتظار الاعتماد؛ اعتمده أو ألغِه أولًا."
 
 msgid "Your role cannot approve stock counts."
 msgstr "دورك لا يسمح باعتماد جرد المخزون."
@@ -528,6 +538,12 @@ msgstr "من قام بالجرد لا يمكنه اعتماد جرده بنفس�
 
 msgid "An approved count is part of the ledger and cannot be cancelled."
 msgstr "الجرد المعتمد أصبح جزءًا من سجل المخزون ولا يمكن إلغاؤه."
+
+msgid "This count is already cancelled."
+msgstr "هذا الجرد ملغى بالفعل."
+
+msgid "Only the person who counted or a manager may cancel this count."
+msgstr "إلغاء هذا الجرد لمن أجراه أو لمدير فقط."
 
 msgid "The rounding step must be positive."
 msgstr "يجب أن تكون خطوة التقريب أكبر من صفر."
@@ -635,6 +651,16 @@ msgstr ""
 
 msgid "A count cannot be negative."
 msgstr "العدّ لا يمكن أن يكون سالبًا."
+
+#, python-format
+msgid "%(sku)s is archived; restore it before counting it."
+msgstr "الصنف %(sku)s مؤرشف؛ أعد تفعيله قبل جرده."
+
+msgid "Add at least one product to the count."
+msgstr "أضف منتجًا واحدًا على الأقل إلى الجرد."
+
+msgid "That warehouse is archived."
+msgstr "هذا المستودع مؤرشف."
 
 msgid "Only a draft count can be edited."
 msgstr "لا يمكن تعديل إلا الجرد الذي ما زال مسودة."
