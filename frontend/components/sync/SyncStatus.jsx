@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Cloud, CloudOff, RefreshCw, AlertTriangle, Download, ShieldCheck, ShieldAlert } from "lucide-react";
 import { installRoute, useInstallPrompt } from "@/lib/installPrompt";
 import { useSync } from "@/components/sync/SyncProvider";
@@ -7,6 +7,8 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import Drawer from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/kit";
 import AttentionBadge from "@/components/attention/AttentionBadge";
+import { sales } from "@/lib/api";
+import { offlineStore } from "@/lib/offlineStore";
 
 const money = (v) => Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -27,8 +29,37 @@ function summarise(op, t, language) {
   return parts.join(" · ");
 }
 
+// A till sale the server refused because part of it was unpaid and no
+// customer was named. The money owed is real — the answer is to say who owes
+// it, not to throw the sale (and the cash already in the drawer) away.
+function AttachCustomer({ op, onAttach }) {
+  const { t } = useI18n();
+  const [customers, setCustomers] = useState([]);
+  const [choice, setChoice] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    sales.customers({ page_size: 500 })
+      .then((r) => setCustomers(r.data.results || r.data))
+      .catch(() => offlineStore.getAll("customers").then(setCustomers).catch(() => {}));
+  }, []);
+  return (
+    <div className="mt-2 space-y-2 rounded-control border border-line bg-surface p-2">
+      <p className="text-xs text-muted">{t("sync.attachCustomerHint")}</p>
+      <select className="tap w-full rounded-control border border-line bg-surface px-2 py-1 text-sm"
+        value={choice} onChange={(e) => setChoice(e.target.value)} aria-label={t("sync.attachCustomer")}>
+        <option value="">{t("common.choose")}</option>
+        {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+      </select>
+      <Button disabled={!choice || busy}
+        onClick={async () => { setBusy(true); try { await onAttach(op.client_uuid, { customer: Number(choice) }); } finally { setBusy(false); } }}>
+        {t("sync.attachCustomer")}
+      </Button>
+    </div>
+  );
+}
+
 export default function SyncStatus() {
-  const { online, pending, flushing, flush, discard, operations, error, legacy, persisted, storageLow } = useSync();
+  const { online, pending, flushing, flush, discard, amend, operations, error, legacy, persisted, storageLow } = useSync();
   const [discarding, setDiscarding] = useState(null);
   const [reason, setReason] = useState("");
   const { installed, canPrompt, prompt } = useInstallPrompt();
@@ -105,6 +136,9 @@ export default function SyncStatus() {
           <div className="mt-1 break-all font-mono">{op.client_uuid}</div>
           {op.queued_at && <div className="mt-0.5">{new Date(op.queued_at).toLocaleString(language === "ar" ? "ar" : "en")}</div>}
         </details>
+        {op.error && online && op.op_type === "pos_checkout" && op.error_field === "customer" && (
+          <AttachCustomer op={op} onAttach={amend} />
+        )}
         {op.error && online && (
           discarding === op.client_uuid ? (
             <div className="mt-2 space-y-2">

@@ -17,9 +17,10 @@ const money = (v) =>
     maximumFractionDigits: 2,
   });
 
-/** Kinds a cashier can record, with the sign the API demands for each. */
+/** Kinds a cashier can record, with the sign the API demands for each.
+ * No "refund": a refund moves the drawer from its return or invoice, which
+ * links the document — a loose one here paid the customer twice. */
 const MOVEMENT_KINDS = [
-  { kind: "refund", sign: -1 },
   { kind: "drop", sign: -1 },
   { kind: "petty", sign: -1 },
   { kind: "float_add", sign: +1 },
@@ -49,14 +50,14 @@ function Row({ label, value, currency, strong, tone }) {
 function MovementDrawer({ shift, open, onClose, onSaved }) {
   const { t } = useI18n();
   const toast = useToast();
-  const [kind, setKind] = useState("refund");
+  const [kind, setKind] = useState("drop");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [direction, setDirection] = useState("out");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    setKind("refund");
+    setKind("drop");
     setAmount("");
     setReason("");
     setDirection("out");

@@ -444,6 +444,7 @@ class CashShiftViewSet(AppendOnlyScopedViewSet):
             )
 
         expected = shift.expected_cash()
+        shift.expected_at_close = expected
         shift.counted_cash = counted
         shift.closed_by = request.user
         shift.closed_at = timezone.now()
@@ -453,6 +454,7 @@ class CashShiftViewSet(AppendOnlyScopedViewSet):
         shift.save(
             update_fields=[
                 "counted_cash",
+                "expected_at_close",
                 "closed_by",
                 "closed_at",
                 "status",

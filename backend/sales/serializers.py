@@ -667,6 +667,15 @@ class CashDrawerMovementSerializer(serializers.ModelSerializer):
         amount = attrs.get("amount")
         if amount is None or amount == 0:
             raise serializers.ValidationError(_("Amount must not be zero."))
+        # A refund moves the drawer from its return or invoice, which links
+        # the document; a loose "refund" typed here paid the customer a
+        # second time, or left their credit open.
+        if kind == CashDrawerMovement.REFUND:
+            raise serializers.ValidationError(
+                {"kind": _(
+                    "Record a refund from its return or invoice; the drawer is updated for you."
+                )}
+            )
         # The sign carries the meaning, so a typo must not turn a refund into a
         # deposit and quietly hide a shortfall.
         if kind in CashDrawerMovement.NEGATIVE_ONLY and amount > 0:
@@ -716,6 +725,7 @@ class CashShiftSerializer(serializers.ModelSerializer):
     drawer_movements_total = serializers.SerializerMethodField()
     expected_cash = serializers.SerializerMethodField()
     variance = serializers.SerializerMethodField()
+    late_cash = serializers.SerializerMethodField()
     drawer_movements = CashDrawerMovementSerializer(many=True, read_only=True)
 
     class Meta:
@@ -725,6 +735,7 @@ class CashShiftSerializer(serializers.ModelSerializer):
             "opening_float", "opened_by_name", "opened_at",
             "counted_cash", "closed_by_name", "closed_at",
             "cash_sales", "drawer_movements_total", "expected_cash", "variance",
+            "expected_at_close", "late_cash",
             "reviewed_by_name", "reviewed_at",
             "note", "drawer_movements", "client_uuid",
         ]
@@ -732,6 +743,7 @@ class CashShiftSerializer(serializers.ModelSerializer):
         # actions; a direct write could set a count without stamping who did it.
         read_only_fields = [
             "status", "opened_at", "counted_cash", "closed_at", "reviewed_at",
+            "expected_at_close",
         ]
 
     def validate(self, attrs):
@@ -758,6 +770,13 @@ class CashShiftSerializer(serializers.ModelSerializer):
 
     def get_opened_by_name(self, obj):
         return self._person(obj.opened_by)
+
+    def get_late_cash(self, obj):
+        """Cash from offline sales that synced after this drawer was counted."""
+        if obj.expected_at_close is None:
+            return None
+        late = obj.expected_cash() - obj.expected_at_close
+        return str(late) if late else None
 
     def get_closed_by_name(self, obj):
         return self._person(obj.closed_by)
@@ -1168,7 +1187,13 @@ class POSCheckoutSerializer(serializers.Serializer):
     def _record_payment(self, invoice, pay, company_id, user, shift=None, occurred_at=None):
         if shift is not None:
             self._assert_company(shift, company_id, "shift")
-            if shift.status != CashShift.OPEN:
+            # The drawer is the holder's: counting a sale into someone
+            # else's shift makes one count over and the other short.
+            if shift.opened_by_id != getattr(user, "pk", None) and not can_approve_high_value(user):
+                raise serializers.ValidationError(
+                    {"shift": _("That till session belongs to another cashier.")}
+                )
+            if shift.status != CashShift.OPEN and not self._rung_while_open(shift, occurred_at):
                 raise serializers.ValidationError(
                     {"shift": _("That till session is closed — open a new one.")}
                 )
@@ -1193,6 +1218,17 @@ class POSCheckoutSerializer(serializers.Serializer):
             reference_last4=pay.get("reference_last4", ""),
             transfer_reference=pay.get("transfer_reference", ""),
             shift=shift, recorded_at=occurred_at,
+        )
+
+    @staticmethod
+    def _rung_while_open(shift, occurred_at):
+        """A sale made offline while the shift was open still belongs to that
+        drawer when it syncs after the close — the cash is in that drawer.
+        Refusing it lost the whole paid sale (invoice, stock and payment)
+        with no way to recover it from the queue."""
+        return bool(
+            occurred_at and shift.closed_at
+            and shift.opened_at <= occurred_at <= shift.closed_at
         )
 
     def to_representation(self, instance):

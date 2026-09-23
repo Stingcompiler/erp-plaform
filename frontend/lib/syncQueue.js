@@ -174,6 +174,24 @@ export const queue = {
     } catch { return null; }
   },
 
+  // Repair a refused operation in place (e.g. attach the customer a sale on
+  // account needs) and clear its error so the next sync sends it again.
+  // client_uuid is kept, so the server still sees one sale, not two.
+  async amend(id, patch, scope) {
+    if (!(await ready(scope))) return localQueue.amend(id, patch, scope);
+    return withStore(scope, "ops", "readwrite", (store) => new Promise((resolve, reject) => {
+      const get = store.get(id);
+      get.onsuccess = () => {
+        if (!get.result) { resolve(null); return; }
+        const next = { ...get.result, payload: { ...get.result.payload, ...patch }, error: null, error_field: null };
+        const put = store.put(next);
+        put.onsuccess = () => resolve(next);
+        put.onerror = () => reject(put.error);
+      };
+      get.onerror = () => reject(get.error);
+    }));
+  },
+
   async acknowledge(sent, results, scope) {
     if (!Array.isArray(results)) throw new Error("Missing synchronization results.");
     if (!(await ready(scope))) return localQueue.acknowledge(sent, results, scope);
@@ -194,7 +212,7 @@ export const queue = {
           } else {
             const get = ops.get(op.client_uuid);
             get.onsuccess = () => {
-              if (get.result) ops.put({ ...get.result, error: result?.error || "No confirmation received for this operation." });
+              if (get.result) ops.put({ ...get.result, error: result?.error || "No confirmation received for this operation.", error_field: result?.error_field || null });
             };
           }
         }

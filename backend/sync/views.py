@@ -160,7 +160,7 @@ class SyncPushView(APIView):
         for i, op in enumerate(operations):
             if i in completed_indexes:
                 continue
-            st, model, rid, err, cu = process_operation(request, op)
+            st, model, rid, err, cu, field = process_operation(request, op)
             try:
                 with transaction.atomic():
                     SyncOperation.objects.create(
@@ -172,6 +172,7 @@ class SyncPushView(APIView):
                         result_model=model,
                         result_id=rid,
                         error_detail=err or "",
+                        error_field=field,
                     )
             except IntegrityError:
                 # A concurrent resume already recorded this slot; the op

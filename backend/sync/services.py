@@ -9,6 +9,7 @@ op is:
   - isolated in its own savepoint (one bad op never rolls back the batch).
 """
 
+import logging
 from dataclasses import dataclass
 
 from django.db import IntegrityError, transaction
@@ -48,6 +49,8 @@ ERROR = "error"
 # "plain" ops are Serializers whose .create() reads the company off request.user.
 MODEL = "model"
 PLAIN = "plain"
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -95,13 +98,13 @@ def process_operation(request, op):
     spec = OP_REGISTRY.get(op_type)
     if spec is None:
         error = _("Unknown op_type '%(op_type)s'.") % {"op_type": op_type}
-        return ERROR, "", "", error, client_uuid
+        return ERROR, "", "", error, client_uuid, ""
 
     user = request.user
     company_id = getattr(user, "company_id", None)
 
     if not role_can(user, spec.module, write=True):
-        return ERROR, "", "", _("Your role does not permit this operation."), client_uuid
+        return ERROR, "", "", _("Your role does not permit this operation."), client_uuid, ""
 
     # Idempotency: if this op's client_uuid already produced a record, skip it.
     # Attendance carries no client_uuid; it is idempotent by nature (one row
@@ -112,7 +115,7 @@ def process_operation(request, op):
             company_id=company_id, client_uuid=client_uuid
         ).first()
         if existing:
-            return DUPLICATE, spec.model.__name__, str(existing.pk), "", client_uuid
+            return DUPLICATE, spec.model.__name__, str(existing.pk), "", client_uuid, ""
         payload["client_uuid"] = str(client_uuid)
 
     try:
@@ -129,9 +132,9 @@ def process_operation(request, op):
                 action="create", request=request, entity_type=spec.model.__name__,
                 entity_id=obj.pk, metadata={"via": "sync", "op_type": op_type},
             )
-        return APPLIED, spec.model.__name__, str(obj.pk), "", client_uuid
+        return APPLIED, spec.model.__name__, str(obj.pk), "", client_uuid, ""
     except ValidationError as exc:
-        return ERROR, "", "", _stringify(exc.detail), client_uuid
+        return ERROR, "", "", _stringify(exc.detail), client_uuid, _first_field(exc.detail)
     except IntegrityError:
         # Two devices (or two tabs) pushed the same client_uuid at once: the
         # pre-check above missed it, the unique index caught it. That is a
@@ -142,12 +145,28 @@ def process_operation(request, op):
                 company_id=company_id, client_uuid=client_uuid
             ).first()
             if existing:
-                return DUPLICATE, spec.model.__name__, str(existing.pk), "", client_uuid
+                return DUPLICATE, spec.model.__name__, str(existing.pk), "", client_uuid, ""
         # The raw message names constraints and tables; a client only needs
         # to know the identifier is taken.
-        return ERROR, "", "", _("This operation identifier is already in use."), client_uuid
-    except Exception as exc:  # noqa: BLE001 - report, don't crash the batch
-        return ERROR, "", "", str(exc), client_uuid
+        return ERROR, "", "", _("This operation identifier is already in use."), client_uuid, ""
+    except Exception:  # noqa: BLE001 - report, don't crash the batch
+        # The exception text is for us, not the cashier: it is English and
+        # names internals. Keep it in the log; send a sentence.
+        logger.exception("sync op %s failed", op_type)
+        return (
+            ERROR, "", "", _("The server could not apply this operation; it has been reported."),
+            client_uuid, "",
+        )
+
+
+def _first_field(detail):
+    """Which field the refusal is about ("customer", "payment", "shift"), so
+    the till can offer the right repair instead of only retry or discard."""
+    if isinstance(detail, dict):
+        for key in detail:
+            if key != "non_field_errors":
+                return str(key)[:64]
+    return ""
 
 
 def _stringify(detail):

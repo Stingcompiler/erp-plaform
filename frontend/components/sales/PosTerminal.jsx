@@ -17,6 +17,7 @@ import { heldCarts } from "@/lib/syncQueue";
 import { cacheProducts, searchProductsOffline } from "@/lib/productCache";
 import { nextLocalReference } from "@/lib/localReference";
 import { errorText } from "@/lib/errors";
+import { round2 } from "@/lib/money";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -143,7 +144,6 @@ export default function PosTerminal({
     const n = Number(l.qty);
     return Number.isFinite(n) && n > 0 ? n : 0;
   };
-  const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
   const lineGross = (l) => round2(Number(l.price || 0) * qtyOf(l));
   const lineDiscount = (l) => {
     const pct = Number(l.discountPercent || 0);
@@ -323,6 +323,14 @@ export default function PosTerminal({
       method,
       amount: String(Math.min(tendered, cashDue)),
     } : null;
+    // Money left owing is a sale on account, and the server only accepts
+    // that against a named customer. Checked here, while the customer is
+    // still at the counter: a queued offline sale used to be refused only
+    // when it synced, with the cash already in the drawer and nothing left
+    // to do but drop it.
+    if (!customer && round2(payment ? Number(payment.amount) : 0) < cashDue) {
+      return setError(t("sales.partialNeedsCustomer"));
+    }
     if (payment && method === "bank_transfer") {
       payment.company_bank_account = Number(bankAccount);
       payment.sender_bank_name = sender.trim();
@@ -350,7 +358,7 @@ export default function PosTerminal({
         // server would otherwise re-price the sale, and an embedded cash
         // payment above the new total makes the whole operation fail for
         // ever (or, if the price rose, records the customer as owing).
-        unit_price: String(Number(l.price || 0)),
+        unit_price: String(round2(l.price)),
         ...(Number(l.discountPercent || 0) > 0 ? { discount_percent: String(Number(l.discountPercent)) } : {}),
       })),
       ...(ticket > 0 ? { discount_amount: String(round2(ticket)) } : {}),
@@ -832,6 +840,9 @@ export default function PosTerminal({
                 {money(cashDue - Number(amount))}
               </span>
             </div>
+          )}
+          {amount !== "" && Number(amount) < cashDue && !customer && (
+            <p className="text-xs text-warn">{t("sales.partialNeedsCustomer")}</p>
           )}
 
           {method === "bank_transfer" && (
