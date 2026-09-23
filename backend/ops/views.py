@@ -212,14 +212,14 @@ class PreferenceView(APIView):
         }
 
     def get(self, request):
-        pref, _ = UserPreference.objects.get_or_create(
+        pref, _created = UserPreference.objects.get_or_create(
             user=request.user,
             defaults={"language": settings.LANGUAGE_CODE.split("-")[0]},
         )
         return Response(self._serialize(pref))
 
     def patch(self, request):
-        pref, _ = UserPreference.objects.get_or_create(
+        pref, _created = UserPreference.objects.get_or_create(
             user=request.user,
             defaults={"language": settings.LANGUAGE_CODE.split("-")[0]},
         )

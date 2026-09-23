@@ -9,6 +9,7 @@ from rest_framework.response import Response
 
 from django.utils import timezone
 from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 from rest_framework import status
 
 from core.activity import log_activity
@@ -36,7 +37,7 @@ class ExpenseViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
     search_fields = ["category", "description"]
     ordering_fields = ["date", "amount", "category"]
     ordering = ["-date", "-id"]
-    delete_denied_detail = (
+    delete_denied_detail = gettext_lazy(
         "An expense cannot be deleted because it feeds the income statement "
         "and budget variance. Record an offsetting negative expense instead."
     )

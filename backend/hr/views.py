@@ -7,6 +7,7 @@ from django.db.models.functions import Coalesce
 from django.http import FileResponse, Http404
 from django.utils import timezone
 from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -659,7 +660,7 @@ class DeductionViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
     ).all()
     serializer_class = DeductionSerializer
     activity_entity_type = "Deduction"
-    delete_denied_detail = (
+    delete_denied_detail = gettext_lazy(
         "A deduction cannot be deleted because it affects payroll. Record an "
         "offsetting entry if it was issued in error."
     )

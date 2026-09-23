@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-18 09:46+0000\n"
+"POT-Creation-Date: 2026-09-23 13:48+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,11 +18,562 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
 "&& n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
+
+msgid "Choose your own password before continuing."
+msgstr "اختر كلمة مرور خاصة بك قبل المتابعة."
+
+msgid "This device was removed by the company."
+msgstr "أزالت الشركة هذا الجهاز."
+
+msgid "The system is currently operating in shop mode."
+msgstr "النظام يعمل حاليًا في وضع المتجر."
+
+msgid "This reset link is invalid or has already been used."
+msgstr "رابط إعادة التعيين غير صالح أو استُخدم من قبل."
+
+msgid "Choose one of the platform roles."
+msgstr "اختر أحد أدوار المنصة."
+
+msgid "The platform role is misconfigured; contact support."
+msgstr "دور المنصة غير مضبوط بشكل صحيح؛ تواصل مع الدعم."
+
+msgid "This email already belongs to an account."
+msgstr "هذا البريد الإلكتروني مستخدم في حساب آخر."
+
+msgid "Django superusers are managed outside platform roles."
+msgstr "حسابات المستخدم الخارق (Django superuser) تُدار خارج أدوار المنصة."
+
+msgid "Keep at least one active Super Administrator."
+msgstr "يجب الإبقاء على مدير منصة نشط واحد على الأقل."
+
+msgid "Reactivate the member before sending a new link."
+msgstr "أعد تفعيل العضو قبل إرسال رابط جديد."
+
+msgid "You cannot deactivate your own account."
+msgstr "لا يمكنك تعطيل حسابك بنفسك."
+
+msgid "The platform must keep at least one active Super Administrator."
+msgstr "يجب أن يبقى في المنصة مدير منصة نشط واحد على الأقل."
+
+msgid "This invitation is invalid, expired, or already used."
+msgstr "هذه الدعوة غير صالحة أو منتهية أو مستخدمة من قبل."
+
+msgid "This account is no longer active. Contact the platform team."
+msgstr "هذا الحساب لم يعد نشطًا. تواصل مع فريق المنصة."
+
+msgid "You cannot delete your own account."
+msgstr "لا يمكنك حذف حسابك بنفسك."
+
+msgid "Django superusers are managed outside the platform team."
+msgstr "حسابات المستخدم الخارق (Django superuser) تُدار خارج فريق المنصة."
+
+msgid ""
+"This member has signed in before. Deactivate the account instead; it keeps "
+"their name on everything they did."
+msgstr ""
+"سبق لهذا العضو تسجيل الدخول. عطّل الحساب بدلًا من حذفه؛ فذلك يُبقي اسمه على كل "
+"ما قام به."
+
+msgid "Only a platform administrator may assign a platform role."
+msgstr "مدير المنصة فقط يمكنه إسناد أدوار المنصة."
+
+msgid "You cannot modify an account with equal or higher authority."
+msgstr "لا يمكنك تعديل حساب بصلاحيات مساوية لصلاحياتك أو أعلى منها."
+
+msgid "You cannot assign a role above your own authority."
+msgstr "لا يمكنك إسناد دور أعلى من صلاحياتك."
+
+msgid "Only a Business Owner may assign the owner role."
+msgstr "مالك الأعمال فقط يمكنه إسناد دور المالك."
+
+msgid "A General Manager cannot modify a Business Owner."
+msgstr "لا يمكن للمدير العام تعديل حساب مالك الأعمال."
+
+msgid "A Branch Manager may manage only their own branch."
+msgstr "يمكن لمدير الفرع إدارة فرعه فقط."
+
+msgid "This user is outside your branch."
+msgstr "هذا المستخدم خارج فرعك."
+
+msgid "A Branch Manager may assign only branch staff roles."
+msgstr "يمكن لمدير الفرع إسناد أدوار موظفي الفرع فقط."
+
+msgid "Your role cannot administer company users."
+msgstr "دورك لا يسمح بإدارة مستخدمي الشركة."
+
+msgid "A company user must have an assigned role."
+msgstr "يجب إسناد دور لكل مستخدم في الشركة."
+
+msgid "A branch-scoped role requires an assigned branch."
+msgstr "هذا الدور مرتبط بفرع؛ اختر فرعًا للمستخدم."
+
+msgid "The assigned branch is inactive."
+msgstr "الفرع المحدد غير نشط."
+
+msgid "The branch must belong to your company."
+msgstr "يجب أن يتبع الفرع شركتك."
+
+msgid "You cannot change your own role."
+msgstr "لا يمكنك تغيير دورك بنفسك."
+
+msgid "The current password is incorrect."
+msgstr "كلمة المرور الحالية غير صحيحة."
+
+msgid "Invalid email or password."
+msgstr "البريد الإلكتروني أو كلمة المرور غير صحيحة."
+
+msgid "This account is inactive."
+msgstr "هذا الحساب غير نشط."
+
+msgid "Too many failed sign-in attempts. Try again later."
+msgstr "محاولات تسجيل دخول فاشلة كثيرة. حاول مرة أخرى لاحقًا."
+
+msgid "Your account needs an assigned role. Contact a company owner."
+msgstr "لم يُسند دور لحسابك. تواصل مع مالك الشركة."
+
+msgid "Your branch assignment is missing or inactive. Contact a company owner."
+msgstr "فرعك غير محدد أو غير نشط. تواصل مع مالك الشركة."
+
+msgid "Your account needs an assigned company. Contact a company owner."
+msgstr "حسابك غير مرتبط بشركة. تواصل مع مالك الشركة."
+
+msgid "Your account assignment is invalid. Contact a company owner."
+msgstr "إعدادات حسابك غير صحيحة. تواصل مع مالك الشركة."
+
+msgid "This company's plan has no room for another device."
+msgstr "باقة الشركة لا تتسع لجهاز إضافي."
+
+msgid ""
+"This device was removed by the company. Ask the owner to allow it again."
+msgstr "أزالت الشركة هذا الجهاز. اطلب من المالك السماح به مرة أخرى."
+
+msgid ""
+"Sign in from the Vezano app or website so this device can be identified; "
+"company accounts cannot sign in without a device id."
+msgstr ""
+"سجّل الدخول من تطبيق Vezano أو موقعه حتى يتم التعرف على هذا الجهاز؛ لا يمكن "
+"لحسابات الشركات تسجيل الدخول دون معرّف جهاز."
+
+msgid "Logged out."
+msgstr "تم تسجيل الخروج."
+
+msgid "No refresh token."
+msgstr "لا توجد جلسة نشطة. سجّل الدخول مرة أخرى."
+
+msgid "Invalid refresh token."
+msgstr "انتهت الجلسة أو أصبحت غير صالحة. سجّل الدخول مرة أخرى."
+
+msgid "Sign in again from this device."
+msgstr "سجّل الدخول مرة أخرى من هذا الجهاز."
+
+msgid "Refreshed."
+msgstr "تم تجديد الجلسة."
+
+msgid "The company must retain at least one active owner."
+msgstr "يجب أن يبقى للشركة مالك نشط واحد على الأقل."
+
+msgid ""
+"Your role can edit this record but not delete it. Ask a manager to remove it "
+"if that is really needed."
+msgstr ""
+"دورك يسمح بتعديل هذا السجل لا حذفه. اطلب من المدير حذفه إن كان ذلك ضروريًا."
+
+msgid ""
+"This record is part of the financial trail and cannot be deleted. Record a "
+"correcting entry instead."
+msgstr ""
+"هذا السجل جزء من الأثر المالي ولا يمكن حذفه. سجّل قيدًا تصحيحيًا بدلًا من ذلك."
+
+msgid "Not found."
+msgstr "غير موجود."
+
+msgid ""
+"This record is still in use and cannot be deleted. Archive it instead to "
+"hide it from new work."
+msgstr ""
+"هذا السجل ما زال مستخدمًا ولا يمكن حذفه. أرشفه بدلًا من ذلك لإخفائه من العمل "
+"الجديد."
+
+#, python-format
+msgid ""
+"This record is still referenced by %(blocking)s, so deleting it would break "
+"that history. Archive it instead to hide it from new work."
+msgstr ""
+"هذا السجل ما زال مرتبطًا بـ %(blocking)s، وحذفه سيُفسد ذلك السجل التاريخي. "
+"أرشفه بدلًا من ذلك لإخفائه من العمل الجديد."
+
+msgid "Only a manager or owner may record an opening balance."
+msgstr "المدير أو المالك فقط يمكنه تسجيل رصيد افتتاحي."
+
+msgid "Enter a valid amount."
+msgstr "أدخل مبلغًا صحيحًا."
+
+msgid "Amount must be positive."
+msgstr "المبلغ يجب أن يكون موجبًا."
+
+msgid "Enter a valid date."
+msgstr "أدخل تاريخًا صحيحًا."
+
+msgid "An opening balance cannot be dated in the future."
+msgstr "لا يمكن أن يكون تاريخ الرصيد الافتتاحي في المستقبل."
+
+msgid ""
+"This customer already has an opening balance. Correct it with a credit note "
+"instead of adding another."
+msgstr "لهذا العميل رصيد افتتاحي بالفعل. صحّحه بإشعار دائن بدل إضافة رصيد آخر."
+
+msgid "Create a warehouse before recording balances."
+msgstr "أنشئ مستودعًا أولًا من صفحة المؤسسة (الفروع والمستودعات) ثم سجّل الرصيد."
+
+msgid ""
+"This supplier already has an opening balance. Correct it with a debit note "
+"instead of adding another."
+msgstr "لهذا المورد رصيد افتتاحي بالفعل. صحّحه بإشعار مدين بدل إضافة رصيد آخر."
+
+msgid "The first row must name the columns, and one of them must be the name."
+msgstr "يجب أن يحمل الصف الأول أسماء الأعمدة، وأحدها يجب أن يكون الاسم."
+
+msgid "Excel import is not available on this server."
+msgstr "استيراد Excel غير متاح على هذا الخادم."
+
+msgid "Upload an .xlsx or .csv file."
+msgstr "ارفع ملف .xlsx أو .csv."
+
+msgid "The file is empty."
+msgstr "الملف فارغ."
+
+#, python-format
+msgid "At most %(n)s rows per file."
+msgstr "الحد الأقصى %(n)s صفًا في الملف الواحد."
+
+#, python-format
+msgid "%(field)s is not a number."
+msgstr "%(field)s ليس رقمًا."
+
+msgid "Name is missing."
+msgstr "الاسم مفقود."
+
+msgid "Email is not valid."
+msgstr "البريد الإلكتروني غير صالح."
+
+msgid "Opening balance"
+msgstr "الرصيد الافتتاحي"
+
+msgid "Opening balance cannot be negative."
+msgstr "لا يمكن أن يكون الرصيد الافتتاحي سالبًا."
+
+msgid "Payment terms"
+msgstr "مهلة السداد"
+
+msgid "Payment terms must be whole days between 0 and 365."
+msgstr "مهلة السداد أيام صحيحة بين 0 و365."
+
+msgid "Duplicate of an earlier row in the file."
+msgstr "مكرر لصف سابق في الملف."
+
+msgid "Opening balance ignored: only a manager or owner may record one."
+msgstr "تم تجاهل الرصيد الافتتاحي: المدير أو المالك فقط يمكنه تسجيله."
+
+msgid "Opening balance kept: this account already has one."
+msgstr "بقي الرصيد الافتتاحي كما هو: لهذا الحساب رصيد مسجَّل بالفعل."
+
+msgid "This module is not included in the current plan or licence."
+msgstr "هذه الوحدة ليست ضمن الباقة أو الترخيص الحالي."
+
+msgid ""
+"Commercial access is read-only. The company owner can review renewal details."
+msgstr "الوصول حاليًا للقراءة فقط. يمكن لمالك الشركة مراجعة تفاصيل التجديد."
+
+msgid "The audit log is restricted to administrators."
+msgstr "سجل التدقيق متاح للمسؤولين فقط."
+
+msgid "You are not permitted to verify payments."
+msgstr "غير مسموح لك بالتحقق من الدفعات."
+
+msgid "Only a financial manager or an authorised executive may approve this."
+msgstr "المدير المالي أو مسؤول تنفيذي مخوَّل فقط يمكنه اعتماد هذا."
+
+msgid "This area is restricted to platform administrators."
+msgstr "هذا القسم متاح لمديري المنصة فقط."
+
+msgid "Your platform role does not include this area."
+msgstr "دورك في المنصة لا يشمل هذا القسم."
+
+msgid "Your platform role does not include this action."
+msgstr "دورك في المنصة لا يشمل هذا الإجراء."
+
+msgid "Your role does not permit this report."
+msgstr "دورك لا يسمح بعرض هذا التقرير."
+
+msgid "Your role does not permit this payroll report."
+msgstr "دورك لا يسمح بعرض تقرير الرواتب هذا."
+
+msgid "Your role does not permit this action."
+msgstr "دورك لا يسمح بهذا الإجراء."
+
+msgid "Your account scope is incomplete."
+msgstr "إعدادات حسابك غير مكتملة. تواصل مع مالك الشركة."
+
+msgid "This record is outside your assigned branch."
+msgstr "هذا السجل خارج فرعك."
+
+msgid "Platform accounts cannot create tenant business records."
+msgstr "حسابات المنصة لا يمكنها إنشاء سجلات تجارية داخل الشركات."
+
+#, python-format
+msgid "Amount exceeds the balance due (%(due)s)."
+msgstr "المبلغ يتجاوز المستحق (%(due)s)."
+
+#, python-format
+msgid "The file must be under %(mb)s MB."
+msgstr "يجب أن يكون حجم الملف أقل من %(mb)s ميغابايت."
+
+msgid ""
+"Upload a PNG, JPEG or WebP image or a PDF; other files are not accepted."
+msgstr "ارفع صورة PNG أو JPEG أو WebP أو ملف PDF؛ لا تُقبل الملفات الأخرى."
+
+msgid "Upload a PNG, JPEG or WebP image; other files are not accepted."
+msgstr "ارفع صورة PNG أو JPEG أو WebP؛ لا تُقبل الملفات الأخرى."
+
+msgid "This field is required."
+msgstr "هذا الحقل مطلوب."
+
+msgid "Only a won lead can be converted. Move it to Won first."
+msgstr "يمكن تحويل العميل المحتمل الفائز فقط. انقله إلى مرحلة \"فاز\" أولًا."
+
+msgid "Use a valid YYYY-MM-DD date."
+msgstr "أدخل تاريخًا صالحًا بصيغة YYYY-MM-DD."
+
+msgid "End date must not precede start date."
+msgstr "يجب ألا يسبق تاريخ النهاية تاريخ البداية."
+
+msgid "Choose standard, average or fifo."
+msgstr "اختر التكلفة المعيارية أو المتوسطة أو FIFO."
+
+#, python-format
+msgid "Expenses of %(threshold)s or more need a manager or owner."
+msgstr "المصروفات بقيمة %(threshold)s فأكثر تحتاج موافقة مدير أو مالك."
+
+msgid "period_end cannot be before period_start."
+msgstr "لا يمكن أن يكون تاريخ نهاية الفترة قبل تاريخ بدايتها."
+
+msgid "An approved budget is locked. Reopen it before making changes."
+msgstr "الميزانية المعتمدة مقفلة. أعِد فتحها قبل إجراء أي تعديل."
+
+msgid "An expense cannot be deleted because it feeds the income statement and budget variance. Record an offsetting negative expense instead."
+msgstr "لا يمكن حذف المصروف لأنه يدخل في قائمة الدخل ومقارنة الميزانية. سجّل مصروفًا سالبًا مقابلًا بدلًا من ذلك."
+
+msgid "Expenses are append-only. Record an offsetting correction."
+msgstr "المصروفات لا تُعدَّل بعد تسجيلها. سجّل قيدًا تصحيحيًا معاكسًا."
+
+msgid ""
+"An approved budget cannot be deleted because variance reports are measured "
+"against it. Reopen it to draft first if it must be removed."
+msgstr ""
+"لا يمكن حذف ميزانية معتمدة لأن تقارير الانحراف تُقاس عليها. أعِدها إلى مسودة "
+"أولًا إن كان لا بد من حذفها."
+
+msgid "Only a CFO, owner or general manager may approve a budget."
+msgstr "اعتماد الميزانية للمدير المالي أو المالك أو المدير العام فقط."
+
+msgid "This budget is already approved."
+msgstr "هذه الميزانية معتمدة بالفعل."
+
+msgid "A budget needs at least one line before approval."
+msgstr "تحتاج الميزانية إلى بند واحد على الأقل قبل اعتمادها."
+
+msgid "Insufficient configured leave balance."
+msgstr "رصيد الإجازات المخصَّص لا يكفي."
+
+msgid "Salary cannot be negative."
+msgstr "لا يمكن أن يكون الراتب سالبًا."
+
+msgid ""
+"Attendance is protected by approved leave. Use the leave cancellation "
+"process."
+msgstr "هذا الحضور محمي بإجازة معتمدة. استخدم إجراء إلغاء الإجازة."
+
+msgid "A medical report must be 10 MB or smaller."
+msgstr "يجب ألا يتجاوز حجم التقرير الطبي 10 ميغابايت."
+
+msgid "Upload the report as a PDF, JPEG, PNG or WebP file."
+msgstr "ارفع التقرير بصيغة PDF أو JPEG أو PNG أو WebP."
+
+msgid "Use the approval or rejection action."
+msgstr "استخدم إجراء الاعتماد أو الرفض."
+
+msgid "A decided leave request cannot be edited."
+msgstr "لا يمكن تعديل طلب إجازة بُتّ فيه."
+
+msgid "end_date cannot be before start_date."
+msgstr "لا يمكن أن يسبق تاريخ الانتهاء تاريخ البدء."
+
+msgid "Cannot request leave for a terminated employee."
+msgstr "لا يمكن طلب إجازة لموظف انتهت خدمته."
+
+msgid "Leave cannot start before the hire date."
+msgstr "لا يمكن أن تبدأ الإجازة قبل تاريخ التعيين."
+
+msgid "This leave overlaps another pending or approved request."
+msgstr "هذه الإجازة تتداخل مع طلب آخر معلّق أو معتمد."
+
+msgid "Employee is outside your branch."
+msgstr "الموظف ليس من فرعك."
+
+msgid "Use a year from 1900 to 9998."
+msgstr "أدخل سنة بين 1900 و9998."
+
+msgid ""
+"Employee, year and leave type cannot be changed on an existing allocation."
+msgstr "لا يمكن تغيير الموظف أو السنة أو نوع الإجازة في رصيد مخصَّص قائم."
+
+msgid "An allocation already exists for this employee, year and leave type."
+msgstr "يوجد رصيد مخصَّص مسبقًا لهذا الموظف في هذه السنة ولهذا النوع من الإجازات."
+
+msgid "Allocated days cannot be negative."
+msgstr "لا يمكن أن تكون الأيام المخصَّصة سالبة."
+
+msgid "The allocation cannot be less than already approved leave."
+msgstr "لا يمكن أن يقل الرصيد المخصَّص عن الإجازات المعتمدة فعلًا."
+
+msgid "Provide the allocation or adjustment reason."
+msgstr "اذكر سبب التخصيص أو التعديل."
+
+msgid "A policy already exists for this leave type."
+msgstr "توجد سياسة مسبقًا لهذا النوع من الإجازات."
+
+msgid "Days cannot be negative."
+msgstr "لا يمكن أن تكون الأيام سالبة."
+
+msgid "Rating must be between 1 and 5."
+msgstr "يجب أن يكون التقييم بين 1 و5."
+
+msgid "Use the authorised approval or rejection action."
+msgstr "استخدم إجراء الاعتماد أو الرفض المخوَّل."
+
+msgid "A decided advance cannot be edited."
+msgstr "لا يمكن تعديل سلفة بُتّ فيها."
+
+msgid "An advance must be greater than zero."
+msgstr "يجب أن تكون السلفة أكبر من صفر."
+
+msgid "Use YYYY-MM."
+msgstr "استخدم الصيغة YYYY-MM."
+
+msgid "A decided leave request cannot be deleted."
+msgstr "لا يمكن حذف طلب إجازة بُتّ فيه."
+
+msgid "Only approved leave can be cancelled."
+msgstr "لا يمكن إلغاء إلا الإجازات المعتمدة."
+
+msgid "Provide a cancellation reason (1–1000 characters)."
+msgstr "اذكر سبب الإلغاء (من 1 إلى 1000 حرف)."
+
+msgid ""
+"This leave overlaps approved payroll; a payroll correction is required first."
+msgstr "هذه الإجازة تتداخل مع مسيّر رواتب معتمد؛ يلزم تصحيح مسيّر الرواتب أولًا."
+
+msgid ""
+"Legacy or independently recorded attendance needs review before cancellation."
+msgstr "يوجد حضور قديم أو مسجّل بشكل مستقل يحتاج إلى مراجعة قبل الإلغاء."
+
+msgid "This leave request has already been decided."
+msgstr "تم البتّ في طلب الإجازة هذا مسبقًا."
+
+msgid "Correct existing attendance records before approving this leave."
+msgstr "صحّح سجلات الحضور الموجودة قبل اعتماد هذه الإجازة."
+
+msgid "Invalid year."
+msgstr "السنة غير صالحة."
+
+msgid "Use a valid year."
+msgstr "أدخل سنة صالحة."
+
+msgid ""
+"A salary advance that has been decided cannot be deleted, because it records "
+"money owed by the employee. Record a repayment instead."
+msgstr ""
+"لا يمكن حذف سلفة راتب بُتّ فيها لأنها تثبت مبلغًا مستحقًا على الموظف. سجّل سدادًا "
+"بدلًا من ذلك."
+
+msgid "This advance has already been decided."
+msgstr "تم البتّ في هذه السلفة مسبقًا."
+
+msgid "Select a company before creating payroll."
+msgstr "اختر شركة قبل إنشاء مسيّر الرواتب."
+
+msgid "Use YYYY-MM for the payroll month."
+msgstr "استخدم الصيغة YYYY-MM لشهر الرواتب."
+
+msgid "An approved payroll is locked and cannot be recalculated."
+msgstr "مسيّر الرواتب المعتمد مقفل ولا يمكن إعادة احتسابه."
+
+msgid "A deduction cannot be deleted because it affects payroll. Record an offsetting entry if it was issued in error."
+msgstr "لا يمكن حذف الخصم لأنه يؤثر على الرواتب. إن سُجّل خطأً فسجّل قيدًا مقابلًا له."
+
+msgid "Only a draft count can be submitted."
+msgstr "لا يُرسَل إلا الجرد الذي في حالة مسودة."
+
+msgid "Add at least one counted line before submitting."
+msgstr "أضف سطر جرد واحدًا على الأقل قبل الإرسال."
+
+msgid "Your role cannot approve stock counts."
+msgstr "دورك لا يسمح باعتماد جرد المخزون."
+
+msgid "Only a submitted count can be approved."
+msgstr "لا يُعتمَد إلا الجرد المُرسَل."
+
+msgid "The person who counted cannot approve their own count."
+msgstr "من قام بالجرد لا يمكنه اعتماد جرده بنفسه."
+
+msgid "An approved count is part of the ledger and cannot be cancelled."
+msgstr "الجرد المعتمد أصبح جزءًا من سجل المخزون ولا يمكن إلغاؤه."
+
+msgid "The rounding step must be positive."
+msgstr "يجب أن تكون خطوة التقريب أكبر من صفر."
+
+msgid "This value is required."
+msgstr "هذه القيمة مطلوبة."
+
+msgid "Must be a number."
+msgstr "يجب أن تكون القيمة رقمًا."
+
+msgid "Choose rate or percent."
+msgstr "اختر سعر الصرف أو النسبة المئوية."
+
+msgid "Choose sale, cost or both."
+msgstr "اختر سعر البيع أو التكلفة أو كليهما."
+
+#, python-format
+msgid "Choose one of %(options)s."
+msgstr "اختر واحدًا من: %(options)s."
+
+msgid "Record today's exchange rate first, or pass one."
+msgstr "سجّل سعر صرف اليوم أولًا، أو أدخل سعرًا."
+
+#, python-format
+msgid "A cut of 100%% or more leaves no price."
+msgstr "التخفيض بنسبة 100%% أو أكثر لا يُبقي أي سعر."
+
+msgid "Must be a category id."
+msgstr "يجب أن يكون معرّف فئة."
+
 msgid "Does not belong to your company."
 msgstr "لا ينتمي إلى شركتك."
 
 msgid "A pack must hold at least one unit."
 msgstr "العبوة يجب أن تحوي وحدة واحدة على الأقل."
+
+msgid "Cannot be negative."
+msgstr "لا يمكن أن تكون القيمة سالبة."
+
+#, python-format
+msgid "This barcode already belongs to %(product)s."
+msgstr "هذا الباركود مسجَّل بالفعل للمنتج %(product)s."
+
+#, python-format
+msgid "This barcode already belongs to a pack of %(product)s."
+msgstr "هذا الباركود مسجَّل بالفعل لعبوة من المنتج %(product)s."
 
 msgid "Quantity cannot be zero."
 msgstr "الكمية لا يمكن أن تكون صفرًا."
@@ -35,8 +586,12 @@ msgstr "الحركة %(type)s يجب أن تكون بكمية موجبة."
 msgid "%(type)s must have a negative quantity."
 msgstr "الحركة %(type)s يجب أن تكون بكمية سالبة."
 
-msgid "Only adjustments can be posted directly. Use receiving, the POS, returns or transfers for every other movement."
-msgstr "لا يُسجَّل مباشرةً إلا التسويات. استخدم الاستلام أو نقطة البيع أو المرتجعات أو التحويلات لكل حركة أخرى."
+msgid ""
+"Only adjustments can be posted directly. Use receiving, the POS, returns or "
+"transfers for every other movement."
+msgstr ""
+"لا يُسجَّل مباشرةً إلا التسويات. استخدم الاستلام أو نقطة البيع أو المرتجعات أو "
+"التحويلات لكل حركة أخرى."
 
 msgid "That lot belongs to a different product."
 msgstr "هذه الدفعة تخص صنفًا آخر."
@@ -48,7 +603,9 @@ msgid "Say why the stock is being adjusted."
 msgstr "اذكر سبب تسوية المخزون."
 
 #, python-format
-msgid "An adjustment worth %(value)s needs a manager or owner (threshold %(threshold)s)."
+msgid ""
+"An adjustment worth %(value)s needs a manager or owner (threshold "
+"%(threshold)s)."
 msgstr "تسوية بقيمة %(value)s تحتاج موافقة مدير أو مالك (الحد %(threshold)s)."
 
 msgid "Company context is required."
@@ -61,12 +618,20 @@ msgid "Source and destination warehouses must differ."
 msgstr "مستودع المصدر والوجهة يجب أن يختلفا."
 
 #, python-format
-msgid "Only %(available)s is on hand at %(warehouse)s in lot %(lot)s. Count the shelf and adjust before transferring."
-msgstr "المتاح في %(warehouse)s من الدفعة %(lot)s هو %(available)s فقط. عُدّ الرف وسوِّ المخزون قبل التحويل."
+msgid ""
+"Only %(available)s is on hand at %(warehouse)s in lot %(lot)s. Count the "
+"shelf and adjust before transferring."
+msgstr ""
+"المتاح في %(warehouse)s من الدفعة %(lot)s هو %(available)s فقط. عُدّ الرف وسوِّ "
+"المخزون قبل التحويل."
 
 #, python-format
-msgid "Only %(available)s is on hand at %(warehouse)s. Count the shelf and adjust before transferring."
-msgstr "المتاح في %(warehouse)s هو %(available)s فقط. عُدّ الرف وسوِّ المخزون قبل التحويل."
+msgid ""
+"Only %(available)s is on hand at %(warehouse)s. Count the shelf and adjust "
+"before transferring."
+msgstr ""
+"المتاح في %(warehouse)s هو %(available)s فقط. عُدّ الرف وسوِّ المخزون قبل "
+"التحويل."
 
 msgid "A count cannot be negative."
 msgstr "العدّ لا يمكن أن يكون سالبًا."
@@ -78,11 +643,114 @@ msgstr "لا يمكن تعديل إلا الجرد الذي ما زال مسود
 msgid "%(sku)s is listed twice for the same lot."
 msgstr "الصنف %(sku)s مذكور مرتين للدفعة نفسها."
 
+msgid "Only a manager or owner may reprice the catalogue."
+msgstr "تعديل أسعار الأصناف دفعةً واحدة للمدير أو المالك فقط."
+
+msgid "This product already has a barcode."
+msgstr "لهذا المنتج باركود بالفعل."
+
+msgid "A barcode is required."
+msgstr "يلزم إدخال الباركود."
+
+msgid "No product matches this barcode."
+msgstr "لا يوجد منتج بهذا الباركود."
+
+msgid ""
+"Target company already has products; restore only into an empty company."
+msgstr "الشركة الهدف لديها منتجات بالفعل؛ الاستعادة ممكنة فقط إلى شركة فارغة."
+
+msgid "A company-scoped user is required."
+msgstr "يلزم مستخدم مرتبط بشركة."
+
+msgid "That backup does not belong to your company."
+msgstr "هذه النسخة الاحتياطية لا تخص شركتك."
+
+msgid "Could not read that backup from storage."
+msgstr "تعذّرت قراءة هذه النسخة الاحتياطية من التخزين."
+
+msgid "Stored backup payload is not valid JSON."
+msgstr "بيانات النسخة الاحتياطية المحفوظة ليست JSON صالحًا."
+
+msgid "Unsupported language."
+msgstr "اللغة غير مدعومة."
+
+msgid "Unsupported theme."
+msgstr "المظهر غير مدعوم."
+
+msgid "Unknown time zone; use an IANA name such as Africa/Khartoum."
+msgstr "المنطقة الزمنية غير معروفة؛ استخدم اسمًا من IANA مثل Africa/Khartoum."
+
+msgid "Branch does not belong to your company."
+msgstr "هذا الفرع لا يتبع شركتك."
+
+msgid "The rate must be greater than zero."
+msgstr "يجب أن يكون السعر أكبر من صفر."
+
+msgid "Only the Business Owner may change the operating mode."
+msgstr "مالك الأعمال فقط يمكنه تغيير وضع التشغيل."
+
+msgid "Company name cannot be empty."
+msgstr "اسم الشركة لا يمكن أن يكون فارغًا."
+
+msgid "Unknown business type."
+msgstr "نوع النشاط غير معروف."
+
+msgid "Only a manager or owner may set approval thresholds."
+msgstr "المدير أو المالك فقط يمكنه تحديد حدود الموافقة."
+
+msgid "Must be a whole number of days."
+msgstr "يجب أن تكون عدد أيام صحيحًا."
+
+msgid "Must be between 0 and 365 days."
+msgstr "يجب أن تكون بين 0 و365 يومًا."
+
+msgid "Choose a4, 80mm or 58mm."
+msgstr "اختر a4 أو 80mm أو 58mm."
+
+msgid "Use a currency code such as USD."
+msgstr "استخدم رمز عملة مثل USD."
+
+msgid "Only the Business Owner may manage operating mode."
+msgstr "مالك الأعمال فقط يمكنه إدارة وضع التشغيل."
+
+msgid "Exception lists must be arrays."
+msgstr "قوائم الاستثناءات يجب أن تكون مصفوفات."
+
+msgid "An exception must refer to a company user or known role."
+msgstr "يجب أن يشير الاستثناء إلى مستخدم في الشركة أو دور معروف."
+
+msgid "A Branch Manager cannot create another branch."
+msgstr "لا يمكن لمدير الفرع إنشاء فرع آخر."
+
+msgid "A Branch Manager cannot archive a branch."
+msgstr "لا يمكن لمدير الفرع أرشفة فرع."
+
+msgid "You are using this device right now. Revoke it from another one."
+msgstr "أنت تستخدم هذا الجهاز الآن. أوقفه من جهاز آخر."
+
+msgid "You are using this device right now. Remove it from another one."
+msgstr "أنت تستخدم هذا الجهاز الآن. احذفه من جهاز آخر."
+
+msgid "Only a manager or owner may record the exchange rate."
+msgstr "المدير أو المالك فقط يمكنه تسجيل سعر الصرف."
+
 msgid "Not your company's record."
 msgstr "هذا السجل ليس لشركتك."
 
 msgid "At least one line is required."
 msgstr "يلزم سطر واحد على الأقل."
+
+#, python-format
+msgid "%(sku)s is batch-tracked: enter the lot number."
+msgstr "الصنف %(sku)s يُتتبَّع بالدفعات: أدخل رقم الدفعة."
+
+#, python-format
+msgid ""
+"%(sku)s: the expiry date %(date)s is already past; expired goods are "
+"returned, not received."
+msgstr ""
+"الصنف %(sku)s: تاريخ الانتهاء %(date)s قد مضى؛ البضاعة المنتهية تُرجَع للمورد "
+"ولا تُستلَم."
 
 msgid "Purchase order is not for this supplier."
 msgstr "أمر الشراء ليس لهذا المورّد."
@@ -96,9 +764,6 @@ msgstr "كل صنف مستلَم يجب أن يكون في أمر الشراء."
 #, python-format
 msgid "Only %(remaining)s remains receivable for %(sku)s."
 msgstr "المتبقي للاستلام من %(sku)s هو %(remaining)s فقط."
-
-msgid "A company-scoped user is required."
-msgstr "يلزم مستخدم مرتبط بشركة."
 
 msgid "A receipt in the company currency has a rate of 1."
 msgstr "الاستلام بعملة الشركة سعر صرفه 1."
@@ -117,17 +782,18 @@ msgid "This receipt already has a bill; void that one first."
 msgstr "لهذا الاستلام فاتورة مسجلة بالفعل؛ أبطِلها أولًا."
 
 #, python-format
-msgid "The bill (%(claimed)s) does not match the receipt (%(received)s). A manager must approve the difference."
-msgstr "الفاتورة (%(claimed)s) لا تطابق الاستلام (%(received)s). الفرق يحتاج موافقة مدير."
+msgid ""
+"The bill (%(claimed)s) does not match the receipt (%(received)s). A manager "
+"must approve the difference."
+msgstr ""
+"الفاتورة (%(claimed)s) لا تطابق الاستلام (%(received)s). الفرق يحتاج موافقة "
+"مدير."
 
 msgid "Total must be non-negative."
 msgstr "الإجمالي لا يمكن أن يكون سالبًا."
 
 msgid "Total must equal subtotal plus tax amount."
 msgstr "الإجمالي يجب أن يساوي المجموع الفرعي زائد الضريبة."
-
-msgid "Amount must be positive."
-msgstr "المبلغ يجب أن يكون موجبًا."
 
 msgid "Bank transfer requires the paying-from company bank account."
 msgstr "التحويل البنكي يتطلب تحديد حساب الشركة الدافع."
@@ -148,6 +814,51 @@ msgstr "هذه الفاتورة مُبطَلة."
 msgid "Amount exceeds the balance due on this bill (%(due)s)."
 msgstr "المبلغ يتجاوز المستحق على هذه الفاتورة (%(due)s)."
 
+msgid "Choose a file to import."
+msgstr "اختر ملفًا للاستيراد."
+
+msgid "Invalid status."
+msgstr "الحالة غير صالحة."
+
+#, python-format
+msgid "An order that is %(current)s cannot be set to %(new)s."
+msgstr "لا يمكن تغيير أمر شراء حالته %(current)s إلى %(new)s."
+
+msgid "Goods were received against this order; it cannot be cancelled."
+msgstr "تم استلام بضاعة على هذا الأمر، لذا لا يمكن إلغاؤه."
+
+msgid "Only a manager or owner may void a bill."
+msgstr "إبطال فاتورة المورّد للمدير أو المالك فقط."
+
+msgid "A reason is required to void a bill."
+msgstr "اكتب سبب إبطال فاتورة المورّد."
+
+msgid "This bill is already void."
+msgstr "فاتورة المورّد هذه مُبطَلة بالفعل."
+
+msgid "Payments were recorded against this bill; it cannot be voided."
+msgstr "سُجّلت دفعات على فاتورة المورّد هذه، لذا لا يمكن إبطالها."
+
+msgid "Already verified."
+msgstr "تم التحقق منها مسبقًا."
+
+msgid ""
+"You recorded this payment, so you cannot verify it. Verification must be "
+"done by a different user."
+msgstr ""
+"أنت من سجّل هذه الدفعة، فلا يمكنك التحقق منها. يجب أن يتحقق منها مستخدم آخر."
+
+#, python-format
+msgid ""
+"Payments of %(threshold)s or more must be approved by a CFO, owner or "
+"general manager."
+msgstr ""
+"الدفعات بقيمة %(threshold)s فأكثر تحتاج موافقة المدير المالي أو المالك أو "
+"المدير العام."
+
+msgid "Branch valuation currently supports standard costing only."
+msgstr "تقييم المخزون حسب الفرع يدعم حاليًا طريقة التكلفة المعيارية فقط."
+
 msgid "A void invoice cannot be returned."
 msgstr "لا يمكن الإرجاع على فاتورة مُبطَلة."
 
@@ -156,12 +867,18 @@ msgid "%(sku)s is not on invoice %(invoice)s."
 msgstr "الصنف %(sku)s ليس في الفاتورة %(invoice)s."
 
 #, python-format
-msgid "Invoice line for %(sku)s is for a different product than the one being returned."
+msgid ""
+"Invoice line for %(sku)s is for a different product than the one being "
+"returned."
 msgstr "سطر الفاتورة للصنف %(sku)s يخص صنفًا غير المُرجَع."
 
 #, python-format
-msgid "Cannot return %(qty)s of %(sku)s: only %(remaining)s of the %(sold)s sold remain returnable."
-msgstr "لا يمكن إرجاع %(qty)s من %(sku)s: المتبقي القابل للإرجاع %(remaining)s من أصل %(sold)s مبيعة."
+msgid ""
+"Cannot return %(qty)s of %(sku)s: only %(remaining)s of the %(sold)s sold "
+"remain returnable."
+msgstr ""
+"لا يمكن إرجاع %(qty)s من %(sku)s: المتبقي القابل للإرجاع %(remaining)s من "
+"أصل %(sold)s مبيعة."
 
 #, python-format
 msgid "Only %(remaining)s remains returnable for %(sku)s."
@@ -212,21 +929,114 @@ msgstr "المرتجع ليس لهذا المورّد."
 msgid "Return and bill must refer to the same receipt."
 msgstr "المرتجع والفاتورة يجب أن يشيرا إلى الاستلام نفسه."
 
+#, python-format
+msgid "Line %(line)s appears twice."
+msgstr "السطر %(line)s مكرر."
+
+#, python-format
+msgid "Line %(line)s not in this return."
+msgstr "السطر %(line)s ليس ضمن هذا المرتجع."
+
+#, python-format
+msgid "Line %(line)s already dispositioned."
+msgstr "تم البت في السطر %(line)s مسبقًا."
+
+msgid ""
+"That warehouse is not one you can restock into. Choose a warehouse in your "
+"own branch."
+msgstr "لا يمكنك إعادة البضاعة إلى هذا المستودع. اختر مستودعًا في فرعك."
+
+msgid "Only a manager or owner may void a note."
+msgstr "إبطال الإشعار للمدير أو المالك فقط."
+
+msgid "A reason is required to void a note."
+msgstr "اكتب سبب إبطال الإشعار."
+
+msgid "This note is already void."
+msgstr "هذا الإشعار مُبطَل بالفعل."
+
+msgid "Money was refunded against this note; it cannot be voided."
+msgstr "تم ردّ مبلغ على هذا الإشعار، لذا لا يمكن إبطاله."
+
+msgid "This note voided an invoice; it stands with that invoice."
+msgstr "هذا الإشعار أبطل فاتورة، ويبقى قائمًا معها."
+
+msgid "Use a positive integer."
+msgstr "أدخل عددًا صحيحًا موجبًا."
+
+msgid "This invoice is void."
+msgstr "هذه الفاتورة مُبطَلة."
+
+#, python-format
+msgid ""
+"Amount exceeds the balance due (%(due)s). Record the surplus separately "
+"instead of overpaying the invoice."
+msgstr ""
+"المبلغ يتجاوز المستحق (%(due)s). سجّل الزيادة على حدة بدل الدفع الزائد على "
+"الفاتورة."
+
+msgid "Bank transfer needs the receiving account and the sender."
+msgstr "التحويل البنكي يحتاج حساب الشركة المستلِم واسم المُرسِل."
+
+msgid "Not your company's bank account."
+msgstr "هذا الحساب البنكي ليس لشركتك."
+
+msgid "A store-credit payment names the credit note it draws on."
+msgstr "الدفع من الرصيد يجب أن يحدد الإشعار الدائن الذي يُسحب منه."
+
+msgid "This transfer was already recorded on this invoice."
+msgstr "هذا التحويل مسجَّل من قبل على هذه الفاتورة."
+
+msgid ""
+"The first row must name the columns; a reference and an amount column are "
+"required."
+msgstr "يجب أن يحمل الصف الأول أسماء الأعمدة، ومنها عمود للمرجع وعمود للمبلغ."
+
+msgid "Unknown account."
+msgstr "حساب غير معروف."
+
 msgid "occurred_at cannot be in the future."
 msgstr "تاريخ الحركة لا يمكن أن يكون في المستقبل."
 
 #, python-format
-msgid "occurred_at is older than %(days)s days; contact your manager to backdate."
+msgid ""
+"occurred_at is older than %(days)s days; contact your manager to backdate."
 msgstr "تاريخ الحركة أقدم من %(days)s يومًا؛ راجع مديرك لتسجيله بأثر رجعي."
-
-msgid "This record is outside your assigned branch."
-msgstr "هذا السجل خارج فرعك."
 
 msgid "Only a manager may set credit terms."
 msgstr "شروط الائتمان يحددها المدير فقط."
 
+#, python-format
+msgid ""
+"Reference %(ref)s was already recorded on %(when)s for invoice INV-"
+"%(number)06d."
+msgstr ""
+"المرجع %(ref)s مسجَّل من قبل بتاريخ %(when)s على الفاتورة INV-%(number)06d."
+
+msgid "Enter the transfer reference (or its last 4 digits)."
+msgstr "أدخل مرجع التحويل (أو آخر 4 أرقام منه)."
+
 msgid "Quotation and order customer must match."
 msgstr "عميل عرض السعر يجب أن يطابق عميل الطلب."
+
+msgid "Store credit needs the credit note it draws on."
+msgstr "الدفع من الرصيد يحتاج الإشعار الدائن الذي يُسحب منه."
+
+msgid "Not your company's credit note."
+msgstr "هذا الإشعار الدائن ليس لشركتك."
+
+msgid "That credit note is void."
+msgstr "هذا الإشعار الدائن مُبطَل."
+
+msgid "A credit note can only pay an invoice of the same customer."
+msgstr "الإشعار الدائن يسدّد فواتير العميل نفسه فقط."
+
+msgid "This note already reduces that invoice; it cannot pay it twice."
+msgstr "هذا الإشعار يخفّض تلك الفاتورة أصلًا؛ لا يمكن أن يسدّدها مرتين."
+
+#, python-format
+msgid "Only %(remaining)s of %(note)s is still available."
+msgstr "المتاح من %(note)s هو %(remaining)s فقط."
 
 msgid "Bank transfer requires the receiving company bank account."
 msgstr "التحويل البنكي يتطلب تحديد حساب الشركة المستلِم."
@@ -234,15 +1044,14 @@ msgstr "التحويل البنكي يتطلب تحديد حساب الشركة 
 msgid "Bank transfer requires the sender's bank name."
 msgstr "التحويل البنكي يتطلب اسم بنك المرسِل."
 
-#, python-format
-msgid "Amount exceeds the balance due (%(due)s). Record the surplus separately instead of overpaying the invoice."
-msgstr "المبلغ يتجاوز المستحق (%(due)s). سجّل الزيادة على حدة بدل الدفع الزائد على الفاتورة."
+msgid "Store credit is not money: no bank, reference or till details."
+msgstr "الدفع من الرصيد ليس نقدًا: بلا بنك أو مرجع أو وردية."
+
+msgid "Only a store-credit payment names a credit note."
+msgstr "الإشعار الدائن يُذكر فقط في الدفع من الرصيد."
 
 msgid "Not your company's invoice."
 msgstr "هذه الفاتورة ليست لشركتك."
-
-msgid "Not your company's bank account."
-msgstr "هذا الحساب البنكي ليس لشركتك."
 
 msgid "Not your company's till session."
 msgstr "هذه الوردية ليست لشركتك."
@@ -252,10 +1061,6 @@ msgstr "هذه الوردية مغلقة — افتح وردية جديدة."
 
 msgid "You can only record cash into your own open drawer."
 msgstr "لا يمكنك تسجيل نقد إلا في درجك المفتوح."
-
-#, python-format
-msgid "Amount exceeds the balance due (%(due)s)."
-msgstr "المبلغ يتجاوز المستحق (%(due)s)."
 
 msgid "Use either discount_percent or discount_amount on a line, not both."
 msgstr "استخدم نسبة الخصم أو مبلغه في السطر، لا كليهما."
@@ -290,6 +1095,12 @@ msgstr "مستخدم الفرع لا يبيع إلا من فرعه."
 msgid "Sales are recorded in the company currency (%(currency)s)."
 msgstr "المبيعات تُسجَّل بعملة الشركة (%(currency)s)."
 
+msgid "Only a confirmed sales order can be invoiced."
+msgstr "لا يمكن إصدار فاتورة إلا لأمر بيع مؤكَّد."
+
+msgid "The sale's customer must match the order's customer."
+msgstr "عميل البيع يجب أن يطابق عميل الأمر."
+
 msgid "That pack belongs to a different product."
 msgstr "هذه العبوة تخص صنفًا آخر."
 
@@ -303,6 +1114,9 @@ msgstr "الخصم على %(sku)s يتجاوز قيمة السطر."
 msgid "The ticket discount exceeds the sale value."
 msgstr "خصم الفاتورة يتجاوز قيمة البيع."
 
+msgid "Credit plus payment exceed the invoice total."
+msgstr "الرصيد المستخدم مع الدفعة يتجاوزان إجمالي الفاتورة."
+
 msgid "A sale on account needs a named customer."
 msgstr "البيع الآجل يحتاج عميلًا محددًا."
 
@@ -310,23 +1124,17 @@ msgid "This customer's account is on hold; take full payment."
 msgstr "حساب هذا العميل موقوف؛ استلم المبلغ كاملًا."
 
 #, python-format
-msgid "This sale would take the customer to %(exposure)s, above their credit limit of %(limit)s."
-msgstr "هذا البيع يرفع رصيد العميل إلى %(exposure)s متجاوزًا حد ائتمانه %(limit)s."
+msgid ""
+"This sale would take the customer to %(exposure)s, above their credit limit "
+"of %(limit)s."
+msgstr ""
+"هذا البيع يرفع رصيد العميل إلى %(exposure)s متجاوزًا حد ائتمانه %(limit)s."
 
-msgid "Payment exceeds the invoice total (tax included). Give change instead of overpaying."
-msgstr "المدفوع يتجاوز إجمالي الفاتورة (شاملة الضريبة). أعطِ الباقي بدل الدفع الزائد."
-
-msgid "Bank transfer needs receiving account, sender bank, and up-to-4-digit reference."
-msgstr "التحويل البنكي يحتاج حساب الاستلام وبنك المرسِل ومرجعًا حتى 4 أرقام."
-
-msgid "Cash payment must not carry bank/reference details."
-msgstr "الدفع النقدي لا يحمل بيانات بنك أو مرجع."
-
-msgid "Not your company's credit note."
-msgstr "هذا الإشعار الدائن ليس لشركتك."
-
-msgid "That credit note is void."
-msgstr "هذا الإشعار الدائن مُبطَل."
+msgid ""
+"Payment exceeds the invoice total (tax included). Give change instead of "
+"overpaying."
+msgstr ""
+"المدفوع يتجاوز إجمالي الفاتورة (شاملة الضريبة). أعطِ الباقي بدل الدفع الزائد."
 
 msgid "A bank refund needs the paying account."
 msgstr "الاسترداد البنكي يحتاج تحديد الحساب الدافع."
@@ -351,134 +1159,506 @@ msgid "Refunds of %(threshold)s or more need a manager or owner."
 msgstr "الاستردادات بقيمة %(threshold)s فأكثر تحتاج موافقة مدير أو مالك."
 
 #, python-format
+msgid ""
+"%(note)s settled what was still owed on the invoice; no money was paid that "
+"could be handed back."
+msgstr "%(note)s سدّد ما كان متبقيًا على الفاتورة؛ لم يُدفع مال يمكن ردّه."
+
+#, python-format
 msgid "Only %(remaining)s remains refundable on %(note)s."
 msgstr "المتبقي القابل للاسترداد من %(note)s هو %(remaining)s فقط."
 
 msgid "You already have an open till session. Close it before opening another."
 msgstr "لديك وردية مفتوحة بالفعل. أغلقها قبل فتح أخرى."
 
-msgid "Only a manager or owner may record an opening balance."
-msgstr "المدير أو المالك فقط يمكنه تسجيل رصيد افتتاحي."
+msgid "Only the cashier who opened this drawer, or a manager, may close it."
+msgstr "لا يغلق هذا الدرج إلا الكاشير الذي فتحه أو مدير."
 
-msgid "Enter a valid amount."
-msgstr "أدخل مبلغًا صحيحًا."
+msgid "This session is already closed."
+msgstr "هذه الوردية مغلقة بالفعل."
 
-msgid "Enter a valid date."
-msgstr "أدخل تاريخًا صحيحًا."
+msgid "Count the drawer and enter the amount."
+msgstr "عُدّ النقد في الدرج وأدخل المبلغ."
 
-msgid "An opening balance cannot be dated in the future."
-msgstr "لا يمكن أن يكون تاريخ الرصيد الافتتاحي في المستقبل."
+msgid "A drawer cannot hold less than nothing."
+msgstr "لا يمكن أن يكون المبلغ في الدرج أقل من صفر."
 
-msgid ""
-"This customer already has an opening balance. Correct it with a credit note "
-"instead of adding another."
-msgstr "لهذا العميل رصيد افتتاحي بالفعل. صحّحه بإشعار دائن بدل إضافة رصيد آخر."
+msgid "Only a closed session can be reviewed."
+msgstr "لا تُراجَع إلا الوردية المغلقة."
 
-msgid ""
-"This supplier already has an opening balance. Correct it with a debit note "
-"instead of adding another."
-msgstr "لهذا المورد رصيد افتتاحي بالفعل. صحّحه بإشعار مدين بدل إضافة رصيد آخر."
-
-msgid "Create a warehouse before recording balances."
-msgstr "أنشئ مستودعًا أولًا من صفحة المؤسسة (الفروع والمستودعات) ثم سجّل الرصيد."
-
-msgid "Target company already has products; restore only into an empty company."
-msgstr "الشركة الهدف لديها منتجات بالفعل؛ الاستعادة ممكنة فقط إلى شركة فارغة."
-
-msgid "This reset link is invalid or has already been used."
-msgstr "رابط إعادة التعيين غير صالح أو استُخدم من قبل."
-
-msgid "The current password is incorrect."
-msgstr "كلمة المرور الحالية غير صحيحة."
-
-msgid "Choose your own password before continuing."
-msgstr "اختر كلمة مرور خاصة بك قبل المتابعة."
-
-msgid "Only a financial manager or an authorised executive may approve this."
-msgstr "المدير المالي أو مسؤول تنفيذي مخوَّل فقط يمكنه اعتماد هذا."
+msgid "Only a manager or owner may sign off a till count."
+msgstr "اعتماد عدّ الدرج للمدير أو المالك فقط."
 
 msgid ""
-"%(note)s settled what was still owed on the invoice; no money was paid that "
-"could be handed back."
-msgstr "%(note)s سدّد ما كان متبقيًا على الفاتورة؛ لم يُدفع مال يمكن ردّه."
+"You closed this session, so you cannot also sign off its count. Another "
+"manager must review it."
+msgstr ""
+"أنت من أغلق هذه الوردية، فلا يمكنك اعتماد عدّها أيضًا. يجب أن يراجعها مدير آخر."
 
-msgid "The first row must name the columns, and one of them must be the name."
-msgstr "يجب أن يحمل الصف الأول أسماء الأعمدة، وأحدها يجب أن يكون الاسم."
+msgid "Already reviewed."
+msgstr "تمت مراجعتها مسبقًا."
 
-msgid "Excel import is not available on this server."
-msgstr "استيراد Excel غير متاح على هذا الخادم."
+#, python-format
+msgid "An order that is %(current)s cannot be set to %(target)s."
+msgstr "لا يمكن نقل أمر حالته %(current)s إلى %(target)s."
 
-msgid "Upload an .xlsx or .csv file."
-msgstr "ارفع ملف .xlsx أو .csv."
+msgid "Only a manager or owner may void an invoice."
+msgstr "إبطال الفاتورة للمدير أو المالك فقط."
 
-msgid "The file is empty."
-msgstr "الملف فارغ."
+msgid "A reason is required to void an invoice."
+msgstr "اكتب سبب إبطال الفاتورة."
 
-msgid "At most %(n)s rows per file."
-msgstr "الحد الأقصى %(n)s صفًا في الملف الواحد."
+msgid "This invoice is already void."
+msgstr "هذه الفاتورة مُبطَلة بالفعل."
 
-msgid "%(field)s is not a number."
-msgstr "%(field)s ليس رقمًا."
+msgid ""
+"This invoice has a return against it. Return the remaining lines instead of "
+"voiding the whole sale."
+msgstr ""
+"على هذه الفاتورة مرتجع. أرجِع الأسطر المتبقية بدلًا من إبطال البيع كاملًا."
 
-msgid "Name is missing."
-msgstr "الاسم مفقود."
+#, python-format
+msgid ""
+"%(paid)s was paid on this invoice. Say how it is being refunded (method, "
+"account/reference or till session)."
+msgstr ""
+"دُفع على هذه الفاتورة %(paid)s. حدّد طريقة ردّ المبلغ (طريقة الدفع، أو الحساب/"
+"المرجع، أو الوردية)."
 
-msgid "Email is not valid."
-msgstr "البريد الإلكتروني غير صالح."
+msgid "Choose a receiving account."
+msgstr "اختر الحساب المستلِم."
 
-msgid "Opening balance"
-msgstr "الرصيد الافتتاحي"
+msgid "Upload the statement export."
+msgstr "ارفع ملف كشف الحساب."
 
-msgid "Opening balance cannot be negative."
-msgstr "لا يمكن أن يكون الرصيد الافتتاحي سالبًا."
+#, python-format
+msgid "Unknown modules: %(modules)s"
+msgstr "وحدات غير معروفة: %(modules)s"
 
-msgid "Payment terms"
-msgstr "مهلة السداد"
+#, python-format
+msgid "%(module)s also requires %(required)s."
+msgstr "الوحدة %(module)s تتطلب أيضًا: %(required)s."
 
-msgid "Payment terms must be whole days between 0 and 365."
-msgstr "مهلة السداد أيام صحيحة بين 0 و365."
+#, python-format
+msgid "Unknown limit: %(name)s"
+msgstr "حد غير معروف: %(name)s"
 
-msgid "Duplicate of an earlier row in the file."
-msgstr "مكرر لصف سابق في الملف."
+#, python-format
+msgid "%(name)s must be a non-negative integer."
+msgstr "يجب أن يكون %(name)s عددًا صحيحًا غير سالب."
 
-msgid "Opening balance ignored: only a manager or owner may record one."
-msgstr "تم تجاهل الرصيد الافتتاحي: المدير أو المالك فقط يمكنه تسجيله."
+#, python-format
+msgid "Unknown add-on: %(name)s"
+msgstr "إضافة غير معروفة: %(name)s"
 
-msgid "Opening balance kept: this account already has one."
-msgstr "بقي الرصيد الافتتاحي كما هو: لهذا الحساب رصيد مسجَّل بالفعل."
+#, python-format
+msgid "%(name)s must be a non-negative amount."
+msgstr "يجب أن يكون %(name)s مبلغًا غير سالب."
 
-msgid "Choose a file to import."
-msgstr "اختر ملفًا للاستيراد."
-msgid "This barcode already belongs to %(product)s."
-msgstr "هذا الباركود مسجَّل بالفعل للمنتج %(product)s."
+msgid "A published or used plan version is immutable; create a new version."
+msgstr "إصدار الباقة المنشور أو المستخدم لا يمكن تعديله؛ أنشئ إصدارًا جديدًا."
 
-msgid "This barcode already belongs to a pack of %(product)s."
-msgstr "هذا الباركود مسجَّل بالفعل لعبوة من المنتج %(product)s."
+msgid "Enter the last four reference characters."
+msgstr "أدخل آخر أربعة أحرف من المرجع."
 
-msgid "Store credit needs the credit note it draws on."
-msgstr "الدفع من الرصيد يحتاج الإشعار الدائن الذي يُسحب منه."
+msgid "Payment and invoice must belong to the same company."
+msgstr "يجب أن تكون الدفعة والفاتورة للشركة نفسها."
 
-msgid "A credit note can only pay an invoice of the same customer."
-msgstr "الإشعار الدائن يسدّد فواتير العميل نفسه فقط."
+msgid "Only the company owner can manage its subscription."
+msgstr "لا يدير اشتراك الشركة إلا مالكها."
 
-msgid "This note already reduces that invoice; it cannot pay it twice."
-msgstr "هذا الإشعار يخفّض تلك الفاتورة أصلًا؛ لا يمكن أن يسدّدها مرتين."
+#, python-format
+msgid "%(resource)s cannot be added to this plan."
+msgstr "لا يمكن إضافة %(resource)s إلى هذه الباقة."
 
-msgid "Only %(remaining)s of %(note)s is still available."
-msgstr "المتاح من %(note)s هو %(remaining)s فقط."
+msgid "Units must be whole numbers."
+msgstr "يجب أن تكون الوحدات أعدادًا صحيحة."
 
-msgid "Store credit is not money: no bank, reference or till details."
-msgstr "الدفع من الرصيد ليس نقدًا: بلا بنك أو مرجع أو وردية."
+msgid "Say how many units to add or remove."
+msgstr "حدّد عدد الوحدات المراد إضافتها أو إزالتها."
 
-msgid "Only a store-credit payment names a credit note."
-msgstr "الإشعار الدائن يُذكر فقط في الدفع من الرصيد."
+msgid "Add or remove units in one request, not both."
+msgstr "أضف وحدات أو أزلها في الطلب الواحد، لا الاثنين معًا."
 
-msgid "Credit plus payment exceed the invoice total."
-msgstr "الرصيد المستخدم مع الدفعة يتجاوزان إجمالي الفاتورة."
+#, python-format
+msgid "The company has no %(resource)s add-on to remove."
+msgstr "لا توجد لدى الشركة إضافة %(resource)s لإزالتها."
 
-msgid "This module is not included in the current plan or licence."
-msgstr "هذه الوحدة ليست ضمن الباقة أو الترخيص الحالي."
+msgid "This company has no subscription to change."
+msgstr "لا يوجد لهذه الشركة اشتراك لتغييره."
+
+msgid "That plan is not available."
+msgstr "هذه الباقة غير متاحة."
+
+msgid "The company is already on that plan."
+msgstr "الشركة مشتركة في هذه الباقة بالفعل."
+
+msgid "A plan change is already waiting for a decision."
+msgstr "يوجد طلب تغيير باقة بانتظار القرار بالفعل."
+
+msgid "This request is already closed."
+msgstr "هذا الطلب مغلق بالفعل."
+
+msgid "Only a pending request can be approved."
+msgstr "لا يمكن اعتماد إلا طلب معلّق."
+
+msgid "Only a pending request can be rejected."
+msgstr "لا يمكن رفض إلا طلب معلّق."
+
+msgid "One or more add-ons are unknown."
+msgstr "إضافة واحدة أو أكثر غير معروفة."
+
+msgid "Add-on prices must be non-negative amounts."
+msgstr "يجب أن تكون أسعار الإضافات مبالغ غير سالبة."
+
+msgid "One or more usage limits are unknown."
+msgstr "حد استخدام واحد أو أكثر غير معروف."
+
+msgid "Usage limits must be non-negative integers."
+msgstr "يجب أن تكون حدود الاستخدام أعدادًا صحيحة غير سالبة."
+
+#, python-format
+msgid "Required for %(status)s."
+msgstr "مطلوب للحالة %(status)s."
+
+msgid "Must be after the subscription start."
+msgstr "يجب أن يكون بعد بداية الاشتراك."
+
+msgid "Publish the plan version before assigning it to a company."
+msgstr "انشر إصدار الباقة قبل إسناده إلى شركة."
+
+msgid "Invoice and subscription must belong to the same company."
+msgstr "يجب أن تكون الفاتورة والاشتراك للشركة نفسها."
+
+msgid "The invoice period cannot end before it starts."
+msgstr "لا يمكن أن تنتهي فترة الفاتورة قبل بدايتها."
+
+msgid "Enter the transfer reference from the app."
+msgstr "أدخل رقم مرجع التحويل من التطبيق."
+
+msgid "This transfer reference was already submitted."
+msgstr "تم إرسال مرجع التحويل هذا من قبل."
+
+msgid "Each allocation needs invoice_id and amount."
+msgstr "كل توزيع يحتاج invoice_id وamount."
+
+msgid "Allocation amounts must be positive."
+msgstr "يجب أن تكون مبالغ التوزيع موجبة."
+
+msgid "Each invoice may appear only once."
+msgstr "يجب ألا تتكرر الفاتورة أكثر من مرة."
+
+#, python-format
+msgid "The %(resource)s limit for the current plan has been reached."
+msgstr "تم بلوغ حد %(resource)s في الباقة الحالية."
+
+msgid "Only pending payments can be rejected."
+msgstr "لا يمكن رفض إلا الدفعات المعلّقة."
+
+msgid "Give the company a reason for the rejection."
+msgstr "اذكر للشركة سبب الرفض."
+
+msgid "Allocations must equal the full payment amount."
+msgstr "يجب أن يساوي مجموع التوزيعات مبلغ الدفعة كاملًا."
+
+#, python-format
+msgid "Invoice %(number)s is not open for payment."
+msgstr "الفاتورة %(number)s غير مفتوحة للسداد."
+
+#, python-format
+msgid "Invoice %(number)s uses a different currency."
+msgstr "الفاتورة %(number)s بعملة مختلفة."
+
+#, python-format
+msgid "Allocation exceeds invoice %(number)s balance."
+msgstr "التوزيع يتجاوز رصيد الفاتورة %(number)s."
 
 #, python-format
 msgid "Your subscription is billed in %(currency)s; pay in that currency."
 msgstr "اشتراكك مُفوتَر بعملة %(currency)s؛ ادفع بالعملة نفسها."
+
+msgid "A plan version in use is immutable; create a new version."
+msgstr "إصدار الباقة المستخدم لا يمكن تعديله؛ أنشئ إصدارًا جديدًا."
+
+msgid "A plan version in use cannot be deleted."
+msgstr "لا يمكن حذف إصدار باقة مستخدم."
+
+msgid "Invalid target state."
+msgstr "الحالة المطلوبة غير صالحة."
+
+#, python-format
+msgid "Set %(field)s before this transition."
+msgstr "عيّن %(field)s قبل هذا الانتقال."
+
+msgid "Choose a plan."
+msgstr "اختر باقة."
+
+msgid "Reduce usage to fit the new plan first."
+msgstr "خفّض الاستخدام أولًا ليتوافق مع الباقة الجديدة."
+
+#, python-format
+msgid "Unknown op_type '%(op_type)s'."
+msgstr "نوع العملية '%(op_type)s' غير معروف."
+
+msgid "Your role does not permit this operation."
+msgstr "دورك لا يسمح بهذه العملية."
+
+msgid "This operation identifier is already in use."
+msgstr "معرّف هذه العملية مستخدم بالفعل."
+
+msgid "A company is required."
+msgstr "يلزم وجود شركة."
+
+msgid "The signed-in account or branch changed."
+msgstr "تغيّر الحساب المسجَّل دخوله أو الفرع."
+
+msgid "At most 100 operations per batch."
+msgstr "الحد الأقصى 100 عملية في كل دفعة مزامنة."
+
+msgid "Each operation requires a payload object."
+msgstr "كل عملية تحتاج إلى بيانات (payload)."
+
+msgid "Every operation requires client_uuid."
+msgstr "كل عملية تحتاج إلى client_uuid."
+
+msgid "Operation and payload identifiers must match."
+msgstr "يجب أن يتطابق معرّف العملية مع المعرّف داخل بياناتها."
+
+msgid "Batch identifier is unavailable."
+msgstr "معرّف دفعة المزامنة غير متاح."
+
+msgid "Incomplete batch payload does not match."
+msgstr "بيانات دفعة المزامنة غير المكتملة لا تطابق المرسلة سابقًا."
+
+msgid "This batch is already being processed."
+msgstr "دفعة المزامنة هذه قيد المعالجة بالفعل."
+
+msgid "Invalid or expired page_cursor."
+msgstr "مؤشر الصفحة (page_cursor) غير صالح أو منتهي الصلاحية."
+
+msgid "A valid client_uuid is required."
+msgstr "يلزم client_uuid صالح."
+
+msgid "A reason is required to discard an operation."
+msgstr "اكتب سبب تجاهل هذه العملية."
+
+msgid "The operation payload is required."
+msgstr "بيانات العملية مطلوبة."
+
+msgid "Managers only."
+msgstr "للمديرين فقط."
+
+msgid "Already resolved."
+msgstr "تمت معالجتها مسبقًا."
+
+msgid "Say how it was handled."
+msgstr "اذكر كيف تمت معالجتها."
+
+#, python-format
+msgid "Unknown invoice_format '%(fmt)s'."
+msgstr "صيغة الفاتورة '%(fmt)s' غير معروفة."
+
+msgid "Use a two-letter ISO 3166-1 country code."
+msgstr "استخدم رمز الدولة المكوّن من حرفين حسب ISO 3166-1."
+
+msgid "flat_tax_rate must be a number."
+msgstr "نسبة الضريبة يجب أن تكون رقمًا."
+
+msgid "The rate must be between 0 and 100 percent."
+msgstr "يجب أن تكون النسبة بين 0 و100 بالمئة."
+
+msgid "A company workspace is required."
+msgstr "يلزم أن يكون حسابك تابعًا لشركة."
+
+msgid "Choose an image file."
+msgstr "اختر ملف صورة."
+
+msgid "The image is larger than 8 MB."
+msgstr "حجم الصورة أكبر من 8 ميغابايت."
+
+msgid "This file is not a JPEG, PNG or WebP image."
+msgstr "هذا الملف ليس صورة JPEG أو PNG أو WebP."
+
+msgid "Use a JPEG, PNG or WebP image."
+msgstr "استخدم صورة JPEG أو PNG أو WebP."
+
+msgid "This order is closed."
+msgstr "هذا الطلب مغلق."
+
+msgid "The shop has not confirmed the amount yet."
+msgstr "لم يؤكد المحل المبلغ بعد."
+
+msgid "Choose the account you transferred to."
+msgstr "اختر الحساب الذي حوّلت إليه."
+
+msgid "Which bank did you transfer from?"
+msgstr "من أي بنك حوّلت؟"
+
+msgid "Enter the last four digits of the transfer."
+msgstr "أدخل آخر أربعة أرقام من رقم عملية التحويل."
+
+msgid "Enter the amount you transferred."
+msgstr "أدخل المبلغ الذي حوّلته."
+
+msgid "This transfer was already declared."
+msgstr "تم تسجيل هذا التحويل مسبقًا."
+
+msgid "This claim was already answered."
+msgstr "تم الرد على هذا التحويل مسبقًا."
+
+msgid "Only a confirmed order can be paid."
+msgstr "لا يمكن الدفع إلا لطلب مؤكد."
+
+msgid ""
+"Confirming a transfer of this size needs an approver (owner, GM or CFO)."
+msgstr ""
+"تأكيد تحويل بهذا المبلغ يحتاج اعتماد المالك أو المدير العام أو المدير المالي."
+
+msgid "Create a warehouse to sell from first."
+msgstr "أنشئ مستودعًا للبيع منه أولًا."
+
+msgid "This order was fulfilled without an invoice."
+msgstr "تم تنفيذ هذا الطلب دون فاتورة."
+
+msgid "Enter a phone number we can reach you on."
+msgstr "أدخل رقم هاتف يمكننا التواصل معك عليه."
+
+msgid "This page does not take orders."
+msgstr "هذه الصفحة لا تستقبل طلبات."
+
+msgid "Tell us who to ask for."
+msgstr "أخبرنا باسم من نسأل عنه."
+
+msgid "That email address does not look right."
+msgstr "عنوان البريد الإلكتروني غير صحيح."
+
+msgid "Choose pickup or delivery."
+msgstr "اختر الاستلام من المحل أو التوصيل."
+
+msgid "Where should we deliver?"
+msgstr "إلى أين نوصل الطلب؟"
+
+msgid "Choose one of the listed branches."
+msgstr "اختر أحد الفروع المعروضة."
+
+msgid "Add at least one product."
+msgstr "أضف منتجًا واحدًا على الأقل."
+
+msgid "Too many lines for one order."
+msgstr "عدد الأسطر كبير جدًا لطلب واحد."
+
+msgid "Each line needs a product and a quantity."
+msgstr "كل سطر يحتاج منتجًا وكمية."
+
+msgid "One of the products cannot be ordered here."
+msgstr "أحد المنتجات غير متاح للطلب من هذه الصفحة."
+
+msgid "Quantity must be between 1 and 9999."
+msgstr "الكمية يجب أن تكون بين 1 و9999."
+
+msgid "This page cannot take your order."
+msgstr "لا يمكن لهذه الصفحة استقبال طلبك."
+
+msgid "This order was already answered."
+msgstr "تم الرد على هذا الطلب مسبقًا."
+
+#, python-format
+msgid "%(name)s is no longer in the catalogue."
+msgstr "%(name)s لم يعد متاحًا في قائمة المنتجات. احذفه من الطلب أو أعد تفعيله."
+
+msgid "Use the measurement id as Google shows it, such as G-XXXXXXXXXX."
+msgstr "أدخل معرّف القياس كما يظهر في Google، مثل G-XXXXXXXXXX."
+
+msgid "Paste only the content value of the tag."
+msgstr "الصق قيمة content من الوسم فقط."
+
+msgid "Enter a number in international form."
+msgstr "أدخل الرقم بالصيغة الدولية (مع رمز الدولة)."
+
+msgid "Enter a path such as /pricing or /s/shop."
+msgstr "أدخل مسارًا مثل /pricing أو /s/shop."
+
+msgid "There is already an override for this path and language."
+msgstr "يوجد تخصيص مسبق لهذا المسار وهذه اللغة."
+
+msgid "Keep each service under 60 characters."
+msgstr "اجعل كل خدمة أقل من 60 حرفًا."
+
+msgid "Not your company's website."
+msgstr "هذا الموقع لا يتبع شركتك."
+
+msgid "Leave this field empty."
+msgstr "اترك هذا الحقل فارغًا."
+
+msgid "Enter a phone number we can call."
+msgstr "أدخل رقم هاتف يمكننا الاتصال به."
+
+msgid "Leave a phone number or an email so we can reach you."
+msgstr "اترك رقم هاتف أو بريدًا إلكترونيًا لنتواصل معك."
+
+msgid "This plan is not available for registration."
+msgstr "هذه الباقة غير متاحة للتسجيل."
+
+msgid "Use a two-letter country code."
+msgstr "استخدم رمز دولة من حرفين (مثل SD)."
+
+msgid "Choose a plan for a SaaS trial."
+msgstr "اختر باقة لبدء التجربة المجانية."
+
+msgid "A SaaS request needs a plan."
+msgstr "طلب الاشتراك السحابي يحتاج باقة."
+
+msgid "The plan of a closed request cannot change."
+msgstr "لا يمكن تغيير باقة طلب مغلق."
+
+msgid "Only approved registration requests can be provisioned."
+msgstr "لا يمكن تجهيز إلا طلبات التسجيل الموافق عليها."
+
+msgid ""
+"Standalone requests are prepared through the standalone delivery process."
+msgstr "طلبات النسخة المستقلة تُجهَّز عبر إجراءات تسليم النسخة المستقلة."
+
+msgid "A SaaS registration needs a published plan."
+msgstr "تسجيل الاشتراك السحابي يحتاج باقة منشورة."
+
+msgid "The contact email already belongs to an account."
+msgstr "بريد التواصل مسجَّل مسبقًا في حساب آخر."
+
+msgid "The Business Owner role has an invalid scope."
+msgstr "دور «مالك المنشأة» له نطاق غير صحيح."
+
+msgid "The selected plan is no longer available for registration."
+msgstr "الباقة المختارة لم تعد متاحة للتسجيل."
+
+msgid "Only provisioned registration requests have an owner invitation."
+msgstr "دعوة المالك متاحة فقط لطلبات التسجيل التي تم تجهيزها."
+
+msgid "The company has no active owner to invite."
+msgstr "لا يوجد مالك نشط لهذه الشركة لإرسال الدعوة إليه."
+
+msgid "This status transition is not allowed."
+msgstr "لا يُسمح بتغيير الحالة بهذا الشكل."
+
+msgid "This request cannot be approved from its current state."
+msgstr "لا يمكن الموافقة على هذا الطلب في حالته الحالية."
+
+msgid "Choose a published plan before approval."
+msgstr "اختر باقة منشورة قبل الموافقة."
+
+msgid "The selected plan is no longer available; pick another plan."
+msgstr "الباقة المختارة لم تعد متاحة؛ اختر باقة أخرى."
+
+msgid "Push is not configured."
+msgstr "الإشعارات غير مُعدّة على الخادم."
+
+msgid "A push subscription is required."
+msgstr ""
+"بيانات اشتراك الإشعارات مطلوبة. فعّل الإشعارات من المتصفح ثم أعد المحاولة."
+
+#~ msgid ""
+#~ "Bank transfer needs receiving account, sender bank, and up-to-4-digit "
+#~ "reference."
+#~ msgstr "التحويل البنكي يحتاج حساب الاستلام وبنك المرسِل ومرجعًا حتى 4 أرقام."
+
+#~ msgid "Cash payment must not carry bank/reference details."
+#~ msgstr "الدفع النقدي لا يحمل بيانات بنك أو مرجع."

@@ -9,6 +9,7 @@ are restricted to a manager-level role.
 from datetime import date
 from decimal import Decimal
 
+from django.conf import settings
 from django.urls import reverse
 from django.utils import translation
 from rest_framework.test import APITestCase
@@ -61,9 +62,9 @@ class TierANeverDeletableTests(DeletionPolicyTestCase):
             company=self.company, category="Rent",
             amount=Decimal("1"), date=date.today(),
         )
-        resp = self.client.delete(
-            reverse("expense-detail", args=[exp.id]), HTTP_ACCEPT_LANGUAGE="en"
-        )
+        # The API picks the language from the cookie the frontend sets.
+        self.client.cookies[settings.LANGUAGE_COOKIE_NAME] = "en"
+        resp = self.client.delete(reverse("expense-detail", args=[exp.id]))
         self.assertIn("offsetting", resp.data["detail"].lower())
 
     def test_expense_cannot_be_edited_in_place(self):
