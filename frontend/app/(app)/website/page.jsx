@@ -14,6 +14,7 @@ import Gallery from "@/components/website/Gallery";
 import ImagePicker from "@/components/website/ImagePicker";
 import { errorText } from "@/lib/errors";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 
 const CATEGORIES = ["grocery", "pharmacy", "wholesale", "electronics", "fashion", "cosmetics", "hardware", "restaurant", "services", "other"];
 
@@ -147,7 +148,7 @@ export default function WebsitePage() {
       {!page && loadError ? (
         <div role="alert" className="rounded-control border border-danger/25 bg-danger/10 p-4 text-sm text-danger">{t("website.loadErrorTitle")}: {loadError}</div>
       ) : !page ? (
-        <div className="text-muted">{t("common.loading")}</div>
+        <SkeletonCard />
       ) : (
         <Card className="p-6">
           <div className="space-y-4">

@@ -9,6 +9,7 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
+import { SkeletonRows } from "@/components/ui/Skeleton";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -66,7 +67,7 @@ export default function ShiftHistory({ refreshKey }) {
           </Select>
         </div>
       </div>
-      {rows === null ? <p className="p-8 text-center text-muted">{t("common.loading")}</p> : rows.length === 0 ? (
+      {rows === null ? <SkeletonRows /> : rows.length === 0 ? (
         <p className="p-8 text-center text-muted">{filter === "unreviewed" ? t("till.history.emptyUnreviewed") : t("till.history.empty")}</p>
       ) : (
         <div className="overflow-x-auto">

@@ -9,6 +9,7 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import DocumentView from "./DocumentView";
 import PrintSheet from "./PrintSheet";
 import ReceiptView from "./ReceiptView";
+import { SkeletonLines } from "@/components/ui/Skeleton";
 
 const PAPERS = ["a4", "80mm", "58mm"];
 const PAPER_KEY = "print.paper";
@@ -83,7 +84,7 @@ export default function DocumentDrawer({ open, onClose, fetcher, id, title }) {
       }
     >
       {error && <p className="text-muted">{t("sales.loadDocError")}</p>}
-      {!doc && !error && <p className="text-muted">{t("common.loading")}</p>}
+      {!doc && !error && <SkeletonLines />}
       {doc && (
         <>
           <div className={`rounded-card border border-line ${paper === "a4" ? "" : "bg-paper py-4"}`}>

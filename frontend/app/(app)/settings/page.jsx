@@ -11,6 +11,7 @@ import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/compone
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import TabBar from "@/components/ui/TabBar";
 import { useHashTab } from "@/lib/useHashTab";
+import { SkeletonLines } from "@/components/ui/Skeleton";
 
 const bytes = (n) => (n > 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
 
@@ -305,7 +306,7 @@ export default function SettingsPage() {
         </h2>
         <p className="mb-4 text-sm text-muted">{t("settings.companyProfileHint")}</p>
         {!company ? (
-          <p className="text-muted">{t("common.loading")}</p>
+          <SkeletonLines />
         ) : (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -503,7 +504,7 @@ export default function SettingsPage() {
         <Card className="mb-6 p-6">
           <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">{t("settings.systemMode")}</h2>
           <p className="mt-1 text-sm text-muted">{t("settings.systemModeHint")}</p>
-          {!storeMode ? <p className="mt-4 text-sm text-muted">{t("common.loading")}</p> : <>
+          {!storeMode ? <SkeletonLines /> : <>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <button onClick={() => setPendingMode("shop")} className={`rounded-control border p-4 text-start ${company?.business_type === "shop" ? "border-accent bg-accent/5" : "border-line hover:border-accent/50"}`}><div className="font-semibold">{t("settings.typeShop")}</div><p className="mt-1 text-xs text-muted">{t("settings.shopModeEffect")}</p></button>
               <button onClick={() => setPendingMode("enterprise")} className={`rounded-control border p-4 text-start ${company?.business_type === "enterprise" ? "border-accent bg-accent/5" : "border-line hover:border-accent/50"}`}><div className="font-semibold">{t("settings.typeEnterprise")}</div><p className="mt-1 text-xs text-muted">{t("settings.companyModeEffect")}</p></button>
@@ -528,7 +529,7 @@ export default function SettingsPage() {
           {t("settings.taxInvoicing")}
         </h2>
         {!profile ? (
-          <p className="text-muted">{t("common.loading")}</p>
+          <SkeletonLines />
         ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">

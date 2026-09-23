@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { hr } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { Button, Card, Field, Input, Select } from "@/components/ui/kit";
+import { SkeletonLines } from "@/components/ui/Skeleton";
 
 const types = { annual: "hr.typeAnnual", casual: "hr.typeCasual", sick: "hr.typeSick", unpaid: "hr.typeUnpaid", other: "hr.typeOther" };
 export default function LeaveBalances({ writable }) {
@@ -67,7 +68,7 @@ export default function LeaveBalances({ writable }) {
       <Field label={t("hr.balanceReason")}><Input maxLength={1000} value={form.note} onChange={(e) => set("note", e.target.value)} /></Field>
       <div className="flex gap-2"><Button disabled={saving || !form.employee || form.entitled_days === "" || !form.note.trim()} onClick={save}>{t(saving ? "common.saving" : "common.save")}</Button><Button variant="outline" disabled={saving} onClick={() => setForm(null)}>{t("common.cancel")}</Button></div>
     </Card>}
-    {loading ? <p>{t("common.loading")}</p> : !error && <>
+    {loading ? <SkeletonLines /> : !error && <>
       {data.results.length === 0 && <Card className="p-6 text-muted">{t("hr.noBalances")}</Card>}
       {data.results.map((row) => <Card key={row.id} className="space-y-3 p-4">
         <div className="flex items-center justify-between gap-3"><strong>{row.employee_name} · {t(types[row.leave_type])}</strong>{writable && <Button variant="outline" onClick={() => setForm({ ...row, note: "" })}>{t("hr.adjustBalance")}</Button>}</div>

@@ -9,6 +9,7 @@ import { useI18n } from "../../providers/I18nProvider";
 import { platformTeam } from "@/lib/api";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 
 const DEFAULT_ROLE = "Support Agent";
 
@@ -166,7 +167,7 @@ export default function PlatformTeamPage() {
       </Card>}
 
       {loading ? (
-        <Card className="p-8 text-center text-muted">{t("common.loading")}</Card>
+        <SkeletonCard />
       ) : (
         <div className="grid gap-3">
           {rows.map((row) => {

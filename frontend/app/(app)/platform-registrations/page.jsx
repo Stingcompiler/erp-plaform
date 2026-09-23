@@ -9,6 +9,7 @@ import { registration } from "@/lib/api";
 import { Badge, Button, Card, PageHeader, Select } from "@/components/ui/kit";
 import FollowUpPanel, { ContactLinks, FollowUpBadge } from "@/components/platform/FollowUpPanel";
 import { errorText } from "@/lib/errors";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 
 const ACTIVE = ["submitted", "under_review", "needs_information", "approved"];
 const REVIEW = ["under_review", "needs_information", "rejected"];
@@ -112,7 +113,7 @@ export default function PlatformRegistrationsPage() {
         </Card>
       )}
       {loading ? (
-        <Card className="p-8 text-center text-muted">{t("common.loading")}</Card>
+        <SkeletonCard />
       ) : rows.length === 0 ? (
         <Card className="p-10 text-center"><FileCheck2 className="mx-auto text-muted" /><p className="mt-3 text-muted">{t("platformRegistration.empty")}</p></Card>
       ) : (

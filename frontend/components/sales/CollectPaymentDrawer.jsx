@@ -11,6 +11,7 @@ import DocumentDrawer from "@/components/print/DocumentDrawer";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
+import { SkeletonLines } from "@/components/ui/Skeleton";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -280,7 +281,7 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
               <span className="text-xs text-muted">{t("debts.allocationHint")}</span>
             </div>
             {loading ? (
-              <p className="py-4 text-center text-sm text-muted">{t("common.loading")}</p>
+              <SkeletonLines />
             ) : invoices.length === 0 ? (
               <p className="py-4 text-center text-sm text-muted">{t("debts.noOpenInvoices")}</p>
             ) : (

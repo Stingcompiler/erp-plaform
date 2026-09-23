@@ -13,6 +13,7 @@ import { Badge, Button, Card, PageHeader } from "@/components/ui/kit";
 import { useToast } from "@/components/ui/Toast";
 import UserForm from "@/components/users/UserForm";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { SkeletonTableRows } from "@/components/ui/Skeleton";
 
 export default function UsersPage() {
   const { user: currentUser, canRead, canWrite, can } = useAuth();
@@ -178,11 +179,7 @@ export default function UsersPage() {
             </thead>
             <tbody>
               {loading && (
-                <tr>
-                  <td colSpan={writable ? 6 : 5} className="px-4 py-8 text-center text-muted">
-                    {t("common.loading")}
-                  </td>
-                </tr>
+                <SkeletonTableRows cols={writable ? 6 : 5} />
               )}
               {!loading && loadError && (
                 <tr>

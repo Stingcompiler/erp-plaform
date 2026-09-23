@@ -10,6 +10,7 @@ import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import PhoneLink from "@/components/ui/PhoneLink";
+import { SkeletonRows } from "@/components/ui/Skeleton";
 
 const STATUS_TONE = {
   active: "ok",
@@ -283,7 +284,7 @@ export default function PartyRecords({
               </Card>
 
               {/* Chronological activity */}
-              {loading && <p className="py-8 text-center text-muted">{t("common.loading")}</p>}
+              {loading && <SkeletonRows />}
               {!loading && events.length === 0 && (
                 <Card className="p-8 text-center text-muted">{t("records.noEvents")}</Card>
               )}

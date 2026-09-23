@@ -14,6 +14,7 @@ import RepriceDrawer from "@/components/inventory/RepriceDrawer";
 import StockDrawer from "@/components/inventory/StockDrawer";
 import StockCountPanel from "@/components/inventory/StockCountPanel";
 import { errorText } from "@/lib/errors";
+import { SkeletonTableRows } from "@/components/ui/Skeleton";
 
 const PAGE_SIZE = 50;
 
@@ -267,11 +268,7 @@ export default function InventoryPage() {
             </thead>
             <tbody>
               {loading && (
-                <tr>
-                  <td colSpan={writable ? 7 : 6} className="px-4 py-8 text-center text-muted">
-                    {t("common.loading")}
-                  </td>
-                </tr>
+                <SkeletonTableRows cols={writable ? 7 : 6} />
               )}
               {error && !loading && (
                 <tr>

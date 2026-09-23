@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
+import { SkeletonRows } from "@/components/ui/Skeleton";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -163,7 +164,7 @@ export default function QuotesOrders({ customers, writable, onInvoice, refreshKe
           <h2 className="flex items-center gap-2 font-display text-lg font-semibold"><FileText size={18} className="text-accent" />{t("quotes.title")}</h2>
           {writable && <Button onClick={() => setDrawer(true)}><Plus size={16} />{t("quotes.new")}</Button>}
         </div>
-        {quotes === null ? <p className="p-8 text-center text-muted">{t("common.loading")}</p> : quotes.length === 0 ? (
+        {quotes === null ? <SkeletonRows /> : quotes.length === 0 ? (
           <p className="p-8 text-center text-muted">{t("quotes.empty")}</p>
         ) : (
           <div className="divide-y divide-line">
@@ -189,7 +190,7 @@ export default function QuotesOrders({ customers, writable, onInvoice, refreshKe
           <h2 className="flex items-center gap-2 font-display text-lg font-semibold"><Receipt size={18} className="text-accent" />{t("orders.title")}</h2>
           <p className="text-xs text-muted">{t("orders.hint")}</p>
         </div>
-        {orders === null ? <p className="p-8 text-center text-muted">{t("common.loading")}</p> : orders.length === 0 ? (
+        {orders === null ? <SkeletonRows /> : orders.length === 0 ? (
           <p className="p-8 text-center text-muted">{t("orders.empty")}</p>
         ) : (
           <div className="divide-y divide-line">

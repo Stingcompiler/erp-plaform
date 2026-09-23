@@ -10,6 +10,7 @@ import { Badge, Button, Card, PageHeader } from "@/components/ui/kit";
 import PhoneLink from "@/components/ui/PhoneLink";
 import BranchForm from "@/components/org/BranchForm";
 import WarehouseForm from "@/components/org/WarehouseForm";
+import { SkeletonTableRows } from "@/components/ui/Skeleton";
 
 function SectionHeading({ title, subtitle, action }) {
   return (
@@ -98,11 +99,7 @@ export default function OrgPage() {
             </thead>
             <tbody>
               {loading && (
-                <tr>
-                  <td colSpan={writable ? 5 : 4} className="px-4 py-8 text-center text-muted">
-                    {t("common.loading")}
-                  </td>
-                </tr>
+                <SkeletonTableRows cols={writable ? 5 : 4} />
               )}
               {!loading && branches.length === 0 && (
                 <tr>

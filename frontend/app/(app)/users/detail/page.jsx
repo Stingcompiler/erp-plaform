@@ -19,6 +19,7 @@ import { Badge, Button, Card, PageHeader } from "@/components/ui/kit";
 import UserForm from "@/components/users/UserForm";
 import { errorText } from "@/lib/errors";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 
 function Row({ label, children }) {
   return (
@@ -146,7 +147,7 @@ function UserDetail() {
       </Card>
     );
   }
-  if (loading) return <Card className="p-8 text-center text-muted">{t("common.loading")}</Card>;
+  if (loading) return <SkeletonCard />;
   if (error || !person) {
     return (
       <div>

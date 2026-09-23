@@ -7,6 +7,7 @@ import { returns } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { Button, Card } from "@/components/ui/kit";
 import NewPurchaseReturnDrawer from "./NewPurchaseReturnDrawer";
+import { SkeletonTableRows } from "@/components/ui/Skeleton";
 
 /**
  * Goods sent back to suppliers. Read-only once recorded (append-only, Rule #9)
@@ -56,11 +57,7 @@ export default function PurchaseReturnList({ writable }) {
             </thead>
             <tbody>
               {loading && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-muted">
-                    {t("common.loading")}
-                  </td>
-                </tr>
+                <SkeletonTableRows cols={4} />
               )}
               {!loading && rows.length === 0 && (
                 <tr>

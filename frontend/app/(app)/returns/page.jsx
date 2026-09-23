@@ -12,6 +12,7 @@ import DispositionDrawer from "@/components/returns/DispositionDrawer";
 import NotesList from "@/components/returns/NotesList";
 import PurchaseReturnList from "@/components/returns/PurchaseReturnList";
 import TabBar from "@/components/ui/TabBar";
+import { SkeletonTableRows } from "@/components/ui/Skeleton";
 
 export default function ReturnsPage() {
   const { canRead, canWrite } = useAuth();
@@ -113,11 +114,7 @@ export default function ReturnsPage() {
             </thead>
             <tbody>
               {loading && (
-                <tr>
-                  <td colSpan={writable ? 6 : 5} className="px-4 py-8 text-center text-muted">
-                    {t("common.loading")}
-                  </td>
-                </tr>
+                <SkeletonTableRows cols={writable ? 6 : 5} />
               )}
               {!loading && rows.length === 0 && (
                 <tr>

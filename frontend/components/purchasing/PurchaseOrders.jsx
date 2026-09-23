@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
+import { SkeletonRows } from "@/components/ui/Skeleton";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -169,7 +170,7 @@ export default function PurchaseOrders({ suppliers, writable, onReceive, refresh
         </div>
         {writable && <Button onClick={() => setDrawer(true)}><Plus size={16} />{t("purchasing.po.new")}</Button>}
       </div>
-      {rows === null ? <p className="p-8 text-center text-muted">{t("common.loading")}</p> : shown.length === 0 ? (
+      {rows === null ? <SkeletonRows /> : shown.length === 0 ? (
         <p className="p-8 text-center text-muted">{t("purchasing.po.empty")}</p>
       ) : (
         <div className="divide-y divide-line">

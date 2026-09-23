@@ -8,6 +8,7 @@ import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { translateRole } from "@/lib/i18n";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
+import { SkeletonRows } from "@/components/ui/Skeleton";
 
 const ACTION_TONE = {
   login: "accent",
@@ -279,7 +280,7 @@ export default function LogsPage() {
         </div>
       </Card>
 
-      {loading && <p className="py-8 text-center text-muted">{t("common.loading")}</p>}
+      {loading && <SkeletonRows />}
 
       {!loading && rows.length === 0 && (
         <Card className="p-8 text-center text-muted">{t("logs.noLogs")}</Card>

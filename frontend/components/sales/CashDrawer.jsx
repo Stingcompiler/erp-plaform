@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, {
@@ -298,7 +299,7 @@ export default function CashDrawer({ currency = "", onShiftChange }) {
   }
 
   if (loading) {
-    return <Card className="p-6 text-center text-muted">{t("common.loading")}</Card>;
+    return <SkeletonCard />;
   }
 
   // ---- no open drawer: offer to open one -------------------------------

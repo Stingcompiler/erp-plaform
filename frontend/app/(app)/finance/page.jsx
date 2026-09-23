@@ -14,6 +14,7 @@ import PaymentVerificationPanel from "@/components/finance/PaymentVerificationPa
 import StatementReconcilePanel from "@/components/finance/StatementReconcilePanel";
 import BudgetsPanel from "@/components/finance/BudgetsPanel";
 import MoneyLedger from "@/components/finance/MoneyLedger";
+import { SkeletonRows } from "@/components/ui/Skeleton";
 
 function StatTile({ label, value, tone = "ink", icon: Icon }) {
   const toneClass = tone === "ok" ? "text-ok" : tone === "danger" ? "text-danger" : "text-ink";
@@ -177,7 +178,7 @@ export default function FinancePage() {
         <option value="-date">{t("improvements.newest")}</option><option value="date">{t("improvements.oldest")}</option><option value="-amount">{t("improvements.highest")}</option>
       </Select></Field>
     </div>
-    {loading && !invalidDates && <p role="status" className="py-6 text-muted">{t("common.loading")}</p>}
+    {loading && !invalidDates && <SkeletonRows />}
     {!loading && !invalidDates && <Card>
       {expenses.length === 0 ? <p className="p-8 text-center text-muted">{t("finance.noExpenses")}</p> :
       <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-line text-muted">

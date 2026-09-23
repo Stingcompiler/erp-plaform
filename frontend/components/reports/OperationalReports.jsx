@@ -12,6 +12,7 @@ import { API_BASE, reports } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { Badge, Card } from "@/components/ui/kit";
 import BarList from "@/components/reports/BarList";
+import { SkeletonLines } from "@/components/ui/Skeleton";
 
 function Section({ title, hint, csvHref, children }) {
   const { t } = useI18n();
@@ -78,7 +79,7 @@ export default function OperationalReports({ range, areas }) {
 
   if (!sales && !purchasing && !finance) return null;
   const failed = <p className="text-sm text-danger">{t("reports.ops.loadError")}</p>;
-  const loading = <p className="text-sm text-muted">{t("common.loading")}</p>;
+  const loading = <SkeletonLines />;
   const body = (data, render) => (data === null ? loading : data === false ? failed : render(data));
 
   return (

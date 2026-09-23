@@ -11,6 +11,7 @@ import { useI18n } from "../../providers/I18nProvider";
 import { platformTeam } from "@/lib/api";
 import { activityKind, describeActivity } from "@/lib/platformActivity";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
+import { SkeletonRows } from "@/components/ui/Skeleton";
 
 const EMPTY = { user: "", entity_type: "", action: "", start: "", end: "", search: "" };
 
@@ -125,7 +126,7 @@ export default function PlatformActivityPage() {
 
       <Card className="overflow-hidden">
         {loading && rows.length === 0 ? (
-          <p className="p-8 text-center text-muted">{t("common.loading")}</p>
+          <SkeletonRows />
         ) : rows.length === 0 ? (
           <p className="p-8 text-center text-muted">{t("platformActivity.empty")}</p>
         ) : (

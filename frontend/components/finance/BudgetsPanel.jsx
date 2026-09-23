@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
+import { SkeletonLines, SkeletonRows } from "@/components/ui/Skeleton";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -89,7 +90,7 @@ function VarianceTable({ budgetId }) {
   const { t } = useI18n();
   const [data, setData] = useState(null);
   useEffect(() => { finance.budgetVariance(budgetId).then((r) => setData(r.data)).catch(() => setData({ rows: [] })); }, [budgetId]);
-  if (!data) return <p className="px-4 py-3 text-sm text-muted">{t("common.loading")}</p>;
+  if (!data) return <SkeletonLines />;
   if (!data.rows.length) return <p className="px-4 py-3 text-sm text-muted">{t("budgets.noLines")}</p>;
   return (
     <div className="overflow-x-auto border-t border-line">
@@ -149,7 +150,7 @@ export default function BudgetsPanel({ writable, categories, onChanged }) {
         <h2 className="flex items-center gap-2 font-display text-lg font-semibold"><Scale size={18} className="text-accent" />{t("budgets.title")}</h2>
         {writable && <Button onClick={() => setDrawer(true)}><Plus size={16} />{t("budgets.new")}</Button>}
       </div>
-      {rows === null ? <p className="p-8 text-center text-muted">{t("common.loading")}</p> : rows.length === 0 ? (
+      {rows === null ? <SkeletonRows /> : rows.length === 0 ? (
         <p className="p-8 text-center text-muted">{t("budgets.empty")}</p>
       ) : (
         <div className="divide-y divide-line">
