@@ -15,8 +15,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
 <style>
-:root{--accent:#0e7c86;--ink:#14202c;--muted:#5f6d78;--paper:#f6f8f7;--surface:#fff;--line:#e2e8e8;--shadow:0 10px 30px rgba(20,32,44,.08)}
-@media (prefers-color-scheme: dark){:root{--ink:#eef2f3;--muted:#9aa8b1;--paper:#0f1a22;--surface:#16232c;--line:#25343f;--shadow:0 10px 30px rgba(0,0,0,.35)}}
+:root{--accent:#0e7c86;--ink:#14202c;--muted:#5f6d78;--paper:#f6f8f7;--surface:#fff;--line:#e2e8e8;--shadow:0 10px 30px rgba(20,32,44,.08);--cta-bg:#14202c}
+@media (prefers-color-scheme: dark){:root{--ink:#eef2f3;--muted:#9aa8b1;--paper:#0f1a22;--surface:#16232c;--line:#25343f;--shadow:0 10px 30px rgba(0,0,0,.35);--cta-bg:#0b4f56}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:"Cairo",system-ui,sans-serif;line-height:1.7;padding:0}
 a{color:var(--accent)}
@@ -57,7 +57,7 @@ ul.plain{list-style:none;padding:0;margin:0;display:grid;gap:8px}
 ul.plain li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
 ul.plain a{color:var(--ink);text-decoration:none;font-weight:600}
 .empty{color:var(--muted);margin-top:24px}
-.cta{margin-top:48px;background:var(--ink);color:#fff;border-radius:18px;padding:28px}
+.cta{margin-top:48px;background:var(--cta-bg);color:#fff;border-radius:18px;padding:28px}
 .cta h2{margin:0 0 6px;font-size:1.3rem}
 .cta p{margin:0 0 16px;opacity:.85}
 footer{padding-block:32px;color:var(--muted);font-size:.9rem}
