@@ -114,7 +114,15 @@ jobs:
         run: npm test
 
       - name: Build
-        run: npm run build
+        # Retried for the same reason as the E2E export build below: the
+        # font download at build time occasionally gets an empty reply.
+        run: |
+          for attempt in 1 2 3; do
+            npm run build && exit 0
+            echo "Build attempt $attempt failed; retrying in 15s"
+            sleep 15
+          done
+          exit 1
 
   e2e-offline:
     # The offline-first contract in a real browser: build the export, serve
@@ -149,7 +157,17 @@ jobs:
 
       - name: Build the production export
         working-directory: frontend
-        run: npm run build
+        # next/font downloads the Google fonts at build time; an empty reply
+        # from the font CDN fails the build with "Cannot read properties of
+        # null (reading '1')" though nothing in the code changed. Retry the
+        # build rather than the whole job; a real compile error fails all three.
+        run: |
+          for attempt in 1 2 3; do
+            npm run build && exit 0
+            echo "Build attempt $attempt failed; retrying in 15s"
+            sleep 15
+          done
+          exit 1
 
       - name: Migrate and seed the fixture company
         working-directory: backend
