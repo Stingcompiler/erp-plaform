@@ -32,7 +32,12 @@ export function useOfflineMutation() {
         refresh();
         return { queued: false, data: response.data };
       } catch (error) {
-        if (error?.code === "ERR_NETWORK" || !error?.response) {
+        // No answer, or the gateway's "I don't know" (502/503/504 from the
+        // host while the app may already have committed): the outcome is
+        // uncertain, so queue it. The client_uuid makes the replay a no-op
+        // if it did land; pressing Save again used to record it twice.
+        const status = error?.response?.status;
+        if (error?.code === "ERR_NETWORK" || !error?.response || [502, 503, 504].includes(status)) {
           return { queued: true, op: await enqueue(opType, payload) };
         }
         throw error;

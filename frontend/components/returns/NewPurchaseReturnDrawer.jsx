@@ -9,6 +9,7 @@ import { useOfflineMutation } from "@/components/sync/useOfflineMutation";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
+import { useStableIds } from "@/lib/useStableIds";
 
 /**
  * Records goods going back to a supplier.
@@ -22,6 +23,7 @@ import { errorText } from "@/lib/errors";
  * can enforce the returnable quantity and derive the debit note value.
  */
 export default function NewPurchaseReturnDrawer({ open, onClose, onCreated }) {
+  const { idFor, reset } = useStableIds();
   const { t } = useI18n();
   const mutate = useOfflineMutation();
   const [suppliers, setSuppliers] = useState([]);
@@ -41,6 +43,7 @@ export default function NewPurchaseReturnDrawer({ open, onClose, onCreated }) {
 
   useEffect(() => {
     if (!open) return;
+    reset();
     setSupplier("");
     setReceipt("");
     setWarehouse("");
@@ -51,7 +54,7 @@ export default function NewPurchaseReturnDrawer({ open, onClose, onCreated }) {
     setError("");
     purchasing.suppliers({ page: 1 }).then((r) => setSuppliers(r.data.results)).catch(() => {});
     inventory.warehouses().then((r) => setWarehouses(r.data.results)).catch(() => {});
-  }, [open]);
+  }, [open, reset]);
 
   // Only this supplier's bills can be credited against.
   useEffect(() => {
@@ -106,7 +109,7 @@ export default function NewPurchaseReturnDrawer({ open, onClose, onCreated }) {
     setBusy(true);
     try {
       await mutate("purchase_return", returns.createPurchaseReturn, {
-        client_uuid: crypto.randomUUID(),
+        client_uuid: idFor(),
         supplier: Number(supplier),
         warehouse: Number(warehouse),
         goods_receipt: Number(receipt),

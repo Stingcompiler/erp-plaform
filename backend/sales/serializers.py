@@ -59,6 +59,14 @@ def validate_business_time(value):
     return value
 
 
+def rung_while_open(shift, when):
+    """Money that moved while the shift was open belongs to that drawer, even
+    when an offline device reports it after the close: the cash was in that
+    drawer when it was counted. Refusing it lost a paid sale or refund for
+    good (the device could only discard it)."""
+    return bool(when and shift.closed_at and shift.opened_at <= when <= shift.closed_at)
+
+
 def _company_tax_rate(company):
     """Headline rate from the company's TaxProfile (Rule #7) — never hardcoded.
     Kept for the snapshot written on the invoice; the arithmetic itself goes
@@ -559,7 +567,9 @@ class PaymentSerializer(serializers.ModelSerializer):
             # drawer (or a manager) may book money into it.
             if shift.company_id != company_id:
                 raise serializers.ValidationError({"shift": _("Not your company's till session.")})
-            if shift.status != CashShift.OPEN:
+            if shift.status != CashShift.OPEN and not rung_while_open(
+                shift, attrs.get("recorded_at")
+            ):
                 raise serializers.ValidationError(
                     {"shift": _("That till session is closed — open a new one.")}
                 )
@@ -1222,10 +1232,22 @@ class POSCheckoutSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     {"shift": _("That till session belongs to another cashier.")}
                 )
-            if shift.status != CashShift.OPEN and not self._rung_while_open(shift, occurred_at):
-                raise serializers.ValidationError(
-                    {"shift": _("That till session is closed — open a new one.")}
+            if shift.status != CashShift.OPEN and not rung_while_open(shift, occurred_at):
+                if not self.context.get("via_sync"):
+                    raise serializers.ValidationError(
+                        {"shift": _("That till session is closed — open a new one.")}
+                    )
+                # Replayed from a device that still believed this drawer was
+                # open (it was closed elsewhere while the device was offline).
+                # The sale happened and was paid; keep it, outside any drawer,
+                # and leave an audit row for the manager instead of refusing
+                # it for ever.
+                log_activity(
+                    action="sale_outside_closed_shift", request=self.context.get("request"),
+                    entity_type="Invoice", entity_id=invoice.pk,
+                    metadata={"shift": shift.pk, "occurred_at": str(occurred_at)},
                 )
+                shift = None
         if pay["amount"] > invoice.total:
             raise serializers.ValidationError(
                 {
@@ -1247,17 +1269,6 @@ class POSCheckoutSerializer(serializers.Serializer):
             reference_last4=pay.get("reference_last4", ""),
             transfer_reference=pay.get("transfer_reference", ""),
             shift=shift, recorded_at=occurred_at,
-        )
-
-    @staticmethod
-    def _rung_while_open(shift, occurred_at):
-        """A sale made offline while the shift was open still belongs to that
-        drawer when it syncs after the close — the cash is in that drawer.
-        Refusing it lost the whole paid sale (invoice, stock and payment)
-        with no way to recover it from the queue."""
-        return bool(
-            occurred_at and shift.closed_at
-            and shift.opened_at <= occurred_at <= shift.closed_at
         )
 
     def to_representation(self, instance):
@@ -1333,7 +1344,9 @@ class RefundSerializer(serializers.ModelSerializer):
         if shift is not None:
             if shift.company_id != company_id:
                 raise serializers.ValidationError({"shift": _("Not your company's till session.")})
-            if shift.status != CashShift.OPEN:
+            if shift.status != CashShift.OPEN and not rung_while_open(
+                shift, attrs.get("recorded_at")
+            ):
                 raise serializers.ValidationError({"shift": _("That till session is closed.")})
             if shift.opened_by_id != user.pk and not can_approve_high_value(user):
                 raise serializers.ValidationError(

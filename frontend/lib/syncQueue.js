@@ -116,6 +116,44 @@ async function migrateFromLocalStorage(scope) {
   return moved;
 }
 
+// The scope includes the branch, so when an admin moves a cashier to another
+// branch the next sign-in opens a different, empty queue — and the sales
+// still waiting in the old one were never sent, never shown, never
+// discarded: gone. Anything this same person left under another branch of
+// this company is moved into the current queue (the server still applies
+// its own branch rules to each operation) and the old database is deleted
+// only after the copy has committed.
+const siblingsDone = new Set();
+function siblingPrefix(scope) {
+  const [company, user] = String(scope).split(":");
+  return company && user ? `${DB_PREFIX}${company}:${user}:` : null;
+}
+async function adoptSiblingQueues(scope) {
+  if (siblingsDone.has(scope)) return 0;
+  siblingsDone.add(scope);
+  const prefix = siblingPrefix(scope);
+  if (!prefix || typeof indexedDB?.databases !== "function") return 0;
+  let moved = 0;
+  const others = (await indexedDB.databases())
+    .map((d) => d.name)
+    .filter((name) => name && name.startsWith(prefix) && name !== DB_PREFIX + scope);
+  for (const name of others) {
+    const oldScope = name.slice(DB_PREFIX.length);
+    const [ops, carts] = [await getAll(oldScope, "ops"), await getAll(oldScope, "carts")];
+    const rows = ops.filter(validOp);
+    if (rows.length || carts.length) {
+      await withStore(scope, "ops", "readwrite", (store) => { rows.forEach((row) => store.put(row)); });
+      await withStore(scope, "carts", "readwrite", (store) => { carts.forEach((row) => store.put(row)); });
+      moved += rows.length;
+    }
+    await new Promise((resolve) => {
+      const request = indexedDB.deleteDatabase(name);
+      request.onsuccess = request.onerror = request.onblocked = () => resolve();
+    });
+  }
+  return moved;
+}
+
 // Migration runs on every open: it is a prefix scan of localStorage keys,
 // cheap, and a no-op once nothing is left — so nothing in memory can get
 // out of step with what is actually still in localStorage.
@@ -123,6 +161,8 @@ async function ready(scope) {
   if (!(await indexedDbWorks(scope))) return false;
   try { await migrateFromLocalStorage(scope); }
   catch { throw new Error("Could not move saved operations to durable storage."); }
+  try { await adoptSiblingQueues(scope); }
+  catch { /* the old queue stays where it is and is tried again next page */ siblingsDone.delete(scope); }
   return true;
 }
 
@@ -212,7 +252,7 @@ export const queue = {
           } else {
             const get = ops.get(op.client_uuid);
             get.onsuccess = () => {
-              if (get.result) ops.put({ ...get.result, error: result?.error || "No confirmation received for this operation.", error_field: result?.error_field || null });
+              if (get.result) ops.put({ ...get.result, error: result?.error || "__no_confirmation__", error_field: result?.error_field || null });
             };
           }
         }

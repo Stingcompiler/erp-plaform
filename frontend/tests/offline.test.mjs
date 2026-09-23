@@ -43,11 +43,20 @@ test("retry keeps online idempotency key and never overwrites an uncertain sale"
   assert.equal(second.payload.amount, 20, "the stored body is what a retry gets back");
 });
 
-test("company, user and branch queues do not mix", async () => {
+test("company and user queues do not mix", async () => {
   setup(); await queue.enqueue("pos_checkout", {}, "1:1:1");
   assert.equal(await queue.count("2:1:1"), 0);
   assert.equal(await queue.count("1:2:1"), 0);
-  assert.equal(await queue.count("1:1:2"), 0);
+});
+
+test("a cashier moved to another branch keeps the sales still waiting to upload", async () => {
+  // They used to stay in the old branch's queue, never listed again: the
+  // paid sales never reached the server.
+  setup(); await queue.enqueue("pos_checkout", { amount: 5 }, "1:1:1");
+  const rows = await queue.list("1:1:2");
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].payload.amount, 5);
+  assert.equal(await queue.count("1:1:1"), 0); // moved, not copied
 });
 
 test("a write that does not commit rejects; a scope is required", async () => {

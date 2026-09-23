@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
+import { useStableIds } from "@/lib/useStableIds";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -33,20 +34,24 @@ export default function RefundDrawer({ note, open, onClose, onDone }) {
   const [shift, setShift] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const { idFor, reset } = useStableIds();
 
   useEffect(() => {
     if (!open || !note) return;
+    reset();
     setAmount(String(note.remaining_refundable ?? note.amount ?? ""));
     setMethod("cash"); setAccount(""); setReference(""); setError("");
     bankApi.list().then((r) => setAccounts(r.data.results || r.data)).catch(() => setAccounts([]));
     cashShifts.current().then((r) => setShift(r.data?.shift ?? r.data ?? null)).catch(() => setShift(null));
-  }, [open, note]);
+  }, [open, note, reset]);
 
   if (!note) return null;
 
   async function go() {
     setError("");
-    const body = { credit_note: note.id, amount, method, client_uuid: crypto.randomUUID() };
+    // recorded_at: when the cash left the drawer. A refund queued offline
+    // can sync after the shift closed and still belongs to that drawer.
+    const body = { credit_note: note.id, amount, method, client_uuid: idFor(), recorded_at: new Date().toISOString() };
     if (method === "cash") {
       if (!shift?.id) { setError(t("corrections.needOpenDrawer")); return; }
       body.shift = shift.id;
@@ -62,6 +67,7 @@ export default function RefundDrawer({ note, open, onClose, onDone }) {
       // same serializer, so the drawer goes through the offline path too.
       const result = await mutate("refund", sales.createRefund, body);
       if (result.queued) toast.info(t("corrections.refundQueued"));
+      reset();
       onDone?.();
       onClose();
     } catch (err) {

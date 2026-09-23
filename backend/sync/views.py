@@ -1,3 +1,4 @@
+from datetime import timezone as dt_timezone
 from uuid import UUID
 
 from django.core import signing
@@ -18,6 +19,41 @@ from core.rbac import role_can
 from core.scoping import apply_branch_scope
 from sync.models import DiscardedOperation, SyncBatch, SyncOperation
 from sync.services import APPLIED, DUPLICATE, ERROR, process_operation
+
+
+# Business-time fields a queued payload may carry (see validate_business_time).
+DEVICE_TIME_FIELDS = ("occurred_at", "recorded_at", "received_at")
+CLOCK_TOLERANCE_SECONDS = 120
+
+
+def correct_device_clock(operations, sent_at):
+    """Shift the payload times of a batch by the device's clock error.
+
+    Cheap tablets lose their clock after a power cut. A till running fast
+    stamped every sale in the future and the server refused them all (more
+    than ten minutes ahead), with no repair on the device. The device sends
+    its own `sent_at`; the gap to the server's clock is the device's error,
+    and it applies to every time the device stamped. Returns the skew in
+    seconds (0 when none was applied)."""
+    sent = parse_datetime(str(sent_at)) if sent_at else None
+    if sent is None:
+        return 0
+    if timezone.is_naive(sent):
+        sent = timezone.make_aware(sent, dt_timezone.utc)
+    skew = timezone.now() - sent
+    if abs(skew.total_seconds()) < CLOCK_TOLERANCE_SECONDS:
+        return 0
+    for op in operations:
+        payload = op.get("payload") if isinstance(op, dict) else None
+        if not isinstance(payload, dict):
+            continue
+        for field in DEVICE_TIME_FIELDS:
+            stamped = parse_datetime(str(payload.get(field) or "")) if payload.get(field) else None
+            if stamped is not None:
+                if timezone.is_naive(stamped):
+                    stamped = timezone.make_aware(stamped, dt_timezone.utc)
+                payload[field] = (stamped + skew).isoformat()
+    return int(skew.total_seconds())
 
 
 class SyncPushView(APIView):
@@ -90,6 +126,12 @@ class SyncPushView(APIView):
             return Response(
                 {"detail": "operations must be a list."},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+        skew = correct_device_clock(operations, request.data.get("sent_at"))
+        if skew:
+            log_activity(
+                action="device_clock_corrected", request=request, entity_type="SyncBatch",
+                entity_id=str(batch_uuid), metadata={"skew_seconds": skew},
             )
 
         try:

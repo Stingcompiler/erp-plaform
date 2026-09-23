@@ -3,7 +3,26 @@ import { storageKey } from "./localIdentity.js";
 // One key per operation avoids one tab overwriting another tab's entire queue.
 // A failed write MUST throw: the caller keeps the sale on screen until durable.
 function prefix(scope) { return `${storageKey("sync", scope)}:`; }
+// Same person, same company, other branch (see adoptSiblingQueues in
+// syncQueue.js): move those rows under the current scope so they are sent.
+function adoptSiblings(scope) {
+  const [company, user] = String(scope).split(":");
+  if (!company || !user) return;
+  const mine = prefix(scope);
+  const family = `${storageKey("sync", `${company}:${user}:`)}`;
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith(family) && !key.startsWith(mine)) keys.push(key);
+  }
+  for (const key of keys) {
+    const id = key.slice(key.lastIndexOf(":") + 1);
+    if (!localStorage.getItem(mine + id)) localStorage.setItem(mine + id, localStorage.getItem(key));
+    localStorage.removeItem(key);
+  }
+}
 function list(scope) {
+  adoptSiblings(scope);
   const keyPrefix = prefix(scope);
   const rows = [];
   for (let i = 0; i < localStorage.length; i++) {
@@ -52,7 +71,7 @@ export const queue = {
       } else {
         const current = localStorage.getItem(key);
         if (current) localStorage.setItem(key, JSON.stringify({ ...JSON.parse(current),
-          error: result?.error || "No confirmation received for this operation.",
+          error: result?.error || "__no_confirmation__",
           error_field: result?.error_field || null }));
       }
     }

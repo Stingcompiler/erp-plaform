@@ -13,6 +13,7 @@ import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { SkeletonTableRows } from "@/components/ui/Skeleton";
 import { EmptyTableRow } from "@/components/ui/EmptyState";
+import { useStableIds } from "@/lib/useStableIds";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -20,6 +21,7 @@ const money = (v) =>
 const statusTone = { paid: "ok", partial: "warn", unpaid: "danger", void: "muted" };
 
 function PaymentDrawer({ bill, supplierName, bankAccounts, open, onClose, onPaid }) {
+  const { idFor, reset } = useStableIds();
   const { t } = useI18n();
   const mutate = useOfflineMutation();
   const [amount, setAmount] = useState("");
@@ -30,12 +32,13 @@ function PaymentDrawer({ bill, supplierName, bankAccounts, open, onClose, onPaid
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (open) reset();
     if (open && bill) setAmount(String(bill.amount_due ?? ""));
     setError("");
     setMethod("cash");
     setFromAccount("");
     setReference("");
-  }, [open, bill]);
+  }, [open, bill, reset]);
 
   async function pay() {
     setError("");
@@ -46,7 +49,7 @@ function PaymentDrawer({ bill, supplierName, bankAccounts, open, onClose, onPaid
     setBusy(true);
     try {
       const body = {
-        client_uuid: crypto.randomUUID(),
+        client_uuid: idFor(),
         supplier: bill.supplier,
         bill: bill.id,
         method,
@@ -57,6 +60,7 @@ function PaymentDrawer({ bill, supplierName, bankAccounts, open, onClose, onPaid
         if (reference) body.reference_last4 = reference;
       }
       await mutate("supplier_payment", purchasing.createSupplierPayment, body);
+      reset();
       onPaid();
       onClose();
     } catch (err) {

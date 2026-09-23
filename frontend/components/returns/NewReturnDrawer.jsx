@@ -10,12 +10,14 @@ import Drawer from "@/components/ui/Drawer";
 import BarcodeScanInput from "@/components/inventory/BarcodeScanInput";
 import { Button, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
+import { useStableIds } from "@/lib/useStableIds";
 
 // Rule #4: a return is a child of the original invoice, so the form is driven
 // by that invoice's own lines rather than a free product search. This is what
 // lets every line carry its `invoice_line` id — without it the server cannot
 // price the credit note, and returns land uncredited.
 export default function NewReturnDrawer({ open, onClose, onCreated }) {
+  const { idFor, reset } = useStableIds();
   const { t } = useI18n();
   const mutate = useOfflineMutation();
   const toast = useToast();
@@ -29,6 +31,7 @@ export default function NewReturnDrawer({ open, onClose, onCreated }) {
 
   useEffect(() => {
     if (!open) return;
+    reset();
     setInvoiceId("");
     setReason("");
     setQty({});
@@ -37,7 +40,7 @@ export default function NewReturnDrawer({ open, onClose, onCreated }) {
       .invoices({ page: 1 })
       .then((r) => setInvoices(r.data.results))
       .catch(() => {});
-  }, [open]);
+  }, [open, reset]);
 
   const invoice = useMemo(
     () => invoices.find((i) => String(i.id) === String(invoiceId)) || null,
@@ -102,7 +105,7 @@ export default function NewReturnDrawer({ open, onClose, onCreated }) {
     setSaving(true);
     try {
       await mutate("sales_return", returns.createSalesReturn, {
-        client_uuid: crypto.randomUUID(),
+        client_uuid: idFor(),
         invoice: invoice.id,
         reason,
         lines: payloadLines,
