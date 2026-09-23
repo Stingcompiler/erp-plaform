@@ -24,8 +24,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">{% endif %}
 {% for block in json_ld %}<script type="application/ld+json">{{ block|safe }}</script>
 {% endfor %}<style>
-:root{--accent:{{ colour }};--ink:#14202c;--muted:#5f6d78;--paper:#f6f8f7;--surface:#fff;--line:#e2e8e8;--shadow:0 10px 30px rgba(20,32,44,.08)}
-@media (prefers-color-scheme: dark){:root{--ink:#eef2f3;--muted:#9aa8b1;--paper:#0f1a22;--surface:#16232c;--line:#25343f;--shadow:0 10px 30px rgba(0,0,0,.35)}}
+:root{--accent:{{ colour }};--ink:#14202c;--muted:#5f6d78;--paper:#f6f8f7;--surface:#fff;--line:#e2e8e8;--shadow:0 10px 30px rgba(20,32,44,.08);--ok-bg:#f0fdf4;--ok-line:#bbf7d0;--ok-ink:#15803d;--err-ink:#b91c1c}
+@media (prefers-color-scheme: dark){:root{--ink:#eef2f3;--muted:#9aa8b1;--paper:#0f1a22;--surface:#16232c;--line:#25343f;--shadow:0 10px 30px rgba(0,0,0,.35);--ok-bg:#0f2a1c;--ok-line:#1f5134;--ok-ink:#4ade80;--err-ink:#f87171}}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:{% if language == 'ar' %}"Cairo",{% endif %}system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.7;padding:0}
@@ -49,11 +49,11 @@ img{max-width:100%;display:block}
    the page 10,000px wide and the viewport slid sideways after "add to order". */
 .order .hp{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);opacity:0;pointer-events:none}
 .order{position:relative}
-html,body{overflow-x:clip}.card .avail{font-size:.8rem;margin-top:4px}.card .avail.in{color:#15803d}.card .avail.out{color:#b91c1c}.card .add{margin-top:10px;width:100%;justify-content:center}
-.order .cart{list-style:none;padding:0;margin:0 0 8px}.order .cart li{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #e5e7eb}.order .cart .n{flex:1}.order .cart .q{display:inline-flex;align-items:center;gap:8px}.order .cart .q button{width:30px;height:30px;border-radius:8px;border:1px solid #d1d5db;background:#fff;font-size:1.1rem;cursor:pointer}.order .cart .p{min-width:90px;text-align:end;font-weight:600}
+html,body{overflow-x:clip}.card .avail{font-size:.8rem;margin-top:4px}.card .avail.in{color:var(--ok-ink)}.card .avail.out{color:var(--err-ink)}.card .add{margin-top:10px;width:100%;justify-content:center}
+.order .cart{list-style:none;padding:0;margin:0 0 8px}.order .cart li{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.order .cart .n{flex:1}.order .cart .q{display:inline-flex;align-items:center;gap:8px}.order .cart .q button{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:1.1rem;cursor:pointer}.order .cart .p{min-width:90px;text-align:end;font-weight:600}
 .order .total{font-weight:800;margin:6px 0 16px}.order form{display:grid;gap:12px;max-width:520px}.order label{display:grid;gap:6px;font-weight:600;font-size:.95rem}.order input,.order select,.order textarea{padding:11px 12px;border:1px solid #d1d5db;border-radius:10px;font:inherit}.order .mode{display:flex;gap:16px;border:0;padding:0;margin:0}.order .mode label{display:inline-flex;align-items:center;gap:6px;font-weight:500}
 .order .acct{padding:8px 12px;border:1px dashed #cbd5e1;border-radius:10px;margin:6px 0}.order .acct code{user-select:all;font-size:1.05rem}.order .done h4{margin:14px 0 6px}.order .done #order-pay{margin-top:10px}
-.order .err{color:#b91c1c;font-weight:600}.order .done{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px}.order .done .btn.wa{background:#25d366;color:#fff;margin-top:8px}
+.order .err{color:var(--err-ink);font-weight:600}.order .done{background:var(--ok-bg);border:1px solid var(--ok-line);border-radius:12px;padding:16px}.order .done .btn.wa{background:#25d366;color:#fff;margin-top:8px}
 .fab.cart-fab{inset-inline-end:auto;inset-inline-start:16px;background:var(--accent)}
 .hero{position:relative;color:#fff;min-height:420px;display:flex;align-items:flex-end;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 85%,#000),color-mix(in srgb,var(--accent) 55%,#000))}
 .hero.has-cover{background:#111}
@@ -64,7 +64,7 @@ html,body{overflow-x:clip}.card .avail{font-size:.8rem;margin-top:4px}.card .ava
 .hero h1{font-size:clamp(1.9rem,4.6vw,3.1rem);line-height:1.2;margin:0 0 10px;font-weight:800;text-wrap:balance}
 .hero p{font-size:clamp(1.05rem,2vw,1.3rem);margin:0;max-width:640px;opacity:.95;white-space:pre-line}
 .hero .cta{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
-.hero .cta .btn{background:#fff;color:var(--ink)}
+.hero .cta .btn{background:#fff;color:#14202c}
 .hero .cta .btn.wa{background:#25d366;color:#fff}
 .trust{background:var(--surface);border-bottom:1px solid var(--line)}
 .trust .wrap{display:flex;flex-wrap:wrap;gap:10px 28px;padding-block:14px;font-size:.95rem;color:var(--muted)}
