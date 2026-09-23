@@ -162,15 +162,3 @@ a:hover .dashboard-stat { border-color: rgb(var(--accent) / .5); }
   .workspace-main .overflow-x-auto > table tbody tr:hover td:first-child { background: rgb(var(--surface)); }
 }
 
-/* Platform header nav: a scrolling strip on phones. The scrollbar is hidden
-   (it would sit on the dark header), so the edges fade to show there is
-   more to the side; the active tab is scrolled into view by PlatformShell. */
-.platform-nav { scrollbar-width: none; scroll-snap-type: x proximity; overscroll-behavior-x: contain; }
-.platform-nav::-webkit-scrollbar { display: none; }
-.platform-nav > * { scroll-snap-align: start; }
-@media (max-width: 639px) {
-  .platform-nav {
-    mask-image: linear-gradient(to right, transparent, #000 20px, #000 calc(100% - 20px), transparent);
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 20px, #000 calc(100% - 20px), transparent);
-  }
-}
