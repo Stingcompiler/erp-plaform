@@ -130,6 +130,33 @@ With `DEBUG=False` (all deploys), the API enforces: SSL redirect, 1-year HSTS
 content-type nosniff, JWT-in-HttpOnly-cookie auth with refresh-token rotation,
 a login throttle, and a min-length-10 password policy.
 
+## Load test (POS and offline sync)
+
+`backend/scripts/load_test_pos.py` signs in as a till and rings up sales
+concurrently — half through `/api/pos/checkout/`, half queued through
+`/api/sync/push/` — and sends every sale twice with the same `client_uuid`,
+as a till does when a reply is lost. It fails unless every request succeeds
+and the stock ledger moved by exactly the quantity sold. Run it against a
+throwaway Postgres database behind Gunicorn, never production:
+
+```
+createdb vezano_loadtest
+DATABASE_URL=postgres://localhost/vezano_loadtest python manage.py migrate
+DATABASE_URL=postgres://localhost/vezano_loadtest python manage.py seed_e2e
+DATABASE_URL=postgres://localhost/vezano_loadtest WEB_CONCURRENCY=3 PORT=8010 \
+    gunicorn config.wsgi:application -c gunicorn.conf.py
+python scripts/load_test_pos.py --base http://127.0.0.1:8010 \
+    --email e2e-owner@vezano.test --password 'E2e-owner-passw0rd!' \
+    --workers 20 --sales 25 --devices 2
+```
+
+`--devices` is how many tills sign in; each counts against the plan's device
+limit, and sign-in is rate limited, so the script opens them up front.
+Result on 2026-09-23 (laptop, local Postgres, 3 Gunicorn workers): 20
+workers, 1,000 requests, 0 failures, ledger exact (500 sold, 500 moved),
+checkout p95 ≈ 260 ms, sync p95 ≈ 260 ms, ~100 req/s. Render's starter
+instance is slower; the correctness result is the part that carries over.
+
 ## Recovery gate
 
 Before the first paying customer, work through

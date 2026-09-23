@@ -59,7 +59,7 @@ export default function ReceiptView({ doc, paper = "80mm" }) {
   const width = narrow ? "48mm" : "72mm";
   const methodLabel = (p) =>
     p.method === "cash" ? t("common.cash")
-      : p.method === "credit" ? t("sales.storeCredit")
+      : p.method === "credit" ? t("doc.storeCredit")
         : p.channel && p.channel !== "bank" ? channelLabel(t, p.channel) : t("common.bankTransfer");
 
   return (

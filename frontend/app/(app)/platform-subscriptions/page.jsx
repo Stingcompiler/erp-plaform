@@ -324,7 +324,7 @@ export default function PlatformSubscriptionsPage() {
                       value={draft.status}
                       onChange={(event) => updateDraft(row.id, "status", event.target.value)}
                     >
-                      {STATES.map((state) => <option key={state} value={state}>{state}</option>)}
+                      {STATES.map((state) => <option key={state} value={state}>{t(`platformCompanies.status.${state}`)}</option>)}
                     </Select>
                   </Field>
                   <Field label={t("subscription.endDate")}>
