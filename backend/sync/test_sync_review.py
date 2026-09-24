@@ -345,6 +345,29 @@ class OccurredAtTests(ReviewBase):
         self.assertLess(abs((sales_return.created_at - when).total_seconds()), 2)
         self.assertIsNotNone(sales_return.received_at)
 
+    def test_the_credit_note_of_a_replayed_return_is_dated_with_it(self):
+        from returns.models import CreditNote, SalesReturn
+
+        self.client.force_authenticate(self.owner)
+        sale = self._checkout(uuid.uuid4())
+        self.assertEqual(sale.status_code, 201, sale.data)
+        invoice = Invoice.objects.get(pk=sale.data["id"])
+        line = invoice.lines.first()
+        when = timezone.now() - timedelta(days=2)
+        cu = uuid.uuid4()
+        res = self._push_owner([{"op_type": "sales_return", "client_uuid": str(cu), "payload": {
+            "invoice": invoice.pk, "reason": "broken", "occurred_at": when.isoformat(),
+            "lines": [{"invoice_line": line.pk, "product": self.product.pk, "quantity": "1"}],
+        }}])
+        self.assertEqual(res.data["results"][0]["status"], "applied", res.data)
+        sales_return = SalesReturn.objects.get(client_uuid=cu)
+        note = CreditNote.objects.get(sales_return=sales_return)
+        self.assertEqual(note.created_at, sales_return.created_at)
+        self.assertLess(abs((note.created_at - when).total_seconds()), 2)
+        # The invoice changed on arrival: a delta pull must still see it.
+        invoice.refresh_from_db()
+        self.assertLess(abs((timezone.now() - invoice.updated_at).total_seconds()), 60)
+
 
 class ClosedShiftMoneyTests(ReviewBase):
     def _shift(self, opened_hours_ago, closed_minutes_ago=None, user=None):

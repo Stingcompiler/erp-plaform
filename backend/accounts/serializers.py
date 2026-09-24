@@ -5,7 +5,9 @@ from django.utils.translation import gettext as _
 from rest_framework import serializers
 
 from accounts.models import Permission, Role, User
-from core.rbac import can_approve_high_value, can_see_cost, report_areas_for
+from core.rbac import (
+    can_approve_high_value, can_review_price_flags, can_see_cost, report_areas_for,
+)
 from core.platform_roles import platform_capabilities_for
 from org.store_mode import is_system_mode_owner
 
@@ -390,6 +392,8 @@ class MeSerializer(serializers.ModelSerializer):
             "finance.approve": can_approve_high_value(obj),
             # Sees what goods cost (product cost fields are hidden otherwise).
             "inventory.see_cost": can_see_cost(obj),
+            # Reviews sales an offline till kept with a refused price.
+            "sales.review_prices": can_review_price_flags(obj),
             "scope.branch_id": obj.branch_id,
             **{name: True for name in platform_capabilities_for(obj)},
         }

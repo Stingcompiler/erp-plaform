@@ -190,10 +190,12 @@ export default function PosTerminal({
     shares.push(share);
     return net - share;
   });
-  // Lines whose discount (their own plus their part of the ticket's) is
-  // past the company's limit for this user — refused by the server too.
+  // Lines sold further below their list price than the company's limit
+  // allows this user — a typed-down price plus the line's own discount and
+  // its part of the ticket's. Refused by the server too.
   const overLimit = new Set(cart.filter((l, i) =>
-    overDiscountLimit(lineGross(l), lineDiscount(l) + shares[i], discountLimit)).map((l) => l.key));
+    overDiscountLimit(lineGross(l), lineDiscount(l) + shares[i], discountLimit,
+      round2(Number(l.listPrice || 0) * qtyOf(l)))).map((l) => l.key));
   const subtotal = round2(netLines.reduce((s, n) => s + n, 0));
   const discountTotal = round2(cart.reduce((s, l) => s + lineDiscount(l), 0) + ticket);
   const taxTotal = round2(netLines.reduce((s, n) => s + round2((n * taxRate) / 100), 0));

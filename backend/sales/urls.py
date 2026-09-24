@@ -11,6 +11,8 @@ from sales.views import (
     InvoiceViewSet,
     PaymentViewSet,
     POSCheckoutView,
+    PriceFlagListView,
+    PriceFlagReviewView,
     QuotationViewSet,
     RefundViewSet,
     SalesOrderViewSet,
@@ -33,5 +35,10 @@ urlpatterns = [
     path("pos/checkout/", POSCheckoutView.as_view(), name="pos-checkout"),
     path("debts/customers/", DebtCustomerListView.as_view(), name="debt-customer-list"),
     path("debts/summary/", DebtSummaryView.as_view(), name="debt-summary"),
+    path("price-flags/", PriceFlagListView.as_view(), name="price-flag-list"),
+    path(
+        "price-flags/<int:invoice_id>/review/", PriceFlagReviewView.as_view(),
+        name="price-flag-review",
+    ),
     path("", include(router.urls)),
 ]

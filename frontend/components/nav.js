@@ -52,7 +52,7 @@ export const NAV = [
     labelKey: "nav.groups.sales",
     icon: ShoppingCart,
     children: [
-      { labelKey: "nav.sales", href: "/sales", module: "sales", icon: ShoppingCart, attentionKey: "sales" },
+      { labelKey: "nav.sales", href: "/sales", module: "sales", icon: ShoppingCart, attentionKey: ["sales", "price-flags"] },
       { labelKey: "nav.debts", href: "/debts", module: "sales", icon: Wallet, attentionKey: "debts" },
       { labelKey: "nav.webOrders", href: "/web-orders", module: "sales", icon: Globe, attentionKey: "web-orders" },
       {

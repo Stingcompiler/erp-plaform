@@ -8,6 +8,7 @@
 
 import { localScope, storageKey } from "./localIdentity.js";
 import { offlineStore } from "./offlineStore.js";
+import { foldArabic, matchesSearch } from "./arabicFold.js";
 
 // Only what a scan needs to build a cart line — keeps the payload small.
 function slim(p) {
@@ -57,7 +58,7 @@ export function readAll() {
 }
 
 export function findCachedByBarcode(code) {
-  const target = String(code || "").trim();
+  const target = foldArabic(String(code || "").trim());
   if (!target) return null;
   return readAll().find((p) => p.barcode === target) || null;
 }
@@ -104,9 +105,9 @@ export async function searchProductsOffline(query, limit = 6) {
     const hits = (await offlineStore.searchProducts(query, limit * 2)).filter(sellable).slice(0, limit);
     if (hits.length) return hits;
   } catch { /* fall through */ }
-  const needle = String(query || "").toLowerCase();
+  if (!String(query || "").trim()) return [];
   const archived = await archivedInMirror();
   return readAll()
-    .filter((p) => sellable(p) && !archived.has(p.id) && `${p.name} ${p.sku}`.toLowerCase().includes(needle))
+    .filter((p) => sellable(p) && !archived.has(p.id) && matchesSearch(query, [p.name, p.sku, p.barcode]))
     .slice(0, limit);
 }

@@ -241,6 +241,18 @@ def can_approve_high_value(user):
     return bool(role and role.name in APPROVER_ROLES)
 
 
+def can_review_price_flags(user):
+    """True when this user reviews sales kept with a price the till should
+    have refused (`pos_price_unapproved`): the approvers, and a branch
+    manager for their own branch (the caller narrows by branch_scope)."""
+    if getattr(user, "is_platform_admin", False) or not getattr(user, "company_id", None):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    role = getattr(user, "role", None)
+    return bool(role and role.name in (APPROVER_ROLES | {"Branch Manager"}))
+
+
 def can_see_cost(user):
     """True when this user may see what goods cost the business.
 

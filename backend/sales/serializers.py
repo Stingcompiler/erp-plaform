@@ -1426,31 +1426,60 @@ class POSCheckoutSerializer(serializers.Serializer):
         At the counter a cashier is refused with the reason; an approver's
         override is written to the audit log. A sale replayed from the
         offline queue already happened, so it is kept and the audit row is
-        flagged for a manager to review."""
+        flagged for a manager to review.
+
+        A price typed under the list price is a discount too: what counts is
+        how far the net price (after line and ticket discounts) sits below
+        the list price of the product or pack. Otherwise a cashier could ring
+        rice listed at 100 as 85 and give 15% where 10% is the limit. A line
+        invoiced from a sales order is measured against the order's price
+        when that is lower — the price the customer was quoted (a web order
+        keeps the price the page showed)."""
         limit = company.max_discount_percent
+        ordered = self._order_prices(invoice)
         breaches = []
         for ln, product, qty, price, gross, own, share in priced:
             pack_info = ln.get("_pack")
             cost = product.cost_price or Decimal("0")
             if pack_info:
-                pack, packs_sold = pack_info
-                unit_value = gross / packs_sold
+                pack, units = pack_info
+                unit_value = gross / units
                 floor = _q2(cost * pack.quantity)
                 listed = pack.effective_price()
+                agreed = ordered.get(product.pk)
+                reference = listed if agreed is None else min(
+                    listed, _q2(agreed * pack.quantity)
+                )
             else:
-                unit_value, floor, listed = price, cost, product.sale_price
+                units = qty
+                unit_value, floor, listed = price, cost, product.sale_price or Decimal("0")
+                agreed = ordered.get(product.pk)
+                reference = listed if agreed is None else min(listed, agreed)
             if cost > 0 and unit_value < floor and unit_value < listed:
                 breaches.append({
                     "sku": product.sku, "rule": "below_cost", "price": str(_q2(unit_value)),
+                    "list": str(_q2(listed)), "sold": str(_q2(unit_value)),
                 })
+            if limit is None or gross <= 0 or units <= 0:
+                continue
             discount = own + share
-            if limit is not None and gross > 0 and discount > 0:
-                # A cent of slack: the ticket discount is spread in cents.
-                if discount > _q2(gross * limit / 100) + TWO_PLACES:
-                    breaches.append({
-                        "sku": product.sku, "rule": "discount",
-                        "percent": str(_q2(discount * 100 / gross)),
-                    })
+            net = gross - discount
+            if reference > 0:
+                # Measured from the list price: a typed-down price and the
+                # discounts on top of it add up.
+                base = _q2(reference * units)
+                given = base - net
+            else:
+                # No list price (a miscellaneous line): only the discounts.
+                base, given = gross, discount
+            # A cent of slack: the ticket discount is spread in cents.
+            if given > 0 and given > _q2(base * limit / 100) + TWO_PLACES:
+                breaches.append({
+                    "sku": product.sku, "rule": "discount",
+                    "percent": str(_q2(given * 100 / base)),
+                    "list": str(_q2(reference)), "sold": str(_q2(net / units)),
+                    "typed_price": discount <= 0,
+                })
         if not breaches:
             return
         request = self.context.get("request")
@@ -1477,12 +1506,37 @@ class POSCheckoutSerializer(serializers.Serializer):
                 "%(sku)s is priced below the allowed price. Sell it at the list "
                 "price, or ask a manager to ring the sale."
             ) % {"sku": first["sku"]}
+        elif first.get("typed_price"):
+            message = _(
+                "%(sku)s is sold %(percent)s%% below its list price of %(list)s, above the "
+                "allowed discount of %(limit)s%%. Raise the price, or ask a manager to "
+                "ring the sale."
+            ) % {
+                "sku": first["sku"], "percent": first["percent"], "list": first["list"],
+                "limit": _q2(limit),
+            }
         else:
             message = _(
                 "The discount on %(sku)s is %(percent)s%%, above the allowed "
                 "%(limit)s%%. Ask a manager to ring the sale."
             ) % {"sku": first["sku"], "percent": first["percent"], "limit": _q2(limit)}
         raise serializers.ValidationError({"lines": message, "code": "price_rule"})
+
+    @staticmethod
+    def _order_prices(invoice):
+        """{product id: lowest unit price} on the sales order this sale
+        invoices, or {} for a plain counter sale."""
+        if not invoice.source_order_id:
+            return {}
+        prices = {}
+        for product_id, unit_price in SalesOrderLine.objects.filter(
+            sales_order_id=invoice.source_order_id
+        ).values_list("product_id", "unit_price"):
+            if product_id in prices:
+                prices[product_id] = min(prices[product_id], unit_price)
+            else:
+                prices[product_id] = unit_price
+        return prices
 
     def _assert_credit_allowed(self, customer, invoice, unpaid, user):
         """A sale that leaves a balance is a loan, and a loan needs a debtor.

@@ -61,10 +61,20 @@ export function paymentsFor(plan) {
 // Discount above the company's limit for a till user without approval.
 // `limit` null/undefined/"" = no limit. A cent of slack, as on the server:
 // the ticket discount is spread across lines in cents.
-export function overDiscountLimit(gross, discount, limit) {
+// With `listTotal` (list price x quantity) a price typed under the list
+// counts too, as on the server (POSCheckoutSerializer._enforce_price_rules):
+// what is measured is how far the net line (after its own and the ticket
+// discount) sits below the list, so a typed-down price and a discount on
+// top of it add up, and a marked-up price leaves room for a discount.
+export function overDiscountLimit(gross, discount, limit, listTotal = 0) {
   if (limit === null || limit === undefined || limit === "") return false;
-  if (!(gross > 0) || !(discount > 0)) return false;
-  return discount > round2((gross * Number(limit)) / 100) + 0.01;
+  if (!(gross > 0)) return false;
+  const off = Math.max(0, Number(discount) || 0);
+  const list = round2(Number(listTotal) || 0);
+  const base = list > 0 ? list : gross;
+  const given = list > 0 ? round2(list - (gross - off)) : off;
+  if (!(given > 0)) return false;
+  return given > round2((base * Number(limit)) / 100) + 0.01;
 }
 
 // The open cart survives a reload or a closed tab: saved per signed-in

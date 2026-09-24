@@ -40,3 +40,15 @@ def unverified_transfers(user, since):
         recorded_at__gt=since,
     ).exclude(recorded_by=user)
     return scope_branch(qs, user, field="invoice__branch").count()
+
+
+@register("price-flags", "sales", TONE_WARN)
+def unreviewed_price_flags(user, since):
+    """Sales an offline till kept below cost or beyond the discount limit
+    (logged `pos_price_unapproved`) that no manager has reviewed yet."""
+    from core.rbac import can_review_price_flags
+    from sales.price_flags import unreviewed_flags
+
+    if not can_review_price_flags(user):
+        return 0
+    return len(unreviewed_flags(user, since=since))

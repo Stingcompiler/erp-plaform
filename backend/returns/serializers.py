@@ -246,7 +246,16 @@ class SalesReturnWriteSerializer(serializers.Serializer):
                 reason=validated_data.get("reason", ""),
                 created_by=user if user.is_authenticated else None,
             )
+            # The invoice changed now (sync pulls follow updated_at), even
+            # when the note itself is dated at the counter below.
             Invoice.objects.filter(pk=invoice.pk).update(updated_at=note.created_at)
+            if occurred is not None and occurred < note.created_at:
+                # A return replayed from an offline till: the credit is owed
+                # from the moment the goods came back, not when the server
+                # heard of it — reports and the customer's statement count
+                # it on that day, next to the return itself.
+                CreditNote.objects.filter(pk=note.pk).update(created_at=occurred)
+                note.created_at = occurred
             log_activity(
                 action="create", request=request, entity_type="CreditNote",
                 entity_id=note.pk,

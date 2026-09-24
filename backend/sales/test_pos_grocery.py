@@ -79,12 +79,12 @@ class WeighedGoodsTests(GroceryTillTestCase):
 class PriceOverrideTests(GroceryTillTestCase):
     def test_the_counter_price_wins_when_sent(self):
         resp = self._checkout(
-            [{"product": self.tomatoes.id, "quantity": "1", "unit_price": "35"}]
+            [{"product": self.tomatoes.id, "quantity": "1", "unit_price": "37"}]
         )
         self.assertEqual(resp.status_code, 201, resp.data)
         line = InvoiceLine.objects.get(invoice_id=resp.data["id"])
-        self.assertEqual(line.unit_price, Decimal("35"))
-        self.assertEqual(line.line_subtotal, Decimal("35.00"))
+        self.assertEqual(line.unit_price, Decimal("37"))
+        self.assertEqual(line.line_subtotal, Decimal("37.00"))
 
     def test_omitting_it_follows_the_catalogue(self):
         resp = self._checkout([{"product": self.tomatoes.id, "quantity": "1"}])
@@ -95,7 +95,7 @@ class PriceOverrideTests(GroceryTillTestCase):
         """Discounting one sale must not silently reprice the product for
         everyone."""
         self._checkout(
-            [{"product": self.tomatoes.id, "quantity": "1", "unit_price": "10"}]
+            [{"product": self.tomatoes.id, "quantity": "1", "unit_price": "37"}]
         )
         self.tomatoes.refresh_from_db()
         self.assertEqual(self.tomatoes.sale_price, Decimal("40"))
