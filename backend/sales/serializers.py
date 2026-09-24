@@ -30,6 +30,12 @@ from sales.models import (
     SalesOrderLine,
 )
 from sales.numbering import allocate_invoice_number
+from sales.price_rules import (
+    check_document_lines,
+    price_breaches,
+    record_document_check,
+    refuse as refuse_price,
+)
 
 TWO_PLACES = Decimal("0.01")
 
@@ -372,9 +378,13 @@ class QuotationSerializer(serializers.ModelSerializer):
         fields = [
             "id", "company", "customer", "customer_name", "branch", "status", "valid_until",
             "note", "subtotal", "tax_amount", "total", "lines", "created_at",
+            "price_approved_by", "price_approved_at",
         ]
         # Status moves through set_status / convert_to_order only.
-        read_only_fields = ["company", "subtotal", "tax_amount", "total", "created_at", "status"]
+        read_only_fields = [
+            "company", "subtotal", "tax_amount", "total", "created_at", "status",
+            "price_approved_by", "price_approved_at",
+        ]
 
     def validate(self, attrs):
         _assert_tenant_relations(self, attrs, ("customer", "branch"))
@@ -387,8 +397,15 @@ class QuotationSerializer(serializers.ModelSerializer):
         lines = validated_data.pop("lines")
         company_id = validated_data.get("company_id")
         from org.models import Company
-        handler = tax_handler_for(Company.objects.get(pk=company_id))
+        company = Company.objects.get(pk=company_id)
+        handler = tax_handler_for(company)
         request = self.context.get("request")
+        user = getattr(request, "user", None)
+        # The price rule of the till (sales.price_rules): a quote is where
+        # the customer is promised the price, so it is held to it here.
+        breaches = check_document_lines(
+            company, [(ln["product"], ln["quantity"], ln["unit_price"]) for ln in lines], user
+        )
         if request and request.user.is_authenticated:
             validated_data["created_by"] = request.user
         quotation = Quotation.objects.create(**validated_data)
@@ -403,6 +420,7 @@ class QuotationSerializer(serializers.ModelSerializer):
         quotation.tax_amount = _q2(tax_total)
         quotation.total = quotation.subtotal + quotation.tax_amount
         quotation.save(update_fields=["subtotal", "tax_amount", "total"])
+        record_document_check(quotation, breaches, user, request, "quote_price_override")
         return quotation
 
 
@@ -411,12 +429,18 @@ class QuotationSerializer(serializers.ModelSerializer):
 class SalesOrderLineSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source="product.name", read_only=True, default="")
     product_sku = serializers.CharField(source="product.sku", read_only=True, default="")
+    # The till measures a discount on an order it invoices from here when
+    # the order's prices are not trusted (SalesOrder.prices_trusted).
+    list_price = serializers.DecimalField(
+        source="product.sale_price", max_digits=14, decimal_places=2, read_only=True,
+        default=None,
+    )
 
     class Meta:
         model = SalesOrderLine
         fields = [
             "id", "product", "product_name", "product_sku", "description",
-            "quantity", "unit_price", "line_total",
+            "quantity", "unit_price", "list_price", "line_total",
         ]
         read_only_fields = ["line_total"]
         # A quote for -3 units totalled -300.00.
@@ -437,13 +461,14 @@ class SalesOrderSerializer(serializers.ModelSerializer):
         fields = [
             "id", "company", "customer", "customer_name", "branch", "source_quotation", "status",
             "subtotal", "tax_amount", "total", "lines", "invoice_id", "created_at",
+            "price_approved_by", "price_approved_at", "prices_trusted",
         ]
         # Status moves through set_status (and invoicing); the source quote
         # through convert_to_order. Writable, an order could be created
         # already "fulfilled", or tied to a quote to get round one-per-quote.
         read_only_fields = [
             "company", "subtotal", "tax_amount", "total", "created_at",
-            "status", "source_quotation",
+            "status", "source_quotation", "price_approved_by", "price_approved_at",
         ]
 
     def get_invoice_id(self, obj):
@@ -470,8 +495,15 @@ class SalesOrderSerializer(serializers.ModelSerializer):
         lines = validated_data.pop("lines")
         company_id = validated_data.get("company_id")
         from org.models import Company
-        handler = tax_handler_for(Company.objects.get(pk=company_id))
+        company = Company.objects.get(pk=company_id)
+        handler = tax_handler_for(company)
         request = self.context.get("request")
+        user = getattr(request, "user", None)
+        # Held to the till's price rule: otherwise an order at a deep
+        # discount would be invoiced at its own price (sales.price_rules).
+        breaches = check_document_lines(
+            company, [(ln["product"], ln["quantity"], ln["unit_price"]) for ln in lines], user
+        )
         if request and request.user.is_authenticated:
             validated_data["created_by"] = request.user
         order = SalesOrder.objects.create(**validated_data)
@@ -486,6 +518,7 @@ class SalesOrderSerializer(serializers.ModelSerializer):
         order.tax_amount = _q2(tax_total)
         order.total = order.subtotal + order.tax_amount
         order.save(update_fields=["subtotal", "tax_amount", "total"])
+        record_document_check(order, breaches, user, request, "order_price_override")
         return order
 
 
@@ -1433,53 +1466,34 @@ class POSCheckoutSerializer(serializers.Serializer):
         the list price of the product or pack. Otherwise a cashier could ring
         rice listed at 100 as 85 and give 15% where 10% is the limit. A line
         invoiced from a sales order is measured against the order's price
-        when that is lower — the price the customer was quoted (a web order
-        keeps the price the page showed)."""
+        when that is lower and the order's price is trusted — the price the
+        customer was quoted (see _order_prices). The rule itself lives in
+        sales.price_rules, shared with quotations and sales orders."""
         limit = company.max_discount_percent
         ordered = self._order_prices(invoice)
-        breaches = []
+        rows = []
         for ln, product, qty, price, gross, own, share in priced:
             pack_info = ln.get("_pack")
             cost = product.cost_price or Decimal("0")
+            agreed = ordered.get(product.pk)
             if pack_info:
                 pack, units = pack_info
                 unit_value = gross / units
                 floor = _q2(cost * pack.quantity)
                 listed = pack.effective_price()
-                agreed = ordered.get(product.pk)
                 reference = listed if agreed is None else min(
                     listed, _q2(agreed * pack.quantity)
                 )
             else:
                 units = qty
                 unit_value, floor, listed = price, cost, product.sale_price or Decimal("0")
-                agreed = ordered.get(product.pk)
                 reference = listed if agreed is None else min(listed, agreed)
-            if cost > 0 and unit_value < floor and unit_value < listed:
-                breaches.append({
-                    "sku": product.sku, "rule": "below_cost", "price": str(_q2(unit_value)),
-                    "list": str(_q2(listed)), "sold": str(_q2(unit_value)),
-                })
-            if limit is None or gross <= 0 or units <= 0:
-                continue
-            discount = own + share
-            net = gross - discount
-            if reference > 0:
-                # Measured from the list price: a typed-down price and the
-                # discounts on top of it add up.
-                base = _q2(reference * units)
-                given = base - net
-            else:
-                # No list price (a miscellaneous line): only the discounts.
-                base, given = gross, discount
-            # A cent of slack: the ticket discount is spread in cents.
-            if given > 0 and given > _q2(base * limit / 100) + TWO_PLACES:
-                breaches.append({
-                    "sku": product.sku, "rule": "discount",
-                    "percent": str(_q2(given * 100 / base)),
-                    "list": str(_q2(reference)), "sold": str(_q2(net / units)),
-                    "typed_price": discount <= 0,
-                })
+            rows.append({
+                "sku": product.sku, "cost": cost, "units": units, "unit_value": unit_value,
+                "floor": floor, "listed": listed, "reference": reference,
+                "gross": gross, "discount": own + share,
+            })
+        breaches = price_breaches(rows, limit)
         if not breaches:
             return
         request = self.context.get("request")
@@ -1500,33 +1514,21 @@ class POSCheckoutSerializer(serializers.Serializer):
                 },
             )
             return
-        first = breaches[0]
-        if first["rule"] == "below_cost":
-            message = _(
-                "%(sku)s is priced below the allowed price. Sell it at the list "
-                "price, or ask a manager to ring the sale."
-            ) % {"sku": first["sku"]}
-        elif first.get("typed_price"):
-            message = _(
-                "%(sku)s is sold %(percent)s%% below its list price of %(list)s, above the "
-                "allowed discount of %(limit)s%%. Raise the price, or ask a manager to "
-                "ring the sale."
-            ) % {
-                "sku": first["sku"], "percent": first["percent"], "list": first["list"],
-                "limit": _q2(limit),
-            }
-        else:
-            message = _(
-                "The discount on %(sku)s is %(percent)s%%, above the allowed "
-                "%(limit)s%%. Ask a manager to ring the sale."
-            ) % {"sku": first["sku"], "percent": first["percent"], "limit": _q2(limit)}
-        raise serializers.ValidationError({"lines": message, "code": "price_rule"})
+        refuse_price(breaches, limit)
 
     @staticmethod
     def _order_prices(invoice):
         """{product id: lowest unit price} on the sales order this sale
-        invoices, or {} for a plain counter sale."""
+        invoices, or {} for a plain counter sale.
+
+        Only an order whose prices are trusted counts: one an approver
+        priced past the rule, or one never measured by it (created before
+        the rule, or a web order at the owner's own prices). An order a
+        salesperson priced within the limit is measured from the list price
+        again, so a discount at the till cannot stack on the order's."""
         if not invoice.source_order_id:
+            return {}
+        if not invoice.source_order.prices_trusted:
             return {}
         prices = {}
         for product_id, unit_price in SalesOrderLine.objects.filter(

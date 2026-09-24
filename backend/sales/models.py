@@ -196,6 +196,16 @@ class Quotation(models.Model):
         related_name="quotations",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # The price rule of the till (sales.price_rules). False: priced before
+    # the rule, or by the owner's own settings (a web order) — trusted as
+    # agreed. True: measured by the rule when written; an approver's
+    # override is recorded here so the next step does not refuse it again.
+    price_checked = models.BooleanField(default=False)
+    price_approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    price_approved_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -250,9 +260,27 @@ class SalesOrder(models.Model):
         related_name="sales_orders",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # The price rule of the till (sales.price_rules). False: priced before
+    # the rule, or by the owner's own settings (a web order) — trusted as
+    # agreed. True: measured by the rule when written; an approver's
+    # override is recorded here so the next step does not refuse it again.
+    price_checked = models.BooleanField(default=False)
+    price_approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    price_approved_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
+
+    @property
+    def prices_trusted(self):
+        """Invoice at the order's own prices (the till measures a discount
+        from them): an approver priced it, or the rule never measured it.
+        An order a salesperson priced within the limit is measured from the
+        list price again, so a discount at the till cannot stack on it."""
+        return not self.price_checked or self.price_approved_at is not None
 
     def __str__(self):
         return f"SalesOrder #{self.id} ({self.customer.name})"

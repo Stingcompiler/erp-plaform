@@ -408,9 +408,17 @@ export default function PosTerminal({
       setCustomer(String(initialOrder.customer));
       setTicketDiscount("");
       setTenders([newTender()]);
+      // The discount is measured as the server does (_order_prices): from
+      // the order's price when its prices are trusted (an approver priced
+      // it, or it predates the rule / came from the web page), otherwise
+      // from the list price, so a discount at the till cannot stack on it.
+      const reference = (l) => {
+        const list = l.list_price == null ? Number(l.unit_price) : Number(l.list_price);
+        return initialOrder.prices_trusted === false ? list : Math.min(list, Number(l.unit_price));
+      };
       setCart(initialOrder.lines.map((l) => ({
         key: lineKey(l.product, null), id: l.product, sku: l.product_sku, name: l.product_name,
-        price: String(l.unit_price), listPrice: String(l.unit_price), qty: String(Number(l.quantity)),
+        price: String(l.unit_price), listPrice: String(reference(l)), qty: String(Number(l.quantity)),
         basePrice: String(l.unit_price), baseUnit: "",
         unit: "", packs: [], packId: "", packQty: 1, onHand: null, expiryStatus: null,
       })));

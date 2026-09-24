@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-24 20:13+0000\n"
+"POT-Creation-Date: 2026-09-24 21:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1485,6 +1485,31 @@ msgstr "الدفع من الرصيد يجب أن يحدد الإشعار الد�
 msgid "This transfer was already recorded on this invoice."
 msgstr "هذا التحويل مسجَّل من قبل على هذه الفاتورة."
 
+#, python-format
+msgid ""
+"%(sku)s is priced below the allowed price. Sell it at the list price, or ask "
+"a manager to ring the sale."
+msgstr ""
+"سعر %(sku)s أقل من السعر المسموح. بِعه بسعر القائمة، أو اطلب من المدير تسجيل "
+"هذا البيع."
+
+#, python-format
+msgid ""
+"%(sku)s is sold %(percent)s%% below its list price of %(list)s, above the "
+"allowed discount of %(limit)s%%. Raise the price, or ask a manager to ring "
+"the sale."
+msgstr ""
+"يُباع %(sku)s بأقل من سعر القائمة (%(list)s) بنسبة %(percent)s%%، وهذا أكثر "
+"من الخصم المسموح %(limit)s%%. ارفع السعر، أو اطلب من المدير تسجيل هذا البيع."
+
+#, python-format
+msgid ""
+"The discount on %(sku)s is %(percent)s%%, above the allowed %(limit)s%%. Ask "
+"a manager to ring the sale."
+msgstr ""
+"الخصم على %(sku)s هو %(percent)s%%، أعلى من المسموح %(limit)s%%. اطلب من "
+"المدير تسجيل هذا البيع."
+
 msgid ""
 "The first row must name the columns; a reference and an amount column are "
 "required."
@@ -1658,31 +1683,6 @@ msgstr "خصم الفاتورة يتجاوز قيمة البيع."
 
 msgid "Credit plus payment exceed the invoice total."
 msgstr "الرصيد المستخدم مع الدفعة يتجاوزان إجمالي الفاتورة."
-
-#, python-format
-msgid ""
-"%(sku)s is priced below the allowed price. Sell it at the list price, or ask "
-"a manager to ring the sale."
-msgstr ""
-"سعر %(sku)s أقل من السعر المسموح. بِعه بسعر القائمة، أو اطلب من المدير تسجيل "
-"هذا البيع."
-
-#, python-format
-msgid ""
-"%(sku)s is sold %(percent)s%% below its list price of %(list)s, above the "
-"allowed discount of %(limit)s%%. Raise the price, or ask a manager to ring "
-"the sale."
-msgstr ""
-"يُباع %(sku)s بأقل من سعر القائمة (%(list)s) بنسبة %(percent)s%%، وهذا أكثر "
-"من الخصم المسموح %(limit)s%%. ارفع السعر، أو اطلب من المدير تسجيل هذا البيع."
-
-#, python-format
-msgid ""
-"The discount on %(sku)s is %(percent)s%%, above the allowed %(limit)s%%. Ask "
-"a manager to ring the sale."
-msgstr ""
-"الخصم على %(sku)s هو %(percent)s%%، أعلى من المسموح %(limit)s%%. اطلب من "
-"المدير تسجيل هذا البيع."
 
 msgid "A sale on account needs a named customer."
 msgstr "البيع الآجل يحتاج عميلًا محددًا."

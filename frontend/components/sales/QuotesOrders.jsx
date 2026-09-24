@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRightLeft, FileText, Plus, Receipt, Send, Trash2, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowRightLeft, FileText, Plus, Receipt, Send, Trash2, XCircle } from "lucide-react";
 
 import { inventory, sales } from "@/lib/api";
+import { overDiscountLimit } from "@/lib/posCart";
+import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
@@ -18,6 +20,12 @@ const OTONE = { draft: "muted", confirmed: "accent", fulfilled: "ok", cancelled:
 
 function NewQuotationDrawer({ open, onClose, customers, onSaved }) {
   const { t } = useI18n();
+  const { user, can } = useAuth();
+  // The till's price rule holds on a quote too (sales.price_rules): a price
+  // typed further under the list than the company allows needs an approver
+  // (owner, GM, CFO), whose override the server records on the quote.
+  const approver = Boolean(can?.("finance.approve"));
+  const discountLimit = approver ? null : (user?.max_discount_percent ?? null);
   const [customer, setCustomer] = useState("");
   const [validUntil, setValidUntil] = useState("");
   const [note, setNote] = useState("");
@@ -39,16 +47,21 @@ function NewQuotationDrawer({ open, onClose, customers, onSaved }) {
   const add = (p) => {
     setLines((ls) => ls.find((l) => l.product === p.id)
       ? ls.map((l) => (l.product === p.id ? { ...l, qty: String(Number(l.qty) + 1) } : l))
-      : [...ls, { product: p.id, sku: p.sku, name: p.name, qty: "1", price: String(p.sale_price ?? "0") }]);
+      : [...ls, { product: p.id, sku: p.sku, name: p.name, qty: "1", price: String(p.sale_price ?? "0"), list: Number(p.sale_price ?? 0) }]);
     setQuery(""); setResults([]);
   };
   const patch = (id, fields) => setLines((ls) => ls.map((l) => (l.product === id ? { ...l, ...fields } : l)));
   const total = lines.reduce((s, l) => s + Number(l.qty || 0) * Number(l.price || 0), 0);
+  const overLimit = (l) => {
+    const qty = Number(l.qty || 0);
+    return overDiscountLimit(qty * Number(l.price || 0), 0, discountLimit, (l.list || 0) * qty);
+  };
 
   async function save() {
     setError("");
     if (!customer) return setError(t("quotes.customerRequired"));
     if (!lines.length) return setError(t("sales.searchToAdd"));
+    if (lines.some(overLimit)) return setError(t("quotes.overLimit", { limit: Number(discountLimit) }));
     setBusy(true);
     try {
       const r = await sales.createQuotation({
@@ -96,7 +109,14 @@ function NewQuotationDrawer({ open, onClose, customers, onSaved }) {
           <div className="divide-y divide-line rounded-card border border-line">
             {lines.map((l) => (
               <div key={l.product} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm">
-                <div className="min-w-0 flex-1"><div className="truncate">{l.name}</div><div className="tabular text-xs text-muted">{l.sku}</div></div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate">{l.name}</div><div className="tabular text-xs text-muted">{l.sku}</div>
+                  {overLimit(l) && (
+                    <div className="mt-0.5 flex items-center gap-1 text-xs text-danger">
+                      <AlertTriangle size={12} />{t("quotes.overLimit", { limit: Number(discountLimit) })}
+                    </div>
+                  )}
+                </div>
                 <div className="w-20"><Input type="number" inputMode="decimal" min="0" value={l.qty} onChange={(e) => patch(l.product, { qty: e.target.value })} aria-label={t("sales.quantity")} /></div>
                 <div className="w-24"><Input type="number" inputMode="decimal" min="0" step="0.01" value={l.price} onChange={(e) => patch(l.product, { price: e.target.value })} aria-label={t("sales.unitPrice")} /></div>
                 <div className="tabular w-24 text-end">{money(Number(l.qty || 0) * Number(l.price || 0))}</div>
@@ -171,7 +191,7 @@ export default function QuotesOrders({ customers, writable, onInvoice, refreshKe
             {quotes.map((q) => (
               <Row key={q.id} name={q.customer_name} ref={`QT-${String(q.id).padStart(5, "0")}`}
                 status={t(`quotes.status.${q.status}`)} tone={QTONE[q.status] || "muted"}
-                sub={`${t("purchasing.po.lines", { count: q.lines.length })}${q.valid_until ? ` · ${t("quotes.validShort", { date: fmt(q.valid_until) })}` : ""}`}
+                sub={`${t("purchasing.po.lines", { count: q.lines.length })}${q.valid_until ? ` · ${t("quotes.validShort", { date: fmt(q.valid_until) })}` : ""}${q.price_approved_at ? ` · ${t("quotes.priceApproved")}` : ""}`}
                 total={q.total}
                 actions={<>
                   {q.status === "draft" && <Button variant="ghost" onClick={() => run(`q${q.id}`, () => sales.setQuotationStatus(q.id, "sent"))} disabled={busy === `q${q.id}`}><Send size={15} />{t("quotes.markSent")}</Button>}
@@ -197,7 +217,7 @@ export default function QuotesOrders({ customers, writable, onInvoice, refreshKe
             {orders.map((o) => (
               <Row key={o.id} name={o.customer_name} ref={`SO-${String(o.id).padStart(5, "0")}`}
                 status={t(`orders.status.${o.status}`)} tone={OTONE[o.status] || "muted"}
-                sub={`${t("purchasing.po.lines", { count: o.lines.length })}${o.invoice_id ? ` · ${t("orders.invoiced")}` : ""}`}
+                sub={`${t("purchasing.po.lines", { count: o.lines.length })}${o.invoice_id ? ` · ${t("orders.invoiced")}` : ""}${o.price_approved_at ? ` · ${t("quotes.priceApproved")}` : ""}`}
                 total={o.total}
                 actions={<>
                   {o.status === "draft" && <Button variant="ghost" onClick={() => run(`o${o.id}`, () => sales.setOrderStatus(o.id, "confirmed"))} disabled={busy === `o${o.id}`}>{t("orders.confirm")}</Button>}
