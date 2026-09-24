@@ -346,9 +346,15 @@ class Invoice(models.Model):
 
     def save(self, *args, **kwargs):
         if self.due_date is None and self.issued_at:
-            self.due_date = self.issued_at.date() + timedelta(
-                days=self.payment_terms_days or 0
-            )
+            # The company's calendar day, not UTC's: a sale at 01:00 in
+            # Khartoum got yesterday's due date, and with no payment terms it
+            # showed as overdue the moment it was made.
+            from core.timezone import company_zone
+
+            issued = self.issued_at
+            if timezone.is_aware(issued):
+                issued = timezone.localtime(issued, company_zone(self.company))
+            self.due_date = issued.date() + timedelta(days=self.payment_terms_days or 0)
         super().save(*args, **kwargs)
 
     def __str__(self):

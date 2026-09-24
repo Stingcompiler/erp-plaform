@@ -360,6 +360,13 @@ def _void_note(viewset, request, entity_type):
                 {"detail": _("Money was refunded against this note; it cannot be voided.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # Spent as store credit on another sale: voiding it left that sale
+        # "paid" by credit that no longer existed.
+        if entity_type == "CreditNote" and note.applications.exists():
+            return Response(
+                {"detail": _("This note was used as store credit on a sale; it cannot be voided.")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if entity_type == "CreditNote" and note.invoice_id and note.invoice.is_void:
             return Response(
                 {"detail": _("This note voided an invoice; it stands with that invoice.")},

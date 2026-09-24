@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-24 09:57+0000\n"
+"POT-Creation-Date: 2026-09-24 10:23+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -885,7 +885,9 @@ msgstr "فاتورة المورّد هذه مُبطَلة بالفعل."
 msgid "Payments were recorded against this bill; it cannot be voided."
 msgstr "سُجّلت دفعات على فاتورة المورّد هذه، لذا لا يمكن إبطالها."
 
-msgid "Debit notes are recorded against this bill; void them first, then void the bill."
+msgid ""
+"Debit notes are recorded against this bill; void them first, then void the "
+"bill."
 msgstr "على هذه الفاتورة إشعارات مدينة؛ ألغِها أولًا ثم ألغِ الفاتورة."
 
 msgid "Already verified."
@@ -957,8 +959,10 @@ msgid "The debit note cannot exceed the goods' cost (%(cost)s)."
 msgstr "الإشعار المدين لا يمكن أن يتجاوز تكلفة البضاعة (%(cost)s)."
 
 #, python-format
-msgid "The debit note (%(amount)s) is more than this bill still owes (%(due)s)."
-msgstr "الإشعار المدين (%(amount)s) أكبر من المتبقي على هذه الفاتورة (%(due)s)."
+msgid ""
+"The debit note (%(amount)s) is more than this bill still owes (%(due)s)."
+msgstr ""
+"الإشعار المدين (%(amount)s) أكبر من المتبقي على هذه الفاتورة (%(due)s)."
 
 msgid "Customer must match the linked invoice."
 msgstr "العميل يجب أن يطابق الفاتورة المرتبطة."
@@ -971,6 +975,9 @@ msgstr "العميل يجب أن يطابق المرتجع المرتبط."
 
 msgid "A customer is required unless this note is linked to an invoice."
 msgstr "يلزم تحديد عميل ما لم يكن الإشعار مرتبطًا بفاتورة."
+
+msgid "Only a manager or owner may issue a credit note that is not for a return."
+msgstr "إصدار إشعار دائن لا يخص مرتجعًا للمدير أو المالك فقط."
 
 msgid "That invoice is void."
 msgstr "هذه الفاتورة مُبطَلة."
@@ -1013,6 +1020,9 @@ msgstr "هذا الإشعار مُبطَل بالفعل."
 
 msgid "Money was refunded against this note; it cannot be voided."
 msgstr "تم ردّ مبلغ على هذا الإشعار، لذا لا يمكن إبطاله."
+
+msgid "This note was used as store credit on a sale; it cannot be voided."
+msgstr "استُخدم هذا الإشعار رصيدًا دائنًا في عملية بيع؛ لا يمكن إلغاؤه."
 
 msgid "This note voided an invoice; it stands with that invoice."
 msgstr "هذا الإشعار أبطل فاتورة، ويبقى قائمًا معها."
@@ -1168,6 +1178,10 @@ msgstr "لا يمكن إصدار فاتورة إلا لأمر بيع مؤكَّ�
 msgid "The sale's customer must match the order's customer."
 msgstr "عميل البيع يجب أن يطابق عميل الأمر."
 
+#, python-format
+msgid "The sale does not deliver the whole order (%(skus)s). Sell the ordered quantities, or edit the order first."
+msgstr "البيع لا يسلّم الطلب كاملًا (%(skus)s). بِع الكميات المطلوبة، أو عدّل الطلب أولًا."
+
 msgid "That pack belongs to a different product."
 msgstr "هذه العبوة تخص صنفًا آخر."
 
@@ -1268,9 +1282,14 @@ msgstr ""
 msgid "Already reviewed."
 msgstr "تمت مراجعتها مسبقًا."
 
-#, python-format
-msgid "An order that is %(current)s cannot be set to %(target)s."
-msgstr "لا يمكن نقل أمر حالته %(current)s إلى %(target)s."
+msgid "That status change is not allowed for this quotation."
+msgstr "لا يمكن تغيير حالة عرض السعر بهذه الطريقة."
+
+msgid "This quotation has expired; issue a new one."
+msgstr "انتهت صلاحية عرض السعر؛ أصدر عرضًا جديدًا."
+
+msgid "That status change is not allowed for this order."
+msgstr "لا يمكن تغيير حالة الطلب بهذه الطريقة."
 
 msgid "Only a manager or owner may void an invoice."
 msgstr "إبطال الفاتورة للمدير أو المالك فقط."
@@ -1728,6 +1747,10 @@ msgstr "الإشعارات غير مُعدّة على الخادم."
 msgid "A push subscription is required."
 msgstr ""
 "بيانات اشتراك الإشعارات مطلوبة. فعّل الإشعارات من المتصفح ثم أعد المحاولة."
+
+#, python-format
+#~ msgid "An order that is %(current)s cannot be set to %(target)s."
+#~ msgstr "لا يمكن نقل أمر حالته %(current)s إلى %(target)s."
 
 #~ msgid ""
 #~ "Bank transfer needs receiving account, sender bank, and up-to-4-digit "

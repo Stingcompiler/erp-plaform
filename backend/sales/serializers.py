@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import timedelta
 import re
 from decimal import Decimal
@@ -237,6 +238,11 @@ class QuotationLineSerializer(serializers.ModelSerializer):
             "quantity", "unit_price", "line_total",
         ]
         read_only_fields = ["line_total"]
+        # A quote for -3 units totalled -300.00.
+        extra_kwargs = {
+            "quantity": {"min_value": Decimal("0.001")},
+            "unit_price": {"min_value": Decimal("0")},
+        }
 
 
 class QuotationSerializer(serializers.ModelSerializer):
@@ -250,7 +256,8 @@ class QuotationSerializer(serializers.ModelSerializer):
             "id", "company", "customer", "customer_name", "branch", "status", "valid_until",
             "note", "subtotal", "tax_amount", "total", "lines", "created_at",
         ]
-        read_only_fields = ["company", "subtotal", "tax_amount", "total", "created_at"]
+        # Status moves through set_status / convert_to_order only.
+        read_only_fields = ["company", "subtotal", "tax_amount", "total", "created_at", "status"]
 
     def validate(self, attrs):
         _assert_tenant_relations(self, attrs, ("customer", "branch"))
@@ -295,6 +302,11 @@ class SalesOrderLineSerializer(serializers.ModelSerializer):
             "quantity", "unit_price", "line_total",
         ]
         read_only_fields = ["line_total"]
+        # A quote for -3 units totalled -300.00.
+        extra_kwargs = {
+            "quantity": {"min_value": Decimal("0.001")},
+            "unit_price": {"min_value": Decimal("0")},
+        }
 
 
 class SalesOrderSerializer(serializers.ModelSerializer):
@@ -309,7 +321,13 @@ class SalesOrderSerializer(serializers.ModelSerializer):
             "id", "company", "customer", "customer_name", "branch", "source_quotation", "status",
             "subtotal", "tax_amount", "total", "lines", "invoice_id", "created_at",
         ]
-        read_only_fields = ["company", "subtotal", "tax_amount", "total", "created_at"]
+        # Status moves through set_status (and invoicing); the source quote
+        # through convert_to_order. Writable, an order could be created
+        # already "fulfilled", or tied to a quote to get round one-per-quote.
+        read_only_fields = [
+            "company", "subtotal", "tax_amount", "total", "created_at",
+            "status", "source_quotation",
+        ]
 
     def get_invoice_id(self, obj):
         invoice = obj.invoices.order_by("pk").first()
@@ -973,15 +991,45 @@ class POSCheckoutSerializer(serializers.Serializer):
         source_order = validated_data.get("source_order")
         if source_order is not None:
             self._assert_company(source_order, company_id, "source_order")
+            # Locked: two tills (or a till and a web-order confirmation) could
+            # each invoice the same order and take its stock twice.
+            source_order = SalesOrder.objects.select_for_update().get(pk=source_order.pk)
             if source_order.status != SalesOrder.CONFIRMED:
-                raise serializers.ValidationError(
-                    {"source_order": _("Only a confirmed sales order can be invoiced.")}
-                )
+                if self.context.get("via_sync"):
+                    # Sold offline against an order that was cancelled or
+                    # invoiced meanwhile: the sale happened; keep it, without
+                    # the order, and tell the manager.
+                    log_activity(
+                        action="sale_order_link_dropped", request=self.context.get("request"),
+                        entity_type="SalesOrder", entity_id=source_order.pk,
+                        metadata={"status": source_order.status},
+                    )
+                    source_order = None
+                else:
+                    raise serializers.ValidationError(
+                        {"source_order": _("Only a confirmed sales order can be invoiced.")}
+                    )
+        if source_order is not None:
             sale_customer_id = getattr(validated_data.get("customer"), "pk", None)
             if source_order.customer_id != sale_customer_id:
                 raise serializers.ValidationError(
                     {"source_order": _("The sale's customer must match the order's customer.")}
                 )
+            # The sale closes the order, so it must deliver what was ordered:
+            # an order for 5 x 100 invoiced as 1 x 1.00 was marked fulfilled.
+            sold = defaultdict(Decimal)
+            for ln in validated_data["lines"]:
+                pack = ln.get("pack")
+                sold[ln["product"].pk] += ln["quantity"] * (pack.quantity if pack else 1)
+            short = [
+                line.product.sku for line in source_order.lines.select_related("product")
+                if line.product_id and sold[line.product_id] < line.quantity
+            ]
+            if short:
+                raise serializers.ValidationError({"source_order": _(
+                    "The sale does not deliver the whole order (%(skus)s). "
+                    "Sell the ordered quantities, or edit the order first."
+                ) % {"skus": ", ".join(short[:5])}})
 
         number = allocate_invoice_number(company_id)
         terms = validated_data.get("payment_terms_days")

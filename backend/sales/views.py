@@ -146,8 +146,26 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         """
         customer = self.get_object()
         events = []
+        # A branch user sees this customer's dealings with their own branch,
+        # like every other sales screen (opening a branch-B invoice directly
+        # was already a 404; this page showed it, its payments and notes, and
+        # the company-wide balance).
+        from core.scoping import branch_scope_for
 
-        for q in customer.quotations.all():
+        branch_id = branch_scope_for(request.user, "branch")
+        quotations = customer.quotations.all()
+        orders = customer.sales_orders.all()
+        invoices = customer.invoices.all()
+        returns_qs = customer.sales_returns.all()
+        notes = customer.credit_notes.all()
+        if branch_id is not None:
+            quotations = quotations.filter(branch_id=branch_id)
+            orders = orders.filter(branch_id=branch_id)
+            invoices = invoices.filter(branch_id=branch_id)
+            returns_qs = returns_qs.filter(invoice__branch_id=branch_id)
+            notes = notes.filter(invoice__branch_id=branch_id)
+
+        for q in quotations:
             events.append(
                 record_event(
                     "quotation",
@@ -158,7 +176,7 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
                     q.status,
                 )
             )
-        for so in customer.sales_orders.all():
+        for so in orders:
             events.append(
                 record_event(
                     "order",
@@ -169,7 +187,7 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
                     so.status,
                 )
             )
-        for inv in customer.invoices.all():
+        for inv in invoices:
             events.append(
                 record_event(
                     "invoice",
@@ -193,7 +211,7 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
                         entity_id=pay.id,
                     )
                 )
-        for sr in customer.sales_returns.all():
+        for sr in returns_qs:
             events.append(
                 record_event(
                     "return",
@@ -204,7 +222,7 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
                     sr.reason,
                 )
             )
-        for cn in customer.credit_notes.all():
+        for cn in notes:
             events.append(
                 record_event(
                     "credit_note",
@@ -242,7 +260,10 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
             "is_active": customer.is_active,
             "created_at": customer.created_at,
             "status": self._status(customer),
-            "balance": str(customer.ar_balance()),
+            "balance": str(
+                customer.ar_balance() if branch_id is None
+                else sum((inv.amount_due() for inv in invoices if not inv.is_void), Decimal("0"))
+            ),
         }
 
         if request.query_params.get("format") == "csv":
@@ -547,14 +568,23 @@ class QuotationViewSet(AppendOnlyScopedViewSet):
     serializer_class = QuotationSerializer
     activity_entity_type = "Quotation"
 
+    # A quote only moves forward; "converted" is set by convert_to_order.
+    TRANSITIONS = {
+        Quotation.DRAFT: {Quotation.SENT, Quotation.ACCEPTED, Quotation.EXPIRED},
+        Quotation.SENT: {Quotation.ACCEPTED, Quotation.EXPIRED},
+        Quotation.ACCEPTED: {Quotation.EXPIRED},
+        Quotation.EXPIRED: set(),
+        Quotation.CONVERTED: set(),
+    }
+
     @action(detail=True, methods=["post"])
     def set_status(self, request, pk=None):
         quotation = self.get_object()
         new_status = request.data.get("status")
-        valid = dict(Quotation.STATUS_CHOICES)
-        if new_status not in valid:
+        if new_status not in self.TRANSITIONS.get(quotation.status, set()):
             return Response(
-                {"detail": _("Invalid status.")}, status=status.HTTP_400_BAD_REQUEST
+                {"detail": _("That status change is not allowed for this quotation.")},
+                status=status.HTTP_400_BAD_REQUEST,
             )
         quotation.status = new_status
         quotation.save(update_fields=["status"])
@@ -576,6 +606,14 @@ class QuotationViewSet(AppendOnlyScopedViewSet):
             return Response(
                 SalesOrderSerializer(existing, context={"request": request}).data,
                 status=status.HTTP_200_OK,
+            )
+        # An expired quote promised prices that no longer hold.
+        if quotation.status == Quotation.EXPIRED or (
+            quotation.valid_until and quotation.valid_until < timezone.localdate()
+        ):
+            return Response(
+                {"detail": _("This quotation has expired; issue a new one.")},
+                status=status.HTTP_400_BAD_REQUEST,
             )
         order = SalesOrder.objects.create(
             company_id=quotation.company_id,
@@ -632,8 +670,8 @@ class SalesOrderViewSet(AppendOnlyScopedViewSet):
         new_status = request.data.get("status")
         if new_status not in self.TRANSITIONS.get(order.status, set()):
             return Response(
-                {"detail": _("An order that is %(current)s cannot be set to %(target)s.")
-                 % {"current": order.status, "target": new_status}},
+                # English status codes inside an Arabic sentence read as noise.
+                {"detail": _("That status change is not allowed for this order.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         order.status = new_status
@@ -738,7 +776,12 @@ class InvoiceViewSet(
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            paid = invoice.amount_paid()
+            remaining_credit = invoice.total - invoice.credited_total()
+            # What the customer is owed back once the void note lands: what
+            # they paid, less what earlier notes already handed back. Refunding
+            # everything ever paid failed ("only 60.00 remains refundable") as
+            # soon as one of the invoice's notes had been refunded.
+            paid = max(Decimal("0"), remaining_credit - invoice.amount_due())
             refund_body = request.data.get("refund")
             if paid > 0 and not isinstance(refund_body, dict):
                 return Response(
@@ -750,7 +793,6 @@ class InvoiceViewSet(
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            remaining_credit = invoice.total - invoice.credited_total()
             note = CreditNote.objects.create(
                 company_id=invoice.company_id, customer=invoice.customer,
                 invoice=invoice, amount=remaining_credit, reason=reason,
