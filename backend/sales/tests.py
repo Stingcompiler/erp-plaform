@@ -11,6 +11,16 @@ from org.models import Branch, Company
 from sales.models import CompanyBankAccount, Customer, Invoice, Payment
 
 
+def _local_day(invoice):
+    """The day the invoice was issued in the company's calendar — what the
+    due date counts from (UTC's date is a day behind after midnight)."""
+    from django.utils import timezone as _tz
+
+    from core.timezone import company_zone
+
+    return _tz.localtime(invoice.issued_at, company_zone(invoice.company)).date()
+
+
 class SalesBase(APITestCase):
     def setUp(self):
         self.company_a = Company.objects.create(name="Alpha")
@@ -345,7 +355,7 @@ class CreditTermsAndControlsTests(APITestCase):
 
     def test_due_date_derived_from_terms(self):
         from datetime import timedelta
-        expected = self.invoice.issued_at.date() + timedelta(days=30)
+        expected = _local_day(self.invoice) + timedelta(days=30)
         self.assertEqual(self.invoice.due_date, expected)
         self.assertFalse(self.invoice.is_overdue)
 

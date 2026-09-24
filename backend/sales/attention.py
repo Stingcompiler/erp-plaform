@@ -52,3 +52,40 @@ def unreviewed_price_flags(user, since):
     if not can_review_price_flags(user):
         return 0
     return len(unreviewed_flags(user, since=since))
+
+
+@register("till", "sales", TONE_WARN)
+def closed_shifts_to_review(user, since):
+    """Drawers closed since the last look that no manager has signed off.
+    Only an approver can sign a count off, so only an approver is nudged."""
+    from core.rbac import can_approve_high_value
+    from sales.models import CashShift
+
+    if not can_approve_high_value(user):
+        return 0
+    qs = CashShift.objects.filter(
+        company_id=user.company_id,
+        status=CashShift.CLOSED,
+        reviewed_at__isnull=True,
+        closed_at__gt=since,
+    ).exclude(opened_by=user)
+    return scope_branch(qs, user).count()
+
+
+@register("quotes", "sales", TONE_INFO)
+def new_open_quotes_and_orders(user, since):
+    """Quotations and sales orders someone else opened since the last look
+    that are still waiting for the next step (send, convert, invoice)."""
+    from sales.models import Quotation, SalesOrder
+
+    quotes = Quotation.objects.filter(
+        company_id=user.company_id,
+        status__in=[Quotation.DRAFT, Quotation.SENT, Quotation.ACCEPTED],
+        created_at__gt=since,
+    ).exclude(created_by=user)
+    orders = SalesOrder.objects.filter(
+        company_id=user.company_id,
+        status__in=[SalesOrder.DRAFT, SalesOrder.CONFIRMED],
+        created_at__gt=since,
+    ).exclude(created_by=user)
+    return scope_branch(quotes, user).count() + scope_branch(orders, user).count()

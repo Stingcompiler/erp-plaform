@@ -69,7 +69,7 @@ function NavLeaf({ item, onNavigate, nested = false }) {
   // Opening the page is the "I've seen it": the badge clears on the first
   // click and the server moves this user's since-point for those keys.
   const onClick = (event) => {
-    keys.forEach(markSeen);
+    if (!item.tabsMarkSeen) keys.forEach(markSeen);
     onNavigate?.(event);
   };
 
