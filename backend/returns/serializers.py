@@ -420,8 +420,12 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
                 movement_type=StockMovement.PURCHASE_RETURN_OUT,
                 quantity=-ln["quantity"],
                 # The goods go back at what that receipt line cost, matching
-                # the debit note raised for them.
-                unit_cost=original.unit_cost,
+                # the debit note raised for them — in the company currency,
+                # like every other movement's unit_cost (a USD receipt line
+                # holds USD).
+                unit_cost=(original.unit_cost * (original.receipt.exchange_rate or 1)).quantize(
+                    Decimal("0.01")
+                ),
                 reference_type="PurchaseReturn", reference_id=str(pr.id),
                 created_by=user if user.is_authenticated else None,
             )
@@ -452,6 +456,21 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
         bill = validated_data.get("bill")
         if bill is not None:
             _assert_company(self, bill, "bill")
+            if bill.amount_due() < debit_amount:
+                raise serializers.ValidationError({"bill": _(
+                    "The debit note (%(amount)s) is more than this bill still owes (%(due)s)."
+                ) % {"amount": debit_amount, "due": bill.amount_due()}})
+        else:
+            # The drawer's default was "no bill", which left the bill fully
+            # payable while aging showed it lower. The goods came in on a
+            # receipt; if that receipt was billed and the note fits what is
+            # still owed, the note settles that bill. Otherwise it stays a
+            # credit with the supplier.
+            from purchasing.models import Bill
+
+            billed = Bill.objects.filter(goods_receipt=receipt, is_void=False).first()
+            if billed is not None and billed.amount_due() >= debit_amount:
+                bill = billed
         note = DebitNote.objects.create(
             company_id=company_id,
             supplier=supplier,
@@ -605,6 +624,12 @@ class DebitNoteSerializer(serializers.ModelSerializer):
         purchase_return = attrs.get("purchase_return")
         if bill is not None and bill.supplier_id != supplier.pk:
             raise serializers.ValidationError({"bill": _("Bill is not for this supplier.")})
+        if bill is not None and bill.amount_due() < attrs["amount"]:
+            # A 5,000 note on a 100 bill left it owing -4,900: the supplier
+            # card and payables aging then disagreed.
+            raise serializers.ValidationError({"amount": _(
+                "The debit note (%(amount)s) is more than this bill still owes (%(due)s)."
+            ) % {"amount": attrs["amount"], "due": bill.amount_due()}})
         if purchase_return is not None:
             if purchase_return.supplier_id != supplier.pk:
                 raise serializers.ValidationError(

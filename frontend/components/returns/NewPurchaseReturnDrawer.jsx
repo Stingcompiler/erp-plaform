@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 
-import { purchasing, returns } from "@/lib/api";
+import { inventory, purchasing, returns } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { useOfflineMutation } from "@/components/sync/useOfflineMutation";
 import Drawer from "@/components/ui/Drawer";
@@ -64,10 +64,12 @@ export default function NewPurchaseReturnDrawer({ open, onClose, onCreated }) {
       return;
     }
     Promise.all([
-      purchasing.bills({ page: 1 }),
+      // This supplier's bills that still owe something, from the server —
+      // filtering the company's 50 newest in the browser missed older ones.
+      purchasing.bills({ page: 1, supplier, unpaid: 1 }),
       purchasing.goodsReceipts({ page: 1, supplier }),
     ]).then(([billResponse, receiptResponse]) => {
-      setBills((billResponse.data.results || []).filter((b) => String(b.supplier) === supplier));
+      setBills(billResponse.data.results || []);
       setReceipts(receiptResponse.data.results || receiptResponse.data);
     }).catch(() => {
       setBills([]);

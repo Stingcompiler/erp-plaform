@@ -18,7 +18,9 @@ import { useStableIds } from "@/lib/useStableIds";
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const statusTone = { paid: "ok", partial: "warn", unpaid: "danger", void: "muted" };
+// The statuses the server sends (Bill.status). The keys used to be
+// partial/unpaid, which it never sends, so an unpaid bill showed grey.
+const statusTone = { paid: "ok", partially_paid: "warn", open: "danger", void: "muted" };
 
 function PaymentDrawer({ bill, supplierName, bankAccounts, open, onClose, onPaid }) {
   const { idFor, reset } = useStableIds();
@@ -145,15 +147,24 @@ export default function BillList({ suppliersById, bankAccounts, writable, refres
   const [loading, setLoading] = useState(true);
   const [payFor, setPayFor] = useState(null);
   const [voiding, setVoiding] = useState(null);
+  // Opens on the bills still owing; "all" pages through history. Only the 50
+  // newest bills used to load, so an older unpaid one could not be paid.
+  const [onlyUnpaid, setOnlyUnpaid] = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
 
-  const load = useCallback(() => {
+  const load = useCallback((nextPage = 1) => {
     setLoading(true);
     purchasing
-      .bills({ page: 1 })
-      .then((r) => setRows(r.data.results))
-      .catch(() => setRows([]))
+      .bills({ page: nextPage, ...(onlyUnpaid ? { unpaid: 1 } : {}) })
+      .then((r) => {
+        setRows((prev) => (nextPage === 1 ? r.data.results : [...prev, ...r.data.results]));
+        setHasMore(Boolean(r.data.next));
+        setPage(nextPage);
+      })
+      .catch(() => { if (nextPage === 1) setRows([]); })
       .finally(() => setLoading(false));
-  }, []);
+  }, [onlyUnpaid]);
 
   useEffect(() => {
     load();
@@ -161,6 +172,12 @@ export default function BillList({ suppliersById, bankAccounts, writable, refres
 
   return (
     <Card>
+      <div className="flex items-center justify-end gap-2 border-b border-line px-4 py-2">
+        <label className="tap inline-flex items-center gap-2 text-sm text-muted">
+          <input type="checkbox" checked={onlyUnpaid} onChange={(e) => setOnlyUnpaid(e.target.checked)} />
+          {t("purchasing.onlyUnpaid")}
+        </label>
+      </div>
       <div className="overflow-x-auto">
         <table className="stack-sm w-full sm:min-w-[640px] text-sm">
           <thead>
@@ -198,7 +215,7 @@ export default function BillList({ suppliersById, bankAccounts, writable, refres
                   <td className="tabular px-4 py-3 text-end text-ink">{money(b.total)}</td>
                   <td className="tabular px-4 py-3 text-end text-ink">{money(b.amount_due)}</td>
                   <td className="px-4 py-3 text-end">
-                    <Badge tone={statusTone[b.status] || "muted"}>{b.status}</Badge>
+                    <Badge tone={statusTone[b.status] || "muted"}>{t(`purchasing.billStatus.${b.status}`)}</Badge>
                   </td>
                   {writable && (
                     <td className="px-4 py-3 text-end">
@@ -225,18 +242,23 @@ export default function BillList({ suppliersById, bankAccounts, writable, refres
           </tbody>
         </table>
       </div>
+      {hasMore && (
+        <div className="border-t border-line p-3 text-center">
+          <Button variant="outline" disabled={loading} onClick={() => load(page + 1)}>{t("purchasing.loadMoreBills")}</Button>
+        </div>
+      )}
       <PaymentDrawer
         bill={payFor}
         supplierName={payFor ? suppliersById[payFor.supplier] : ""}
         bankAccounts={bankAccounts}
         open={Boolean(payFor)}
         onClose={() => setPayFor(null)}
-        onPaid={load}
+        onPaid={() => load(1)}
       />
       <VoidDrawer
         open={Boolean(voiding)}
         onClose={() => setVoiding(null)}
-        onDone={load}
+        onDone={() => load(1)}
         title={t("corrections.voidBill")}
         summary={voiding ? `${suppliersById[voiding.supplier] || ""} · ${money(voiding.total)}` : ""}
         submit={(body) => purchasing.voidBill(voiding.id, body)}
