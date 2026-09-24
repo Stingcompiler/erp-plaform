@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-24 07:13+0000\n"
+"POT-Creation-Date: 2026-09-24 07:48+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -890,6 +890,9 @@ msgstr ""
 
 msgid "Branch valuation currently supports standard costing only."
 msgstr "تقييم المخزون حسب الفرع يدعم حاليًا طريقة التكلفة المعيارية فقط."
+
+msgid "Enter the cash on hand as an amount of zero or more."
+msgstr "أدخل النقد المتوفر مبلغًا يساوي صفرًا أو أكثر."
 
 msgid "A void invoice cannot be returned."
 msgstr "لا يمكن الإرجاع على فاتورة مُبطَلة."

@@ -116,7 +116,10 @@ export default function ReportsPage() {
         settle(reports.receivablesDue(), setCollections, null),
       ] : []),
       ...(inventoryReports ? [
-        settle(reports.inventoryValuation({ method: costMethod }), setValuation, null),
+        // Stock held at the end of the range, not always today's.
+        settle(reports.inventoryValuation({
+          method: costMethod, ...(range.end ? { as_of: range.end } : {}),
+        }), setValuation, null),
       ] : []),
       ...(purchasingReports ? [
         settle(reports.payablesDue(), setPayables, null),
@@ -160,6 +163,9 @@ export default function ReportsPage() {
     label: r.name,
     value: Number(r.revenue),
   }));
+  // The valuation is the stock held at the end of the range when one is set.
+  const valuationAsOf = (label) =>
+    valuation?.as_of ? `${label} · ${t("reports.valuationAsOf", { date: valuation.as_of })}` : label;
   const valuationBars = (valuation?.items || [])
     .slice()
     .sort((a, b) => Number(b.value) - Number(a.value))
@@ -259,7 +265,7 @@ export default function ReportsPage() {
                 income statement's revenue, which is on the Finance tab. */}
             {salesReports && <Kpi label={t("reports.invoicedTotal")} tone="accent" value={money(summary?.totals?.total)} />}
             {financeReports && <Kpi label={t("reports.grossProfit")} tone="ok" value={money(profit?.gross_profit)} />}
-            {inventoryReports && <Kpi label={t("reports.inventoryValue")} value={money(valuation?.total_value)} />}
+            {inventoryReports && <Kpi label={valuationAsOf(t("reports.inventoryValue"))} value={money(valuation?.total_value)} />}
           </div>}
 
           {tab === "overview" && <div className="grid gap-6 lg:grid-cols-2">
@@ -277,9 +283,11 @@ export default function ReportsPage() {
             </SectionCard>}
 
             {inventoryReports && <SectionCard
-              title={t("reports.invValueByProduct")}
+              title={valuationAsOf(t("reports.invValueByProduct"))}
               action={
-                <a href={csv("/reports/inventory-valuation/", { method: costMethod })}>
+                <a href={csv("/reports/inventory-valuation/", {
+                  method: costMethod, ...(range.end ? { as_of: range.end } : {}),
+                })}>
                   <Button variant="ghost">
                     <Download size={15} /> CSV
                   </Button>
@@ -287,6 +295,11 @@ export default function ReportsPage() {
               }
             >
               <BarList items={valuationBars} />
+              {valuation?.as_of && valuation.method === "standard" && (
+                <p className="mt-3 text-xs text-muted">
+                  {t("reports.valuationStandardHint", { date: valuation.as_of })}
+                </p>
+              )}
             </SectionCard>}
           </div>}
 
@@ -459,16 +472,20 @@ export default function ReportsPage() {
                 </a>
               }
             >
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
                 <Kpi label={t("reports.revenue")} value={money(income.revenue)} />
                 <Kpi label={t("reports.cogs")} value={money(income.cogs)} />
                 <Kpi label={t("reports.grossProfit")} tone="ok" value={money(income.gross_profit)} />
+                {/* Count differences and write-offs: a shortage is a cost
+                    (positive), a surplus reduces it. Between gross and net. */}
+                <Kpi label={t("reports.stockAdjustments")} value={money(income.stock_adjustments)} />
                 <Kpi
                   label={t("reports.netProfit")}
                   tone={Number(income.net_profit) < 0 ? "ink" : "ok"}
                   value={money(income.net_profit)}
                 />
               </div>
+              <p className="mt-3 text-xs text-muted">{t("reports.stockAdjustmentsHint")}</p>
               {income.expenses_by_category?.length > 0 && (
                 <div className="mt-4">
                   <div className="mb-2 text-sm font-medium text-ink">

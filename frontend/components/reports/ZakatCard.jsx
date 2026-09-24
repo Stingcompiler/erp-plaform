@@ -5,7 +5,7 @@ import { Download, Moon } from "lucide-react";
 
 import { API_BASE, reports } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
-import { Button, Card, Field, Select } from "@/components/ui/kit";
+import { Button, Card, Field, Input, Select } from "@/components/ui/kit";
 
 const HIJRI_MONTHS_AR = ["محرم", "صفر", "ربيع الأول", "ربيع الآخر", "جمادى الأولى", "جمادى الآخرة", "رجب", "شعبان", "رمضان", "شوال", "ذو القعدة", "ذو الحجة"];
 const HIJRI_MONTHS_EN = ["Muharram", "Safar", "Rabi' I", "Rabi' II", "Jumada I", "Jumada II", "Rajab", "Sha'ban", "Ramadan", "Shawwal", "Dhu al-Qa'dah", "Dhu al-Hijjah"];
@@ -26,16 +26,26 @@ export default function ZakatCard() {
   });
   const [data, setData] = useState(null);
   const [error, setError] = useState(false);
+  // The cash figure is an estimate (last known cash per cashier) unless the
+  // owner types their own count; it applies on blur/Enter, not per keystroke.
+  // Page state only: nothing is stored.
+  const [cashDraft, setCashDraft] = useState("");
+  const [cash, setCash] = useState("");
+  const applyCash = () => {
+    const value = cashDraft.trim();
+    if (value === "" || (Number.isFinite(Number(value)) && Number(value) >= 0)) setCash(value);
+  };
 
   const params = {
     valuation,
     ...(excludeDoubtful ? { exclude_doubtful: 1 } : {}),
     ...(hawl.month && hawl.day ? { hawl_month: hawl.month, hawl_day: hawl.day } : {}),
+    ...(cash !== "" ? { cash_on_hand: cash } : {}),
   };
   const load = useCallback(() => {
     reports.zakat(params).then((r) => { setData(r.data); setError(false); }).catch(() => setError(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [valuation, excludeDoubtful, hawl.month, hawl.day]);
+  }, [valuation, excludeDoubtful, hawl.month, hawl.day, cash]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
     try { localStorage.setItem("zakat.hawl", JSON.stringify(hawl)); } catch { /* per-viewer convenience only */ }
@@ -47,7 +57,10 @@ export default function ZakatCard() {
 
   const lines = data ? [
     [t("reports.zakatStock", { basis: t(valuation === "sale" ? "reports.zakatAtSale" : "reports.zakatAtCost") }), data.stock, "+"],
-    [t("reports.zakatCash"), data.cash_in_tills, "+"],
+    [
+      t("reports.zakatCash"), data.cash_in_tills, "+",
+      t(data.cash_source === "entered" ? "reports.zakatCashEntered" : "reports.zakatCashEstimate"),
+    ],
     [t("reports.zakatBank"), data.bank, "+"],
     [t("reports.zakatReceivables"), data.counted_receivables, "+"],
     [t("reports.zakatPayables"), data.payables, "−"],
@@ -93,6 +106,22 @@ export default function ZakatCard() {
           <input type="checkbox" checked={excludeDoubtful} onChange={(e) => setExcludeDoubtful(e.target.checked)} />
           {t("reports.zakatExcludeDoubtful")}
         </label>
+        <div className="sm:col-span-2">
+          <Field label={t("reports.zakatCashOverride")}>
+            <Input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.01"
+              dir="ltr"
+              value={cashDraft}
+              placeholder={t("reports.zakatCashPlaceholder")}
+              onChange={(e) => setCashDraft(e.target.value)}
+              onBlur={applyCash}
+              onKeyDown={(e) => { if (e.key === "Enter") applyCash(); }}
+            />
+          </Field>
+        </div>
       </div>
 
       {error && <p className="text-sm text-danger">{t("common.loadError")}</p>}
@@ -102,10 +131,13 @@ export default function ZakatCard() {
             <p className="mb-3 text-sm text-muted">{t("reports.zakatNextHawl", { date: data.next_hawl })}</p>
           )}
           <div className="divide-y divide-line rounded-card border border-line text-sm">
-            {lines.map(([label, value, sign]) => (
-              <div key={label} className="flex items-center justify-between px-3 py-2">
-                <span>{label}</span>
-                <span className="tabular" dir="ltr">{sign} {money(value)}</span>
+            {lines.map(([label, value, sign, hint]) => (
+              <div key={label} className="flex items-center justify-between gap-3 px-3 py-2">
+                <span>
+                  {label}
+                  {hint && <span className="mt-0.5 block text-xs text-muted">{hint}</span>}
+                </span>
+                <span className="tabular shrink-0" dir="ltr">{sign} {money(value)}</span>
               </div>
             ))}
             <div className="flex items-center justify-between bg-paper px-3 py-2 font-semibold">

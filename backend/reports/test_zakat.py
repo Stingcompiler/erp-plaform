@@ -136,3 +136,54 @@ class ZakatReportTests(APITestCase):
         )
         self.client.force_authenticate(clerk)
         self.assertEqual(self.client.get(reverse("report-zakat")).status_code, 403)
+
+
+class ZakatCashTests(APITestCase):
+    """Cash = the last known cash in each cashier's hands, or the owner's
+    own figure. Closed drawers used to drop out entirely; summing every
+    closed shift would count each day's cash again every day."""
+
+    def setUp(self):
+        self.company = Company.objects.create(name="Cash")
+        self.branch = Branch.objects.create(company=self.company, name="Main")
+        role = Role.objects.create(name="Business Owner", scope_level=Role.SCOPE_BUSINESS)
+        self.owner = User.objects.create_user(
+            email="owner@cash.test", password="passw0rd123", company=self.company, role=role,
+        )
+        self.cashier = User.objects.create_user(
+            email="cashier@cash.test", password="passw0rd123", company=self.company, role=role,
+        )
+        self.client.force_authenticate(self.owner)
+
+    def shift(self, user, days_ago, **fields):
+        shift = CashShift.objects.create(
+            company=self.company, branch=self.branch, opened_by=user, **fields,
+        )
+        CashShift.objects.filter(pk=shift.pk).update(
+            opened_at=timezone.now() - timedelta(days=days_ago)
+        )
+        return shift
+
+    def test_estimate_takes_each_cashiers_latest_shift(self):
+        # Owner: two closed days — only the latest count (700) is cash today.
+        self.shift(self.owner, 1, status=CashShift.CLOSED, counted_cash=Decimal("700"))
+        self.shift(self.owner, 2, status=CashShift.CLOSED, counted_cash=Decimal("500"))
+        # Cashier: closed yesterday, open today — the live drawer (300).
+        self.shift(self.cashier, 1, status=CashShift.CLOSED, counted_cash=Decimal("900"))
+        self.shift(self.cashier, 0, opening_float=Decimal("300"))
+        d = self.client.get(reverse("report-zakat")).data
+        self.assertEqual(d["cash_in_tills"], "1000.00")
+        self.assertEqual(d["cash_source"], "estimate")
+        self.assertEqual(d["base"], "1000.00")
+
+    def test_the_owner_can_enter_the_cash_instead(self):
+        self.shift(self.owner, 1, status=CashShift.CLOSED, counted_cash=Decimal("700"))
+        d = self.client.get(reverse("report-zakat"), {"cash_on_hand": "2500.50"}).data
+        self.assertEqual(d["cash_in_tills"], "2500.50")
+        self.assertEqual(d["cash_source"], "entered")
+        self.assertEqual(d["base"], "2500.50")
+        zero = self.client.get(reverse("report-zakat"), {"cash_on_hand": "0"}).data
+        self.assertEqual(zero["cash_in_tills"], "0.00")
+        for bad in ("-1", "abc", "NaN"):
+            response = self.client.get(reverse("report-zakat"), {"cash_on_hand": bad})
+            self.assertEqual(response.status_code, 400, bad)
