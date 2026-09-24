@@ -9,7 +9,10 @@ import { channelLabel } from "@/lib/bankChannels";
  * One column, no borders, large totals: what a customer reads in the shop
  * doorway. Fed the same document payload as DocumentView so the numbers
  * cannot differ from the A4 invoice; only the layout does. Widths are
- * fixed in millimetres because a roll printer has no page to fit to.
+ * fixed in millimetres because a roll printer has no page to fit to: an
+ * 80 mm roll prints 72 mm of it (48 characters a line), a 58 mm roll 48 mm
+ * (32 a line). Text is a little heavier than on screen because a 203 dpi
+ * thermal head drops the thin strokes of a light Arabic font.
  */
 
 const money = (v) =>
@@ -41,7 +44,7 @@ function Dashed() {
 
 function Row({ label, value, strong }) {
   return (
-    <div className={`flex justify-between gap-2 ${strong ? "text-[13px] font-bold" : ""}`}>
+    <div className={`flex justify-between gap-2 ${strong ? "text-[1.2em] font-bold" : ""}`}>
       <span className="min-w-0 flex-1">{label}</span>
       <span className="tabular shrink-0" dir="ltr">{value}</span>
     </div>
@@ -64,12 +67,12 @@ export default function ReceiptView({ doc, paper = "80mm" }) {
 
   return (
     <div
-      className={`receipt mx-auto bg-white text-black ${narrow ? "text-[10px]" : "text-[11px]"} leading-snug`}
-      style={{ width, padding: "2mm 0" }}
+      className={`receipt mx-auto bg-white font-medium text-black ${narrow ? "text-[10.5px]" : "text-[12px]"} leading-snug`}
+      style={{ width, padding: "3mm 0 0" }}
     >
       {/* ---- header ---- */}
       <div className="text-center">
-        <div className={`font-bold ${narrow ? "text-[13px]" : "text-[15px]"}`}>{issuer.name || "—"}</div>
+        <div className={`font-bold ${narrow ? "text-[14px]" : "text-[17px]"}`}>{issuer.name || "—"}</div>
         {issuer.address && <div className="whitespace-pre-line">{issuer.address}</div>}
         {issuer.phone && <div className="tabular" dir="ltr">{issuer.phone}</div>}
         {issuer.tax_number && <div className="tabular">{t("doc.taxNumber")}: <span dir="ltr">{issuer.tax_number}</span></div>}

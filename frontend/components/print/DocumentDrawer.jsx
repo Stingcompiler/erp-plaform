@@ -11,7 +11,7 @@ import PrintSheet from "./PrintSheet";
 import ReceiptView from "./ReceiptView";
 import { SkeletonLines } from "@/components/ui/Skeleton";
 
-const PAPERS = ["a4", "80mm", "58mm"];
+const PAPERS = ["a4", "a5", "80mm", "58mm"];
 const PAPER_KEY = "print.paper";
 
 // The company sets a default paper; a till with its own roll printer
@@ -46,7 +46,8 @@ export default function DocumentDrawer({ open, onClose, fetcher, id, title }) {
     setPaper(next);
     try { localStorage.setItem(PAPER_KEY, next); } catch { /* per-device convenience only */ }
   }
-  const View = paper === "a4" ? DocumentView : ReceiptView;
+  const sheet = paper === "a4" || paper === "a5";
+  const View = sheet ? DocumentView : ReceiptView;
 
   useEffect(() => {
     if (!open || !id) return;
@@ -87,10 +88,10 @@ export default function DocumentDrawer({ open, onClose, fetcher, id, title }) {
       {!doc && !error && <SkeletonLines />}
       {doc && (
         <>
-          <div className={`rounded-card border border-line ${paper === "a4" ? "" : "bg-paper py-4"}`}>
+          <div className={`rounded-card border border-line ${sheet ? "" : "bg-paper py-4"}`}>
             <View doc={doc} paper={paper} />
           </div>
-          <PrintSheet paper={paper}>
+          <PrintSheet paper={paper} title={doc.number || doc.invoice_number || undefined}>
             <View doc={doc} paper={paper} />
           </PrintSheet>
         </>

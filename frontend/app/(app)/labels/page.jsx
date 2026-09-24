@@ -6,8 +6,10 @@ import { Lock, Printer, Search } from "lucide-react";
 import { inventory } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
-import { ean13Svg } from "@/lib/ean13";
-import { Button, Card, Input, PageHeader } from "@/components/ui/kit";
+import { ean13Svg, isValidEan13 } from "@/lib/ean13";
+import { code128Svg } from "@/lib/code128";
+import { Button, Card, Input, PageHeader, Select } from "@/components/ui/kit";
+import PrintSheet from "@/components/print/PrintSheet";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 
 const money = (v, lang) =>
@@ -16,17 +18,42 @@ const money = (v, lang) =>
     maximumFractionDigits: 2,
   });
 
-// One printable label: name, price and the scannable EAN-13.
-function Label({ item, lang }) {
-  const svg = ean13Svg(item.barcode, { moduleWidth: 2, height: 48 });
+// Real label stock, in millimetres. `bars` is the box the EAN-13 bars are
+// drawn into: wide enough for a module of at least 0.29 mm (88 % of the
+// standard size, which every till scanner reads) with the quiet zones.
+const LABEL_FORMATS = {
+  "label-a4": { w: 70, h: 37, bars: [44, 17], name: 9, price: 11 },
+  "label-40x30": { w: 40, h: 30, bars: [34, 13], name: 7.5, price: 9 },
+  "label-50x25": { w: 50, h: 25, bars: [40, 10], name: 7.5, price: 9 },
+};
+const LABEL_KEY = "print.labelFormat";
+
+// A valid EAN-13 prints as one; any other code (typed by hand, a supplier's
+// own, a 13-digit number with a wrong check digit) as Code 128, which every
+// till scanner also reads. Before, those printed with no bars at all.
+function barsSvg(code) {
+  const s = String(code || "").trim();
+  return isValidEan13(s)
+    ? ean13Svg(s, { moduleWidth: 2, height: 60, showText: false })
+    : code128Svg(s, { moduleWidth: 2, height: 60 });
+}
+
+// One printable label: name, the scannable code with its digits, price.
+// Bars are drawn without text and stretched into the box (every module scales
+// alike, so it still scans); the digits are real text underneath.
+function Label({ item, lang, format }) {
+  const f = LABEL_FORMATS[format];
+  const svg = barsSvg(item.barcode).replace("<svg ", '<svg preserveAspectRatio="none" ');
   return (
-    <div className="label break-inside-avoid rounded border border-line p-2 text-center">
-      <div className="truncate text-xs font-medium text-ink">{item.name}</div>
+    <div className="label" style={{ width: `${f.w}mm`, height: `${f.h}mm` }}>
+      <div className="label-name" style={{ fontSize: `${f.name}pt` }}>{item.name}</div>
       <div
-        className="my-1 flex justify-center text-ink"
+        className="label-bars"
+        style={{ width: `${f.bars[0]}mm`, height: `${f.bars[1]}mm` }}
         dangerouslySetInnerHTML={{ __html: svg }}
       />
-      <div className="tabular text-xs text-ink">{money(item.price, lang)}</div>
+      <div className="label-digits" dir="ltr">{item.barcode}</div>
+      <div className="label-price" style={{ fontSize: `${f.price}pt` }}>{money(item.price, lang)}</div>
     </div>
   );
 }
@@ -65,7 +92,22 @@ export default function LabelsPage() {
   // found by different searches.
   const [selected, setSelected] = useState(() => new Map());
   const [loading, setLoading] = useState(true);
+  const [copies, setCopies] = useState(1);
+  const [format, setFormat] = useState("label-a4");
   const request = useRef(0);
+
+  // The label stock is a property of this shop's printer, so the browser
+  // remembers it.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LABEL_KEY);
+      if (LABEL_FORMATS[saved]) setFormat(saved);
+    } catch { /* private mode */ }
+  }, []);
+  function chooseFormat(next) {
+    setFormat(next);
+    try { localStorage.setItem(LABEL_KEY, next); } catch { /* per-device convenience only */ }
+  }
 
   // The server searches and pages (the catalogue can hold thousands of
   // products; only the first page used to be reachable here).
@@ -108,6 +150,8 @@ export default function LabelsPage() {
     });
 
   const chosen = [...selected.values()];
+  const sheet = chosen.flatMap((item) =>
+    Array.from({ length: copies }, (_, n) => ({ ...item, copyKey: `${item.key}-${n}` })));
 
   if (!allowed) {
     return (
@@ -125,9 +169,25 @@ export default function LabelsPage() {
         title={t("inventory.labels")}
         subtitle={t("inventory.labelsHint")}
         actions={
-          <Button onClick={() => window.print()} disabled={chosen.length === 0}>
-            <Printer size={16} /> {t("inventory.printLabel")} ({chosen.length})
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="w-44">
+              <Select value={format} onChange={(e) => chooseFormat(e.target.value)} aria-label={t("inventory.labelFormat")}>
+                {Object.keys(LABEL_FORMATS).map((k) => (
+                  <option key={k} value={k}>{t(`inventory.${k.replace("-", "_")}`)}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="w-24">
+              <Input
+                type="number" min={1} max={100} value={copies}
+                aria-label={t("inventory.labelCopies")} title={t("inventory.labelCopies")}
+                onChange={(e) => setCopies(Math.min(100, Math.max(1, Number(e.target.value) || 1)))}
+              />
+            </div>
+            <Button onClick={() => window.print()} disabled={chosen.length === 0}>
+              <Printer size={16} /> {t("inventory.printLabel")} ({sheet.length})
+            </Button>
+          </div>
         }
       />
 
@@ -179,28 +239,64 @@ export default function LabelsPage() {
       </div>
 
       {/* Print sheet — only this shows when printing */}
-      {chosen.length > 0 && (
-        <div className="mt-6 hidden print:mt-0 print:block">
-          <div className="grid grid-cols-3 gap-2">
-            {chosen.map((item) => (
-              <Label key={item.key} item={item} lang={language} />
+      {sheet.length > 0 && (
+        <PrintSheet paper={format}>
+          <div className={format === "label-a4" ? "label-grid" : ""}>
+            {sheet.map((item) => (
+              <Label key={item.copyKey} item={item} lang={language} format={format} />
             ))}
           </div>
-        </div>
+        </PrintSheet>
       )}
 
       <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          .label,
-          .label * {
-            visibility: visible;
-          }
-          .label {
-            page-break-inside: avoid;
-          }
+        .label-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 70mm);
+          grid-auto-rows: 37mm;
+        }
+        .label {
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.4mm;
+          overflow: hidden;
+          padding: 1.5mm 2mm;
+          color: #000;
+          text-align: center;
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        /* On a roll every label is its own page. */
+        .print-sheet > div:not(.label-grid) > .label:not(:last-child) {
+          page-break-after: always;
+          break-after: page;
+        }
+        .label-name {
+          max-width: 100%;
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+          font-weight: 600;
+          line-height: 1.2;
+        }
+        .label-bars svg {
+          display: block;
+          width: 100%;
+          height: 100%;
+          color: #000;
+        }
+        .label-digits {
+          font-family: ui-monospace, monospace;
+          font-size: 7pt;
+          letter-spacing: 0.6mm;
+          line-height: 1;
+        }
+        .label-price {
+          font-weight: 700;
+          line-height: 1.1;
         }
       `}</style>
     </div>

@@ -78,12 +78,16 @@ class Company(models.Model):
     # change is also a row in ExchangeRate so a reprice can be audited.
     reference_currency = models.CharField(max_length=8, default="USD")
     # Receipt printing. Sudanese shops print on 80 mm (sometimes 58 mm)
-    # thermal rolls; A4 is for offices. The footer is the line under the
-    # totals: return policy, thanks, a phone number.
+    # thermal rolls; A4 is for offices, A5 for a shop's invoice book. The
+    # footer is the line under the totals: return policy, thanks, a phone
+    # number.
     PAPER_A4 = "a4"
+    PAPER_A5 = "a5"
     PAPER_80 = "80mm"
     PAPER_58 = "58mm"
-    PAPER_CHOICES = [(PAPER_A4, "A4"), (PAPER_80, "80 mm roll"), (PAPER_58, "58 mm roll")]
+    PAPER_CHOICES = [
+        (PAPER_A4, "A4"), (PAPER_A5, "A5"), (PAPER_80, "80 mm roll"), (PAPER_58, "58 mm roll"),
+    ]
     receipt_paper = models.CharField(max_length=8, choices=PAPER_CHOICES, default=PAPER_A4)
     receipt_footer = models.CharField(max_length=240, blank=True)
     exchange_rate = models.DecimalField(
