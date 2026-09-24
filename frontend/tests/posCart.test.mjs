@@ -56,6 +56,20 @@ test("discount limit with a cent of slack; no limit when unset", () => {
   assert.equal(overDiscountLimit(100, 1, "0"), true);
 });
 
+test("a price typed under the list counts toward the discount limit", () => {
+  // 2 x 85 against a list of 2 x 100: 15% off, limit 10%.
+  assert.equal(overDiscountLimit(170, 0, "10", 200), true);
+  assert.equal(overDiscountLimit(182, 0, "10", 200), false);
+  // 95 less 6% = 89.30: 10.7% under the list of 100.
+  assert.equal(overDiscountLimit(95, 5.7, "10", 100), true);
+  assert.equal(overDiscountLimit(95, 4.75, "10", 100), false);
+  // Marked up to 120, 20% off = 96: only 4% under the list.
+  assert.equal(overDiscountLimit(120, 24, "10", 100), false);
+  // No list price (a miscellaneous line): the discounts alone.
+  assert.equal(overDiscountLimit(100, 11, "10", 0), true);
+  assert.equal(overDiscountLimit(170, 0, null, 200), false);
+});
+
 test("a scanner burst is told apart from typing", () => {
   const field = {};
   const scanner = createBurstDetector();

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-24 17:58+0000\n"
+"POT-Creation-Date: 2026-09-24 20:13+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1622,7 +1622,9 @@ msgstr ""
 msgid ""
 "The till charged %(till)s%% tax, a rate this company did not have when the "
 "sale was made (%(rate)s%% now). A manager must record this sale by hand."
-msgstr "احتسبت نقطة البيع ضريبة %(till)s%%، وهي نسبة لم تكن لدى الشركة وقت البيع (النسبة الآن %(rate)s%%). على المدير تسجيل هذا البيع يدويًا."
+msgstr ""
+"احتسبت نقطة البيع ضريبة %(till)s%%، وهي نسبة لم تكن لدى الشركة وقت البيع "
+"(النسبة الآن %(rate)s%%). على المدير تسجيل هذا البيع يدويًا."
 
 #, python-format
 msgid "Sales are recorded in the company currency (%(currency)s)."
@@ -1664,6 +1666,15 @@ msgid ""
 msgstr ""
 "سعر %(sku)s أقل من السعر المسموح. بِعه بسعر القائمة، أو اطلب من المدير تسجيل "
 "هذا البيع."
+
+#, python-format
+msgid ""
+"%(sku)s is sold %(percent)s%% below its list price of %(list)s, above the "
+"allowed discount of %(limit)s%%. Raise the price, or ask a manager to ring "
+"the sale."
+msgstr ""
+"يُباع %(sku)s بأقل من سعر القائمة (%(list)s) بنسبة %(percent)s%%، وهذا أكثر "
+"من الخصم المسموح %(limit)s%%. ارفع السعر، أو اطلب من المدير تسجيل هذا البيع."
 
 #, python-format
 msgid ""
@@ -1794,6 +1805,15 @@ msgstr "اختر الحساب المستلِم."
 
 msgid "Upload the statement export."
 msgstr "ارفع ملف كشف الحساب."
+
+msgid "Only a manager or an approver reviews flagged sales."
+msgstr "مراجعة المبيعات المعلَّمة للمدير أو لصاحب صلاحية الاعتماد فقط."
+
+msgid "Invoice not found."
+msgstr "الفاتورة غير موجودة."
+
+msgid "This sale was not flagged for review."
+msgstr "هذا البيع غير معلَّم للمراجعة."
 
 #, python-format
 msgid "Unknown modules: %(modules)s"
@@ -2004,7 +2024,9 @@ msgstr "دفعة المزامنة هذه قيد المعالجة بالفعل."
 msgid ""
 "The subscription is read-only and this was recorded after it lapsed. It "
 "stays on the device: renew, then send it again."
-msgstr "الاشتراك في وضع القراءة فقط، وقد سُجّلت هذه العملية بعد انتهائه. تبقى على الجهاز: جدّد الاشتراك ثم أرسلها مجددًا."
+msgstr ""
+"الاشتراك في وضع القراءة فقط، وقد سُجّلت هذه العملية بعد انتهائه. تبقى على "
+"الجهاز: جدّد الاشتراك ثم أرسلها مجددًا."
 
 msgid "Invalid or expired page_cursor."
 msgstr "مؤشر الصفحة (page_cursor) غير صالح أو منتهي الصلاحية."

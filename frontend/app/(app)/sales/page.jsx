@@ -15,6 +15,7 @@ import BankAccounts from "@/components/sales/BankAccounts";
 import CashDrawer from "@/components/sales/CashDrawer";
 import ShiftHistory from "@/components/sales/ShiftHistory";
 import TabBar from "@/components/ui/TabBar";
+import PriceFlagReview from "@/components/sales/PriceFlagReview";
 
 export default function SalesPage() {
   const { canRead, canWrite, can } = useAuth();
@@ -22,7 +23,7 @@ export default function SalesPage() {
   const writable = canWrite("sales");
   const [tab, setTab] = useState(writable ? "pos" : "invoices");
   useEffect(() => { const requested = new URLSearchParams(window.location.search).get("tab");
-    if (['pos', 'till', 'invoices', 'banks', 'quotes'].includes(requested)) setTab(requested);
+    if (['pos', 'till', 'invoices', 'banks', 'quotes', 'price-review'].includes(requested)) setTab(requested);
   }, []);
   const [warehouses, setWarehouses] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -69,6 +70,10 @@ export default function SalesPage() {
     { id: "quotes", label: t("quotes.tab") },
     { id: "invoices", label: t("sales.invoices"), attentionKey: "sales" },
     ...(writable ? [{ id: "banks", label: t("sales.bankAccounts") }] : []),
+    // Offline sales kept with a price the till would have refused.
+    ...(can("sales.review_prices")
+      ? [{ id: "price-review", label: t("priceFlags.tab"), attentionKey: "price-flags" }]
+      : []),
   ];
 
   return (
@@ -110,6 +115,7 @@ export default function SalesPage() {
         {(writable || can("finance.approve")) && tab === "till" && <ShiftHistory refreshKey={`${refreshKey}-${shiftKey}`} />}
       </div>
       {tab === "invoices" && <InvoiceList refreshKey={refreshKey} />}
+      {tab === "price-review" && can("sales.review_prices") && <PriceFlagReview />}
       {tab === "banks" && writable && (
         <BankAccounts writable={canWrite("finance")} onChanged={loadAccounts} />
       )}

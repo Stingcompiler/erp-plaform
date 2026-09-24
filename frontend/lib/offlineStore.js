@@ -14,6 +14,7 @@
 // server; writes go through the sync queue with their own idempotency keys.
 
 import { localScope } from "./localIdentity.js";
+import { foldArabic, matchesSearch } from "./arabicFold.js";
 
 // v2 adds purchase orders, bills and employees (receiving, paying and the
 // attendance register all happen with the connection down).
@@ -93,7 +94,8 @@ export const offlineStore = {
   },
 
   async findProductByBarcode(code, scope) {
-    const target = String(code || "").trim();
+    // Arabic-Indic digits typed by hand become the ASCII the label holds.
+    const target = foldArabic(String(code || "").trim());
     if (!target) return null;
     const db = await open(scope);
     try {
@@ -103,15 +105,15 @@ export const offlineStore = {
   },
 
   // Substring match on name/sku/barcode, the same fields the online search
-  // hits. Fine for a few thousand rows; a bigger catalogue would want a
-  // token index, which is not this milestone.
+  // hits, Arabic-folded like the server (lib/arabicFold.js) so "ارز" finds
+  // "أرز" offline too. Fine for a few thousand rows; a bigger catalogue
+  // would want a token index, which is not this milestone.
   async searchProducts(query, limit = 6, scope) {
-    const needle = String(query || "").trim().toLowerCase();
-    if (!needle) return [];
+    if (!String(query || "").trim()) return [];
     const rows = await this.getAll("products", scope);
     return rows
       .filter((p) => p.is_active !== false)
-      .filter((p) => `${p.name} ${p.sku} ${p.barcode || ""}`.toLowerCase().includes(needle))
+      .filter((p) => matchesSearch(query, [p.name, p.sku, p.barcode]))
       .slice(0, limit);
   },
 

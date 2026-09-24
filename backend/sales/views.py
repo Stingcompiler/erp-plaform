@@ -1129,6 +1129,85 @@ class POSCheckoutView(APIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
+class CanReviewPriceFlags(RoleModuleAccess):
+    """Approvers and branch managers who can read sales. Marking a flag
+    reviewed is oversight, not selling: the CFO, who reads sales but does
+    not ring them, reviews too — so the module check is a read."""
+
+    message = _("Only a manager or an approver reviews flagged sales.")
+
+    def has_permission(self, request, view):
+        from core.permissions import EntitlementAccess
+        from core.rbac import can_review_price_flags, role_can, tenant_scope_error
+
+        user = request.user
+        if not (user and user.is_authenticated) or tenant_scope_error(user):
+            return False
+        if not EntitlementAccess().has_permission(request, view):
+            return False
+        return can_review_price_flags(user) and role_can(user, "sales", write=False)
+
+
+class PriceFlagListView(APIView):
+    """GET /api/price-flags/ — sales kept from an offline till with a price
+    the till should have refused, not reviewed yet (see sales.price_flags)."""
+
+    permission_classes = [IsAuthenticated, CanReviewPriceFlags]
+
+    def get(self, request):
+        from sales.price_flags import serialize, unreviewed_flags
+
+        rows = [serialize(log, invoice) for log, invoice in unreviewed_flags(request.user)]
+        return Response({"count": len(rows), "results": rows})
+
+
+class PriceFlagReviewView(APIView):
+    """POST /api/price-flags/<invoice id>/review/ {note} — a manager looked at
+    the sale. Stores who and when; the audit row itself is never edited."""
+
+    permission_classes = [IsAuthenticated, CanReviewPriceFlags]
+
+    def post(self, request, invoice_id):
+        from core.attention import branch_scope
+        from sales.models import PriceFlagReview
+        from sales.price_flags import is_flagged
+
+        invoice = Invoice.objects.filter(
+            company_id=request.user.company_id, pk=invoice_id
+        ).first()
+        branch_id = branch_scope(request.user)
+        if invoice is None or (branch_id is not None and invoice.branch_id != branch_id):
+            return Response(
+                {"detail": _("Invoice not found.")}, status=status.HTTP_404_NOT_FOUND
+            )
+        if not is_flagged(invoice):
+            raise ValidationError({"detail": _("This sale was not flagged for review.")})
+        note = str(request.data.get("note") or "").strip()[:255]
+        review, created = PriceFlagReview.objects.get_or_create(
+            invoice=invoice,
+            defaults={
+                "company_id": invoice.company_id, "reviewed_by": request.user, "note": note,
+            },
+        )
+        if created:
+            log_activity(
+                action="pos_price_reviewed", request=request, entity_type="Invoice",
+                entity_id=invoice.pk, metadata={"note": note},
+            )
+            from core.attention import invalidate
+
+            invalidate(request.user)
+        return Response({
+            "invoice": invoice.pk,
+            "reviewed_at": review.reviewed_at,
+            "reviewed_by": (
+                (review.reviewed_by.full_name or review.reviewed_by.email)
+                if review.reviewed_by else ""
+            ),
+            "note": review.note,
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
 class RefundViewSet(AppendOnlyScopedViewSet):
     """Money handed back against a credit note. Append-only, like every other
     money row; the drawer movement it creates is written in the same

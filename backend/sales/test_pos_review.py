@@ -64,10 +64,85 @@ class PriceRuleTests(POSBase):
         self.assertIn("RICE", str(r.data["lines"]))
         self.assertFalse(Invoice.objects.exists())
 
-    def test_price_between_cost_and_list_is_allowed(self):
+    def test_price_between_cost_and_list_within_the_limit_is_allowed(self):
+        r = self.sell([{"product": self.rice.id, "quantity": "1", "unit_price": "91.00"}],
+                      payment={"method": "cash", "amount": "91.00"})
+        self.assertEqual(r.status_code, 201, r.data)
+
+    def test_a_typed_price_beyond_the_limit_counts_as_a_discount(self):
+        # Above cost (80) but 15% under the list price (100); the limit is 10%.
+        r = self.sell([{"product": self.rice.id, "quantity": "2", "unit_price": "85.00"}],
+                      payment={"method": "cash", "amount": "170.00"})
+        self.assertEqual(r.status_code, 400, r.data)
+        self.assertEqual(r.data["code"], "price_rule")
+        self.assertIn("15.00", str(r.data["lines"]))
+        self.assertFalse(Invoice.objects.exists())
+
+    def test_a_typed_price_and_a_discount_add_up(self):
+        # 95 is 5% off the list, 6% off that makes 10.7% in all.
+        r = self.sell([{"product": self.rice.id, "quantity": "1", "unit_price": "95.00",
+                        "discount_percent": "6"}],
+                      payment={"method": "cash", "amount": "89.30"})
+        self.assertEqual(r.status_code, 400, r.data)
+        ok = self.sell([{"product": self.rice.id, "quantity": "1", "unit_price": "95.00",
+                         "discount_percent": "5"}],
+                       payment={"method": "cash", "amount": "90.25"})
+        self.assertEqual(ok.status_code, 201, ok.data)
+
+    def test_a_marked_up_price_leaves_room_for_a_discount(self):
+        # 120 less 20% is 96: 4% under the list price.
+        r = self.sell([{"product": self.rice.id, "quantity": "1", "unit_price": "120.00",
+                        "discount_percent": "20"}],
+                      payment={"method": "cash", "amount": "96.00"})
+        self.assertEqual(r.status_code, 201, r.data)
+
+    def test_a_pack_is_measured_against_the_pack_price(self):
+        pack = ProductPack.objects.create(
+            company=self.company, product=self.rice, name="Carton",
+            quantity=Decimal("12"), sale_price=Decimal("1100"),
+        )
+        r = self.sell([{"product": self.rice.id, "pack": pack.id, "quantity": "1",
+                        "unit_price": "980.00"}])  # above 960 cost, 10.9% off
+        self.assertEqual(r.status_code, 400, r.data)
+        ok = self.sell([{"product": self.rice.id, "pack": pack.id, "quantity": "1",
+                         "unit_price": "990.00"}],
+                       payment={"method": "cash", "amount": "990.00"})
+        self.assertEqual(ok.status_code, 201, ok.data)
+
+    def test_an_order_is_invoiced_at_its_agreed_price(self):
+        from sales.models import SalesOrder, SalesOrderLine
+
+        order = SalesOrder.objects.create(
+            company=self.company, customer=self.customer, branch=self.branch,
+            status=SalesOrder.CONFIRMED, subtotal=Decimal("85"), total=Decimal("85"),
+        )
+        SalesOrderLine.objects.create(
+            sales_order=order, product=self.rice, quantity=Decimal("1"),
+            unit_price=Decimal("85"), line_total=Decimal("85"),
+        )
+        r = self.sell([{"product": self.rice.id, "quantity": "1", "unit_price": "85.00"}],
+                      customer=self.customer.id, source_order=order.id,
+                      payment={"method": "cash", "amount": "85.00"})
+        self.assertEqual(r.status_code, 201, r.data)
+
+    def test_a_typed_price_is_kept_offline_and_flagged_with_list_and_sold(self):
+        r = self.push({"lines": [{"product": self.rice.id, "quantity": "1",
+                                  "unit_price": "85.00"}],
+                       "payment": {"method": "cash", "amount": "85.00"}})
+        self.assertEqual(r.data["summary"]["applied"], 1, r.data)
+        row = ActivityLog.objects.get(action="pos_price_unapproved")
+        breach = row.metadata["breaches"][0]
+        self.assertEqual(breach["rule"], "discount")
+        self.assertEqual(Decimal(breach["list"]), Decimal("100"))
+        self.assertEqual(Decimal(breach["sold"]), Decimal("85"))
+        self.assertEqual(Decimal(breach["percent"]), Decimal("15"))
+
+    def test_an_approver_may_type_a_lower_price(self):
+        self.client.force_authenticate(self.owner)
         r = self.sell([{"product": self.rice.id, "quantity": "1", "unit_price": "85.00"}],
                       payment={"method": "cash", "amount": "85.00"})
         self.assertEqual(r.status_code, 201, r.data)
+        self.assertTrue(ActivityLog.objects.filter(action="pos_price_override").exists())
 
     def test_list_price_under_a_risen_cost_is_allowed(self):
         Product.objects.filter(pk=self.rice.pk).update(cost_price=Decimal("120"))
@@ -283,3 +358,103 @@ class SplitTenderTests(POSBase):
                                 self._transfer("80.00")])
         self.assertEqual(r.status_code, 400, r.data)
         self.assertFalse(Invoice.objects.exists())
+
+
+class PriceFlagWorklistTests(POSBase):
+    """Sales an offline till kept with a refused price wait for a manager."""
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+
+        cache.clear()
+        self.other_branch = Branch.objects.create(company=self.company, name="Second")
+        self.manager = User.objects.create_user(
+            email="bm@shop.test", password="passw0rd12345", company=self.company,
+            branch=self.branch,
+            role=Role.objects.get_or_create(
+                name="Branch Manager", defaults={"scope_level": Role.SCOPE_BRANCH}
+            )[0],
+        )
+
+    def _flag(self, price="85.00"):
+        r = self.push({"lines": [{"product": self.rice.id, "quantity": "1", "unit_price": price}],
+                       "payment": {"method": "cash", "amount": price}})
+        self.assertEqual(r.data["summary"]["applied"], 1, r.data)
+        return Invoice.objects.order_by("-pk").first()
+
+    def test_the_owner_lists_flagged_sales_and_marks_one_reviewed(self):
+        invoice = self._flag()
+        self.client.force_authenticate(self.owner)
+        rows = self.client.get(reverse("price-flag-list")).data
+        self.assertEqual(rows["count"], 1)
+        row = rows["results"][0]
+        self.assertEqual(row["invoice"], invoice.pk)
+        self.assertEqual(row["invoice_number"], invoice.number_display)
+        self.assertEqual(row["cashier"], "till@shop.test")
+        self.assertEqual(row["branch"], "Main")
+        self.assertEqual(Decimal(row["discount_percent"]), Decimal("15"))
+        self.assertEqual(Decimal(row["breaches"][0]["list"]), Decimal("100"))
+        self.assertEqual(Decimal(row["breaches"][0]["sold"]), Decimal("85"))
+
+        badge = self.client.get(reverse("attention")).data
+        self.assertEqual(badge["counts"].get("price-flags"), 1)
+
+        r = self.client.post(reverse("price-flag-review", args=[invoice.pk]),
+                             {"note": "agreed with the customer"}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+        from sales.models import PriceFlagReview
+
+        review = PriceFlagReview.objects.get(invoice=invoice)
+        self.assertEqual(review.reviewed_by, self.owner)
+        self.assertIsNotNone(review.reviewed_at)
+        self.assertEqual(review.note, "agreed with the customer")
+        self.assertTrue(ActivityLog.objects.filter(action="pos_price_reviewed").exists())
+        self.assertEqual(self.client.get(reverse("price-flag-list")).data["count"], 0)
+        self.assertNotIn("price-flags", self.client.get(reverse("attention")).data["counts"])
+        # Twice is harmless: the first review stands.
+        again = self.client.post(reverse("price-flag-review", args=[invoice.pk]), {},
+                                 format="json")
+        self.assertEqual(again.status_code, 200, again.data)
+        self.assertEqual(PriceFlagReview.objects.count(), 1)
+
+    def test_a_branch_manager_sees_only_their_branch(self):
+        mine = self._flag()
+        theirs = self._flag()
+        Invoice.objects.filter(pk=theirs.pk).update(branch=self.other_branch)
+        self.client.force_authenticate(self.manager)
+        rows = self.client.get(reverse("price-flag-list")).data["results"]
+        self.assertEqual([row["invoice"] for row in rows], [mine.pk])
+        r = self.client.post(reverse("price-flag-review", args=[theirs.pk]), {}, format="json")
+        self.assertEqual(r.status_code, 404, r.data)
+        self.assertEqual(self.client.get(reverse("auth-me")).data["capabilities"][
+            "sales.review_prices"], True)
+
+    def test_a_cashier_cannot_review(self):
+        invoice = self._flag()
+        self.assertEqual(self.client.get(reverse("price-flag-list")).status_code, 403)
+        r = self.client.post(reverse("price-flag-review", args=[invoice.pk]), {}, format="json")
+        self.assertEqual(r.status_code, 403)
+        self.assertNotIn("price-flags", self.client.get(reverse("attention")).data["counts"])
+        self.assertFalse(
+            self.client.get(reverse("auth-me")).data["capabilities"]["sales.review_prices"]
+        )
+
+    def test_an_unflagged_sale_cannot_be_marked(self):
+        r = self.sell([{"product": self.rice.id, "quantity": "1"}],
+                      payment={"method": "cash", "amount": "100.00"})
+        self.assertEqual(r.status_code, 201, r.data)
+        self.client.force_authenticate(self.owner)
+        r = self.client.post(reverse("price-flag-review", args=[r.data["id"]]), {},
+                             format="json")
+        self.assertEqual(r.status_code, 400, r.data)
+
+    def test_another_company_never_sees_the_flag(self):
+        self._flag()
+        other = Company.objects.create(name="Other")
+        stranger = User.objects.create_user(
+            email="owner@other.test", password="passw0rd12345", company=other,
+            role=self.owner.role,
+        )
+        self.client.force_authenticate(stranger)
+        self.assertEqual(self.client.get(reverse("price-flag-list")).data["count"], 0)

@@ -854,3 +854,30 @@ class Refund(models.Model):
 
     def __str__(self):
         return f"Refund {self.amount} vs {self.credit_note_id}"
+
+
+class PriceFlagReview(models.Model):
+    """A manager looked at a sale kept with a price the till should have
+    refused (an offline replay below cost or beyond the discount limit,
+    logged `pos_price_unapproved`). The audit row stays append-only; this is
+    the separate record of who reviewed it and when, which takes the sale
+    off the worklist and its badge."""
+
+    company = models.ForeignKey(
+        "org.Company", on_delete=models.CASCADE, related_name="price_flag_reviews"
+    )
+    invoice = models.OneToOneField(
+        Invoice, on_delete=models.CASCADE, related_name="price_flag_review"
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="price_flag_reviews",
+    )
+    reviewed_at = models.DateTimeField(default=timezone.now)
+    note = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ["-reviewed_at"]
+
+    def __str__(self):
+        return f"PriceFlagReview<{self.invoice_id}>"

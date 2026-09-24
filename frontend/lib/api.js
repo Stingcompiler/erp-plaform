@@ -184,6 +184,10 @@ export const sales = {
   // Second-person confirmation of money received (segregation of duties;
   // amounts at/above the company threshold need an approver role).
   verifyPayment: (id) => api.post(`/payments/${id}/verify/`),
+  // Offline sales kept with a price the till would have refused, awaiting
+  // a manager's look (approvers; branch managers for their branch).
+  priceFlags: () => api.get("/price-flags/"),
+  reviewPriceFlag: (invoiceId, body) => api.post(`/price-flags/${invoiceId}/review/`, body || {}),
   // Statement reconciliation: multipart {account, file, dry_run}.
   reconcilePayments: (form) =>
     api.post("/payments/reconcile/", form, { headers: { "Content-Type": "multipart/form-data" } }),
