@@ -107,6 +107,7 @@ def approve_count(count_id, actor, request=None):
         adjustment = StockAdjustment.objects.create(
             company_id=count.company_id, product=line.product, warehouse=count.warehouse,
             batch=line.batch, quantity=variance, reason=f"Stock count #{count.pk}",
+            reason_code=StockAdjustment.REASON_COUNT,
             movement=movement, created_by=actor,
         )
         line.adjustment = adjustment

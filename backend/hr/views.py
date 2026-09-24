@@ -524,6 +524,63 @@ class PayrollRunViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
             qs = qs.select_related(None).select_for_update()
         return qs
 
+    @staticmethod
+    def _month_bounds(run):
+        period = run.period
+        return period, date(period.year + (period.month == 12), (period.month % 12) + 1, 1)
+
+    @staticmethod
+    def _eligible_employees(run, month_end):
+        return (
+            Employee.objects.filter(company_id=run.company_id)
+            .exclude(status=Employee.STATUS_TERMINATED)
+            .filter(Q(hire_date__isnull=True) | Q(hire_date__lt=month_end))
+            .select_related("position", "department")
+        )
+
+    @staticmethod
+    def _month_figures(run, employee, period, month_end):
+        """(deductions, advances) this employee's payroll month recovers — the
+        one rule used by the draft calculation and the stale-draft check."""
+        deductions = (
+            Deduction.objects.filter(company_id=run.company_id, employee=employee)
+            .filter(
+                Q(date__gte=period, date__lt=month_end)
+                | Q(
+                    date__isnull=True,
+                    created_at__date__gte=period,
+                    created_at__date__lt=month_end,
+                )
+            )
+            .aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
+        )
+        # Same month rule as the posting (company calendar), so the expense
+        # subtracts exactly what this entry recovers.
+        advances = (
+            recoverable_advances(run.company, period)
+            .filter(employee=employee)
+            .aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
+        )
+        return deductions, advances
+
+    def _stale_names(self, run):
+        """Employees whose advances or deductions changed since the draft was
+        calculated, or who became payable since. Approving such a draft
+        booked an advance nobody recovered from salary: an advance approved
+        after the draft was calculated simply never came back."""
+        period, month_end = self._month_bounds(run)
+        entries = {e.employee_id: e for e in run.entries.all()}
+        stale = []
+        for employee in self._eligible_employees(run, month_end):
+            entry = entries.get(employee.pk)
+            deductions, advances = self._month_figures(run, employee, period, month_end)
+            if entry is None:
+                if deductions or advances or employee.base_salary_override or employee.position_id:
+                    stale.append(employee.full_name)
+            elif entry.deductions_total != deductions or entry.advances_total != advances:
+                stale.append(employee.full_name)
+        return stale
+
     def _recalculate_run(self, run):
         """Replace a draft's entries with a fresh monthly payroll snapshot.
 
@@ -531,38 +588,14 @@ class PayrollRunViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
         their values an auditable record even if an employee's current salary or
         a deduction later changes.
         """
-        period = run.period
-        month_end = date(period.year + (period.month == 12), (period.month % 12) + 1, 1)
-        employees = (
-            Employee.objects.filter(company_id=run.company_id)
-            .exclude(status=Employee.STATUS_TERMINATED)
-            .filter(Q(hire_date__isnull=True) | Q(hire_date__lt=month_end))
-            .select_related("position", "department")
-        )
+        period, month_end = self._month_bounds(run)
+        employees = self._eligible_employees(run, month_end)
         entries = []
         for employee in employees:
             base = employee.base_salary_override
             if base is None:
                 base = employee.position.base_salary if employee.position_id else Decimal("0")
-            deductions = (
-                Deduction.objects.filter(company_id=run.company_id, employee=employee)
-                .filter(
-                    Q(date__gte=period, date__lt=month_end)
-                    | Q(
-                        date__isnull=True,
-                        created_at__date__gte=period,
-                        created_at__date__lt=month_end,
-                    )
-                )
-                .aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
-            )
-            # Same month rule as the posting (company calendar), so the
-            # expense subtracts exactly what this entry recovers.
-            advances = (
-                recoverable_advances(run.company, period)
-                .filter(employee=employee)
-                .aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
-            )
+            deductions, advances = self._month_figures(run, employee, period, month_end)
             entries.append(
                 PayrollEntry(
                     payroll_run=run,
@@ -626,6 +659,16 @@ class PayrollRunViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
     def approve(self, request, pk=None):
         run = self.get_object()
         if run.status == PayrollRun.DRAFT:
+            stale = self._stale_names(run)
+            if stale:
+                shown = ", ".join(stale[:5]) + ("…" if len(stale) > 5 else "")
+                raise ValidationError({
+                    "detail": _(
+                        "Advances or deductions changed since this payroll was calculated "
+                        "(%(names)s). Recalculate it, then approve."
+                    ) % {"names": shown},
+                    "code": "payroll_stale",
+                })
             run.status = PayrollRun.APPROVED
             run.approved_by = request.user
             run.approved_at = timezone.now()

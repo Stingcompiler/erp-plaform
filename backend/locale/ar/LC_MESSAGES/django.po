@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-24 07:48+0000\n"
+"POT-Creation-Date: 2026-09-24 08:40+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -511,6 +511,10 @@ msgstr "استخدم الصيغة YYYY-MM لشهر الرواتب."
 
 msgid "An approved payroll is locked and cannot be recalculated."
 msgstr "مسيّر الرواتب المعتمد مقفل ولا يمكن إعادة احتسابه."
+
+#, python-format
+msgid "Advances or deductions changed since this payroll was calculated (%(names)s). Recalculate it, then approve."
+msgstr "تغيّرت السلف أو الخصومات منذ حساب هذا الكشف (%(names)s). أعد حسابه ثم اعتمده."
 
 msgid ""
 "A deduction cannot be deleted because it affects payroll. Record an "
