@@ -29,6 +29,16 @@ def activate_for_user(user):
         timezone.deactivate()
 
 
+def company_zone(company):
+    """The company's business zone, for work that runs outside a request
+    (a posting from a management command, a backfill) where no zone has been
+    activated. Falls back to the server default when it has none or a bad one."""
+    name = getattr(company, "timezone", "") or ""
+    if is_valid_timezone(name):
+        return ZoneInfo(name)
+    return timezone.get_default_timezone()
+
+
 class CompanyTimezoneMiddleware:
     """Reset the active zone around every request so a worker thread never
     carries one company's zone into the next request."""

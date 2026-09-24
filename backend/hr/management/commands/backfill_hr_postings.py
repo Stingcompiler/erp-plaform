@@ -46,9 +46,9 @@ class Command(BaseCommand):
         write = options["yes"]
         posted_runs = posted_advances = 0
         with transaction.atomic():
-            # Advances first: a payroll month's amount subtracts advances
-            # expensed in that month, so their rows must exist before the
-            # run is priced.
+            # Advances first: a payroll run subtracts the advances it
+            # recovered only once they carry their own expense, so their rows
+            # must exist before the run is priced.
             for advance in advances:
                 self.stdout.write(
                     f"advance #{advance.pk} company={advance.company_id} "

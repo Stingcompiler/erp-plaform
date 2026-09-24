@@ -8,42 +8,72 @@ approval, inside the approver's transaction, so there is no approved
 payroll without its cost on the books and no cost without its approved
 document behind it.
 
-Advances are expensed when paid out (approval). A later payroll recovers
-them from net pay, so the payroll expense must not drop them again — see
-`payroll_expense_amount`.
+Advances are expensed when paid out (approval), on the day they were paid
+in the company's calendar. A payroll that recovers an advance from net pay
+must not count it again — see `payroll_expense_amount`.
 """
 
+from datetime import date, datetime, time
 from decimal import Decimal
 
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
+from django.utils import timezone
+
+from core.timezone import company_zone
+
+
+def _next_month(period):
+    return date(period.year + (period.month == 12), (period.month % 12) + 1, 1)
+
+
+def recoverable_advances(company, period):
+    """The approved advances a payroll month recovers: those approved on a
+    day of that month in the company's own calendar.
+
+    The one rule shared by the draft calculation (which snapshots their sum
+    onto each PayrollEntry.advances_total) and the posting (which must know
+    which of them were already expensed), so both see the same month."""
+    from hr.models import SalaryAdvance
+
+    zone = company_zone(company)
+    start = datetime.combine(period, time.min, tzinfo=zone)
+    end = datetime.combine(_next_month(period), time.min, tzinfo=zone)
+    return SalaryAdvance.objects.filter(
+        company_id=company.pk, status=SalaryAdvance.APPROVED,
+        reviewed_at__gte=start, reviewed_at__lt=end,
+    )
 
 
 def payroll_expense_amount(run):
-    """The month's labour cost not yet on the books.
+    """The cash this payroll run pays out that is not on the books yet.
 
-    Gross cost after deductions = Σ(net_salary + advances_total): net pay
-    is cash at month end, and a recovered advance was cash paid earlier
-    for this month's work. Advances approved *within* this same month were
-    already expensed on approval, so they are subtracted; an advance paid
-    and recovered in one month therefore nets to zero here and is counted
-    exactly once, on its own expense row.
+    Σ(net_salary + advances_total) is the month's labour cost; the part of
+    it an entry recovers from advances was paid out earlier, as cash, and
+    already expensed on its own row when the advance was approved. So each
+    entry subtracts exactly what IT recovered (its advances_total) and only
+    as far as those advances carry their own expense — never the advances
+    of employees outside the run, or approved after the run was calculated
+    and therefore not recovered by it.
     """
-    from hr.models import SalaryAdvance
-
-    totals = run.entries.aggregate(
-        net=Coalesce(Sum("net_salary"), Decimal("0")),
-        recovered=Coalesce(Sum("advances_total"), Decimal("0")),
+    entries = list(run.entries.values("employee_id", "net_salary", "advances_total"))
+    if not entries:
+        return Decimal("0.00")
+    net = sum((e["net_salary"] for e in entries), Decimal("0"))
+    recovered = sum((e["advances_total"] for e in entries), Decimal("0"))
+    expensed = dict(
+        recoverable_advances(run.company, run.period)
+        .filter(employee_id__in=[e["employee_id"] for e in entries], expense__isnull=False)
+        .values("employee_id")
+        .annotate(total=Coalesce(Sum("amount"), Decimal("0")))
+        .values_list("employee_id", "total")
     )
-    period = run.period
-    month_end = period.replace(
-        year=period.year + (period.month == 12), month=(period.month % 12) + 1, day=1
+    already_on_books = sum(
+        (min(e["advances_total"], expensed.get(e["employee_id"], Decimal("0")))
+         for e in entries),
+        Decimal("0"),
     )
-    expensed_this_month = SalaryAdvance.objects.filter(
-        company_id=run.company_id, status=SalaryAdvance.APPROVED,
-        reviewed_at__date__gte=period, reviewed_at__date__lt=month_end,
-    ).aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
-    return (totals["net"] + totals["recovered"] - expensed_this_month).quantize(Decimal("0.01"))
+    return (net + recovered - already_on_books).quantize(Decimal("0.01"))
 
 
 def post_payroll_expense(run, user=None):
@@ -67,6 +97,13 @@ def post_payroll_expense(run, user=None):
     )
 
 
+def advance_paid_on(advance):
+    """The day the advance's cash left, in the company's calendar (an
+    approval at 00:30 Khartoum time is that day, not UTC's previous one)."""
+    moment = advance.reviewed_at or advance.created_at
+    return timezone.localdate(moment, company_zone(advance.company))
+
+
 def post_salary_advance_expense(advance, user=None):
     """Create the Expense for an approved salary advance; idempotent."""
     from finance.models import Expense
@@ -79,7 +116,7 @@ def post_salary_advance_expense(advance, user=None):
         description=f"Advance — {advance.employee.full_name}",
         amount=advance.amount,
         method=Expense.CASH,
-        date=(advance.reviewed_at or advance.created_at).date(),
+        date=advance_paid_on(advance),
         recorded_by=user,
         salary_advance=advance,
     )
