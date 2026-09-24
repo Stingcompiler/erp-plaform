@@ -412,6 +412,7 @@ export default function SettingsPage() {
             <Field label={t("settings.receiptPaper")}>
               <Select value={company.receipt_paper || "a4"} onChange={setCo("receipt_paper")} disabled={!writable}>
                 <option value="a4">{t("settings.receiptPaperA4")}</option>
+                <option value="a5">{t("settings.receiptPaperA5")}</option>
                 <option value="80mm">{t("settings.receiptPaper80")}</option>
                 <option value="58mm">{t("settings.receiptPaper58")}</option>
               </Select>

@@ -84,7 +84,7 @@ function fmtDate(value, language) {
   return d.toLocaleString(language === "ar" ? "ar" : "en", opts);
 }
 
-export default function DocumentView({ doc }) {
+export default function DocumentView({ doc, paper = "a4" }) {
   const { t, language } = useI18n();
   if (!doc) return null;
 
@@ -110,7 +110,7 @@ export default function DocumentView({ doc }) {
     doc.party_role === "supplier" ? t("doc.supplier") : t("doc.billTo");
 
   return (
-    <div className="mx-auto max-w-3xl bg-white p-6 text-[13px] leading-relaxed text-black print:p-0">
+    <div className={`mx-auto max-w-3xl bg-white p-6 leading-relaxed text-black print:max-w-none print:p-0 ${paper === "a5" ? "text-[11px]" : "text-[13px]"}`}>
       {/* ---- header ---- */}
       <div className="flex flex-wrap items-start justify-between gap-6 border-b-2 border-black pb-4">
         <div className="min-w-0">

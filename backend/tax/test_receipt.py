@@ -26,6 +26,12 @@ class ReceiptDocumentTests(TaxBase):
         )
         self.assertEqual(bad.status_code, 400)
 
+    def test_a5_is_a_paper_choice(self):
+        r = self.client.patch(reverse("company-profile"), {"receipt_paper": "a5"}, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        doc = self.client.get(reverse("invoice-document", args=[self.invoice.id])).data
+        self.assertEqual(doc["issuer"]["receipt_paper"], "a5")
+
     def test_invoice_document_lists_payments_with_channel_and_reference(self):
         bankak = CompanyBankAccount.objects.create(
             company=self.company, channel=CompanyBankAccount.CHANNEL_BANKAK,
