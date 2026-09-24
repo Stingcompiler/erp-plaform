@@ -6,6 +6,7 @@ from purchasing.views import (
     GoodsReceiptCreateView,
     GoodsReceiptViewSet,
     PurchaseOrderViewSet,
+    PurchasingCurrencyView,
     SupplierPaymentViewSet,
     SupplierViewSet,
 )
@@ -19,5 +20,9 @@ router.register("supplier-payments", SupplierPaymentViewSet, basename="supplierp
 
 urlpatterns = [
     path("receivings/", GoodsReceiptCreateView.as_view(), name="receiving-create"),
+    path(
+        "purchasing/currencies/", PurchasingCurrencyView.as_view(),
+        name="purchasing-currencies",
+    ),
     path("", include(router.urls)),
 ]

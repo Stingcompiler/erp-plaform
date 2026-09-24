@@ -14,9 +14,23 @@ import { errorText } from "@/lib/errors";
 import { SkeletonTableRows } from "@/components/ui/Skeleton";
 import { EmptyTableRow } from "@/components/ui/EmptyState";
 import { useStableIds } from "@/lib/useStableIds";
+import { AmountWithBase, usePurchaseCurrencies } from "@/components/purchasing/PurchaseCurrency";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// A bill settles in its own currency (a USD bill is paid in USD); the
+// company-currency figure sits under it.
+function BillAmount({ bill, amount, info }) {
+  return (
+    <AmountWithBase
+      amount={amount}
+      currency={bill.currency || info.currency}
+      rate={bill.exchange_rate}
+      info={info}
+    />
+  );
+}
 
 // The statuses the server sends (Bill.status). The keys used to be
 // partial/unpaid, which it never sends, so an unpaid bill showed grey.
@@ -97,7 +111,10 @@ function PaymentDrawer({ bill, supplierName, bankAccounts, open, onClose, onPaid
             </div>
             <div className="mt-1 flex justify-between">
               <span className="text-muted">{t("purchasing.amountDue")}</span>
-              <span className="tabular text-ink">{money(bill.amount_due)}</span>
+              <span className="tabular text-ink">
+                {money(bill.amount_due)}
+                {bill.currency && <span className="ms-1 text-xs text-muted">{bill.currency}</span>}
+              </span>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -143,6 +160,7 @@ export default function BillList({ suppliersById, bankAccounts, writable, refres
   const { t } = useI18n();
   const { can } = useAuth();
   const canVoid = can("finance.approve");
+  const fxInfo = usePurchaseCurrencies();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [payFor, setPayFor] = useState(null);
@@ -212,8 +230,8 @@ export default function BillList({ suppliersById, bankAccounts, writable, refres
                     {suppliersById[b.supplier] || `#${b.supplier}`}
                   </td>
                   <td className="px-4 py-3 text-muted">{b.supplier_invoice_number || "—"}</td>
-                  <td className="tabular px-4 py-3 text-end text-ink">{money(b.total)}</td>
-                  <td className="tabular px-4 py-3 text-end text-ink">{money(b.amount_due)}</td>
+                  <td className="tabular px-4 py-3 text-end text-ink"><BillAmount bill={b} amount={b.total} info={fxInfo} /></td>
+                  <td className="tabular px-4 py-3 text-end text-ink"><BillAmount bill={b} amount={b.amount_due} info={fxInfo} /></td>
                   <td className="px-4 py-3 text-end">
                     <Badge tone={statusTone[b.status] || "muted"}>{t(`purchasing.billStatus.${b.status}`)}</Badge>
                   </td>
