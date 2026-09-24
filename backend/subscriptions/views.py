@@ -37,9 +37,11 @@ from subscriptions.serializers import (
     SubscriptionPaymentSerializer,
     SubscriptionSerializer,
     PaymentVerificationSerializer,
+    PlatformSubscriptionPaymentSerializer,
 )
 from subscriptions.services import (
     configure_subscription,
+    normalise_currency,
     reject_payment,
     transition_subscription,
     usage_for,
@@ -128,13 +130,14 @@ class CompanySubscriptionPaymentViewSet(
         # paying it must be possible while the old plan is still current.
         accepted = set()
         if subscription is not None:
-            accepted.add(subscription.plan_version.currency)
+            accepted.add(normalise_currency(subscription.plan_version.currency))
             accepted.update(
-                SubscriptionInvoice.objects.filter(
+                normalise_currency(value)
+                for value in SubscriptionInvoice.objects.filter(
                     company=company, status=SubscriptionInvoice.ISSUED,
                 ).values_list("currency", flat=True)
             )
-        if subscription is not None and currency not in accepted:
+        if subscription is not None and normalise_currency(currency) not in accepted:
             raise ValidationError({
                 "currency": _("Your subscription is billed in %(currency)s; pay in that currency.")
                 % {"currency": subscription.plan_version.currency},
@@ -349,7 +352,36 @@ class PlatformSubscriptionPaymentViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = SubscriptionPayment.objects.select_related(
         "company", "recorded_by", "verified_by"
     )
-    serializer_class = SubscriptionPaymentSerializer
+    serializer_class = PlatformSubscriptionPaymentSerializer
+
+    @action(detail=True, methods=["get"])
+    def renewal(self, request, pk=None):
+        """The renewal approving this payment would perform (dry run)."""
+        from subscriptions.renewals import plan_renewal, renewal_as_json
+
+        return Response(renewal_as_json(plan_renewal(self.get_object())))
+
+    @action(detail=True, methods=["post"])
+    def renew(self, request, pk=None):
+        """Approve and renew: issue the renewal invoice(s) this payment pays
+        for, allocate it and grant the periods — no invoice needed first.
+        ``expected`` is the preview's key; a changed plan is refused."""
+        from subscriptions.renewals import renew_with_payment
+
+        expected = request.data.get("expected")
+        payment, issued = renew_with_payment(
+            self.get_object().pk, request.user,
+            expected_key=str(expected) if expected is not None else None,
+        )
+        log_activity(
+            action="approve",
+            request=request,
+            company=payment.company,
+            entity_type="SubscriptionPayment",
+            entity_id=payment.pk,
+            metadata={"renewal": True, "invoices_issued": issued},
+        )
+        return Response(self.get_serializer(payment).data)
 
     @action(detail=True, methods=["post"])
     def verify(self, request, pk=None):

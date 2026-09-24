@@ -141,6 +141,46 @@ def configure_subscription(subscription_id, changes, actor, reason=""):
     return subscription
 
 
+def normalise_currency(value):
+    """"sd", " SDG " and "SDG" are one currency (PlanVersion.save stores it
+    upper-cased); comparing raw strings refused money that was fine."""
+    return (value or "").strip().upper()
+
+
+def period_end_at(company, day):
+    """The last instant of ``day`` in the company's business zone.
+
+    The zone must be the company's, not whatever zone the request happened
+    to activate: a platform admin has no company, so granting under the
+    admin's request ended paid periods at midnight UTC (02:59 in Khartoum)
+    while the same invoice granted from the company's side ended at local
+    midnight."""
+    from core.timezone import company_zone
+
+    return timezone.make_aware(datetime.combine(day, time.max), company_zone(company))
+
+
+def _carried_grace(subscription, new_end):
+    """The grace window after a period is extended.
+
+    grace_ends_at is an absolute date set against the old boundary (the
+    trial's or the last paid period's end). Left alone after a renewal it
+    pointed into the past: the company lost its grace at the next lapse and
+    the owner's "valid until" showed the old date. The same length of grace
+    now follows the new end; a grace that did not extend a boundary is
+    dropped."""
+    grace = subscription.grace_ends_at
+    if grace is None:
+        return None
+    boundaries = [subscription.period_ends_at]
+    if subscription.status == Subscription.TRIALING:
+        boundaries.append(subscription.trial_ends_at)
+    if grace >= new_end:
+        return grace
+    base = max((b for b in boundaries if b is not None and b <= grace), default=None)
+    return None if base is None else new_end + (grace - base)
+
+
 def grant_paid_invoice_period(invoice, actor):
     """Grant one invoice period at most once, inside the payment transaction."""
     if invoice.entitlement_granted_at is not None:
@@ -149,13 +189,14 @@ def grant_paid_invoice_period(invoice, actor):
         pk=invoice.subscription_id
     )
     now = timezone.now()
-    period_end = timezone.make_aware(
-        datetime.combine(invoice.period_end, time.max),
-        timezone.get_current_timezone(),
-    )
+    period_end = period_end_at(invoice.company, invoice.period_end)
     previous_status = subscription.status
     fields = []
     if subscription.period_ends_at is None or period_end > subscription.period_ends_at:
+        grace_end = _carried_grace(subscription, period_end)
+        if grace_end != subscription.grace_ends_at:
+            subscription.grace_ends_at = grace_end
+            fields.append("grace_ends_at")
         subscription.period_ends_at = period_end
         fields.append("period_ends_at")
     # A manual suspension is a separate administrative decision and a payment
@@ -221,6 +262,14 @@ def verify_and_allocate_payment(payment_id, actor, allocations):
     payment = SubscriptionPayment.objects.select_for_update().get(pk=payment_id)
     if payment.status == SubscriptionPayment.VERIFIED:
         return payment
+    if payment.status != SubscriptionPayment.PENDING:
+        # A rejected payment was closed with a reason the company can see;
+        # the company records a corrected one instead.
+        raise ValidationError(_("Only a pending payment can be approved."))
+    # Payment, then subscription, then invoices: the same order as
+    # subscriptions.renewals.renew_with_payment, so two approvals for one
+    # company queue instead of deadlocking.
+    Subscription.objects.select_for_update().filter(company_id=payment.company_id).first()
     requested = sum(item["amount"] for item in allocations)
     if requested != payment.amount:
         raise ValidationError(_("Allocations must equal the full payment amount."))
@@ -233,7 +282,7 @@ def verify_and_allocate_payment(payment_id, actor, allocations):
             raise ValidationError(
                 _("Invoice %(number)s is not open for payment.") % {"number": invoice.number}
             )
-        if invoice.currency != payment.currency:
+        if normalise_currency(invoice.currency) != normalise_currency(payment.currency):
             raise ValidationError(
                 _("Invoice %(number)s uses a different currency.") % {"number": invoice.number}
             )
