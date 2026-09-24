@@ -106,6 +106,8 @@ export default function NewReturnDrawer({ open, onClose, onCreated }) {
     try {
       await mutate("sales_return", returns.createSalesReturn, {
         client_uuid: idFor(),
+        // When the goods came back; a queued return is dated by it.
+        occurred_at: new Date().toISOString(),
         invoice: invoice.id,
         reason,
         lines: payloadLines,

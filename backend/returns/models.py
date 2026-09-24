@@ -30,6 +30,10 @@ class SalesReturn(models.Model):
         related_name="sales_returns",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # created_at is set to when it HAPPENED (an offline device reports it
+    # later, see occurred_at on the write serializer); this is when the
+    # server got it, as on StockMovement.
+    received_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     client_uuid = models.UUIDField(null=True, blank=True, unique=True)
 
     class Meta:

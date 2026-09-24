@@ -269,8 +269,13 @@ function Topbar({ onOpenMenu }) {
   // signs in next, and during an outage nobody can sign back in (sign-in
   // needs the server). Say so before letting go.
   const signOut = async () => {
-    if (pending > 0) {
-      const message = t(online ? "sync.signOutPending" : "sync.signOutPendingOffline", { count: pending });
+    // Offline with nothing waiting is still a trap: the server cannot be
+    // told, the saved session is cleared, and nobody can sign in on this
+    // device until the connection is back.
+    if (pending > 0 || !online) {
+      const message = pending > 0
+        ? t(online ? "sync.signOutPending" : "sync.signOutPendingOffline", { count: pending })
+        : t("sync.signOutOffline");
       if (!(await confirm(message, { tone: "danger", confirmLabel: t("common.signOut") }))) return;
     }
     logout();

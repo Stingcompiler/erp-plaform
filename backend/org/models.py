@@ -1,4 +1,7 @@
+from decimal import Decimal
+
 from django.db import models
+from django.utils import timezone
 from django.utils.text import slugify
 
 
@@ -201,6 +204,74 @@ class TaxProfile(models.Model):
 
     def __str__(self):
         return f"TaxProfile<{self.company.name}: {self.invoice_format}>"
+
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        instance = super().from_db(db, field_names, values)
+        instance._saved_rate = instance.__dict__.get("flat_tax_rate")
+        return instance
+
+    def save(self, *args, **kwargs):
+        # Every rate the company has had, from when: an offline till's sale
+        # at an older rate is accepted only if the company really had it.
+        previous = getattr(self, "_saved_rate", None)
+        creating = self._state.adding
+        super().save(*args, **kwargs)
+        rate = self.flat_tax_rate
+        if previous is None and not creating:
+            previous = (
+                TaxRateChange.objects.filter(company_id=self.company_id)
+                .order_by("-effective_from", "-pk").values_list("rate", flat=True).first()
+            )
+        if previous is None or Decimal(str(previous)) != Decimal(str(rate)):
+            TaxRateChange.objects.create(company_id=self.company_id, rate=rate)
+        self._saved_rate = rate
+
+
+class TaxRateChange(models.Model):
+    """The company's flat tax rate from `effective_from` on. Append-only;
+    written whenever TaxProfile.flat_tax_rate changes (and seeded with each
+    company's rate when this table was added, so older history is unknown
+    and assumed to be that rate)."""
+
+    company = models.ForeignKey(
+        Company, on_delete=models.CASCADE, related_name="tax_rate_changes"
+    )
+    rate = models.DecimalField(max_digits=5, decimal_places=2)
+    effective_from = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ["company", "-effective_from", "-pk"]
+
+    def __str__(self):
+        return f"{self.rate}% from {self.effective_from:%Y-%m-%d %H:%M}"
+
+
+def tax_rate_was_in_effect(company_id, rate, when=None):
+    """Whether `rate` was this company's flat tax rate at `when`, or at any
+    moment in the backdate window before it — the longest a till can have
+    been offline, still charging the rate it last saw. With no history at
+    all (nothing recorded yet) nothing can be proved wrong: True."""
+    from datetime import timedelta
+
+    from django.conf import settings
+
+    when = when or timezone.now()
+    rows = TaxRateChange.objects.filter(company_id=company_id)
+    if not rows.exists():
+        return True
+    rate = Decimal(str(rate))
+    start = when - timedelta(days=getattr(settings, "VEZANO_MAX_BACKDATE_DAYS", 31))
+    # A little slack forward: the till's clock and the server's differ.
+    end = when + timedelta(minutes=10)
+    at_start = (
+        rows.filter(effective_from__lte=start).order_by("-effective_from", "-pk").first()
+        # Before the first recorded change, the first recorded rate.
+        or rows.order_by("effective_from", "pk").first()
+    )
+    if at_start.rate == rate:
+        return True
+    return rows.filter(effective_from__gt=start, effective_from__lte=end, rate=rate).exists()
 
 
 class Branch(models.Model):

@@ -1,5 +1,6 @@
 import { storageKey } from "./localIdentity.js";
 import { retryPatch } from "./syncRetry.js";
+import { clockOffset } from "./deviceClock.js";
 
 // One key per operation avoids one tab overwriting another tab's entire queue.
 // A failed write MUST throw: the caller keeps the sale on screen until durable.
@@ -48,7 +49,8 @@ export const queue = {
     const previous = localStorage.getItem(key);
     if (previous) return JSON.parse(previous);
     const op = { op_type: opType, client_uuid: id,
-      payload: { ...payload, client_uuid: id }, queued_at: Date.now(), error: null };
+      payload: { ...payload, client_uuid: id }, queued_at: Date.now(),
+      clock_offset_ms: clockOffset(), error: null };
     localStorage.setItem(key, JSON.stringify(op));
     return op;
   },

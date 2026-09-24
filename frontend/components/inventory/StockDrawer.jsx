@@ -99,6 +99,9 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
     try {
       const result = await mutate("stock_adjustment", inventory.createAdjustment, {
         client_uuid: idFor("adjustment"),
+        // When it happened here; a queued adjustment is dated by it, not by
+        // the upload.
+        occurred_at: new Date().toISOString(),
         product: product.id,
         warehouse: Number(adjust.warehouse),
         quantity: adjust.quantity,
@@ -136,6 +139,7 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
     try {
       const result = await mutate("stock_transfer", inventory.createTransfer, {
         client_uuid: idFor("transfer"),
+        occurred_at: new Date().toISOString(),
         product: product.id,
         source_warehouse: Number(transfer.source),
         dest_warehouse: Number(transfer.dest),

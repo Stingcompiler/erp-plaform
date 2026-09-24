@@ -22,6 +22,7 @@
 import { localScope, storageKey } from "./localIdentity.js";
 import { queue as localQueue } from "./syncQueueLocal.js";
 import { retryPatch } from "./syncRetry.js";
+import { clockOffset } from "./deviceClock.js";
 
 const VERSION = 1;
 const DB_PREFIX = "vezano.queue.v1:";
@@ -192,7 +193,10 @@ export const queue = {
     if (!(await ready(scope))) return localQueue.enqueue(opType, payload, scope);
     const id = payload.client_uuid || crypto.randomUUID();
     const op = { op_type: opType, client_uuid: id,
-      payload: { ...payload, client_uuid: id }, queued_at: Date.now(), seq: ++seq, error: null };
+      payload: { ...payload, client_uuid: id }, queued_at: Date.now(), seq: ++seq, error: null,
+      // This device's clock error when the operation was captured (see
+      // deviceClock.js); the server prefers it to the gap at upload time.
+      clock_offset_ms: clockOffset() };
     // add() (not put) refuses to overwrite: a retry of an uncertain request
     // keeps the original body, and the stored one is what is returned.
     return withStore(scope, "ops", "readwrite", (store) => new Promise((resolve, reject) => {
@@ -272,6 +276,35 @@ export const queue = {
     } finally { db.close(); }
   },
 };
+
+// Operations other accounts left waiting on this device. Queues are per
+// account (and branch): when a second cashier signs in on a shared tablet
+// they cannot see — or send — the first one's sales, and signing out while
+// offline strands them until that person is back. The count is shown so
+// nobody wipes the tablet thinking everything went up.
+export async function otherAccountsPending(scope) {
+  const [company, user] = String(scope || "").split(":");
+  const mine = company && user ? `${company}:${user}:` : null;
+  let count = 0;
+  try {
+    if (typeof indexedDB?.databases === "function") {
+      const names = (await indexedDB.databases()).map((d) => d.name)
+        .filter((name) => name?.startsWith(DB_PREFIX) && !(mine && name.startsWith(DB_PREFIX + mine)));
+      for (const name of names) {
+        count += await withStore(name.slice(DB_PREFIX.length), "ops", "readonly", (store) => store.count());
+      }
+    }
+  } catch { /* unreadable: say nothing rather than a wrong number */ }
+  try {
+    // The localStorage fallback (syncQueueLocal.js): one key per operation.
+    const legacy = "erp.sync.v2:";
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(legacy) && !(mine && key.startsWith(legacy + mine))) count += 1;
+    }
+  } catch { /* no localStorage */ }
+  return count;
+}
 
 // Parked carts, same database. `scope` defaults to the active identity.
 export const heldCarts = {

@@ -396,7 +396,8 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
                     % {"from": currency, "to": company.currency}
                 }
             )
-        occurred_at = validated_data.get("occurred_at") or timezone.now()
+        # Never later than now: a device clock a few minutes fast is drift.
+        occurred_at = min(validated_data.get("occurred_at") or timezone.now(), timezone.now())
 
         if po is not None:
             # Two receipts against one order at the same moment would each

@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 from uuid import UUID
 
@@ -14,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.activity import log_activity
+from core.entitlements import writes_allowed_at
 from core.permissions import EntitlementAccess
 from core.rbac import role_can
 from core.scoping import apply_branch_scope
@@ -25,6 +27,28 @@ from sync.services import APPLIED, DUPLICATE, ERROR, RETRY, process_operation
 # Business-time fields a queued payload may carry (see validate_business_time).
 DEVICE_TIME_FIELDS = ("occurred_at", "recorded_at", "received_at")
 CLOCK_TOLERANCE_SECONDS = 120
+# Mirrors validate_business_time: how far ahead of the server a corrected
+# device time may be before it counts as a wrong clock rather than drift.
+FUTURE_TOLERANCE = timedelta(minutes=10)
+# A bigger "offset" than this is garbage, not a clock error worth applying.
+MAX_OFFSET_MS = 10 * 365 * 86400 * 1000
+
+
+def _aware(value):
+    stamped = parse_datetime(str(value)) if value else None
+    if stamped is not None and timezone.is_naive(stamped):
+        stamped = timezone.make_aware(stamped, dt_timezone.utc)
+    return stamped
+
+
+def _op_clock_offset(op):
+    """The device's clock error measured when THIS operation was captured
+    (server time minus device time, from the last server answer the device
+    had seen before it), or None when the device did not send one."""
+    raw = op.get("clock_offset_ms") if isinstance(op, dict) else None
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)) or abs(raw) > MAX_OFFSET_MS:
+        return None
+    return timedelta(milliseconds=raw)
 
 
 def correct_device_clock(operations, sent_at):
@@ -33,28 +57,95 @@ def correct_device_clock(operations, sent_at):
     Cheap tablets lose their clock after a power cut. A till running fast
     stamped every sale in the future and the server refused them all (more
     than ten minutes ahead), with no repair on the device. The device sends
-    its own `sent_at`; the gap to the server's clock is the device's error,
-    and it applies to every time the device stamped. Returns the skew in
-    seconds (0 when none was applied)."""
-    sent = parse_datetime(str(sent_at)) if sent_at else None
-    if sent is None:
-        return 0
-    if timezone.is_naive(sent):
-        sent = timezone.make_aware(sent, dt_timezone.utc)
-    skew = timezone.now() - sent
-    if abs(skew.total_seconds()) < CLOCK_TOLERANCE_SECONDS:
-        return 0
+    its own `sent_at`; the gap to the server's clock is the device's error
+    at upload time. Each operation may also carry the error measured when it
+    was captured (`clock_offset_ms`), and that one is preferred: the clock
+    can be reset or fixed between the sale and the upload, and then the
+    upload-time gap describes a different clock from the one that stamped
+    the sale. Returns (upload-time skew in seconds or 0, number of
+    operations corrected with their own capture-time offset)."""
+    sent = _aware(sent_at)
+    batch_skew = (timezone.now() - sent) if sent is not None else None
+    own = 0
     for op in operations:
         payload = op.get("payload") if isinstance(op, dict) else None
         if not isinstance(payload, dict):
             continue
+        skew = _op_clock_offset(op)
+        if skew is not None:
+            own += 1
+        else:
+            skew = batch_skew
+        if skew is None or abs(skew.total_seconds()) < CLOCK_TOLERANCE_SECONDS:
+            continue
         for field in DEVICE_TIME_FIELDS:
-            stamped = parse_datetime(str(payload.get(field) or "")) if payload.get(field) else None
+            stamped = _aware(payload.get(field))
             if stamped is not None:
-                if timezone.is_naive(stamped):
-                    stamped = timezone.make_aware(stamped, dt_timezone.utc)
                 payload[field] = (stamped + skew).isoformat()
-    return int(skew.total_seconds())
+    seconds = int(batch_skew.total_seconds()) if batch_skew is not None else 0
+    return (seconds if abs(seconds) >= CLOCK_TOLERANCE_SECONDS else 0), own
+
+
+def captured_at(op):
+    """When the device says this operation happened, after clock correction:
+    its business time, else the moment it was queued. None when unknown."""
+    payload = op.get("payload") if isinstance(op, dict) else None
+    if isinstance(payload, dict):
+        for field in DEVICE_TIME_FIELDS:
+            stamped = _aware(payload.get(field))
+            if stamped is not None:
+                return stamped
+    queued = op.get("queued_at") if isinstance(op, dict) else None
+    if isinstance(queued, (int, float)) and not isinstance(queued, bool):
+        try:
+            when = datetime.fromtimestamp(queued / 1000, tz=dt_timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return None
+        return when + (_op_clock_offset(op) or timedelta(0))
+    return None
+
+
+def settle_out_of_window_times(operations):
+    """A time that the corrected clock still puts outside the accepted
+    window (ahead of the server, or older than the backdate limit) is not
+    refused: the sale, receipt or count happened, and a refusal lost it for
+    good. It is recorded at arrival time instead; the caller writes an audit
+    row keeping what the device said once the operation is applied, so a
+    manager can see the date is not the real one.
+
+    Returns, per operation, (capture time before anything was moved — the
+    subscription check needs when the work happened, not when it arrived —
+    and the list of moved fields as {field, device_time, recorded_at})."""
+    from django.conf import settings
+
+    now = timezone.now()
+    # A minute of margin so a time right at the edge is not refused by the
+    # serializer a moment later.
+    oldest = now - timedelta(days=getattr(settings, "VEZANO_MAX_BACKDATE_DAYS", 31), minutes=-1)
+    settled = []
+    for op in operations:
+        moved = []
+        settled.append((captured_at(op), moved))
+        payload = op.get("payload") if isinstance(op, dict) else None
+        if not isinstance(payload, dict):
+            continue
+        for field in DEVICE_TIME_FIELDS:
+            stamped = _aware(payload.get(field))
+            if stamped is None:
+                continue
+            if stamped > now:
+                payload[field] = now.isoformat()
+                if stamped - now <= FUTURE_TOLERANCE:
+                    continue  # ordinary drift: clamped quietly
+            elif stamped < oldest:
+                payload[field] = now.isoformat()
+            else:
+                continue
+            moved.append({
+                "field": field, "device_time": stamped.isoformat(),
+                "recorded_at": now.isoformat(),
+            })
+    return settled
 
 
 class SyncPushView(APIView):
@@ -69,6 +160,9 @@ class SyncPushView(APIView):
     """
 
     permission_classes = [IsAuthenticated, EntitlementAccess]
+    # While the subscription is read-only, work the device captured before
+    # the lapse still uploads; each item is checked in post().
+    entitlement_checks_items = True
 
     def is_completed_entitlement_replay(self, request):
         """Allow only a completed, same-user batch to replay while writes are locked."""
@@ -130,12 +224,14 @@ class SyncPushView(APIView):
                 {"detail": "operations must be a list."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        skew = correct_device_clock(operations, request.data.get("sent_at"))
+        skew, own_offsets = correct_device_clock(operations, request.data.get("sent_at"))
         if skew:
             log_activity(
                 action="device_clock_corrected", request=request, entity_type="SyncBatch",
-                entity_id=str(batch_uuid), metadata={"skew_seconds": skew},
+                entity_id=str(batch_uuid),
+                metadata={"skew_seconds": skew, "own_offsets": own_offsets},
             )
+        settled = settle_out_of_window_times(operations)
 
         try:
             UUID(str(batch_uuid))
@@ -205,11 +301,36 @@ class SyncPushView(APIView):
         duplicate = batch.duplicate_count
         errored = batch.error_count
         recorded = dict(batch.operations.values_list("index", "status"))
+        read_only = getattr(request, "entitlement_read_only", None)
         for i, op in enumerate(operations):
             previous = recorded.get(i)
             if previous is not None and previous != RETRY:
                 continue
-            st, model, rid, err, cu, field = process_operation(request, op)
+            when, moved = settled[i]
+            blocked = None
+            if read_only and not writes_allowed_at(request.user.company, when):
+                blocked = _(
+                    "The subscription is read-only and this was recorded after it "
+                    "lapsed. It stays on the device: renew, then send it again."
+                )
+            st, model, rid, err, cu, field = process_operation(request, op, blocked=blocked)
+            if st == APPLIED:
+                for note in moved:
+                    log_activity(
+                        action="device_time_out_of_window", request=request,
+                        entity_type=model, entity_id=rid,
+                        metadata={
+                            "batch": str(batch_uuid), "op_type": op.get("op_type", ""),
+                            "client_uuid": str(cu or ""), **note,
+                        },
+                    )
+                if read_only:
+                    log_activity(
+                        action="synced_while_read_only", request=request,
+                        entity_type=model, entity_id=rid,
+                        metadata={"captured_at": when.isoformat() if when else None,
+                                  "code": read_only},
+                    )
             row = {
                 "op_type": op.get("op_type", ""),
                 "client_uuid": cu or None,
@@ -502,6 +623,17 @@ class SyncDiscardView(APIView):
     permission_classes = [IsAuthenticated, EntitlementAccess]
     entitlement_exempt = True
 
+    @staticmethod
+    def _already_applied(company_id, op_type, client_uuid):
+        from sync.services import OP_REGISTRY
+
+        spec = OP_REGISTRY.get(str(op_type or ""))
+        if spec is None or not any(
+            f.name == "client_uuid" for f in spec.model._meta.get_fields()
+        ):
+            return None
+        return spec.model.objects.filter(company_id=company_id, client_uuid=client_uuid).first()
+
     def post(self, request):
         company_id = getattr(request.user, "company_id", None)
         if company_id is None:
@@ -518,6 +650,18 @@ class SyncDiscardView(APIView):
         payload = request.data.get("payload")
         if not isinstance(payload, dict):
             return Response({"payload": _("The operation payload is required.")}, status=400)
+        # The device may be giving up on an op that DID land (the answer was
+        # lost on the way back, then it was refused as something else). A
+        # discard row would show managers a "lost" sale that is on the books:
+        # answer that it is already applied, and the device clears it as
+        # synced.
+        applied = self._already_applied(company_id, request.data.get("op_type"), client_uuid)
+        if applied is not None:
+            return Response(
+                {"client_uuid": str(client_uuid), "status": "already_applied",
+                 "result_model": applied.__class__.__name__, "id": applied.pk},
+                status=status.HTTP_200_OK,
+            )
         record, created = DiscardedOperation.objects.get_or_create(
             company_id=company_id,
             client_uuid=client_uuid,
