@@ -162,25 +162,28 @@ class AdvanceTimingTests(PostingBase):
             Decimal("0"),
         )
 
-    def test_march_advance_the_march_run_did_not_recover_is_not_subtracted(self):
+    def test_an_advance_approved_after_the_draft_blocks_approval_until_recalculated(self):
         # March's payroll is calculated on the 15th; an advance of 300 is
-        # paid on the 20th, after the snapshot. March's run does not recover
-        # it, so March's payroll expense stays the full 1000 and March's cash
-        # out is 1300 (it was 1000 before: 300 too low).
+        # paid on the 20th, after the snapshot. Approving that draft used to
+        # book the advance with nobody recovering it from salary. Now the
+        # approval is refused until the draft is recalculated, and March then
+        # recovers it: expense 700 (net pay), March cash out 300 + 700.
         march_id = self._run("2026-03")
         advance = self._approved_advance(datetime(2026, 3, 20, 10, 0, tzinfo=self.KHARTOUM))
         self.assertEqual(advance.expense.date, date(2026, 3, 20))
-        self.cfo.post(reverse("payrollrun-approve", args=[march_id]))
-        march = PayrollRun.objects.get(pk=march_id)
-        self.assertEqual(march.entries.get().advances_total, Decimal("0.00"))
-        self.assertEqual(march.expense.amount, Decimal("1000.00"))
-        self.assertEqual(self._cash_out(date(2026, 3, 1), date(2026, 3, 31)), Decimal("1300.00"))
+        refused = self.cfo.post(reverse("payrollrun-approve", args=[march_id]))
+        self.assertEqual(refused.status_code, 400, refused.data)
+        self.assertEqual(PayrollRun.objects.get(pk=march_id).status, PayrollRun.DRAFT)
 
-        # April recovers nothing from March (the month rule), so April's
-        # cash out is exactly April's salary — not 300 too high.
-        april = self._approve_run("2026-04")
-        self.assertEqual(april.expense.amount, Decimal("1000.00"))
-        self.assertEqual(self._cash_out(date(2026, 4, 1), date(2026, 4, 30)), Decimal("1000.00"))
+        self.client.post(reverse("payrollrun-refresh", args=[march_id]))  # HR recalculates
+        approved = self.cfo.post(reverse("payrollrun-approve", args=[march_id]))
+        self.assertEqual(approved.status_code, 200, approved.data)
+        march = PayrollRun.objects.get(pk=march_id)
+        entry = march.entries.get()
+        self.assertEqual((entry.advances_total, entry.net_salary),
+                         (Decimal("300.00"), Decimal("700.00")))
+        self.assertEqual(march.expense.amount, Decimal("700.00"))
+        self.assertEqual(self._cash_out(date(2026, 3, 1), date(2026, 3, 31)), Decimal("1000.00"))
 
     def test_advance_paid_just_after_midnight_belongs_to_april_and_is_counted_once(self):
         # 00:30 on 1 April in Khartoum is still 31 March in UTC. The advance

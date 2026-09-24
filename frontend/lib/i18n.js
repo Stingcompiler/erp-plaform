@@ -2556,6 +2556,7 @@ const en = {
     qtyN: "qty {qty}",
   },
   dashboard: {
+    stockAdjustments: "Stock adjustments (counts, damage)",
     title: "Overview",
     sales: "Sales",
     inventory: "Inventory",
@@ -5303,6 +5304,7 @@ const ar = {
     qtyN: "الكمية {qty}",
   },
   dashboard: {
+    stockAdjustments: "فروقات المخزون (جرد وتلف)",
     title: "نظرة عامة",
     sales: "المبيعات",
     inventory: "المخزون",

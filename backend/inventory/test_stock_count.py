@@ -229,6 +229,7 @@ class StockCountTests(APITestCase):
         adjustment = StockAdjustment.objects.get()
         self.assertEqual(adjustment.batch_id, lot.id)  # the difference stays in its lot
         self.assertEqual(adjustment.quantity, Decimal("-1"))
+        self.assertEqual(adjustment.reason_code, StockAdjustment.REASON_COUNT)
 
     def test_lots_can_be_listed_for_one_product(self):
         from inventory.models import StockBatch

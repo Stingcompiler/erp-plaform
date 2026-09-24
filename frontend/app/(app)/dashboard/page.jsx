@@ -356,6 +356,16 @@ export default function DashboardPage() {
                 label={t("dashboard.expensesLabel")}
                 value={money(sections.finance.expenses)}
               />
+              {/* Count differences and damage at cost (review 2026-09-24):
+                  part of net profit, shown so the net figure adds up. */}
+              {Number(sections.finance.stock_adjustments || 0) !== 0 && (
+                <Stat
+                  icon={TrendingDown}
+                  label={t("dashboard.stockAdjustments")}
+                  tone={Number(sections.finance.stock_adjustments) > 0 ? "warn" : "ink"}
+                  value={money(sections.finance.stock_adjustments)}
+                />
+              )}
               <Stat
                 icon={Scale}
                 label={t("improvements.netProfit")}
