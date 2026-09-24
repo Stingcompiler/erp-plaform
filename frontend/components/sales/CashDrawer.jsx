@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
+import { useSync } from "@/components/sync/SyncProvider";
 import { SkeletonCard } from "@/components/ui/Skeleton";
 
 const money = (v) =>
@@ -162,6 +163,13 @@ function MovementDrawer({ shift, open, onClose, onSaved }) {
 function CloseDrawer({ shift, open, onClose, onClosed }) {
   const { t } = useI18n();
   const toast = useToast();
+  // Sales rung into this drawer that are still waiting to upload: their
+  // cash is in the drawer but not yet in the expected figure. Counting now
+  // shows a false overage, so the close waits for them.
+  const { operations, flush, flushing, online } = useSync();
+  const waiting = operations.filter(
+    (op) => op.op_type === "pos_checkout" && !op.error && Number(op.payload?.shift) === Number(shift?.id),
+  ).length;
   const [counted, setCounted] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -202,13 +210,21 @@ function CloseDrawer({ shift, open, onClose, onClosed }) {
           <Button variant="ghost" onClick={onClose}>
             {t("common.cancel")}
           </Button>
-          <Button onClick={submit} disabled={busy || !entered}>
+          <Button onClick={submit} disabled={busy || !entered || waiting > 0}>
             {busy ? t("common.saving") : t("till.confirmClose")}
           </Button>
         </div>
       }
     >
       <div className="space-y-4">
+        {waiting > 0 && (
+          <div role="alert" className="space-y-2 rounded-card border border-warn/40 bg-warn/5 p-3 text-sm text-warn">
+            <p>{t("till.waitingSales", { count: waiting })}</p>
+            {online && (
+              <Button variant="outline" onClick={flush} disabled={flushing}>{t("till.syncNow")}</Button>
+            )}
+          </div>
+        )}
         <p className="rounded-card border border-line bg-paper p-3 text-xs text-muted">
           {t("till.countHint")}
         </p>

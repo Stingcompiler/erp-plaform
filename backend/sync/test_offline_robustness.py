@@ -374,3 +374,71 @@ class TaxRateDriftTests(OfflineBase):
         )
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(Decimal(response.data["total"]), Decimal("11.00"))
+
+
+class DeviceRealityTests(OfflineBase):
+    """What happened on the device happened: a fast clock, a drawer closed
+    elsewhere while the device was offline, money taken before the close."""
+
+    def _sale(self, **payload):
+        body = {
+            "warehouse": self.wh.pk, "customer": self.customer.pk,
+            "lines": [{"product": self.product.pk, "quantity": "1"}],
+            "payment": {"method": "cash", "amount": "10.00"},
+        }
+        body.update(payload)
+        return {"op_type": "pos_checkout", "client_uuid": str(uuid.uuid4()), "payload": body}
+
+    def _shift(self, closed_minutes_ago=None):
+        from sales.models import CashShift
+
+        shift = CashShift.objects.create(
+            company=self.company, branch=self.branch, opened_by=self.cashier,
+            opening_float=Decimal("0"),
+        )
+        CashShift.objects.filter(pk=shift.pk).update(
+            opened_at=timezone.now() - timedelta(hours=8)
+        )
+        if closed_minutes_ago is not None:
+            CashShift.objects.filter(pk=shift.pk).update(
+                status=CashShift.CLOSED, counted_cash=0,
+                closed_at=timezone.now() - timedelta(minutes=closed_minutes_ago),
+            )
+        shift.refresh_from_db()
+        return shift
+
+    def test_a_device_clock_running_fast_is_corrected_not_refused(self):
+        device_now = timezone.now() + timedelta(minutes=30)
+        op = self._sale(occurred_at=device_now.isoformat())
+        result = self._push([op], sent_at=device_now.isoformat()).data["results"][0]
+        self.assertEqual(result["status"], "applied", result)
+        invoice = Invoice.objects.get(client_uuid=op["client_uuid"])
+        self.assertLess(abs((invoice.issued_at - timezone.now()).total_seconds()), 60)
+        self.assertTrue(ActivityLog.objects.filter(action="device_clock_corrected").exists())
+
+    def test_a_payment_taken_before_the_close_lands_in_that_drawer(self):
+        from sales.models import Payment
+
+        shift = self._shift(closed_minutes_ago=30)
+        invoice = Invoice.objects.create(
+            company=self.company, branch=self.branch, warehouse=self.wh, customer=self.customer,
+            number=900, subtotal=Decimal("50"), total=Decimal("50"),
+        )
+        op = {"op_type": "payment", "client_uuid": str(uuid.uuid4()), "payload": {
+            "invoice": invoice.pk, "method": "cash", "amount": "50.00", "shift": shift.pk,
+            "recorded_at": (timezone.now() - timedelta(hours=1)).isoformat(),
+        }}
+        result = self._push([op]).data["results"][0]
+        self.assertEqual(result["status"], "applied", result)
+        self.assertEqual(Payment.objects.get(client_uuid=op["client_uuid"]).shift_id, shift.pk)
+
+    def test_a_sale_into_a_drawer_closed_before_it_is_kept_outside_any_drawer(self):
+        from sales.models import Payment
+
+        shift = self._shift(closed_minutes_ago=60)
+        op = self._sale(shift=shift.pk, occurred_at=timezone.now().isoformat())
+        result = self._push([op]).data["results"][0]
+        self.assertEqual(result["status"], "applied", result)
+        invoice = Invoice.objects.get(client_uuid=op["client_uuid"])
+        self.assertIsNone(Payment.objects.get(invoice=invoice).shift_id)
+        self.assertTrue(ActivityLog.objects.filter(action="sale_outside_closed_shift").exists())

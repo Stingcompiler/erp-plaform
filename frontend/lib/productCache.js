@@ -71,19 +71,22 @@ export function cachedAt() {
 // Full offline lookup: the IndexedDB mirror (fed by sync/pull, covers the
 // whole catalogue) first, then the localStorage mirror of what this browser
 // has seen (still useful before the first pull completes).
+// An archived product is not for sale, online or off.
+const sellable = (p) => (p && p.is_active !== false ? p : null);
+
 export async function findProductOffline(code) {
   try {
-    const hit = await offlineStore.findProductByBarcode(code);
+    const hit = sellable(await offlineStore.findProductByBarcode(code));
     if (hit) return hit;
   } catch { /* no IndexedDB / no scope: fall through */ }
-  return findCachedByBarcode(code);
+  return sellable(findCachedByBarcode(code));
 }
 
 export async function searchProductsOffline(query, limit = 6) {
   try {
-    const hits = await offlineStore.searchProducts(query, limit);
+    const hits = (await offlineStore.searchProducts(query, limit * 2)).filter(sellable).slice(0, limit);
     if (hits.length) return hits;
   } catch { /* fall through */ }
   const needle = String(query || "").toLowerCase();
-  return readAll().filter((p) => `${p.name} ${p.sku}`.toLowerCase().includes(needle)).slice(0, limit);
+  return readAll().filter((p) => sellable(p) && `${p.name} ${p.sku}`.toLowerCase().includes(needle)).slice(0, limit);
 }

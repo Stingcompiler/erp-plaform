@@ -27,6 +27,7 @@ import StaleDataBanner from "./sync/StaleDataBanner";
 import UpdateBanner from "./sync/UpdateBanner";
 import AccessBanner from "./AccessBanner";
 import { useSync } from "./sync/SyncProvider";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useAuth } from "../app/providers/AuthProvider";
 import { useI18n } from "../app/providers/I18nProvider";
 import { translateRole } from "@/lib/i18n";
@@ -262,6 +263,18 @@ function SidebarContent({ onNavigate }) {
 function Topbar({ onOpenMenu }) {
   const { user, logout } = useAuth();
   const { t, language, toggleLanguage, theme, cycleTheme } = useI18n();
+  const { pending, online } = useSync();
+  const confirm = useConfirm();
+  // Signing out with sales still waiting to upload hides them from whoever
+  // signs in next, and during an outage nobody can sign back in (sign-in
+  // needs the server). Say so before letting go.
+  const signOut = async () => {
+    if (pending > 0) {
+      const message = t(online ? "sync.signOutPending" : "sync.signOutPendingOffline", { count: pending });
+      if (!(await confirm(message, { tone: "danger", confirmLabel: t("common.signOut") }))) return;
+    }
+    logout();
+  };
 
   const ThemeIcon = theme === "dark" ? MoonStar : theme === "light" ? Sun : SunMoon;
 
@@ -299,7 +312,7 @@ function Topbar({ onOpenMenu }) {
           <ThemeIcon size={16} />
         </button>
         <button
-          onClick={logout}
+          onClick={signOut}
           aria-label={t("common.signOut")}
           className="tap flex h-10 items-center gap-1.5 rounded-control px-2.5 text-sm text-muted hover:bg-paper hover:text-danger"
         >

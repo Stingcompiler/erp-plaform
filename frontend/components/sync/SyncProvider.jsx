@@ -94,6 +94,10 @@ export function SyncProvider({ children }) {
       try {
         const res = await sync.push({
           batch_uuid: crypto.randomUUID(), device_id: deviceId(),
+          // This device's clock right now: the server corrects the times the
+          // device stamped by the difference (a tablet running fast had every
+          // queued sale refused as "in the future").
+          sent_at: new Date().toISOString(),
           expected_company: user.company, expected_user: user.id,
           expected_branch: user.branch ?? null,
           operations: ops.map(({ op_type, client_uuid, payload }) => ({ op_type, client_uuid, payload })),

@@ -32,3 +32,11 @@ test("remember/recall round-trips per scope", async () => {
   assert.equal(await recall("/debts/summary/", "company-2"), null);
   assert.equal(await recall("/missing/", "company-1"), null);
 });
+
+test("the till's open shift and product lookups are never answered from an old copy", () => {
+  assert.equal(cacheKey({ method: "get", url: "/cash-shifts/current/" }), null);
+  assert.equal(cacheKey({ method: "get", url: "/products/by-barcode/", params: { code: "123" } }), null);
+  assert.equal(cacheKey({ method: "get", url: "/products/", params: { search: "sugar" } }), null);
+  // The plain product list (inventory page) is still remembered.
+  assert.equal(cacheKey({ method: "get", url: "/products/", params: { page: 1 } }), "/products/?page=1");
+});

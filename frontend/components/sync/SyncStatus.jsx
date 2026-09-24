@@ -125,7 +125,7 @@ export default function SyncStatus() {
         </div>
         {op.error ? (
           <div className="mt-2 rounded-control bg-surface p-2">
-            <p className="break-words text-ink">{op.error}</p>
+            <p className="break-words text-ink">{op.error === "__no_confirmation__" ? t("sync.noConfirmation") : op.error}</p>
             <p className="mt-1 text-xs text-muted">{t("improvements.syncFailedHint")}</p>
           </div>
         ) : (

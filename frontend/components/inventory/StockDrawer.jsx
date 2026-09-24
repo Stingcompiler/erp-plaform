@@ -9,6 +9,7 @@ import { useOfflineMutation } from "@/components/sync/useOfflineMutation";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
+import { useStableIds } from "@/lib/useStableIds";
 
 // Mirrors StockAdjustment.REASON_CHOICES on the server: a coded reason is
 // what lets shrinkage be reported by cause rather than as free text.
@@ -24,6 +25,7 @@ const MOVE_KEY = {
 };
 
 export default function StockDrawer({ open, onClose, product, warehouses, canWrite, onChanged }) {
+  const { idFor, reset } = useStableIds();
   const { t, language } = useI18n();
   const mutate = useOfflineMutation();
   const [stock, setStock] = useState(null);
@@ -55,13 +57,14 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
 
   useEffect(() => {
     if (open) {
+      reset();
       setMsg("");
       setStockState("loading");
       setAdjust({ warehouse: "", quantity: "", reason: "", reason_code: "count" });
       setTransfer({ source: "", dest: "", quantity: "" });
       load();
     }
-  }, [open, load]);
+  }, [open, load, reset]);
 
   async function submitAdjustment() {
     setMsg("");
@@ -76,7 +79,7 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
     setBusy(true);
     try {
       const result = await mutate("stock_adjustment", inventory.createAdjustment, {
-        client_uuid: crypto.randomUUID(),
+        client_uuid: idFor("adjustment"),
         product: product.id,
         warehouse: Number(adjust.warehouse),
         quantity: adjust.quantity,
@@ -84,6 +87,7 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
         reason_code: adjust.reason_code,
       });
       setAdjust({ warehouse: "", quantity: "", reason: "", reason_code: "count" });
+      reset();
       if (!result.queued) await load();
       onChanged?.();
       setMsg(result.queued ? t("sync.savedForUpload") : t("inventory.stockAdjusted"));
@@ -107,13 +111,14 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
     setBusy(true);
     try {
       const result = await mutate("stock_transfer", inventory.createTransfer, {
-        client_uuid: crypto.randomUUID(),
+        client_uuid: idFor("transfer"),
         product: product.id,
         source_warehouse: Number(transfer.source),
         dest_warehouse: Number(transfer.dest),
         quantity: transfer.quantity,
       });
       setTransfer({ source: "", dest: "", quantity: "" });
+      reset();
       if (!result.queued) await load();
       onChanged?.();
       setMsg(result.queued ? t("sync.savedForUpload") : t("inventory.transferred"));

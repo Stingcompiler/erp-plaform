@@ -21,12 +21,23 @@ const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 // Requests that are either live-only by nature (health, auth, sync) or
 // already have their own offline store (catalogue pulls). Everything else a
 // screen GETs is worth remembering.
-const SKIP = [/\/auth\//, /\/health\//, /\/sync\//, /\/attention\//, /\/ops\/preferences\//, /\/public\//];
+const SKIP = [
+  /\/auth\//, /\/health\//, /\/sync\//, /\/attention\//, /\/ops\/preferences\//, /\/public\//,
+  // The till's open drawer: a remembered answer kept a closed shift "open"
+  // offline, and every sale stamped with it was refused when it synced.
+  /\/cash-shifts\/current\//,
+  // Barcode lookups: the synced catalogue (productCache / offlineStore) is
+  // fresher than a week-old response, and a stale hit sold at an old price.
+  /\/products\/by-barcode\//,
+];
 
 export function cacheKey(config) {
   if (!config || String(config.method || "get").toLowerCase() !== "get") return null;
   const url = String(config.url || "");
   if (!url || SKIP.some((re) => re.test(url))) return null;
+  // A product *search* is answered offline by the synced catalogue, which
+  // is fresher than a remembered search result (same reason as barcodes).
+  if (/\/products\/$/.test(url) && config.params?.search) return null;
   const params = config.params
     ? Object.entries(config.params)
         .filter(([, v]) => v !== undefined && v !== null && v !== "")

@@ -13,6 +13,7 @@ import { Badge, Button, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { SkeletonLines } from "@/components/ui/Skeleton";
 import { round2 } from "@/lib/money";
+import { useStableIds } from "@/lib/useStableIds";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -42,6 +43,7 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
   const [overrides, setOverrides] = useState({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const { idFor, reset } = useStableIds();
   const [result, setResult] = useState(null);
   const [receiptId, setReceiptId] = useState(null);
   const [credit, setCredit] = useState(null);
@@ -49,6 +51,7 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
 
   useEffect(() => {
     if (!open) return;
+    reset();
     setAmount(""); setMethod("cash"); setAccount(""); setSenderBank(""); setReference("");
     setOverrides({}); setError(""); setResult(null);
     bankAccountsApi.list().then((r) => setAccounts(r.data.results ?? r.data)).catch(() => setAccounts([]));
@@ -70,7 +73,7 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
       .then((r) => setInvoices(r.data.results ?? r.data))
       .catch(() => setError(t("debts.collectLoadError")))
       .finally(() => setLoading(false));
-  }, [open, customer, invoice, t]);
+  }, [open, customer, invoice, t, reset]);
 
   const totalDue = useMemo(
     () => round2(invoices.reduce((sum, inv) => sum + Number(inv.amount_due || 0), 0)),
@@ -122,16 +125,20 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
     // One collection = one receipt: every invoice's payment carries the same
     // group so a single transfer reference may settle several invoices
     // without tripping the duplicate-reference guard.
-    const receiptGroup = crypto.randomUUID();
+    // Keys are stable per invoice for this collection, so pressing again
+    // after an uncertain failure replays the same payments, not new ones.
+    const receiptGroup = idFor("receipt");
     try {
       for (const row of allocation.rows) {
         if (row.take <= 0) continue;
         const body = {
-          client_uuid: crypto.randomUUID(),
+          client_uuid: idFor(`invoice-${row.invoice.id}`),
           invoice: row.invoice.id,
           method,
           amount: row.take.toFixed(2),
           receipt_group: receiptGroup,
+          // When the money was taken, not when a queued copy syncs.
+          recorded_at: new Date().toISOString(),
         };
         if (method === "bank_transfer") {
           body.company_bank_account = Number(account);
@@ -144,6 +151,7 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
         else done.push(res.data);
       }
       setResult({ count: done.length + queued, queued, payments: done, total: allocatedTotal });
+      reset();
       onDone?.();
     } catch (err) {
       setError(errorText(err, t, "debts.collectError"));
