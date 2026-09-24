@@ -129,6 +129,27 @@ class RenewOnApprovalTests(APITestCase):
             1,
         )
 
+    def test_a_rejected_payment_cannot_be_approved_by_manual_allocation(self):
+        from subscriptions.services import (
+            ValidationError, reject_payment, verify_and_allocate_payment,
+        )
+
+        payment = self._pay()
+        reject_payment(payment.pk, self.admin, "wrong reference")
+        invoice = SubscriptionInvoice.objects.create(
+            company=self.company, subscription=self.subscription, number="SUB-T-1",
+            amount=Decimal("500000.00"), currency="SDG",
+            period_start=date.today(), period_end=date.today() + timedelta(days=30),
+            status=SubscriptionInvoice.ISSUED, due_at=timezone.now(),
+        )
+        with self.assertRaises(ValidationError):
+            verify_and_allocate_payment(
+                payment.pk, self.admin,
+                [{"invoice_id": invoice.pk, "amount": Decimal("500000.00")}],
+            )
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionPayment.REJECTED)
+
     def test_two_pending_payments_never_buy_the_same_period(self):
         first, second = self._pay(), self._pay()
         first_preview, second_preview = self._preview(first), self._preview(second)

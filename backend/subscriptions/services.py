@@ -262,6 +262,10 @@ def verify_and_allocate_payment(payment_id, actor, allocations):
     payment = SubscriptionPayment.objects.select_for_update().get(pk=payment_id)
     if payment.status == SubscriptionPayment.VERIFIED:
         return payment
+    if payment.status != SubscriptionPayment.PENDING:
+        # A rejected payment was closed with a reason the company can see;
+        # the company records a corrected one instead.
+        raise ValidationError(_("Only a pending payment can be approved."))
     # Payment, then subscription, then invoices: the same order as
     # subscriptions.renewals.renew_with_payment, so two approvals for one
     # company queue instead of deadlocking.
