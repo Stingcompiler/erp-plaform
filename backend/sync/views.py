@@ -469,6 +469,11 @@ class SyncPullView(APIView):
 
             if key == "products":
                 qs = _with_on_hand(qs, request.user)
+            elif key == "customers":
+                # One query for the page, not several per invoice per customer.
+                from sales.querysets import with_ar_balance
+
+                qs = with_ar_balance(qs)
 
             rows = list(qs.order_by(ts_field, "pk")[:501])
             more_for_key = len(rows) > 500

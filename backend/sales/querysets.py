@@ -67,3 +67,40 @@ def receivable_total(qs):
     return open_invoices(qs).aggregate(
         t=Coalesce(Sum("outstanding"), ZERO, output_field=MONEY)
     )["t"]
+
+
+def with_ar_balance(customer_qs):
+    """Annotate `ar_balance_sql` on a Customer queryset: exactly
+    `Customer.ar_balance()` (the sum of every non-void invoice's
+    `amount_due()`, credit balances included), in the same query as the
+    customers themselves.
+
+    `ar_balance()` walks the invoices with several queries each, so a list
+    of 500 customers with 50 invoices apiece cost ~100k queries. Each term
+    here is one correlated subquery per customer over the customer's
+    non-void invoices — the arithmetic of `with_outstanding`, grouped by
+    customer instead of by invoice."""
+    from returns.models import CreditNote
+    from sales.models import Invoice, Payment, Refund
+
+    totals = _sum_for(Invoice, "customer_id", "total", is_void=False)
+    paid = _sum_for(Payment, "invoice__customer_id", invoice__is_void=False)
+    credited = _sum_for(
+        CreditNote, "invoice__customer_id", is_void=False, invoice__is_void=False
+    )
+    refunded = _sum_for(
+        Refund, "credit_note__invoice__customer_id", credit_note__invoice__is_void=False
+    )
+    spent = _sum_for(
+        Payment, "credit_note__invoice__customer_id",
+        method=Payment.STORE_CREDIT, credit_note__invoice__is_void=False,
+    )
+    return customer_qs.annotate(
+        ar_balance_sql=(
+            Coalesce(Subquery(totals), ZERO, output_field=MONEY)
+            - Coalesce(Subquery(paid), ZERO, output_field=MONEY)
+            - Coalesce(Subquery(credited), ZERO, output_field=MONEY)
+            + Coalesce(Subquery(refunded), ZERO, output_field=MONEY)
+            + Coalesce(Subquery(spent), ZERO, output_field=MONEY)
+        )
+    )

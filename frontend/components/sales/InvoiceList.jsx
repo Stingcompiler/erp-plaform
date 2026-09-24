@@ -31,6 +31,15 @@ export default function InvoiceList({ refreshKey }) {
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState(null);
   const [voiding, setVoiding] = useState(null);
+  // What the void hands back: money to refund vs. store credit kept as credit.
+  const [voidPreview, setVoidPreview] = useState(null);
+  useEffect(() => {
+    setVoidPreview(null);
+    if (!voiding) return undefined;
+    let live = true;
+    sales.voidPreview(voiding.id).then((r) => { if (live) setVoidPreview(r.data); }).catch(() => {});
+    return () => { live = false; };
+  }, [voiding]);
   const generation = useRef(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -179,7 +188,8 @@ export default function InvoiceList({ refreshKey }) {
         onDone={load}
         title={t("corrections.voidInvoice")}
         summary={voiding ? `${voiding.number_display || voiding.number} · ${money(voiding.total)}` : ""}
-        paidAmount={voiding?.amount_paid}
+        paidAmount={voidPreview ? voidPreview.refund : voiding?.amount_paid}
+        creditAmount={voidPreview?.credit}
         submit={(body) => sales.voidInvoice(voiding.id, body)}
       />
     </Card>

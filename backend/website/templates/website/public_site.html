@@ -278,7 +278,7 @@ footer.site a{color:var(--muted)}
 {% if accept_orders %}
 <script>
 (function () {
-  var api = "{{ order_api }}", lang = "{{ language }}", currency = "{{ currency }}";
+  var api = "{{ order_api }}", lang = "{{ language }}", currency = "{{ currency }}", taxed = {{ order_taxed|yesno:"true,false" }};
   var cart = {}, names = {}, prices = {};
   var section = document.getElementById("order"), list = document.getElementById("cart"),
       totalEl = document.getElementById("cart-total"), fab = document.getElementById("cart-fab"),
@@ -297,7 +297,7 @@ footer.site a{color:var(--muted)}
       li.querySelector(".p").textContent = prices[id] === "" ? (lang === "ar" ? "اطلب السعر" : "ask") : money(Number(prices[id]) * q);
       list.appendChild(li);
     });
-    totalEl.textContent = ids.length ? ((lang === "ar" ? "الإجمالي: " : "Total: ") + (priced ? money(total) : (lang === "ar" ? "يؤكده المحل" : "confirmed by the shop"))) : "";
+    totalEl.textContent = ids.length ? ((taxed ? (lang === "ar" ? "الإجمالي قبل الضريبة: " : "Total before tax: ") : (lang === "ar" ? "الإجمالي: " : "Total: ")) + (priced ? money(total) : (lang === "ar" ? "يؤكده المحل" : "confirmed by the shop")) + (taxed && priced ? (lang === "ar" ? " — تُضاف الضريبة عند إرسال الطلب" : " — tax is added when you send the order") : "")) : "";
     section.hidden = !ids.length; fab.hidden = !ids.length; count.textContent = qty;
   }
   document.querySelectorAll("[data-add]").forEach(function (b) {
@@ -332,7 +332,8 @@ footer.site a{color:var(--muted)}
         document.getElementById("order-ref").textContent = o.reference;
         var dl = document.getElementById("done-lines"); dl.innerHTML = "";
         (o.lines || []).forEach(function (l) { var li = document.createElement("li"); li.innerHTML = '<span class="n"></span><span class="p"></span>'; li.querySelector(".n").textContent = l.name + " × " + Number(l.quantity); li.querySelector(".p").textContent = l.unit_price == null ? (lang === "ar" ? "يؤكده المحل" : "confirmed by the shop") : money(Number(l.unit_price) * Number(l.quantity)); dl.appendChild(li); });
-        document.getElementById("done-total").textContent = (lang === "ar" ? "الإجمالي: " : "Total: ") + (o.priced ? money(Number(o.total)) : (lang === "ar" ? "يؤكده المحل" : "confirmed by the shop"));
+        var taxed = o.priced && Number(o.tax_amount) > 0;
+        document.getElementById("done-total").textContent = (taxed ? ((lang === "ar" ? "الإجمالي شامل الضريبة (" : "Total including tax (") + money(Number(o.tax_amount)) + "): ") : (lang === "ar" ? "الإجمالي: " : "Total: ")) + (o.priced ? money(Number(o.total)) : (lang === "ar" ? "يؤكده المحل" : "confirmed by the shop"));
         var accts = document.getElementById("done-accounts-list"); accts.innerHTML = "";
         (o.bank_accounts || []).forEach(function (a) { var d = document.createElement("div"); d.className = "acct"; d.innerHTML = "<b></b> <span></span> <code></code>"; d.children[0].textContent = a.bank_name; d.children[1].textContent = a.account_name; d.children[2].textContent = a.account_number; accts.appendChild(d); });
         document.getElementById("done-accounts").hidden = !(o.pay_url && o.priced);

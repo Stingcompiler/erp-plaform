@@ -570,8 +570,12 @@ class PublicOrder(models.Model):
     note = models.TextField(blank=True)
     language = models.CharField(max_length=8, blank=True)
     currency = models.CharField(max_length=8)
-    # Sum of the lines whose price was shown; None when any line hides it.
+    # What the customer pays, tax included (the same tax handler the till
+    # uses), so the page, the email and the invoice agree; None when any
+    # line hides its price. Orders placed before tax was quoted hold the
+    # pre-tax sum and a null tax_amount.
     total = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+    tax_amount = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
     customer = models.ForeignKey(
         "sales.Customer", null=True, blank=True, on_delete=models.SET_NULL,
         related_name="public_orders",

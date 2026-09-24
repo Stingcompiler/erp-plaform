@@ -438,7 +438,8 @@ class PublicOrderSerializer(serializers.ModelSerializer):
         model = PublicOrder
         fields = [
             "id", "reference", "status", "contact_name", "phone", "delivery_mode", "address",
-            "note", "language", "currency", "total", "branch", "branch_name", "customer",
+            "note", "language", "currency", "total", "tax_amount", "branch", "branch_name",
+            "customer",
             "customer_name", "sales_order", "decided_by_name", "decided_at", "decision_note",
             "whatsapp", "created_at", "lines", "payments", "email",
         ]

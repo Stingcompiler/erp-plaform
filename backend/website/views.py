@@ -896,6 +896,8 @@ class PublicOrderViewSet(
         confirm_payment(
             self._claim(pk, claim_pk), request.user, request, warehouse=warehouse,
             note=str(request.data.get("note") or "")[:1000],
+            surplus_returned=str(request.data.get("surplus_returned", "")).lower()
+            in ("1", "true", "yes"),
         )
         return Response(self.get_serializer(self.get_object()).data)
 

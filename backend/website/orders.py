@@ -109,7 +109,13 @@ def place_order(site, payload, request=None):
         raise ValidationError({"lines": _("Add at least one product.")})
     if len(raw_lines) > MAX_LINES:
         raise ValidationError({"lines": _("Too many lines for one order.")})
-    lines, total, priced = [], Decimal("0"), True
+    from sales.serializers import _q2, tax_handler_for
+
+    # Tax the way the till does (per line, the company's handler): the
+    # confirmation invoices through the till's checkout, so a pre-tax quote
+    # left the customer owing the tax after paying "in full".
+    handler = tax_handler_for(company)
+    lines, total, tax, priced = [], Decimal("0"), Decimal("0"), True
     for raw in raw_lines:
         try:
             product_id = int(raw.get("product"))
@@ -125,7 +131,9 @@ def place_order(site, payload, request=None):
         if price is None:
             priced = False
         else:
-            total += price * quantity
+            line_total = _q2(price * quantity)
+            total += line_total
+            tax += handler.compute_tax(line_total, item.product)
         lines.append((item.product, quantity, price))
 
     visitor = ""
@@ -142,8 +150,8 @@ def place_order(site, payload, request=None):
         company=company, website=site, branch=branch, reference=_new_reference(),
         contact_name=name, phone=phone, email=email, delivery_mode=mode, address=address,
         note=str(payload.get("note") or "").strip()[:2000], language=language,
-        currency=company.currency, total=total.quantize(Decimal("0.01")) if priced else None,
-        visitor_hash=visitor,
+        currency=company.currency, total=_q2(total + tax) if priced else None,
+        tax_amount=_q2(tax) if priced else None, visitor_hash=visitor,
     )
     PublicOrderLine.objects.bulk_create([
         PublicOrderLine(order=order, product=product, name=product.name, quantity=qty,
@@ -182,8 +190,12 @@ def email_customer(order):
     ar.append("المنتجات: " + "، ".join(lines) + ".")
     en.append("Items: " + ", ".join(lines) + ".")
     if total:
-        ar.append(f"الإجمالي: {total}.")
-        en.append(f"Total: {total}.")
+        if order.tax_amount:
+            ar.append(f"الإجمالي شامل الضريبة ({order.tax_amount} {order.currency}): {total}.")
+            en.append(f"Total including tax ({order.tax_amount} {order.currency}): {total}.")
+        else:
+            ar.append(f"الإجمالي: {total}.")
+            en.append(f"Total: {total}.")
     else:
         ar.append("سيؤكد المحل المبلغ عند مراجعة الطلب.")
         en.append("The shop will confirm the amount when it reviews the order.")
@@ -238,6 +250,9 @@ def notify_branch(order):
     from core import push
 
     lines = ", ".join(f"{line.name} × {line.quantity:g}" for line in order.lines.all())
+    # The tax-inclusive total, as the customer was quoted it.
+    total = f"{order.total} {order.currency}" if order.total is not None else ""
+    taxed = bool(order.tax_amount)
     where = order.branch.name if order.branch else order.company.name
     origin = getattr(settings, "PUBLIC_APP_ORIGIN", "") or ""
     path = f"/web-orders/?ref={order.reference}"
@@ -247,7 +262,7 @@ def notify_branch(order):
         push.send_to_user(
             user,
             title=f"طلب جديد {order.reference} · New order",
-            body=f"{order.contact_name} · {lines}"[:180],
+            body=" · ".join(p for p in (order.contact_name, total, lines) if p)[:180],
             url=path,
             tag=f"web-order-{order.reference}",
         )
@@ -261,12 +276,15 @@ def notify_branch(order):
                 f"مرحباً {greeting}،",
                 f"وصل طلب جديد إلى {where} من {order.contact_name} ({order.phone}).",
                 f"المنتجات: {lines}.",
+                *([f"{'الإجمالي شامل الضريبة' if taxed else 'الإجمالي'}: {total}."]
+                  if total else []),
                 "أكّده أو ارفضه من صفحة «الطلبات الخارجية».",
             ],
             en=[
                 f"Hello {greeting},",
                 f"A new order reached {where} from {order.contact_name} ({order.phone}).",
                 f"Items: {lines}.",
+                *([f"{'Total including tax' if taxed else 'Total'}: {total}."] if total else []),
                 "Confirm or reject it from the “External orders” page.",
             ],
             link=link,
@@ -313,6 +331,20 @@ def confirm(order, actor, note=""):
     sales_order.tax_amount = _q2(tax)
     sales_order.total = sales_order.subtotal + sales_order.tax_amount
     sales_order.save(update_fields=["subtotal", "tax_amount", "total"])
+    if order.total != sales_order.total or order.tax_amount != sales_order.tax_amount:
+        # The invoice charges the sales order's total. An order whose prices
+        # the shop confirms only now, one placed before quotes included tax,
+        # or one caught by a tax-rate change gets the figure it will really
+        # be invoiced at, so the page the customer pays from agrees with it.
+        if order.total is not None:
+            log_activity(
+                action="public_order_repriced", company=company, entity_type="PublicOrder",
+                entity_id=order.pk,
+                metadata={"reference": order.reference, "quoted": str(order.total),
+                          "invoiced": str(sales_order.total)},
+            )
+        order.total = sales_order.total
+        order.tax_amount = sales_order.tax_amount
     order.status = PublicOrder.CONFIRMED
     order.customer = customer
     order.sales_order = sales_order

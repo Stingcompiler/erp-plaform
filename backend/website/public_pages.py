@@ -246,6 +246,14 @@ def _layout(data):
     }
 
 
+def _company_taxed(company):
+    """True when the company charges tax, so the cart can say its sum is
+    before tax (the order is then quoted tax-inclusive)."""
+    from sales.serializers import tax_handler_for
+
+    return tax_handler_for(company).rate() > 0
+
+
 def _lines(text):
     return [line.strip() for line in (text or "").splitlines() if line.strip()]
 
@@ -321,6 +329,8 @@ def render_site(request, site, *, preview=False):
             site.company.branches.filter(is_active=True).values("id", "name", "phone")
         ) if data.get("accept_orders") else [],
         "order_api": f"/api/public/site/{slug}/orders/",
+        # The cart sums shown prices; the order itself is quoted with tax.
+        "order_taxed": bool(data.get("accept_orders")) and _company_taxed(site.company),
         "platform_url": site_url("/"),
         "directory_url": site_url("/s/"),
         "preview": preview,

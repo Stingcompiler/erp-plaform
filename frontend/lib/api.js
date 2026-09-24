@@ -172,6 +172,8 @@ export const sales = {
   // Rule #9: an invoice is cancelled by offsetting entries (credit note,
   // stock reversal, refund of anything paid), never edited.
   voidInvoice: (id, body) => api.post(`/invoices/${id}/void/`, body),
+  // { refund, credit }: money to hand back vs. store credit kept as credit.
+  voidPreview: (id) => api.get(`/invoices/${id}/void-preview/`),
   refunds: (params) => api.get("/refunds/", { params }),
   createRefund: (body) => api.post("/refunds/", body),
   refundDocument: (id) => api.get(`/refunds/${id}/document/`),
