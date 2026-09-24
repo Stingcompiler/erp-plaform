@@ -215,6 +215,25 @@ class ProductSerializer(serializers.ModelSerializer):
         # A house SKU is allocated when one isn't supplied — see create().
         extra_kwargs = {"sku": {"required": False, "allow_blank": True}}
 
+    # What the goods cost is hidden from roles that only sell or read the
+    # catalogue (core.rbac.can_see_cost): a cashier who sees it knows how
+    # far a price can be pushed. The till does not need it — the price
+    # floor is enforced by the server at checkout.
+    COST_FIELDS = ("cost_price", "reference_cost")
+
+    def _sees_cost(self):
+        from core.rbac import can_see_cost
+
+        request = self.context.get("request")
+        return request is None or can_see_cost(request.user)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not self._sees_cost():
+            for name in self.COST_FIELDS:
+                data.pop(name, None)
+        return data
+
     def get_image_url(self, obj):
         from core.public_media import stored_public_url
 
@@ -257,6 +276,9 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         _assert_tenant_relations(self, attrs, ("category", "brand", "unit"))
+        if not self._sees_cost():
+            for name in self.COST_FIELDS:
+                attrs.pop(name, None)
         instance = self.instance
         if (
             instance is not None and instance.track_batches

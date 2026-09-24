@@ -893,7 +893,10 @@ class InvoiceViewSet(
             [
                 [
                     inv.number_display,
-                    inv.issued_at.date().isoformat() if inv.issued_at else "",
+                    (
+                        timezone.localdate(inv.issued_at).isoformat()
+                        if inv.issued_at else ""
+                    ),
                     inv.due_date.isoformat() if inv.due_date else "",
                     inv.customer.name if inv.customer_id else "",
                     inv.status,
@@ -1060,6 +1063,24 @@ class POSCheckoutView(APIView):
             ).exists()
         )
 
+    @staticmethod
+    def _clock_corrected(data):
+        """The body with its device times shifted by the device's clock error.
+
+        The till stamps `occurred_at` and `sent_at` from its own clock. A
+        tablet a day behind dated an online sale yesterday; one ten minutes
+        fast was refused as "in the future". With `sent_at` the gap to the
+        server's clock is the device's error, and the same correction the
+        sync push applies (sync.views.correct_device_clock) puts the sale at
+        the server's now. Older clients send no `sent_at` and are unchanged."""
+        if not isinstance(data, dict) or not data.get("sent_at"):
+            return data
+        from sync.views import correct_device_clock
+
+        payload = dict(data)
+        correct_device_clock([{"payload": payload}], payload.get("sent_at"))
+        return payload
+
     def post(self, request):
         client_uuid = valid_client_uuid(request.data.get("client_uuid"))
         if client_uuid:
@@ -1076,7 +1097,7 @@ class POSCheckoutView(APIView):
                 )
 
         serializer = POSCheckoutSerializer(
-            data=request.data, context={"request": request}
+            data=self._clock_corrected(request.data), context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
         try:

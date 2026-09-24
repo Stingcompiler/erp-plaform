@@ -174,6 +174,8 @@ export default function SettingsPage() {
         ...(canApprove ? {
           payment_approval_threshold: company.payment_approval_threshold,
           stock_adjustment_approval_threshold: company.stock_adjustment_approval_threshold,
+          // Empty clears the limit (null on the server).
+          max_discount_percent: company.max_discount_percent ?? "",
         } : {}),
       });
       setCompany(r.data);
@@ -341,6 +343,11 @@ export default function SettingsPage() {
                   <Input type="number" inputMode="decimal" min="0" step="0.01"
                     value={company.stock_adjustment_approval_threshold ?? ""}
                     onChange={setCo("stock_adjustment_approval_threshold")} disabled={!writable} />
+                </Field>
+                <Field label={t("settings.maxDiscount")} hint={t("settings.maxDiscountHint")}>
+                  <Input type="number" inputMode="decimal" min="0" max="100" step="0.5"
+                    value={company.max_discount_percent ?? ""}
+                    onChange={setCo("max_discount_percent")} disabled={!writable} className="w-32" />
                 </Field>
               </div>
             )}

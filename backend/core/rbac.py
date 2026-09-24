@@ -241,6 +241,26 @@ def can_approve_high_value(user):
     return bool(role and role.name in APPROVER_ROLES)
 
 
+def can_see_cost(user):
+    """True when this user may see what goods cost the business.
+
+    Cost is the margin's other half: whoever sees it at the till knows how
+    far a price can be pushed. It is for the people who buy (purchasing),
+    count and value stock (inventory write), keep the books (finance) and
+    approve (owner, GM, CFO) — not for a cashier, a CRM officer or a viewer,
+    who read the catalogue for its prices and stock."""
+    if getattr(user, "is_platform_admin", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    return bool(
+        can_approve_high_value(user)
+        or role_can(user, "inventory", write=True)
+        or role_can(user, "purchasing", write=True)
+        or role_can(user, "finance", write=False)
+    )
+
+
 # Roles permitted to hard-delete a record. Module *write* access is deliberately
 # not enough: an officer may create and correct their own work, but removing a
 # row outright is a supervisory act. Branch Manager is included because tier-C
