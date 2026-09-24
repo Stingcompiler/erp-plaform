@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-24 08:40+0000\n"
+"POT-Creation-Date: 2026-09-24 09:57+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -513,8 +513,11 @@ msgid "An approved payroll is locked and cannot be recalculated."
 msgstr "مسيّر الرواتب المعتمد مقفل ولا يمكن إعادة احتسابه."
 
 #, python-format
-msgid "Advances or deductions changed since this payroll was calculated (%(names)s). Recalculate it, then approve."
-msgstr "تغيّرت السلف أو الخصومات منذ حساب هذا الكشف (%(names)s). أعد حسابه ثم اعتمده."
+msgid ""
+"Advances or deductions changed since this payroll was calculated "
+"(%(names)s). Recalculate it, then approve."
+msgstr ""
+"تغيّرت السلف أو الخصومات منذ حساب هذا الكشف (%(names)s). أعد حسابه ثم اعتمده."
 
 msgid ""
 "A deduction cannot be deleted because it affects payroll. Record an "
@@ -794,6 +797,9 @@ msgstr "أمر الشراء ليس لهذا المورّد."
 msgid "A cancelled purchase order cannot be received."
 msgstr "لا يمكن الاستلام على أمر شراء ملغى."
 
+msgid "Send or confirm the purchase order before receiving it."
+msgstr "أرسل أمر الشراء أو أكّده قبل استلام البضاعة عليه."
+
 msgid "Every received product must be on the purchase order."
 msgstr "كل صنف مستلَم يجب أن يكون في أمر الشراء."
 
@@ -807,6 +813,10 @@ msgstr "الاستلام بعملة الشركة سعر صرفه 1."
 #, python-format
 msgid "Give the %(from)s->%(to)s rate."
 msgstr "أدخل سعر صرف %(from)s إلى %(to)s."
+
+#, python-format
+msgid "Invoice %(number)s from this supplier is already recorded."
+msgstr "فاتورة المورد رقم %(number)s مسجّلة من قبل."
 
 msgid "Goods receipt is not for this supplier."
 msgstr "إذن الاستلام ليس لهذا المورّد."
@@ -875,6 +885,9 @@ msgstr "فاتورة المورّد هذه مُبطَلة بالفعل."
 msgid "Payments were recorded against this bill; it cannot be voided."
 msgstr "سُجّلت دفعات على فاتورة المورّد هذه، لذا لا يمكن إبطالها."
 
+msgid "Debit notes are recorded against this bill; void them first, then void the bill."
+msgstr "على هذه الفاتورة إشعارات مدينة؛ ألغِها أولًا ثم ألغِ الفاتورة."
+
 msgid "Already verified."
 msgstr "تم التحقق منها مسبقًا."
 
@@ -942,6 +955,10 @@ msgstr "الفاتورة ليست لهذا الاستلام."
 #, python-format
 msgid "The debit note cannot exceed the goods' cost (%(cost)s)."
 msgstr "الإشعار المدين لا يمكن أن يتجاوز تكلفة البضاعة (%(cost)s)."
+
+#, python-format
+msgid "The debit note (%(amount)s) is more than this bill still owes (%(due)s)."
+msgstr "الإشعار المدين (%(amount)s) أكبر من المتبقي على هذه الفاتورة (%(due)s)."
 
 msgid "Customer must match the linked invoice."
 msgstr "العميل يجب أن يطابق الفاتورة المرتبطة."

@@ -68,12 +68,19 @@ class PurchaseOrderLineSerializer(serializers.ModelSerializer):
     remaining_quantity = serializers.SerializerMethodField()
     product_name = serializers.CharField(source="product.name", read_only=True, default="")
     product_sku = serializers.CharField(source="product.sku", read_only=True, default="")
+    # The receiving screen asks for lot and expiry only on these lines; it
+    # used to assume "not tracked" for every order line, and the server then
+    # refused the receipt with no field to type the lot into.
+    product_track_batches = serializers.BooleanField(
+        source="product.track_batches", read_only=True, default=False
+    )
 
     class Meta:
         model = PurchaseOrderLine
         fields = [
             "id", "product", "product_name", "product_sku", "description", "quantity_ordered",
             "unit_cost", "line_total", "received_quantity", "remaining_quantity",
+            "product_track_batches",
         ]
         read_only_fields = ["line_total"]
 
@@ -225,6 +232,12 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
             if po.status == PurchaseOrder.CANCELLED:
                 raise serializers.ValidationError(
                     {"purchase_order": _("A cancelled purchase order cannot be received.")}
+                )
+            # A draft was never sent or approved: goods cannot arrive against
+            # it (receiving one brought stock in on an order nobody agreed).
+            if po.status == PurchaseOrder.DRAFT:
+                raise serializers.ValidationError(
+                    {"purchase_order": _("Send or confirm the purchase order before receiving it.")}
                 )
             ordered_products = set(po.lines.values_list("product_id", flat=True))
             unknown = [
@@ -385,7 +398,12 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
             # Roll the standard cost forward to the latest landed cost, so
             # "standard" valuation follows what the company actually pays
             # instead of a number someone typed once. Logged as a change.
-            if ledger_cost and ledger_cost != product.cost_price:
+            # ...unless a receipt of this product dated later already set it:
+            # an offline receipt synced late must not wind the cost back.
+            newer = GoodsReceiptLine.objects.filter(
+                product=product, receipt__received_at__gt=occurred_at,
+            ).exclude(receipt=receipt).exists() if occurred_at else False
+            if ledger_cost and ledger_cost != product.cost_price and not newer:
                 previous = product.cost_price
                 Product.objects.filter(pk=product.pk).update(cost_price=ledger_cost)
                 log_activity(
@@ -495,6 +513,20 @@ class BillSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"purchase_order": _("Purchase order is not for this supplier.")}
             )
+        # The supplier's own invoice number is recorded once: entering the
+        # same paper invoice twice is how a supplier gets paid twice.
+        number = (attrs.get("supplier_invoice_number") or "").strip()
+        if number and supplier is not None:
+            same = Bill.objects.filter(
+                company_id=supplier.company_id, supplier=supplier, is_void=False,
+                supplier_invoice_number__iexact=number,
+            )
+            if self.instance is not None:
+                same = same.exclude(pk=self.instance.pk)
+            if same.exists():
+                raise serializers.ValidationError({"supplier_invoice_number": _(
+                    "Invoice %(number)s from this supplier is already recorded."
+                ) % {"number": number}})
         if receipt is not None and supplier is not None:
             if receipt.supplier_id != supplier.pk:
                 raise serializers.ValidationError(
@@ -583,7 +615,11 @@ class SupplierPaymentSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "company", "recorded_by", "recorded_at", "verified_at", "verified_by",
         ]
-        extra_kwargs = {"bill": {"required": False, "allow_null": True}}
+        # A payment settles a bill: the column is NOT NULL, and a payment sent
+        # without one crashed the server (and failed every sync retry). An
+        # advance to a supplier needs its own document; until then it is
+        # refused with a field error instead of a 500.
+        extra_kwargs = {"bill": {"required": True, "allow_null": False}}
 
     def validate(self, attrs):
         amount = attrs.get("amount")
