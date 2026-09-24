@@ -7,6 +7,8 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import Drawer from "@/components/ui/Drawer";
 import { Button, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
+import { round2 } from "@/lib/money";
+import { useStableIds } from "@/lib/useStableIds";
 
 /**
  * Records a supplier's invoice (a bill).
@@ -32,17 +34,21 @@ export default function NewBillDrawer({ open, onClose, onSaved, suppliers }) {
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const { idFor, reset } = useStableIds();
 
   useEffect(() => {
     setForm(EMPTY);
     setError("");
-  }, [open]);
+    reset();
+  }, [open, reset]);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
-  const subtotal = Number(form.subtotal || 0);
-  const tax = Number(form.tax_amount || 0);
-  const total = subtotal + tax;
+  // Rounded to cents like the server: 100.10 + 15.02 summed in floating
+  // point is 115.11999999999999, which the API refused as "too many digits".
+  const subtotal = round2(form.subtotal);
+  const tax = round2(form.tax_amount);
+  const total = round2(subtotal + tax);
 
   async function save() {
     setError("");
@@ -57,12 +63,14 @@ export default function NewBillDrawer({ open, onClose, onSaved, suppliers }) {
     setSaving(true);
     try {
       await purchasing.createBill({
-        client_uuid: crypto.randomUUID(),
+        // One key per bill being entered: a retry after a timeout replays
+        // the same bill instead of creating a second one.
+        client_uuid: idFor(),
         supplier: Number(form.supplier),
-        supplier_invoice_number: form.supplier_invoice_number,
-        subtotal: String(subtotal),
-        tax_amount: String(tax),
-        total: String(total),
+        supplier_invoice_number: form.supplier_invoice_number.trim(),
+        subtotal: subtotal.toFixed(2),
+        tax_amount: tax.toFixed(2),
+        total: total.toFixed(2),
         payment_terms_days: Number(form.payment_terms_days || 0),
       });
       onSaved();

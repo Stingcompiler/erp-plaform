@@ -41,7 +41,7 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived, i
       .map((l) => ({
         id: l.product, sku: l.product_sku, name: l.product_name,
         qty: Number(l.remaining_quantity), unit_cost: String(l.unit_cost ?? "0"),
-        tracked: false, lot: "", expiry: "",
+        tracked: Boolean(l.product_track_batches), lot: "", expiry: "",
       })));
     if (!receiptUuid.current) receiptUuid.current = crypto.randomUUID();
   }, [initialOrder]);

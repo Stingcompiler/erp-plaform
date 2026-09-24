@@ -23,6 +23,7 @@ from core.scoping import (
     CompanyScopedModelViewSet,
     CompanyScopedQuerySetMixin,
 )
+from purchasing.querysets import open_bills
 from purchasing.models import (
     Bill,
     GoodsReceipt,
@@ -338,6 +339,20 @@ class BillViewSet(AppendOnlyScopedViewSet):
     serializer_class = BillSerializer
     activity_entity_type = "Bill"
 
+    def get_queryset(self):
+        # ?unpaid=1 — the bills still owing (the list opens on these, so an
+        # old unpaid bill is not buried past the first page); ?supplier=<id>
+        # — one supplier's bills (the return drawer linked notes to bills it
+        # could only find among the company's 50 newest).
+        qs = super().get_queryset()
+        params = self.request.query_params
+        supplier = params.get("supplier")
+        if supplier and str(supplier).isdigit():
+            qs = qs.filter(supplier_id=int(supplier))
+        if params.get("unpaid") in ("1", "true"):
+            qs = open_bills(qs.filter(is_void=False))
+        return qs
+
     @action(detail=True, methods=["post"])
     def void(self, request, pk=None):
         """A bill keyed wrongly (1,000,000 for 100,000) inflated payables for
@@ -364,6 +379,18 @@ class BillViewSet(AppendOnlyScopedViewSet):
             if bill.payments.exists():
                 return Response(
                     {"detail": _("Payments were recorded against this bill; it cannot be voided.")},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # A debit note (goods returned, price corrected) lowers what is
+            # owed on this bill. Voiding the bill kept the note on it, so the
+            # replacement bill owed the full amount again and the credit was
+            # lost.
+            if bill.debit_notes.filter(is_void=False).exists():
+                return Response(
+                    {"detail": _(
+                        "Debit notes are recorded against this bill; void them first, "
+                        "then void the bill."
+                    )},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             bill.is_void = True
@@ -431,7 +458,10 @@ class SupplierPaymentViewSet(AppendOnlyScopedViewSet):
             )
         # Outgoing money above the threshold needs approver-role sign-off.
         threshold = getattr(payment.company, "payment_approval_threshold", 0) or 0
-        if threshold and payment.amount >= threshold and not can_approve_high_value(request.user):
+        # The threshold is in the company currency; a USD 10,000 payment is
+        # compared at its rate, not as "10,000".
+        in_base = payment.amount * (payment.exchange_rate or 1)
+        if threshold and in_base >= threshold and not can_approve_high_value(request.user):
             return Response(
                 {
                     "detail": _(

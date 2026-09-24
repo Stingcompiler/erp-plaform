@@ -2381,6 +2381,9 @@ const en = {
     searchToAddShort: "Search a product to add…",
   },
   purchasing: {
+    onlyUnpaid: "Unpaid only",
+    loadMoreBills: "Show more bills",
+    billStatus: { open: "Unpaid", partially_paid: "Partly paid", paid: "Paid", void: "Void" },
     emptySuppliersTitle: "No suppliers yet",
     emptySuppliersBody: "Suppliers are who you buy stock from. Add them one by one, or import your list from a spreadsheet.",
     emptyBillsTitle: "No bills yet",
@@ -5129,6 +5132,9 @@ const ar = {
     searchToAddShort: "ابحث عن منتج لإضافته…",
   },
   purchasing: {
+    onlyUnpaid: "غير المسددة فقط",
+    loadMoreBills: "عرض المزيد من الفواتير",
+    billStatus: { open: "غير مسددة", partially_paid: "مسددة جزئيًا", paid: "مسددة", void: "ملغاة" },
     emptySuppliersTitle: "لا يوجد موردون بعد",
     emptySuppliersBody: "الموردون هم من تشتري منهم البضاعة. أضفهم واحدًا واحدًا، أو استورد قائمتك من جدول بيانات.",
     emptyBillsTitle: "لا توجد فواتير مشتريات بعد",
