@@ -12,10 +12,11 @@ import TabBar from "@/components/ui/TabBar";
 import { Badge, Card, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { SkeletonRows } from "@/components/ui/Skeleton";
+import { localToday } from "@/lib/dates";
 
 const STATUSES = ["present", "absent", "half_day", "leave"];
 const TONE = { present: "ok", absent: "danger", half_day: "warn", leave: "accent" };
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => localToday();
 
 async function allEmployees() {
   const rows = [];

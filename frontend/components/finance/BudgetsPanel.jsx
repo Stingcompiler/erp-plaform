@@ -11,6 +11,7 @@ import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { SkeletonLines, SkeletonRows } from "@/components/ui/Skeleton";
+import { expenseCategory } from "@/lib/expenseCategories";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -103,7 +104,7 @@ function VarianceTable({ budgetId }) {
         </tr></thead>
         <tbody>{data.rows.map((r) => (
           <tr key={`${r.kind}-${r.category}`} className="border-b border-line last:border-0">
-            <td className="px-3 py-2"><span className="inline-flex items-center gap-2">{r.category}<Badge tone="muted">{t(`budgets.${r.kind}`)}</Badge></span></td>
+            <td className="px-3 py-2"><span className="inline-flex items-center gap-2">{expenseCategory(r.category, t)}<Badge tone="muted">{t(`budgets.${r.kind}`)}</Badge></span></td>
             <td className="tabular px-3 py-2 text-end text-muted">{money(r.planned)}</td>
             <td className="tabular px-3 py-2 text-end">{money(r.actual)}</td>
             <td className={`tabular px-3 py-2 text-end font-medium ${r.favourable ? "text-ok" : "text-danger"}`}>{money(r.variance)}{r.variance_pct != null && <span className="ms-1 text-xs text-muted">({r.variance_pct}%)</span>}</td>

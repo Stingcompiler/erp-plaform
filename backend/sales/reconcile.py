@@ -22,7 +22,7 @@ MAX_ROWS = 5000
 HEADERS = {
     "reference": {
         "reference", "ref", "ref no", "ref.", "reference no", "reference number",
-        "transaction id", "transaction", "txn id", "txn", "trx id", "trx", "id",
+        "transaction id", "transaction", "txn id", "txn", "trx id", "trx",
         "رقم العملية", "رقم المرجع", "المرجع", "مرجع", "رقم الحوالة", "رقم الإشعار",
         "رقم المعاملة", "رقم التحويل", "المعاملة",
     },
@@ -109,6 +109,23 @@ def _payment_row(payment):
     }
 
 
+DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d", "%d.%m.%Y")
+# A transfer is recorded a few days either side of the bank's value date.
+DATE_SLACK_DAYS = 5
+
+
+def _date(value):
+    from datetime import datetime
+
+    text = str(value or "").strip()[:10]
+    for fmt in DATE_FORMATS:
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
 def reconcile(company, account, uploaded, user, *, dry_run):
     """Match statement rows to this account's transfers; apply marks verified.
 
@@ -116,16 +133,28 @@ def reconcile(company, account, uploaded, user, *, dry_run):
     only against payments recorded without a full reference, and only when
     that pair is unique. Rows and payments are consumed once.
     """
+    from datetime import timedelta
+
+    from core.rbac import can_approve_high_value
+    from core.scoping import apply_branch_scope
     from sales.models import Payment
     from sales.serializers import normalise_reference
 
     if account.company_id != company.pk:
         raise ValidationError({"account": [_("Unknown account.")]})
+    # The same branch walls as the payments list: a branch user reconciled
+    # (and saw) every branch's transfers.
     payments = list(
-        Payment.objects.filter(
-            company=company, company_bank_account=account, method=Payment.BANK_TRANSFER,
+        apply_branch_scope(
+            Payment.objects.filter(
+                company=company, company_bank_account=account, method=Payment.BANK_TRANSFER,
+            ),
+            user, "invoice__branch", include_unassigned=False,
         ).select_related("invoice__customer", "recorded_by").order_by("recorded_at")
     )
+    threshold = getattr(company, "payment_approval_threshold", 0) or 0
+    approver = can_approve_high_value(user)
+    statement_days = []
     by_reference = {}
     by_last4_amount = {}
     for payment in payments:
@@ -146,6 +175,9 @@ def reconcile(company, account, uploaded, user, *, dry_run):
         rows += 1
         reference = normalise_reference(record.get("reference"))
         amount = _amount(record.get("amount"))
+        day = _date(record.get("date"))
+        if day:
+            statement_days.append(day)
         row = {
             "row": number, "reference": reference, "amount": amount,
             "date": record.get("date", ""), "sender": record.get("sender", ""),
@@ -159,6 +191,11 @@ def reconcile(company, account, uploaded, user, *, dry_run):
             digits = re.sub(r"\D", "", reference)
             candidates = [
                 p for p in by_last4_amount.get((digits[-4:], amount), []) if p.pk not in taken
+                # Last-4 + amount is weak evidence: only a payment recorded
+                # around this row's date (an old row verified a newer,
+                # unrelated payment with the same digits and amount).
+                and (day is None or abs((timezone.localdate(p.recorded_at) - day).days)
+                     <= DATE_SLACK_DAYS)
             ] if digits else []
             how = "last4_amount"
             if len(candidates) > 1:
@@ -168,14 +205,33 @@ def reconcile(company, account, uploaded, user, *, dry_run):
             unmatched_rows.append({**row, "reason": "not_recorded"})
             continue
         payment = candidates[0]
-        taken.add(payment.pk)
+        # One transfer settling several invoices is stored as one payment per
+        # invoice sharing a receipt_group: the statement row is their sum.
+        # Comparing it to the first payment alone never matched.
+        group = [
+            p for p in candidates
+            if payment.receipt_group and p.receipt_group == payment.receipt_group
+        ] or [payment]
+        taken.update(p.pk for p in group)
+        total = sum((p.amount for p in group), Decimal("0"))
         matched.append({
             **row, "how": how, "payment": _payment_row(payment),
-            "amount_differs": payment.amount != amount,
+            "payments": [_payment_row(p) for p in group],
+            "group_total": total,
+            "amount_differs": total != amount,
         })
 
+    # Unverified transfers are listed as "not on this statement" only when
+    # they fall in its period; otherwise every old one showed up each time.
+    if statement_days:
+        first = min(statement_days) - timedelta(days=DATE_SLACK_DAYS)
+        last = max(statement_days) + timedelta(days=DATE_SLACK_DAYS)
+        in_period = lambda p: first <= timezone.localdate(p.recorded_at) <= last  # noqa: E731
+    else:
+        in_period = lambda p: True  # noqa: E731
     unmatched_payments = [
-        _payment_row(p) for p in payments if p.pk not in taken and p.verified_at is None
+        _payment_row(p) for p in payments
+        if p.pk not in taken and p.verified_at is None and in_period(p)
     ]
 
     applied = skipped_self = already = 0
@@ -183,21 +239,33 @@ def reconcile(company, account, uploaded, user, *, dry_run):
         now = timezone.now()
         with transaction.atomic():
             for item in matched:
-                payment = next(p for p in payments if p.pk == item["payment"]["id"])
-                if payment.verified_at is not None:
+                # Re-read under a lock: two uploads of overlapping statements
+                # must not both verify (and count) the same transfer.
+                group = list(
+                    Payment.objects.select_for_update()
+                    .filter(pk__in=[p["id"] for p in item["payments"]]).order_by("pk")
+                )
+                if all(p.verified_at is not None for p in group):
                     already += 1
                     item["outcome"] = "already_verified"
                     continue
                 if item["amount_differs"]:
                     item["outcome"] = "amount_differs"
                     continue
-                if payment.recorded_by_id and payment.recorded_by_id == user.id:
+                if any(p.recorded_by_id and p.recorded_by_id == user.id for p in group):
                     skipped_self += 1
                     item["outcome"] = "self_recorded"
                     continue
-                payment.verified_at = now
-                payment.verified_by = user
-                payment.save(update_fields=["verified_at", "verified_by"])
+                # The manual verify refuses these for non-approvers; an upload
+                # verified them anyway.
+                if threshold and item["group_total"] >= threshold and not approver:
+                    item["outcome"] = "needs_approver"
+                    continue
+                for payment in group:
+                    if payment.verified_at is None:
+                        payment.verified_at = now
+                        payment.verified_by = user
+                        payment.save(update_fields=["verified_at", "verified_by"])
                 applied += 1
                 item["outcome"] = "verified"
     return {

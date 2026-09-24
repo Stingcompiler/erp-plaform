@@ -38,12 +38,20 @@ export default function MoneyLedger({ refreshKey }) {
   const [rows, setRows] = useState(null);
   const [doc, setDoc] = useState(null);
   const [busy, setBusy] = useState(null);
+  // Pages through history ("show more"): only the latest 50 used to load.
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
 
-  const load = useCallback(() => {
-    setRows(null);
-    const params = { page_size: 50 };
+  const load = useCallback((nextPage = 1) => {
+    if (nextPage === 1) setRows(null);
+    const params = { page_size: 50, page: nextPage };
     if (method) params.method = method;
-    SOURCES[tab].list(params).then((r) => setRows(r.data.results ?? r.data)).catch(() => setRows([]));
+    SOURCES[tab].list(params).then((r) => {
+      const batch = r.data.results ?? r.data;
+      setRows((prev) => (nextPage === 1 || !prev ? batch : [...prev, ...batch]));
+      setHasMore(Boolean(r.data.next));
+      setPage(nextPage);
+    }).catch(() => { if (nextPage === 1) setRows([]); });
   }, [tab, method]);
   useEffect(() => { load(); }, [load, refreshKey]);
 
@@ -52,7 +60,7 @@ export default function MoneyLedger({ refreshKey }) {
     try {
       await purchasing.verifySupplierPayment(row.id);
       toast.success(t("finance.ledger.verified"));
-      load();
+      load(1);
     } catch (err) {
       toast.error(errorText(err, t, "finance.verifyError"));
     } finally { setBusy(null); }
@@ -103,7 +111,7 @@ export default function MoneyLedger({ refreshKey }) {
                 <td className="px-3 py-2">{who(r)}</td>
                 <td className="px-3 py-2 text-muted">{ref(r)}</td>
                 <td className="px-3 py-2"><div>{r.method === "cash" ? t("finance.ledger.cash") : r.method === "credit" ? t("finance.ledger.storeCredit") : t("finance.ledger.bank")}</div>{bank(r) && <div className="text-xs text-muted">{bank(r)}{r.reference_last4 ? ` · ${r.reference_last4}` : ""}</div>}{r.credit_note_number && <div className="text-xs text-muted">{r.credit_note_number}</div>}</td>
-                <td className={`tabular px-3 py-2 text-end font-medium ${SOURCES[tab].out ? "text-danger" : "text-ok"}`}>{SOURCES[tab].out ? "−" : "+"}{money(r.amount)}{r.currency && r.currency !== "SDG" ? ` ${r.currency}` : ""}</td>
+                <td className={`tabular px-3 py-2 text-end font-medium ${SOURCES[tab].out ? "text-danger" : "text-ok"}`}>{SOURCES[tab].out ? "−" : "+"}{money(r.amount)}{r.currency && r.exchange_rate && Number(r.exchange_rate) !== 1 ? ` ${r.currency}` : ""}</td>
                 <td className="px-3 py-2 text-xs text-muted">
                   <div>{t("finance.recordedByName", { name: r.recorded_by_name || "—" })}</div>
                   {tab !== "refunds" && r.method !== "credit" && (r.verified_at ? <Badge tone="ok">{t("finance.ledger.verifiedBy", { name: r.verified_by_name || "—" })}</Badge> : <Badge tone="warn">{t("finance.ledger.unverified")}</Badge>)}
@@ -117,6 +125,11 @@ export default function MoneyLedger({ refreshKey }) {
               </tr>
             ))}</tbody>
           </table>
+          {hasMore && (
+            <div className="border-t border-line p-3 text-center">
+              <Button variant="outline" onClick={() => load(page + 1)}>{t("finance.ledger.loadMore")}</Button>
+            </div>
+          )}
         </div>
       )}
       <DocumentDrawer open={doc !== null} onClose={() => setDoc(null)} fetcher={SOURCES[tab].doc} id={doc} title={t("finance.ledger.voucher")} />

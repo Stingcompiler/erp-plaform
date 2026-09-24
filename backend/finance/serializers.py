@@ -17,12 +17,43 @@ class ExpenseSerializer(serializers.ModelSerializer):
         company = getattr(user, "company", None)
         threshold = getattr(company, "payment_approval_threshold", 0) or 0
         amount = attrs.get("amount")
-        if threshold and amount is not None and amount >= threshold:
-            if not can_approve_high_value(user):
-                raise serializers.ValidationError(
-                    {"amount": _("Expenses of %(threshold)s or more need a manager or owner.")
-                     % {"threshold": threshold}}
-                )
+        if amount is None or amount == 0:
+            raise serializers.ValidationError({"amount": _("Enter an amount other than zero.")})
+        # abs(): a -50,000 "expense" raised profit by 50,000 with no approval.
+        if threshold and abs(amount) >= threshold and not can_approve_high_value(user):
+            raise serializers.ValidationError(
+                {"amount": _("Expenses of %(threshold)s or more need a manager or owner.")
+                 % {"threshold": threshold}}
+            )
+        reverses = attrs.get("reverses")
+        if amount < 0:
+            # A negative amount only undoes a real expense, and never more
+            # than what is left of it.
+            if reverses is None:
+                raise serializers.ValidationError({"reverses": _(
+                    "A negative amount corrects an earlier expense: choose which one."
+                )})
+            if reverses.company_id != getattr(company, "pk", None):
+                raise serializers.ValidationError({"reverses": _("Not your company's expense.")})
+            left = reverses.amount + sum(c.amount for c in reverses.corrections.all())
+            if -amount > left:
+                raise serializers.ValidationError({"amount": _(
+                    "The correction (%(amount)s) is more than what is left of that expense "
+                    "(%(left)s)."
+                ) % {"amount": -amount, "left": left}})
+        elif reverses is not None:
+            raise serializers.ValidationError({"reverses": _(
+                "Only a negative amount can correct an earlier expense."
+            )})
+        account = attrs.get("company_bank_account")
+        if attrs.get("method") == Expense.BANK_TRANSFER and account is None:
+            raise serializers.ValidationError({"company_bank_account": _(
+                "Choose the bank account this expense was paid from."
+            )})
+        if account is not None and account.company_id != getattr(company, "pk", None):
+            raise serializers.ValidationError(
+                {"company_bank_account": _("Not your company's bank account.")}
+            )
         return attrs
 
     method_display = serializers.CharField(source="get_method_display", read_only=True)
@@ -35,7 +66,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
         fields = [
             "id", "category", "description", "amount", "method",
             "method_display", "date", "recorded_by_name", "created_at",
-            "payroll_run", "salary_advance",
+            "payroll_run", "salary_advance", "reverses", "company_bank_account",
         ]
         # The HR links are set by the approval flows only.
         read_only_fields = ["created_at", "payroll_run", "salary_advance"]
@@ -86,6 +117,10 @@ class BudgetSerializer(serializers.ModelSerializer):
         end = attrs.get("period_end", getattr(self.instance, "period_end", None))
         if start and end and end < start:
             raise serializers.ValidationError(_("period_end cannot be before period_start."))
+        # Revenue is one company figure; two revenue lines both received it.
+        lines = attrs.get("lines") or []
+        if sum(1 for line in lines if line.get("kind") == BudgetLine.REVENUE) > 1:
+            raise serializers.ValidationError({"lines": _("A budget has one revenue line.")})
         return attrs
 
     def create(self, validated_data):
