@@ -111,25 +111,7 @@ def _customer_events(customer, invoices, standalone_credits):
                 "credit": note.amount,
                 "reason": note.reason,
             })
-            for refund in note.refunds.all():
-                events.append({
-                    "date": refund.recorded_at,
-                    "type": "refund",
-                    "reference": note.number_display,
-                    "debit": refund.amount,
-                    "credit": ZERO,
-                    "method": refund.method,
-                })
-            # Credit spent on another invoice: leaves this note (debit) and
-            # appears as a payment row on the invoice it settled.
-            for use in note.applications.all():
-                events.append({
-                    "date": use.recorded_at,
-                    "type": "credit_applied",
-                    "reference": f"{note.number_display} → {use.invoice.number_display}",
-                    "debit": use.amount,
-                    "credit": ZERO,
-                })
+            events.extend(_drawn_from(note))
     for note in standalone_credits:
         if note.customer_id == customer.id:
             events.append({
@@ -140,7 +122,35 @@ def _customer_events(customer, invoices, standalone_credits):
                 "credit": note.amount,
                 "reason": note.reason,
             })
+            # A standalone note is drawn on too; without these rows a note
+            # spent on another invoice counted twice (the note and the
+            # payment it made) and the statement closed below zero.
+            events.extend(_drawn_from(note))
     return sorted(events, key=lambda row: (row["date"], row["type"], row["reference"]))
+
+
+def _drawn_from(note):
+    """Money that left a credit note: cash or transfer refunds, and credit
+    spent on another invoice (which also appears there as a payment)."""
+    rows = []
+    for refund in note.refunds.all():
+        rows.append({
+            "date": refund.recorded_at,
+            "type": "refund",
+            "reference": note.number_display,
+            "debit": refund.amount,
+            "credit": ZERO,
+            "method": refund.method,
+        })
+    for use in note.applications.all():
+        rows.append({
+            "date": use.recorded_at,
+            "type": "credit_applied",
+            "reference": f"{note.number_display} → {use.invoice.number_display}",
+            "debit": use.amount,
+            "credit": ZERO,
+        })
+    return rows
 
 
 def _date_param(params, key, end=False):

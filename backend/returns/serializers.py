@@ -542,6 +542,15 @@ class CreditNoteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"customer": _("A customer is required unless this note is linked to an invoice.")}
             )
+        # A note that is not the paperwork of a return (a price correction,
+        # goodwill, or no invoice at all) is money the company gives away: a
+        # sales officer could raise one from nothing and refund it as cash
+        # from their own drawer. It needs a manager.
+        request = self.context.get("request")
+        if sales_return is None and not can_approve_high_value(getattr(request, "user", None)):
+            raise serializers.ValidationError(_(
+                "Only a manager or owner may issue a credit note that is not for a return."
+            ))
         if invoice is not None:
             if invoice.is_void:
                 raise serializers.ValidationError({"invoice": _("That invoice is void.")})

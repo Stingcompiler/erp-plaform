@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Printer } from "lucide-react";
 
-import { bankAccounts as bankAccountsApi, sales } from "@/lib/api";
+import { bankAccounts as bankAccountsApi, cashShifts, sales } from "@/lib/api";
 import { accountLabel } from "@/lib/bankChannels";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { useOfflineMutation } from "@/components/sync/useOfflineMutation";
@@ -43,6 +43,10 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
   const [overrides, setOverrides] = useState({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // The collector's open drawer. Cash collected against a debt goes into it,
+  // so the drawer's expected cash includes it (it used to belong to no
+  // drawer: the till counted over at close and nothing reconciled it).
+  const [shift, setShift] = useState(null);
   const { idFor, reset } = useStableIds();
   const [result, setResult] = useState(null);
   const [receiptId, setReceiptId] = useState(null);
@@ -55,6 +59,7 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
     setAmount(""); setMethod("cash"); setAccount(""); setSenderBank(""); setReference("");
     setOverrides({}); setError(""); setResult(null);
     bankAccountsApi.list().then((r) => setAccounts(r.data.results ?? r.data)).catch(() => setAccounts([]));
+    cashShifts.current().then((r) => setShift(r.data?.id ? r.data : null)).catch(() => setShift(null));
     setCredit(null); setCreditNote("");
     const customerId = customer?.id ?? invoice?.customer;
     if (customerId) {
@@ -140,6 +145,7 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
           // When the money was taken, not when a queued copy syncs.
           recorded_at: new Date().toISOString(),
         };
+        if (method === "cash" && shift?.id) body.shift = shift.id;
         if (method === "bank_transfer") {
           body.company_bank_account = Number(account);
           body.sender_bank_name = senderBank.trim();
@@ -243,6 +249,7 @@ export default function CollectPaymentDrawer({ open, onClose, customer, invoice,
                 <option value="bank_transfer">{t("common.bankTransfer")}</option>
                 {credit && <option value="credit">{t("debts.storeCredit", { amount: money(credit.total) })}</option>}
               </Select>
+              {method === "cash" && !shift && <p className="mt-1 text-xs text-warn">{t("debts.noOpenDrawer")}</p>}
             </Field>
           </div>
           <div className="flex flex-wrap gap-2">
