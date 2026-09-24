@@ -200,12 +200,20 @@ class IsPlatformAdmin(BasePermission):
 
 
 class ReportAreaAccess(BasePermission):
-    """Restrict each report endpoint to the department family it belongs to."""
+    """Restrict each report endpoint to the department family it belongs to.
+
+    A report built from one module's records (`report_module`, e.g. the CRM
+    report's leads and their phone numbers) also needs read access to that
+    module: the sales report area alone let finance roles download leads
+    they cannot open in the CRM itself."""
 
     message = _("Your role does not permit this report.")
 
     def has_permission(self, request, view):
-        return getattr(view, "report_area", None) in report_areas_for(request.user)
+        if getattr(view, "report_area", None) not in report_areas_for(request.user):
+            return False
+        module = getattr(view, "report_module", None)
+        return module is None or role_can(request.user, module, write=False)
 
 
 def has_payroll_access(user):

@@ -10,11 +10,9 @@ Company scoping is the caller's responsibility: every source queryset is already
 narrowed by the viewset's CompanyScopedQuerySetMixin, so nothing here can widen
 it. Filtering is applied *after* assembly because the stream is heterogeneous.
 """
-import csv
 from decimal import Decimal
 
-from django.http import HttpResponse
-
+from core.csvexport import csv_download, rows_download
 from core.models import ActivityLog
 
 
@@ -92,9 +90,7 @@ def assemble(events, params):
 
 def csv_response(party, events, filename):
     """Excel-compatible CSV export of the assembled timeline."""
-    resp = HttpResponse(content_type="text/csv")
-    resp["Content-Disposition"] = f'attachment; filename="{filename}"'
-    writer = csv.writer(resp)
+    resp, writer = csv_download(filename)
     writer.writerow([party.get("name", ""), party.get("status", "")])
     writer.writerow([])
     writer.writerow(["Date", "Type", "Description", "Reference", "Amount", "Details"])
@@ -126,13 +122,7 @@ def rows_csv(filename, header, rows):
 
     A BOM is written first so Excel opens Arabic text as UTF-8 instead of
     mangling it into Latin-1; without it every exported Arabic name arrives as
-    unreadable characters.
+    unreadable characters. Cells a spreadsheet would run as formulas are
+    neutralised (see core.csvexport).
     """
-    resp = HttpResponse(content_type="text/csv; charset=utf-8")
-    resp["Content-Disposition"] = f'attachment; filename="{filename}"'
-    resp.write("﻿")
-    writer = csv.writer(resp)
-    writer.writerow(header)
-    for row in rows:
-        writer.writerow(row)
-    return resp
+    return rows_download(filename, header, rows)

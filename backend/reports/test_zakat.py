@@ -2,6 +2,7 @@
 from datetime import date, timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APITestCase
@@ -127,9 +128,10 @@ class ZakatReportTests(APITestCase):
         self.assertEqual(to_hijri(date.fromisoformat(d["next_hawl"]))[1:], (9, 1))
 
     def test_csv_and_role_gate(self):
+        self.client.cookies[settings.LANGUAGE_COOKIE_NAME] = "en"
         r = self.client.get(reverse("report-zakat"), {"format": "csv"})
         self.assertEqual(r.status_code, 200)
-        self.assertIn(b"zakat,134500.00", r.content)
+        self.assertIn(b"Zakat due,134500.00", r.content)
         clerk = User.objects.create_user(
             email="clerk@alpha.test", password="passw0rd123", company=self.company,
             role=Role.objects.create(name="Inventory Officer", scope_level=Role.SCOPE_BUSINESS),

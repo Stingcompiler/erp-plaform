@@ -213,7 +213,7 @@ export default function DashboardPage() {
               />
               <Stat
                 icon={Wallet}
-                label={t("dashboard.revenue")}
+                label={t("dashboard.revenueMonth")}
                 tone="accent"
                 value={money(sections.sales.revenue_total)}
               />
@@ -235,12 +235,12 @@ export default function DashboardPage() {
             </section>
           )}
 
-          {/* Chart — top products by revenue, scoped to the same company/branch
-              as the sales totals above. */}
+          {/* Chart — this month's top products by invoiced amount (gross,
+              before returns), scoped like the sales totals above. */}
           {sections.sales?.top_products?.length > 0 && (
             <section className="mt-8">
               <h2 className="mb-4 font-display text-base font-bold text-ink">
-                {t("reports.topProducts")}
+                {t("dashboard.topProductsMonth")}
               </h2>
               <div className="dashboard-stat rounded-card border border-line bg-surface p-4 shadow-card sm:p-5">
                 <BarList
@@ -344,7 +344,7 @@ export default function DashboardPage() {
           )}
 
           {sections.finance && (
-            <Section title={t("dashboard.finance")}>
+            <Section title={t("dashboard.financeMonth")}>
               <Stat
                 icon={Wallet}
                 label={t("dashboard.revenueLabel")}

@@ -290,7 +290,8 @@ class CustomerRecordsTests(APITestCase):
         from core.models import ActivityLog
         resp = self.client.get(self._url(), {"format": "csv"})
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp["Content-Type"], "text/csv")
+        self.assertEqual(resp["Content-Type"], "text/csv; charset=utf-8")
+        self.assertTrue(resp.content.startswith("﻿".encode()))
         self.assertTrue(
             ActivityLog.objects.filter(entity_type="Customer", action="export").exists()
         )

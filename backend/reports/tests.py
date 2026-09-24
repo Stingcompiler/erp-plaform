@@ -85,7 +85,7 @@ class SalesReportTests(ReportsBase):
     def test_sales_by_product_csv(self):
         resp = self.client.get(reverse("report-sales-by-product"), {"format": "csv"})
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp["Content-Type"], "text/csv")
+        self.assertEqual(resp["Content-Type"], "text/csv; charset=utf-8")
         self.assertIn("SKU1", resp.content.decode())
 
     def test_payroll_report_returns_company_payroll_entries(self):

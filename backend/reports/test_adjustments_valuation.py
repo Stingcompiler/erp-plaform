@@ -7,6 +7,7 @@ too high. Valuation was always "today" whatever the report's dates said.
 from datetime import timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APITestCase
@@ -97,6 +98,7 @@ class StockAdjustmentProfitTests(APITestCase):
         self.assertEqual(kpis["profitability"]["stock_adjustments"], "1000.00")
         dashboard = self.client.get(reverse("dashboard")).data
         self.assertEqual(dashboard["sections"]["finance"]["net"], "-200.00")
+        self.client.cookies[settings.LANGUAGE_COOKIE_NAME] = "en"
         csv = self.client.get("/api/reports/income-statement/", {"format": "csv"}).content
         self.assertIn(b'"Stock adjustments (counts, damage)",1000.00', csv)
 

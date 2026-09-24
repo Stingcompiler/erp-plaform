@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-24 14:02+0000\n"
+"POT-Creation-Date: 2026-09-24 15:33+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -574,7 +574,9 @@ msgstr "مسيّر الرواتب المعتمد مقفل ولا يمكن إعا
 msgid ""
 "Salaries, advances, deductions or staff changed since this payroll was "
 "calculated (%(names)s). Recalculate it, then approve."
-msgstr "تغيّرت الرواتب أو السلف أو الخصومات أو الموظفون منذ حساب هذا الكشف (%(names)s). أعد حسابه ثم اعتمده."
+msgstr ""
+"تغيّرت الرواتب أو السلف أو الخصومات أو الموظفون منذ حساب هذا الكشف "
+"(%(names)s). أعد حسابه ثم اعتمده."
 
 msgid ""
 "A deduction cannot be deleted because it affects payroll. Record an "
@@ -1039,11 +1041,305 @@ msgstr ""
 "الدفعات بقيمة %(threshold)s فأكثر تحتاج موافقة المدير المالي أو المالك أو "
 "المدير العام."
 
+msgid "Quarantine (pending)"
+msgstr "في الحجز (بانتظار القرار)"
+
+msgid "Restocked to sellable"
+msgstr "أُعيد إلى المخزون القابل للبيع"
+
+msgid "Scrapped / written off"
+msgstr "أُتلف / شُطب"
+
+msgid "New"
+msgstr "جديد"
+
+msgid "Contacted"
+msgstr "تم التواصل"
+
+msgid "Qualified"
+msgstr "مؤهَّل"
+
+msgid "Proposal sent"
+msgstr "أُرسل العرض"
+
+msgid "Won"
+msgstr "ربح"
+
+msgid "Lost"
+msgstr "خسارة"
+
+msgid "Cash"
+msgstr "نقدًا"
+
+msgid "Bank transfer"
+msgstr "تحويل بنكي"
+
+msgid "Store credit"
+msgstr "رصيد المتجر"
+
+msgid "Return"
+msgstr "المرتجع"
+
+msgid "Date"
+msgstr "التاريخ"
+
+msgid "Invoice"
+msgstr "الفاتورة"
+
+msgid "Customer"
+msgstr "العميل"
+
+msgid "SKU"
+msgstr "رمز الصنف"
+
+msgid "Product"
+msgstr "المنتج"
+
+msgid "Quantity"
+msgstr "الكمية"
+
+msgid "Disposition"
+msgstr "القرار"
+
+msgid "Reason"
+msgstr "السبب"
+
+msgid "Supplier"
+msgstr "المورّد"
+
+msgid "Verified"
+msgstr "مؤكَّد"
+
+msgid "Unverified"
+msgstr "غير مؤكَّد"
+
+msgid "Payment"
+msgstr "الدفعة"
+
+msgid "Recorded at"
+msgstr "وقت التسجيل"
+
+msgid "Method"
+msgstr "الطريقة"
+
+msgid "Account"
+msgstr "الحساب"
+
+msgid "Reference"
+msgstr "المرجع"
+
+msgid "Amount"
+msgstr "المبلغ"
+
+msgid "Currency"
+msgstr "العملة"
+
+msgid "Status"
+msgstr "الحالة"
+
+msgid "Verified at"
+msgstr "وقت التأكيد"
+
+msgid "Lead"
+msgstr "العميل المحتمل"
+
+msgid "Created"
+msgstr "تاريخ الإنشاء"
+
+msgid "Name"
+msgstr "الاسم"
+
+msgid "Contact"
+msgstr "جهة الاتصال"
+
+msgid "Phone"
+msgstr "الهاتف"
+
+msgid "Source"
+msgstr "المصدر"
+
+msgid "Stage"
+msgstr "المرحلة"
+
+msgid "Estimated value"
+msgstr "القيمة المتوقعة"
+
+msgid "Assigned to"
+msgstr "المسؤول"
+
+msgid "(walk-in)"
+msgstr "(عميل نقدي)"
+
+msgid "Period"
+msgstr "الفترة"
+
+msgid "Employee"
+msgstr "الموظف"
+
+msgid "Department"
+msgstr "القسم"
+
+msgid "Position"
+msgstr "الوظيفة"
+
+msgid "Base salary"
+msgstr "الراتب الأساسي"
+
+msgid "Deductions"
+msgstr "الخصومات"
+
+msgid "Advances"
+msgstr "السلف"
+
+msgid "Advances recovered"
+msgstr "السلف المستردة"
+
+msgid "Net salary"
+msgstr "صافي الراتب"
+
+msgid "Units"
+msgstr "الوحدات"
+
+msgid "Revenue before returns"
+msgstr "الإيراد قبل المرتجعات"
+
 msgid "Branch valuation currently supports standard costing only."
 msgstr "تقييم المخزون حسب الفرع يدعم حاليًا طريقة التكلفة المعيارية فقط."
 
+msgid "On hand"
+msgstr "المتوفر"
+
+msgid "Cost price"
+msgstr "سعر التكلفة"
+
+msgid "Value"
+msgstr "القيمة"
+
+msgid "standard"
+msgstr "القياسية"
+
+msgid "weighted average"
+msgstr "المتوسط المرجّح"
+
+msgid "FIFO"
+msgstr "الوارد أولًا يصرف أولًا"
+
+#, python-format
+msgid "COGS uses %(method)s costing."
+msgstr "تكلفة البضاعة المباعة محسوبة بطريقة التكلفة %(method)s."
+
+msgid "Revenue"
+msgstr "الإيرادات"
+
+msgid "Cost of goods sold"
+msgstr "تكلفة البضاعة المباعة"
+
+msgid "Gross profit"
+msgstr "إجمالي الربح"
+
+msgid "Stock adjustments (counts, damage)"
+msgstr "فروقات المخزون (جرد وتلف)"
+
+#, python-format
+msgid "Expense — %(category)s"
+msgstr "مصروف — %(category)s"
+
+msgid "Total expenses"
+msgstr "إجمالي المصروفات"
+
+msgid "Net profit"
+msgstr "صافي الربح"
+
+msgid "Line"
+msgstr "البند"
+
+msgid "Due date"
+msgstr "تاريخ الاستحقاق"
+
+msgid "Days overdue"
+msgstr "أيام التأخير"
+
+msgid "Amount due"
+msgstr "المبلغ المستحق"
+
+msgid "Starts on"
+msgstr "يبدأ في"
+
+msgid "Expected in"
+msgstr "الوارد المتوقع"
+
+msgid "Expected out"
+msgstr "الصادر المتوقع"
+
+msgid "Net"
+msgstr "الصافي"
+
+msgid "Cumulative"
+msgstr "التراكمي"
+
+msgid "Overdue"
+msgstr "متأخر"
+
+#, python-format
+msgid "Week %(number)s"
+msgstr "الأسبوع %(number)s"
+
+msgid "Committed documents only — no modelled or predicted amounts."
+msgstr "مستندات قائمة فقط — لا مبالغ مقدَّرة أو متوقعة."
+
+msgid "Bill"
+msgstr "فاتورة المورّد"
+
+msgid "Cash in — customer payments"
+msgstr "نقد وارد — مدفوعات العملاء"
+
+msgid "Cash out — supplier payments"
+msgstr "نقد صادر — مدفوعات الموردين"
+
+msgid "Cash out — customer refunds"
+msgstr "نقد صادر — مبالغ مستردة للعملاء"
+
+msgid "Cash out — expenses"
+msgstr "نقد صادر — المصروفات"
+
+msgid "Net cash flow"
+msgstr "صافي التدفق النقدي"
+
 msgid "Enter the cash on hand as an amount of zero or more."
 msgstr "أدخل النقد المتوفر مبلغًا يساوي صفرًا أو أكثر."
+
+msgid "Stock at sale price"
+msgstr "المخزون بسعر البيع"
+
+msgid "Stock at cost"
+msgstr "المخزون بسعر التكلفة"
+
+msgid "Stock counted"
+msgstr "المخزون المحتسب"
+
+msgid "Cash in tills"
+msgstr "النقد في الصناديق"
+
+msgid "Bank balances"
+msgstr "أرصدة البنوك"
+
+msgid "Receivables"
+msgstr "الذمم المدينة"
+
+msgid "Doubtful receivables"
+msgstr "الذمم المشكوك في تحصيلها"
+
+msgid "Receivables counted"
+msgstr "الذمم المحتسبة"
+
+msgid "Payables"
+msgstr "الذمم الدائنة"
+
+msgid "Zakat base"
+msgstr "وعاء الزكاة"
+
+msgid "Zakat due"
+msgstr "الزكاة المستحقة"
 
 msgid "A void invoice cannot be returned."
 msgstr "لا يمكن الإرجاع على فاتورة مُبطَلة."

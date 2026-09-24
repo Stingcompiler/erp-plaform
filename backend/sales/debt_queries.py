@@ -205,7 +205,9 @@ def statement_for_period(user, customer, params):
 
 def _customer_balances(user):
     """{customer_id: [outstanding, overdue, credit_balance]} for every customer
-    with a non-zero position.
+    with a non-zero position. Walk-in invoices (no customer) sit under the key
+    None, so the ledger's total is the same receivable the AR aging and the
+    CFO figures count — every open invoice, archived customers included.
 
     One query fetches (customer, due_date, outstanding) for every open or
     over-credited invoice with the balance annotated in SQL; the per-customer
@@ -214,7 +216,7 @@ def _customer_balances(user):
     queries per invoice."""
     today = timezone.localdate()
     invoices = with_outstanding(
-        Invoice.objects.filter(company_id=user.company_id, customer__isnull=False)
+        Invoice.objects.filter(company_id=user.company_id)
         .filter(_branch_filter(_branch_id(user)))
     ).exclude(outstanding=0).values_list("customer_id", "due_date", "outstanding")
     balances = {}
@@ -249,13 +251,18 @@ def customer_debts(user, params):
     # customer is still reachable — by name, or through the "settled" filter —
     # so terms and an opening balance can be set before the first invoice.
     include_settled = status == "settled" or bool(query)
-    customers = Customer.objects.filter(company_id=user.company_id, is_active=True)
+    # An archived customer who still owes (or is owed) money stays on the
+    # ledger, flagged, so the list adds up to the dashboard and the AR aging.
+    owing = [pk for pk in balances if pk is not None]
+    customers = Customer.objects.filter(company_id=user.company_id).filter(
+        Q(is_active=True) | Q(pk__in=owing)
+    )
     if not include_settled:
-        customers = customers.filter(pk__in=list(balances))
+        customers = customers.filter(pk__in=owing)
     if query:
         customers = customers.filter(Q(name__icontains=query) | Q(phone__icontains=query))
     rows = []
-    for customer in customers.order_by("name", "pk").only("id", "name", "phone"):
+    for customer in customers.order_by("name", "pk").only("id", "name", "phone", "is_active"):
         outstanding, overdue, credit = balances.get(customer.id, (ZERO, ZERO, ZERO))
         row_status = (
             "overdue" if overdue else "owing" if outstanding
@@ -273,36 +280,40 @@ def customer_debts(user, params):
             "overdue": _money(overdue),
             "credit_balance": _money(credit),
             "status": row_status,
+            "is_active": customer.is_active,
         })
     count = len(rows)
     offset = (page - 1) * page_size
+    walk_in = balances.get(None, (ZERO, ZERO, ZERO))
     return {
         "count": count,
         "page": page,
         "page_size": page_size,
         "results": rows[offset:offset + page_size],
+        # Walk-in sales left on account have no customer to list or send a
+        # statement to; their balance is reported beside the list.
+        "walk_in": {"outstanding": _money(walk_in[0]), "overdue": _money(walk_in[1])},
     }
 
 
 def debt_summary(user):
+    """Headline receivables: every open invoice the user can see — archived
+    customers and walk-in sales included — so the figure equals the AR aging
+    total and the CFO's receivables."""
     balances = _customer_balances(user)
-    active = set(
-        Customer.objects.filter(
-            company_id=user.company_id, is_active=True, pk__in=list(balances)
-        ).values_list("pk", flat=True)
-    )
     outstanding = overdue = credit_balance = ZERO
     debtor_count = 0
     for customer_id, (due, late, credit) in balances.items():
-        if customer_id not in active:
-            continue
         outstanding += due
         overdue += late
         credit_balance += credit
-        debtor_count += int(due > ZERO)
+        if customer_id is not None:
+            debtor_count += int(due > ZERO)
+    walk_in = balances.get(None, (ZERO, ZERO, ZERO))
     return {
         "outstanding": _money(outstanding),
         "overdue": _money(overdue),
         "credit_balance": _money(credit_balance),
         "debtor_count": debtor_count,
+        "walk_in_outstanding": _money(walk_in[0]),
     }
