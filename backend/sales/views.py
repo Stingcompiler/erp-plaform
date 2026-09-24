@@ -346,8 +346,11 @@ class CompanyBankAccountViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet)
     queryset = CompanyBankAccount.objects.all()
     serializer_class = CompanyBankAccountSerializer
     activity_entity_type = "CompanyBankAccount"
-    # Supplier payments and the money ledger name the paying account.
-    rbac_read_modules = ("purchasing", "finance")
+    # Treasury belongs to finance: the CFO and the finance team manage the
+    # accounts (they got a 403), while the till and purchasing still read
+    # them to record transfers against one.
+    rbac_module = "finance"
+    rbac_read_modules = ("sales", "purchasing")
     # Exception to the archive default: a bank account is treasury, not
     # catalogue data. Anyone with sales write can record against it, but
     # retiring one is a manager's call.

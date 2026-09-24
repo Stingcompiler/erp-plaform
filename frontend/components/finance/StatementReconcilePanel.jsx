@@ -56,7 +56,7 @@ export default function StatementReconcilePanel({ onApplied }) {
     }
   }
 
-  const outcomeTone = { verified: "ok", already_verified: "muted", self_recorded: "warn", amount_differs: "danger" };
+  const outcomeTone = { verified: "ok", already_verified: "muted", self_recorded: "warn", amount_differs: "danger", needs_approver: "warn" };
 
   return (
     <Card className="mb-5 p-4 sm:p-5">
@@ -109,9 +109,10 @@ export default function StatementReconcilePanel({ onApplied }) {
                   <span className="min-w-0 flex-1 truncate">
                     {m.payment.customer || t("sales.walkIn")} · <span dir="ltr">INV-{String(m.payment.invoice_number).padStart(6, "0")}</span>
                     {m.how === "last4_amount" && <span className="text-muted"> · {t("finance.reconcileByLast4")}</span>}
+                    {m.payments?.length > 1 && <span className="text-muted"> · {t("finance.reconcileGroup", { count: m.payments.length })}</span>}
                   </span>
                   <span className="tabular font-semibold">{money(m.amount)}</span>
-                  {m.amount_differs && <Badge tone="danger">{t("finance.reconcileRecorded", { amount: money(m.payment.amount) })}</Badge>}
+                  {m.amount_differs && <Badge tone="danger">{t("finance.reconcileRecorded", { amount: money(m.group_total ?? m.payment.amount) })}</Badge>}
                   {m.outcome && <Badge tone={outcomeTone[m.outcome] || "muted"}>{t(`finance.reconcileOutcome.${m.outcome}`)}</Badge>}
                 </Row>
               ))}

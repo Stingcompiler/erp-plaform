@@ -18,6 +18,7 @@ import { cacheProducts, searchProductsOffline } from "@/lib/productCache";
 import { nextLocalReference } from "@/lib/localReference";
 import { errorText } from "@/lib/errors";
 import { round2 } from "@/lib/money";
+import { localToday } from "@/lib/dates";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -393,7 +394,7 @@ export default function PosTerminal({
           total: grandTotal, subtotal: round2(subtotal), tax_amount: round2(taxTotal),
           provisional: {
             doc_type: "invoice", provisional: true,
-            number: localRef.current, date: new Date().toISOString().slice(0, 10),
+            number: localRef.current, date: localToday(),
             currency: user?.currency || "",
             issuer: { name: user?.company_name || "" },
             party: customer ? { name: customers.find((c) => String(c.id) === String(customer))?.name } : null,
