@@ -216,6 +216,32 @@ class CompanyBankAccountSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["company"]
 
+    # Where customers are told to send money, and the figure the bank
+    # balance (and zakat) start from: a sales officer could repoint the
+    # public-order account to their own number or inflate the balance.
+    SENSITIVE = ("account_number", "show_to_customers", "opening_balance")
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        instance = self.instance
+        changed = [
+            field for field in self.SENSITIVE
+            if field in attrs and (
+                instance is None and attrs[field] not in ("", None, False, 0)
+                or instance is not None and attrs[field] != getattr(instance, field)
+            )
+        ]
+        if changed and not can_approve_high_value(user):
+            raise serializers.ValidationError(
+                {changed[0]: _("Only a manager or owner may change this bank detail.")}
+            )
+        if instance is not None and "opening_balance" in changed and instance.has_movements():
+            raise serializers.ValidationError({"opening_balance": _(
+                "Money has already moved through this account; its opening balance is fixed."
+            )})
+        return attrs
+
     def get_balance(self, obj):
         return str(obj.balance())
 

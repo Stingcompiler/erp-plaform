@@ -2719,10 +2719,14 @@ const en = {
     statusSet: "Status → {value}",
   },
   finance: {
+    paidFromAccount: "Paid from account",
+    correctsExpense: "Corrects expense",
+    correctsExpenseHint: "A negative amount corrects an earlier expense and cannot exceed it.",
     systemCategory: { payroll: "Payroll", salaryAdvances: "Salary advances", pettyCash: "Petty cash (till)" },
     emptyTitle: "No expenses in this period",
     emptyBody: "Record rent, salaries, transport and other running costs here, so the profit in your reports is the real profit.",
     ledger: {
+      loadMore: "Show more",
       title: "Money ledger",
       payments: "Customer payments",
       refunds: "Refunds",
@@ -2764,6 +2768,7 @@ const en = {
     reconcileVerifiedCount: "{count} verified",
     reconcileMatchedTitle: "Matched",
     reconcileByLast4: "matched by last 4 digits and amount",
+    reconcileGroup: "one transfer for {count} invoices",
     reconcileRecorded: "recorded {amount}",
     reconcileUnrecordedTitle: "In the statement, not at the till",
     reconcileUnrecordedHint: "Money that arrived and nobody recorded — find the sale.",
@@ -2773,6 +2778,7 @@ const en = {
       verified: "verified",
       already_verified: "already verified",
       self_recorded: "you recorded it — another user must verify",
+      needs_approver: "above the approval threshold — a manager must verify",
       amount_differs: "amount differs — not verified",
     },
     reconcileReason: {
@@ -5500,10 +5506,14 @@ const ar = {
     statusSet: "الحالة ← {value}",
   },
   finance: {
+    paidFromAccount: "دُفع من الحساب",
+    correctsExpense: "يصحّح المصروف",
+    correctsExpenseHint: "المبلغ السالب تصحيح لمصروف سابق، ولا يتجاوزه.",
     systemCategory: { payroll: "الرواتب", salaryAdvances: "سلف الموظفين", pettyCash: "مصروفات نثرية من الصندوق" },
     emptyTitle: "لا توجد مصروفات في هذه الفترة",
     emptyBody: "سجّل الإيجار والرواتب والنقل وغيرها من مصاريف التشغيل هنا، ليكون الربح في تقاريرك هو الربح الحقيقي.",
     ledger: {
+      loadMore: "عرض المزيد",
       title: "دفتر الحركات المالية",
       payments: "مدفوعات العملاء",
       refunds: "المبالغ المرتجعة",
@@ -5545,6 +5555,7 @@ const ar = {
     reconcileVerifiedCount: "اعتُمد {count}",
     reconcileMatchedTitle: "المطابق",
     reconcileByLast4: "طابق بآخر 4 أرقام والمبلغ",
+    reconcileGroup: "تحويل واحد لـ {count} فواتير",
     reconcileRecorded: "المسجل {amount}",
     reconcileUnrecordedTitle: "في الكشف وليس في الكاشير",
     reconcileUnrecordedHint: "مال وصل ولم يسجله أحد؛ ابحث عن البيعة.",
@@ -5554,6 +5565,7 @@ const ar = {
       verified: "اعتُمد",
       already_verified: "معتمد مسبقًا",
       self_recorded: "أنت من سجله؛ يعتمده مستخدم آخر",
+      needs_approver: "فوق حد الاعتماد؛ يعتمده مدير",
       amount_differs: "المبلغ مختلف؛ لم يُعتمد",
     },
     reconcileReason: {

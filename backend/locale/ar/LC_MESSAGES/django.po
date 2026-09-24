@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-24 12:49+0000\n"
+"POT-Creation-Date: 2026-09-24 13:17+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -350,12 +350,39 @@ msgstr "يجب ألا يسبق تاريخ النهاية تاريخ البداي
 msgid "Choose standard, average or fifo."
 msgstr "اختر التكلفة المعيارية أو المتوسطة أو FIFO."
 
+msgid "Enter an amount other than zero."
+msgstr "أدخل مبلغًا غير الصفر."
+
 #, python-format
 msgid "Expenses of %(threshold)s or more need a manager or owner."
 msgstr "المصروفات بقيمة %(threshold)s فأكثر تحتاج موافقة مدير أو مالك."
 
+msgid "A negative amount corrects an earlier expense: choose which one."
+msgstr "المبلغ السالب تصحيح لمصروف سابق: اختر المصروف الذي يصحّحه."
+
+msgid "Not your company's expense."
+msgstr "هذا المصروف لا يخص شركتك."
+
+#, python-format
+msgid ""
+"The correction (%(amount)s) is more than what is left of that expense "
+"(%(left)s)."
+msgstr "التصحيح (%(amount)s) أكبر من المتبقي من ذلك المصروف (%(left)s)."
+
+msgid "Only a negative amount can correct an earlier expense."
+msgstr "لا يصحّح مصروفًا سابقًا إلا مبلغ سالب."
+
+msgid "Choose the bank account this expense was paid from."
+msgstr "اختر الحساب البنكي الذي دُفع منه هذا المصروف."
+
+msgid "Not your company's bank account."
+msgstr "هذا الحساب البنكي ليس لشركتك."
+
 msgid "period_end cannot be before period_start."
 msgstr "لا يمكن أن يكون تاريخ نهاية الفترة قبل تاريخ بدايتها."
+
+msgid "A budget has one revenue line."
+msgstr "الميزانية لها بند إيرادات واحد فقط."
 
 msgid "An approved budget is locked. Reopen it before making changes."
 msgstr "الميزانية المعتمدة مقفلة. أعِد فتحها قبل إجراء أي تعديل."
@@ -594,12 +621,8 @@ msgid "%(product)s already has a pack named %(name)s; edit that one."
 msgstr "للمنتج %(product)s وحدة باسم %(name)s من قبل؛ عدّلها بدلًا من إضافة أخرى."
 
 #, python-format
-msgid ""
-"%(product)s has an archived pack named %(name)s; restore it instead of "
-"adding it again."
-msgstr ""
-"للمنتج %(product)s وحدة مؤرشفة باسم %(name)s؛ استعِدها بدلًا من إضافتها من "
-"جديد."
+msgid "%(product)s has an archived pack named %(name)s; restore it instead of adding it again."
+msgstr "للمنتج %(product)s وحدة مؤرشفة باسم %(name)s؛ استعِدها بدلًا من إضافتها من جديد."
 
 msgid "This barcode is the product's own; a pack needs a different one."
 msgstr "هذا باركود المنتج نفسه؛ الوحدة تحتاج باركودًا مختلفًا."
@@ -619,11 +642,8 @@ msgid "Cannot be negative."
 msgstr "لا يمكن أن تكون القيمة سالبة."
 
 #, python-format
-msgid ""
-"Lots %(lots)s still hold stock; bring them to zero before turning off lot "
-"tracking."
-msgstr ""
-"الدفعات %(lots)s ما زال فيها مخزون؛ صفّرها أولًا قبل إيقاف التتبع بالدفعات."
+msgid "Lots %(lots)s still hold stock; bring them to zero before turning off lot tracking."
+msgstr "الدفعات %(lots)s ما زال فيها مخزون؛ صفّرها أولًا قبل إيقاف التتبع بالدفعات."
 
 #, python-format
 msgid "This barcode already belongs to a pack of %(product)s."
@@ -873,12 +893,8 @@ msgid "A receipt in the company currency has a rate of 1."
 msgstr "الاستلام بعملة الشركة سعر صرفه 1."
 
 #, python-format
-msgid ""
-"%(sku)s lot %(lot)s was received before with expiry %(recorded)s, not "
-"%(given)s. Check the label: use the recorded date, or a different lot number."
-msgstr ""
-"الصنف %(sku)s بالدفعة %(lot)s استُلم من قبل بتاريخ انتهاء %(recorded)s وليس "
-"%(given)s. راجع الملصق: استخدم التاريخ المسجَّل أو رقم دفعة مختلفًا."
+msgid "%(sku)s lot %(lot)s was received before with expiry %(recorded)s, not %(given)s. Check the label: use the recorded date, or a different lot number."
+msgstr "الصنف %(sku)s بالدفعة %(lot)s استُلم من قبل بتاريخ انتهاء %(recorded)s وليس %(given)s. راجع الملصق: استخدم التاريخ المسجَّل أو رقم دفعة مختلفًا."
 
 #, python-format
 msgid "Invoice %(number)s from this supplier is already recorded."
@@ -1119,9 +1135,6 @@ msgstr ""
 msgid "Bank transfer needs the receiving account and the sender."
 msgstr "التحويل البنكي يحتاج حساب الشركة المستلِم واسم المُرسِل."
 
-msgid "Not your company's bank account."
-msgstr "هذا الحساب البنكي ليس لشركتك."
-
 msgid "A store-credit payment names the credit note it draws on."
 msgstr "الدفع من الرصيد يجب أن يحدد الإشعار الدائن الذي يُسحب منه."
 
@@ -1156,6 +1169,13 @@ msgstr ""
 
 msgid "Enter the transfer reference (or its last 4 digits)."
 msgstr "أدخل مرجع التحويل (أو آخر 4 أرقام منه)."
+
+msgid "Only a manager or owner may change this bank detail."
+msgstr "تغيير هذه البيانات البنكية للمدير أو المالك فقط."
+
+msgid ""
+"Money has already moved through this account; its opening balance is fixed."
+msgstr "تحركت أموال عبر هذا الحساب؛ رصيده الافتتاحي ثابت لا يُغيَّر."
 
 msgid "Quotation and order customer must match."
 msgstr "عميل عرض السعر يجب أن يطابق عميل الطلب."
@@ -1237,12 +1257,8 @@ msgid "A branch user can only sell from their own branch."
 msgstr "مستخدم الفرع لا يبيع إلا من فرعه."
 
 #, python-format
-msgid ""
-"%(sku)s (%(name)s) is archived and no longer sold; remove it from the sale "
-"or restore the product."
-msgstr ""
-"الصنف %(sku)s (%(name)s) مؤرشف ولم يعد يُباع؛ احذفه من البيع أو أعد تفعيل "
-"المنتج."
+msgid "%(sku)s (%(name)s) is archived and no longer sold; remove it from the sale or restore the product."
+msgstr "الصنف %(sku)s (%(name)s) مؤرشف ولم يعد يُباع؛ احذفه من البيع أو أعد تفعيل المنتج."
 
 #, python-format
 msgid ""

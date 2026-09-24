@@ -9,10 +9,11 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Field, Input } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
+import { localToday } from "@/lib/dates";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => localToday();
 
 /**
  * The balance an account already carried when the books started here.

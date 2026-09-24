@@ -11,6 +11,7 @@ import PhoneLink from "@/components/ui/PhoneLink";
 import PlanChangeRequests from "@/components/subscription/PlanChangeRequests";
 import { errorText } from "@/lib/errors";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { localToday } from "@/lib/dates";
 
 const STATES = ["trialing", "active", "grace", "read_only", "suspended", "cancelled"];
 
@@ -36,7 +37,7 @@ function initialDraft(row) {
 }
 
 function dateInputValue(date = new Date()) {
-  return date.toISOString().slice(0, 10);
+  return localToday(date);
 }
 
 function invoiceDefaultsForSubscription(subscription) {

@@ -17,6 +17,9 @@ import MoneyLedger from "@/components/finance/MoneyLedger";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { expenseCategory } from "@/lib/expenseCategories";
+import { localToday } from "@/lib/dates";
+import { bankAccounts as bankAccountsApi } from "@/lib/api";
+import BankAccounts from "@/components/sales/BankAccounts";
 
 function StatTile({ label, value, tone = "ink", icon: Icon }) {
   const toneClass = tone === "ok" ? "text-ok" : tone === "danger" ? "text-danger" : "text-ink";
@@ -31,26 +34,39 @@ function StatTile({ label, value, tone = "ink", icon: Icon }) {
 function ExpenseDrawer({ open, writable, onClose, onSaved, categories = [] }) {
   const { t } = useI18n();
   const toast = useToast();
-  const today = new Date().toISOString().slice(0, 10);
-  const EMPTY = { category: "", description: "", amount: "", method: "cash", date: today };
+  const today = localToday();
+  const EMPTY = { category: "", description: "", amount: "", method: "cash", date: today, company_bank_account: "", reverses: "" };
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [accounts, setAccounts] = useState([]);
+  const [recent, setRecent] = useState([]);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const negative = Number(form.amount) < 0;
 
   useEffect(() => {
-    if (open) setForm({ ...EMPTY, date: today });
+    if (!open) return;
+    setForm({ ...EMPTY, date: today });
+    // A transfer names the account it left from (the bank balance subtracts
+    // it); a negative amount corrects one of the recent expenses.
+    bankAccountsApi.list().then((r) => setAccounts((r.data.results || r.data).filter((a) => a.is_active))).catch(() => setAccounts([]));
+    finance.expenses({ page: 1, ordering: "-date" }).then((r) => setRecent((r.data.results || r.data).filter((e) => Number(e.amount) > 0))).catch(() => setRecent([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   async function save() {
     setSaving(true);
     try {
-      await finance.createExpense(form);
+      const body = { ...form };
+      if (body.method !== "bank_transfer" || !body.company_bank_account) delete body.company_bank_account;
+      if (!negative || !body.reverses) delete body.reverses;
+      await finance.createExpense(body);
       toast.success(t("common.save"));
       onSaved?.();
       onClose();
-    } catch {
-      toast.error(t("finance.saveError"));
+    } catch (err) {
+      // The server says what is wrong (threshold, account, correction);
+      // a generic "could not save" left the accountant with no way forward.
+      toast.error(errorText(err, t, "finance.saveError"));
     } finally {
       setSaving(false);
     }
@@ -94,6 +110,22 @@ function ExpenseDrawer({ open, writable, onClose, onSaved, categories = [] }) {
             <option value="bank_transfer">{t("finance.bankTransfer")}</option>
           </Select>
         </Field>
+        {form.method === "bank_transfer" && (
+          <Field label={t("finance.paidFromAccount")}>
+            <Select value={form.company_bank_account} onChange={(e) => set("company_bank_account", e.target.value)}>
+              <option value="">{t("common.choose")}</option>
+              {accounts.map((a) => <option key={a.id} value={a.id}>{a.bank_name} · {a.account_name}</option>)}
+            </Select>
+          </Field>
+        )}
+        {negative && (
+          <Field label={t("finance.correctsExpense")} hint={t("finance.correctsExpenseHint")}>
+            <Select value={form.reverses} onChange={(e) => set("reverses", e.target.value)}>
+              <option value="">{t("common.choose")}</option>
+              {recent.map((e) => <option key={e.id} value={e.id}>{e.date} · {expenseCategory(e.category, t)} · {e.amount}</option>)}
+            </Select>
+          </Field>
+        )}
       </div>
     </Drawer>
   );
@@ -208,6 +240,9 @@ export default function FinancePage() {
     </Card>}
     <ExpenseDrawer open={drawerOpen} writable={writable} categories={categories} onClose={() => setDrawerOpen(false)} onSaved={() => { load(); loadCategories(); }} />
     <BudgetsPanel writable={writable} categories={categories} onChanged={loadCategories} />
+    {/* Treasury belongs to finance: the accounts, their details and opening
+        balances are managed here (the sales tab only reads them). */}
+    {writable && <div className="mt-6"><BankAccounts writable={writable} /></div>}
     <MoneyLedger />
   </div>;
 }

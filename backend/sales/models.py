@@ -117,6 +117,20 @@ class CompanyBankAccount(models.Model):
         """Money handed back to customers by transfer from this account."""
         return self.refunds.aggregate(t=Coalesce(Sum("amount"), Decimal("0")))["t"]
 
+    def expenses_total(self):
+        """Running costs paid by transfer from this account (rent, payroll…).
+        They used to leave the balance untouched, overstating the bank and
+        the zakat base."""
+        return self.expenses.aggregate(t=Coalesce(Sum("amount"), Decimal("0")))["t"]
+
+    def has_movements(self):
+        """Whether any money has moved through the account; once it has, the
+        opening balance is part of every figure since and stays fixed."""
+        return (
+            self.payments.exists() or self.supplier_payments.exists()
+            or self.refunds.exists() or self.expenses.exists()
+        )
+
     def balance(self):
         """
         Current balance, DERIVED — opening + money in − money out, where money
@@ -129,7 +143,7 @@ class CompanyBankAccount(models.Model):
         """
         return (
             self.opening_balance + self.received_total()
-            - self.paid_total() - self.refunded_total()
+            - self.paid_total() - self.refunded_total() - self.expenses_total()
         )
 
 

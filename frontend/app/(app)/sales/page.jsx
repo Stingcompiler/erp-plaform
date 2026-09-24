@@ -105,7 +105,7 @@ export default function SalesPage() {
       </div>
       {tab === "invoices" && <InvoiceList refreshKey={refreshKey} />}
       {tab === "banks" && writable && (
-        <BankAccounts writable={writable} onChanged={loadAccounts} />
+        <BankAccounts writable={canWrite("finance")} onChanged={loadAccounts} />
       )}
     </div>
   );

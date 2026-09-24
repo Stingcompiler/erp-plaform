@@ -52,6 +52,17 @@ class Expense(models.Model):
         "hr.SalaryAdvance", on_delete=models.PROTECT, null=True, blank=True,
         related_name="expense",
     )
+    # A negative expense is a correction of an earlier one (the only way to
+    # fix an append-only row); it names that expense and cannot exceed it.
+    reverses = models.ForeignKey(
+        "self", on_delete=models.PROTECT, null=True, blank=True, related_name="corrections",
+    )
+    # The account a bank-transfer expense left from (required for that
+    # method, see ExpenseSerializer): the account's balance subtracts it.
+    company_bank_account = models.ForeignKey(
+        "sales.CompanyBankAccount", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="expenses",
+    )
     # Petty cash paid out of a till (transport, tea, a small repair). The
     # drawer movement takes it out of the expected cash; this row puts it in
     # the income statement and cash flow, which only ever read expenses.

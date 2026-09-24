@@ -41,12 +41,15 @@ def parse_request(data, user):
 
 
 @transaction.atomic
+@transaction.atomic
 def record_customer_opening_balance(customer, user, data):
     from inventory.models import Warehouse
     from sales.models import Invoice
     from sales.numbering import allocate_invoice_number
 
     amount, as_of, note = parse_request(data, user)
+    # Locked: a double-click or a retry ran the check twice and created two.
+    type(customer).objects.select_for_update().filter(pk=customer.pk).first()
     if customer.invoices.filter(is_opening_balance=True, is_void=False).exists():
         raise ValidationError(
             {"detail": _("This customer already has an opening balance. Correct it with a "
@@ -72,10 +75,12 @@ def record_customer_opening_balance(customer, user, data):
 
 
 @transaction.atomic
+@transaction.atomic
 def record_supplier_opening_balance(supplier, user, data):
     from purchasing.models import Bill
 
     amount, as_of, note = parse_request(data, user)
+    type(supplier).objects.select_for_update().filter(pk=supplier.pk).first()
     if supplier.bills.filter(is_opening_balance=True, is_void=False).exists():
         raise ValidationError(
             {"detail": _("This supplier already has an opening balance. Correct it with a "

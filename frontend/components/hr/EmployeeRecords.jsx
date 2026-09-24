@@ -11,8 +11,9 @@ import { Button, Field, Input, Select, controlClass } from "@/components/ui/kit"
 import { errorText } from "@/lib/errors";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { SkeletonLines } from "@/components/ui/Skeleton";
+import { localToday } from "@/lib/dates";
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => localToday();
 const DOC_TYPES = ["contract", "id", "certificate", "warning", "other"];
 
 function Stars({ value }) {

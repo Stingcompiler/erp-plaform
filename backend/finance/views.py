@@ -205,19 +205,20 @@ class BudgetViewSet(CompanyScopedModelViewSet):
             .annotate(total=Coalesce(Sum("amount"), Decimal("0")))
         )
 
-        from sales.models import InvoiceLine
+        from finance.metrics import net_revenue
 
-        revenue_actual = InvoiceLine.objects.filter(
-            invoice__company_id=cid,
-            invoice__is_void=False,
-            invoice__issued_at__date__gte=budget.period_start,
-            invoice__issued_at__date__lte=budget.period_end,
-        ).aggregate(t=Coalesce(Sum("line_subtotal"), Decimal("0")))["t"]
+        # The income statement's revenue (returns and credit notes netted),
+        # not gross invoice lines: the two screens disagreed on any return.
+        revenue_actual = net_revenue(cid, budget.period_start, budget.period_end)
 
         rows = []
+        revenue_counted = False
         for line in budget.lines.all():
             if line.kind == BudgetLine.REVENUE:
-                actual = revenue_actual
+                # Company revenue is one figure; a second revenue line used to
+                # receive it again and show revenue twice.
+                actual = Decimal("0") if revenue_counted else revenue_actual
+                revenue_counted = True
                 # Revenue: under plan is unfavourable.
                 variance = actual - line.planned_amount
             else:
