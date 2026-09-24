@@ -1,12 +1,10 @@
 from datetime import timezone as dt_timezone
-from decimal import Decimal
 from uuid import UUID
 
 from django.core import signing
 from django.core.signing import BadSignature, SignatureExpired
 from django.db import IntegrityError, transaction
-from django.db.models import Count, DecimalField, OuterRef, Q, Subquery, Sum
-from django.db.models.functions import Coalesce
+from django.db.models import Count, Q
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.translation import gettext as _
@@ -18,8 +16,8 @@ from rest_framework.views import APIView
 from core.activity import log_activity
 from core.permissions import EntitlementAccess
 from core.rbac import role_can
-from core.scoping import apply_branch_scope, branch_scope_for
-from inventory.models import StockMovement
+from core.scoping import apply_branch_scope
+from inventory.stock_scope import branch_movements, with_on_hand
 from sync.models import DiscardedOperation, SyncBatch, SyncOperation
 from sync.services import APPLIED, DUPLICATE, ERROR, RETRY, process_operation
 
@@ -337,18 +335,10 @@ def _pull_specs():
     ]
 
 
-def _stock_branch(user):
-    """The branch whose stock a till is selling from: a branch-scoped user's
-    own branch, else None (company-wide)."""
-    return branch_scope_for(user, "warehouse__branch")
-
-
-def _branch_movements(company_id, user):
-    qs = StockMovement.objects.filter(company_id=company_id)
-    branch_id = _stock_branch(user)
-    if branch_id is not None:
-        qs = qs.filter(warehouse__branch_id=branch_id)
-    return qs
+# Shared with the online product screens (inventory.stock_scope), so the
+# till's mirror and the catalogue page count the same shelves.
+_branch_movements = branch_movements
+_with_on_hand = with_on_hand
 
 
 def _products_moved(company_id, user, since, snapshot):
@@ -362,25 +352,6 @@ def _products_moved(company_id, user, since, snapshot):
         .filter(received_at__gt=since, received_at__lte=snapshot)
         .values("product_id")
     )
-
-
-def _with_on_hand(qs, user):
-    """Annotate on_hand from the ledger — for the user's branch when the user
-    is branch-scoped (a till sells from its own branch, and a company-wide
-    total hid a shortage there), company-wide otherwise. One correlated
-    subquery rather than a query per product."""
-    total = (
-        _branch_movements(OuterRef("company_id"), user)
-        .filter(product=OuterRef("pk"))
-        .order_by()
-        .values("product")
-        .annotate(total=Sum("quantity"))
-        .values("total")[:1]
-    )
-    return qs.annotate(annotated_on_hand=Coalesce(
-        Subquery(total, output_field=DecimalField()), Decimal("0"),
-        output_field=DecimalField(),
-    ))
 
 
 # A device's first pull mirrors the history it can use, not the whole ledger:

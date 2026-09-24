@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Lock, Printer, Search } from "lucide-react";
 
 import { inventory } from "@/lib/api";
@@ -17,18 +17,38 @@ const money = (v, lang) =>
   });
 
 // One printable label: name, price and the scannable EAN-13.
-function Label({ product, lang }) {
-  const svg = ean13Svg(product.barcode, { moduleWidth: 2, height: 48 });
+function Label({ item, lang }) {
+  const svg = ean13Svg(item.barcode, { moduleWidth: 2, height: 48 });
   return (
     <div className="label break-inside-avoid rounded border border-line p-2 text-center">
-      <div className="truncate text-xs font-medium text-ink">{product.name}</div>
+      <div className="truncate text-xs font-medium text-ink">{item.name}</div>
       <div
         className="my-1 flex justify-center text-ink"
         dangerouslySetInnerHTML={{ __html: svg }}
       />
-      <div className="tabular text-xs text-ink">{money(product.sale_price, lang)}</div>
+      <div className="tabular text-xs text-ink">{money(item.price, lang)}</div>
     </div>
   );
+}
+
+// Every printable code a product carries: its own barcode and each active
+// pack's (a carton label rings up the whole carton).
+function labelItems(product) {
+  const items = [];
+  if (product.barcode) {
+    items.push({
+      key: `p-${product.id}`, name: product.name, sku: product.sku,
+      barcode: product.barcode, price: product.sale_price,
+    });
+  }
+  for (const pack of product.packs || []) {
+    if (pack.is_active === false || !pack.barcode) continue;
+    items.push({
+      key: `k-${pack.id}`, name: `${product.name} — ${pack.name}`, sku: product.sku,
+      barcode: pack.barcode, price: pack.effective_price,
+    });
+  }
+  return items;
 }
 
 export default function LabelsPage() {
@@ -37,45 +57,57 @@ export default function LabelsPage() {
   // Printing labels is an inventory-management task.
   const allowed = canWrite("inventory");
 
-  const [products, setProducts] = useState([]);
+  const [items, setItems] = useState([]);
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState(() => new Set());
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  // Chosen labels by key, kept across searches so a sheet can mix products
+  // found by different searches.
+  const [selected, setSelected] = useState(() => new Map());
   const [loading, setLoading] = useState(true);
+  const request = useRef(0);
 
-  const load = useCallback(() => {
+  // The server searches and pages (the catalogue can hold thousands of
+  // products; only the first page used to be reachable here).
+  const load = useCallback((search, pageNo) => {
+    const ticket = ++request.current;
     setLoading(true);
     inventory
-      .products({ page: 1 })
-      .then((r) => setProducts((r.data.results || r.data).filter((p) => p.barcode)))
-      .catch(() => setProducts([]))
-      .finally(() => setLoading(false));
+      .products({ page: pageNo, has_barcode: 1, ...(search ? { search } : {}) })
+      .then((r) => {
+        if (ticket !== request.current) return;
+        const rows = (r.data.results || r.data).flatMap(labelItems);
+        setItems((prev) => (pageNo === 1 ? rows : [...prev, ...rows]));
+        setHasMore(Boolean(r.data.next));
+        setPage(pageNo);
+      })
+      .catch(() => {
+        if (ticket !== request.current) return;
+        if (pageNo === 1) setItems([]);
+        setHasMore(false);
+      })
+      .finally(() => {
+        if (ticket === request.current) setLoading(false);
+      });
   }, []);
 
   useEffect(() => {
-    if (allowed) load();
-    else setLoading(false);
-  }, [allowed, load]);
+    if (!allowed) {
+      setLoading(false);
+      return undefined;
+    }
+    const timer = setTimeout(() => load(query.trim(), 1), 300);
+    return () => clearTimeout(timer);
+  }, [allowed, load, query]);
 
-  const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return q
-      ? products.filter(
-          (p) =>
-            p.name.toLowerCase().includes(q) ||
-            p.sku.toLowerCase().includes(q) ||
-            (p.barcode || "").includes(q)
-        )
-      : products;
-  }, [products, query]);
-
-  const toggle = (id) =>
+  const toggle = (item) =>
     setSelected((s) => {
-      const next = new Set(s);
-      next.has(id) ? next.delete(id) : next.add(id);
+      const next = new Map(s);
+      next.has(item.key) ? next.delete(item.key) : next.set(item.key, item);
       return next;
     });
 
-  const chosen = products.filter((p) => selected.has(p.id));
+  const chosen = [...selected.values()];
 
   if (!allowed) {
     return (
@@ -111,30 +143,37 @@ export default function LabelsPage() {
           />
         </div>
 
-        {loading && <SkeletonRows />}
-        {!loading && products.length === 0 && (
+        {loading && items.length === 0 && <SkeletonRows />}
+        {!loading && items.length === 0 && (
           <Card className="p-8 text-center text-muted">{t("inventory.noBarcodeProducts")}</Card>
         )}
-        {!loading && visible.length > 0 && (
+        {items.length > 0 && (
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {visible.map((p) => (
+            {items.map((item) => (
               <label
-                key={p.id}
+                key={item.key}
                 className={`flex cursor-pointer items-center gap-3 rounded-card border p-3 text-sm ${
-                  selected.has(p.id) ? "border-accent bg-accent/5" : "border-line bg-surface"
+                  selected.has(item.key) ? "border-accent bg-accent/5" : "border-line bg-surface"
                 }`}
               >
                 <input
                   type="checkbox"
-                  checked={selected.has(p.id)}
-                  onChange={() => toggle(p.id)}
+                  checked={selected.has(item.key)}
+                  onChange={() => toggle(item)}
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate font-medium text-ink">{p.name}</div>
-                  <div className="tabular text-xs text-muted">{p.barcode}</div>
+                  <div className="truncate font-medium text-ink">{item.name}</div>
+                  <div className="tabular text-xs text-muted">{item.barcode}</div>
                 </div>
               </label>
             ))}
+          </div>
+        )}
+        {hasMore && (
+          <div className="mt-3 text-center">
+            <Button variant="outline" disabled={loading} onClick={() => load(query.trim(), page + 1)}>
+              {t("inventory.loadMoreLabels")}
+            </Button>
           </div>
         )}
       </div>
@@ -143,8 +182,8 @@ export default function LabelsPage() {
       {chosen.length > 0 && (
         <div className="mt-6 hidden print:mt-0 print:block">
           <div className="grid grid-cols-3 gap-2">
-            {chosen.map((p) => (
-              <Label key={p.id} product={p} lang={language} />
+            {chosen.map((item) => (
+              <Label key={item.key} item={item} lang={language} />
             ))}
           </div>
         </div>

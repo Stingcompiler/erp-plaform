@@ -240,9 +240,22 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
     def validate_lines(self, lines):
         if not lines:
             raise serializers.ValidationError(_("At least one line is required."))
+        from inventory.serializers import check_stockable
+
         today = timezone.localdate()
+        self._bypassed = []
         for line in lines:
             product = line["product"]
+            line["lot_number"] = (line.get("lot_number") or "").strip()
+            # An archived or non-stock product is not received live (the
+            # order or the catalogue is stale); a receipt replayed from the
+            # floor already happened, so it lands and is audited.
+            try:
+                skipped = check_stockable(self, product, require_lot=False)
+            except serializers.ValidationError as exc:
+                raise serializers.ValidationError(list(exc.detail.values())[0])
+            if skipped:
+                self._bypassed.append((product, skipped))
             # A batch-tracked product received without a lot would land as
             # untracked stock the expiry report can never see — the whole
             # point of tracking it is lost at the door.
@@ -439,12 +452,9 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
             ledger_cost = (cost * rate).quantize(Decimal("0.01"))
 
             batch = None
-            lot = ln.get("lot_number") or ""
+            lot = (ln.get("lot_number") or "").strip()
             if product.track_batches and lot:
-                batch, _created = StockBatch.objects.get_or_create(
-                    company_id=company_id, product=product, lot_number=lot,
-                    defaults={"expiry_date": ln.get("expiry_date")},
-                )
+                batch = self._lot_for(company_id, product, lot, ln.get("expiry_date"), request)
 
             movement = StockMovement.objects.create(
                 company_id=company_id, product=product, warehouse=warehouse,
@@ -476,6 +486,10 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
                               "receipt": receipt.pk},
                 )
         self._advance_po_status(po)
+        from inventory.serializers import audit_bypassed
+
+        for product, skipped in getattr(self, "_bypassed", []):
+            audit_bypassed(self, skipped, "GoodsReceipt", receipt.pk, product)
         log_activity(
             action="create", request=request, entity_type="StockMovement",
             entity_id=receipt.lines.first().movement_id,
@@ -483,6 +497,41 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
                       "movements": list(receipt.lines.values_list("movement_id", flat=True))},
         )
         return receipt
+
+    def _lot_for(self, company_id, product, lot, expiry, request):
+        """The lot a received line goes into, created on first receipt.
+
+        A lot number names one production run, so it has one expiry. Receiving
+        it again with a different date means one of the two is a typo — the
+        first date used to win silently and the expiry report trusted it.
+        Live, the line is refused; replayed from an offline device the goods
+        are already on the shelf, so the lot keeps its recorded date and the
+        conflict is audited. A lot first received without a date takes the
+        one it now arrives with."""
+        batch, created = StockBatch.objects.get_or_create(
+            company_id=company_id, product=product, lot_number=lot,
+            defaults={"expiry_date": expiry},
+        )
+        if created or expiry is None:
+            return batch
+        if batch.expiry_date is None:
+            batch.expiry_date = expiry
+            batch.save(update_fields=["expiry_date"])
+        elif batch.expiry_date != expiry:
+            if not self.context.get("via_sync"):
+                raise serializers.ValidationError({"lines": _(
+                    "%(sku)s lot %(lot)s was received before with expiry %(recorded)s, "
+                    "not %(given)s. Check the label: use the recorded date, or a "
+                    "different lot number."
+                ) % {"sku": product.sku, "lot": lot, "recorded": batch.expiry_date,
+                     "given": expiry}})
+            log_activity(
+                action="lot_expiry_conflict", request=request, entity_type="StockBatch",
+                entity_id=batch.pk,
+                metadata={"via": "sync", "recorded": str(batch.expiry_date),
+                          "received": str(expiry), "sku": product.sku, "lot": lot},
+            )
+        return batch
 
     @staticmethod
     def _advance_po_status(po):

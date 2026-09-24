@@ -950,6 +950,23 @@ class POSCheckoutSerializer(serializers.Serializer):
                 )
         for ln in validated_data["lines"]:
             self._assert_company(ln["product"], company_id, "product")
+            product = ln["product"]
+            if not product.is_active:
+                if not self.context.get("via_sync"):
+                    # Archived means no longer sold: the till's catalogue was
+                    # stale, and the cashier can take it off the ticket now.
+                    raise serializers.ValidationError({"lines": _(
+                        "%(sku)s (%(name)s) is archived and no longer sold; remove it "
+                        "from the sale or restore the product."
+                    ) % {"sku": product.sku, "name": product.name}})
+                # Sold offline before the archive reached the till: the
+                # goods left with the customer. Keep the sale; tell the
+                # manager.
+                log_activity(
+                    action="sold_archived_product", request=self.context.get("request"),
+                    entity_type="Product", entity_id=product.pk,
+                    metadata={"via": "sync", "sku": product.sku},
+                )
 
         from org.models import Company
         company = Company.objects.get(pk=company_id)

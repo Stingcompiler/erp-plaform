@@ -140,6 +140,7 @@ export default function RepriceDrawer({ open, onClose, categories, exchangeRate,
               <Badge tone="ok">{t("inventory.repriceWillChange", { count: preview.changed })}</Badge>
               <Badge tone="muted">{t("inventory.repriceMatched", { count: preview.matched })}</Badge>
               {preview.skipped > 0 && <Badge tone="warn">{t("inventory.repriceSkipped", { count: preview.skipped })}</Badge>}
+              {preview.packs_changed > 0 && <Badge tone="accent">{t("inventory.repricePacks", { count: preview.packs_changed })}</Badge>}
             </div>
             {preview.changed === 0 ? (
               <p className="text-sm text-muted">

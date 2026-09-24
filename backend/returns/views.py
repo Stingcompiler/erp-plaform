@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.utils.translation import gettext as _
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -27,6 +27,62 @@ from returns.serializers import (
     SalesReturnReadSerializer,
     SalesReturnWriteSerializer,
 )
+
+
+def _restock_plan(sales_return, line):
+    """[(batch_id, quantity)] for restocking a returned line whose lot was
+    not scanned.
+
+    A sale of a lot-tracked product is drawn FEFO and may span several lots
+    (3 from L1, then 7 from L2). Putting every returned unit into the first
+    lot sold overfilled L1 and left L2 short. The return is split across the
+    lots the sale actually drew from, undoing the draw in reverse: the lot
+    drawn LAST takes units back first (a stack, not a proportion — whole
+    units, no rounding, and returning everything restores every lot
+    exactly). Units already restocked into a lot by an earlier return of the
+    same invoice count against it. Anything beyond what the sale's lots
+    account for (a sale older than lot tracking) goes with the first part.
+    """
+    sold = (
+        StockMovement.objects.filter(
+            reference_type="Invoice", reference_id=str(sales_return.invoice_id),
+            product_id=line.product_id, movement_type=StockMovement.SALE_OUT,
+        )
+        .order_by("-id")
+        .values_list("batch_id", "quantity")
+    )
+    per_lot = {}
+    for batch_id, quantity in sold:
+        per_lot[batch_id] = per_lot.get(batch_id, Decimal("0")) - quantity
+    if not per_lot:
+        return [(None, line.quantity)]
+    return_ids = [
+        str(pk) for pk in
+        SalesReturn.objects.filter(invoice_id=sales_return.invoice_id).values_list("pk", flat=True)
+    ]
+    already = dict(
+        StockMovement.objects.filter(
+            reference_type="SalesReturn", reference_id__in=return_ids,
+            product_id=line.product_id, movement_type=StockMovement.SALES_RETURN_IN,
+        )
+        .values("batch_id").annotate(total=Sum("quantity"))
+        .values_list("batch_id", "total")
+    )
+    remaining = line.quantity
+    plan = []
+    for batch_id, drawn in per_lot.items():
+        room = drawn - already.get(batch_id, Decimal("0"))
+        if room <= 0 or remaining <= 0:
+            continue
+        part = min(room, remaining)
+        plan.append((batch_id, part))
+        remaining -= part
+    if remaining > 0:
+        if plan:
+            plan[0] = (plan[0][0], plan[0][1] + remaining)
+        else:
+            plan.append((next(iter(per_lot)), remaining))
+    return plan
 
 
 class SalesReturnViewSet(
@@ -203,28 +259,39 @@ class SalesReturnViewSet(
             cost = line.product.cost_price
             if sold is not None and sold.unit_cost is not None:
                 cost = sold.unit_cost
-            batch_id = line.batch_id or (sold.batch_id if sold else None)
             if act == "restock":
-                movement = StockMovement.objects.create(
-                    company_id=company_id, product=line.product,
-                    warehouse_id=wh_id, batch_id=batch_id,
-                    movement_type=StockMovement.SALES_RETURN_IN,
-                    quantity=line.quantity, unit_cost=cost,
-                    reference_type="SalesReturn",
-                    reference_id=str(sales_return.id),
-                    created_by=request.user if request.user.is_authenticated else None,
-                )
+                if line.batch_id:
+                    # The lot was scanned at the counter: it all goes back there.
+                    plan = [(line.batch_id, line.quantity)]
+                else:
+                    plan = _restock_plan(sales_return, line)
+                movements = [
+                    StockMovement.objects.create(
+                        company_id=company_id, product=line.product,
+                        warehouse_id=wh_id, batch_id=batch_id,
+                        movement_type=StockMovement.SALES_RETURN_IN,
+                        quantity=part, unit_cost=cost,
+                        reference_type="SalesReturn",
+                        reference_id=str(sales_return.id),
+                        created_by=request.user if request.user.is_authenticated else None,
+                    )
+                    for batch_id, part in plan
+                ]
+                movement = movements[0]
                 line.disposition = SalesReturnLine.RESTOCKED
                 line.restock_warehouse_id = wh_id
+                # The line keeps its first movement and lot; any further lots
+                # it was split across carry the same SalesReturn reference.
                 line.restock_movement = movement
-                line.batch_id = batch_id
+                line.batch_id = movement.batch_id
                 line.save(update_fields=[
                     "disposition", "restock_warehouse", "restock_movement", "batch",
                 ])
                 log_activity(
                     action="create", request=request, entity_type="StockMovement",
                     entity_id=movement.pk,
-                    metadata={"sales_return": sales_return.pk, "restock": True},
+                    metadata={"sales_return": sales_return.pk, "restock": True,
+                              "movements": [m.pk for m in movements]},
                 )
             else:
                 line.disposition = SalesReturnLine.SCRAPPED

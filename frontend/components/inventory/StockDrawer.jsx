@@ -15,6 +15,9 @@ import { useStableIds } from "@/lib/useStableIds";
 // what lets shrinkage be reported by cause rather than as free text.
 const REASON_CODES = ["count", "damage", "expiry", "theft", "sample", "opening", "other"];
 
+const EMPTY_ADJUST = { warehouse: "", batch: "", quantity: "", reason: "", reason_code: "count" };
+const EMPTY_TRANSFER = { source: "", dest: "", batch: "", quantity: "" };
+
 const MOVE_KEY = {
   sale_out: "inventory.mvSaleOut",
   purchase_in: "inventory.mvPurchaseIn",
@@ -34,13 +37,25 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
   // exactly when a stock count needs recording.
   const [stockState, setStockState] = useState("loading");
   const [movements, setMovements] = useState([]);
-  const [adjust, setAdjust] = useState({ warehouse: "", quantity: "", reason: "", reason_code: "count" });
-  const [transfer, setTransfer] = useState({ source: "", dest: "", quantity: "" });
+  const [adjust, setAdjust] = useState(EMPTY_ADJUST);
+  const [transfer, setTransfer] = useState(EMPTY_TRANSFER);
+  // A lot-tracked product is adjusted and moved lot by lot: the server
+  // refuses a form without one, so its lots are offered here.
+  const [lots, setLots] = useState([]);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const tracked = Boolean(product?.track_batches);
 
   const load = useCallback(async () => {
     if (!product) return;
+    if (product.track_batches) {
+      inventory
+        .stockBatches({ product: product.id })
+        .then((r) => setLots(r.data.results || r.data))
+        .catch(() => setLots([]));
+    } else {
+      setLots([]);
+    }
     try {
       const [s, m] = await Promise.all([
         inventory.stock(product.id),
@@ -60,8 +75,8 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
       reset();
       setMsg("");
       setStockState("loading");
-      setAdjust({ warehouse: "", quantity: "", reason: "", reason_code: "count" });
-      setTransfer({ source: "", dest: "", quantity: "" });
+      setAdjust(EMPTY_ADJUST);
+      setTransfer(EMPTY_TRANSFER);
       load();
     }
   }, [open, load, reset]);
@@ -70,6 +85,10 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
     setMsg("");
     if (!adjust.warehouse || !adjust.quantity) {
       setMsg(t("inventory.chooseWhQty"));
+      return;
+    }
+    if (tracked && !adjust.batch) {
+      setMsg(t("inventory.chooseLot"));
       return;
     }
     if (!adjust.reason.trim()) {
@@ -85,8 +104,9 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
         quantity: adjust.quantity,
         reason: adjust.reason,
         reason_code: adjust.reason_code,
+        ...(adjust.batch ? { batch: Number(adjust.batch) } : {}),
       });
-      setAdjust({ warehouse: "", quantity: "", reason: "", reason_code: "count" });
+      setAdjust(EMPTY_ADJUST);
       reset();
       if (!result.queued) await load();
       onChanged?.();
@@ -108,6 +128,10 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
       setMsg(t("inventory.sameWarehouse"));
       return;
     }
+    if (tracked && !transfer.batch) {
+      setMsg(t("inventory.chooseLot"));
+      return;
+    }
     setBusy(true);
     try {
       const result = await mutate("stock_transfer", inventory.createTransfer, {
@@ -116,8 +140,9 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
         source_warehouse: Number(transfer.source),
         dest_warehouse: Number(transfer.dest),
         quantity: transfer.quantity,
+        ...(transfer.batch ? { batch: Number(transfer.batch) } : {}),
       });
-      setTransfer({ source: "", dest: "", quantity: "" });
+      setTransfer(EMPTY_TRANSFER);
       reset();
       if (!result.queued) await load();
       onChanged?.();
@@ -130,6 +155,33 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
   }
 
   const dateFmt = (d) => (d ? new Date(d).toLocaleDateString(language === "ar" ? "ar" : "en") : "");
+
+  // What a lot holds in one warehouse (from the stock endpoint), shown in the
+  // lot picker so a write-off is not aimed at an empty lot unseen.
+  const lotOnHand = (batchId, warehouseId) => {
+    if (!stock || !warehouseId) return null;
+    const row = (stock.by_batch_warehouse || []).find(
+      (r) => String(r.batch) === String(batchId) && String(r.warehouse) === String(warehouseId)
+    );
+    return row ? row.on_hand : "0";
+  };
+  const lotLabel = (lot, warehouseId) => {
+    const parts = [lot.lot_number];
+    if (lot.expiry_date) parts.push(t("inventory.lotExpires", { date: dateFmt(lot.expiry_date) }));
+    const held = lotOnHand(lot.id, warehouseId);
+    if (held !== null) parts.push(t("inventory.lotHolds", { qty: held }));
+    return parts.join(" · ");
+  };
+  const lotSelect = (value, warehouseId, onChange) => (
+    <Field label={t("inventory.lot")}>
+      <Select value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">{t("common.select")}</option>
+        {lots.map((lot) => (
+          <option key={lot.id} value={lot.id}>{lotLabel(lot, warehouseId)}</option>
+        ))}
+      </Select>
+    </Field>
+  );
 
   return (
     <Drawer open={open} onClose={onClose} title={product ? `${product.sku} — ${t("inventory.stockSuffix")}` : t("inventory.stock")}>
@@ -162,6 +214,31 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
             )}
           </div>}
 
+          {stock && tracked && (
+            <div>
+              <div className="mb-2 text-sm font-medium text-ink">{t("inventory.byLot")}</div>
+              {(stock.by_batch || []).length === 0 ? (
+                <p className="text-sm text-muted">{t("inventory.noLots")}</p>
+              ) : (
+                <div className="divide-y divide-line rounded-card border border-line">
+                  {stock.by_batch.map((row) => (
+                    <div key={row.batch} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                      <span className="text-ink">
+                        {row.batch__lot_number}
+                        {row.batch__expiry_date && (
+                          <span className="ms-2 text-xs text-muted">
+                            {t("inventory.lotExpires", { date: dateFmt(row.batch__expiry_date) })}
+                          </span>
+                        )}
+                      </span>
+                      <span className="tabular text-ink">{row.on_hand}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {canWrite && (
             <div className="rounded-card border border-line p-4">
               <div className="mb-3 text-sm font-medium text-ink">{t("inventory.adjustStock")}</div>
@@ -178,6 +255,7 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
                     ))}
                   </Select>
                 </Field>
+                {tracked && lotSelect(adjust.batch, adjust.warehouse, (v) => setAdjust((a) => ({ ...a, batch: v })))}
                 <div className="grid grid-cols-2 gap-3">
                   <Field label={t("inventory.quantityPm")}>
                     <Input
@@ -241,6 +319,7 @@ export default function StockDrawer({ open, onClose, product, warehouses, canWri
                     </Select>
                   </Field>
                 </div>
+                {tracked && lotSelect(transfer.batch, transfer.source, (v) => setTransfer((x) => ({ ...x, batch: v })))}
                 <Field label={t("common.quantity")}>
                   <Input
                     type="number"

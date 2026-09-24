@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-24 11:32+0000\n"
+"POT-Creation-Date: 2026-09-24 12:49+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -589,16 +589,61 @@ msgstr "لا ينتمي إلى شركتك."
 msgid "A pack must hold at least one unit."
 msgstr "العبوة يجب أن تحوي وحدة واحدة على الأقل."
 
-msgid "Cannot be negative."
-msgstr "لا يمكن أن تكون القيمة سالبة."
+#, python-format
+msgid "%(product)s already has a pack named %(name)s; edit that one."
+msgstr "للمنتج %(product)s وحدة باسم %(name)s من قبل؛ عدّلها بدلًا من إضافة أخرى."
+
+#, python-format
+msgid ""
+"%(product)s has an archived pack named %(name)s; restore it instead of "
+"adding it again."
+msgstr ""
+"للمنتج %(product)s وحدة مؤرشفة باسم %(name)s؛ استعِدها بدلًا من إضافتها من "
+"جديد."
+
+msgid "This barcode is the product's own; a pack needs a different one."
+msgstr "هذا باركود المنتج نفسه؛ الوحدة تحتاج باركودًا مختلفًا."
 
 #, python-format
 msgid "This barcode already belongs to %(product)s."
 msgstr "هذا الباركود مسجَّل بالفعل للمنتج %(product)s."
 
 #, python-format
+msgid "This barcode already belongs to the %(pack)s pack of %(product)s."
+msgstr "هذا الباركود مسجَّل بالفعل للوحدة %(pack)s من المنتج %(product)s."
+
+msgid "This barcode or pack name is already in use; reload and retry."
+msgstr "هذا الباركود أو اسم الوحدة مستخدم بالفعل؛ حدّث الصفحة وأعد المحاولة."
+
+msgid "Cannot be negative."
+msgstr "لا يمكن أن تكون القيمة سالبة."
+
+#, python-format
+msgid ""
+"Lots %(lots)s still hold stock; bring them to zero before turning off lot "
+"tracking."
+msgstr ""
+"الدفعات %(lots)s ما زال فيها مخزون؛ صفّرها أولًا قبل إيقاف التتبع بالدفعات."
+
+#, python-format
 msgid "This barcode already belongs to a pack of %(product)s."
 msgstr "هذا الباركود مسجَّل بالفعل لعبوة من المنتج %(product)s."
+
+#, python-format
+msgid "%(sku)s is archived; restore it before moving its stock."
+msgstr "الصنف %(sku)s مؤرشف؛ أعد تفعيله قبل تحريك مخزونه."
+
+#, python-format
+msgid "%(sku)s is not a stocked item, so it has no stock to move."
+msgstr "الصنف %(sku)s ليس صنفًا مخزنيًا، فلا مخزون له ليُحرَّك."
+
+#, python-format
+msgid "%(sku)s is tracked by lot: choose the lot."
+msgstr "الصنف %(sku)s يُتتبَّع بالدفعات: اختر الدفعة."
+
+#, python-format
+msgid "Lot %(lot)s holds only %(available)s at %(warehouse)s."
+msgstr "الدفعة %(lot)s فيها %(available)s فقط في %(warehouse)s."
 
 msgid "Quantity cannot be zero."
 msgstr "الكمية لا يمكن أن تكون صفرًا."
@@ -826,6 +871,14 @@ msgstr "المتبقي للاستلام من %(sku)s هو %(remaining)s فقط."
 
 msgid "A receipt in the company currency has a rate of 1."
 msgstr "الاستلام بعملة الشركة سعر صرفه 1."
+
+#, python-format
+msgid ""
+"%(sku)s lot %(lot)s was received before with expiry %(recorded)s, not "
+"%(given)s. Check the label: use the recorded date, or a different lot number."
+msgstr ""
+"الصنف %(sku)s بالدفعة %(lot)s استُلم من قبل بتاريخ انتهاء %(recorded)s وليس "
+"%(given)s. راجع الملصق: استخدم التاريخ المسجَّل أو رقم دفعة مختلفًا."
 
 #, python-format
 msgid "Invoice %(number)s from this supplier is already recorded."
@@ -1185,6 +1238,14 @@ msgstr "مستخدم الفرع لا يبيع إلا من فرعه."
 
 #, python-format
 msgid ""
+"%(sku)s (%(name)s) is archived and no longer sold; remove it from the sale "
+"or restore the product."
+msgstr ""
+"الصنف %(sku)s (%(name)s) مؤرشف ولم يعد يُباع؛ احذفه من البيع أو أعد تفعيل "
+"المنتج."
+
+#, python-format
+msgid ""
 "The tax rate changed to %(rate)s%%. Reload the page, then ring the sale "
 "again."
 msgstr ""
@@ -1332,8 +1393,12 @@ msgstr ""
 "على هذه الفاتورة مرتجع. أرجِع الأسطر المتبقية بدلًا من إبطال البيع كاملًا."
 
 #, python-format
-msgid "%(paid)s was paid in money on this invoice. Say how it is being refunded (method, account/reference or till session)."
-msgstr "دُفع على هذه الفاتورة %(paid)s نقدًا أو تحويلًا. حدّد طريقة ردّه (طريقة الدفع، أو الحساب/المرجع، أو الوردية)."
+msgid ""
+"%(paid)s was paid in money on this invoice. Say how it is being refunded "
+"(method, account/reference or till session)."
+msgstr ""
+"دُفع على هذه الفاتورة %(paid)s نقدًا أو تحويلًا. حدّد طريقة ردّه (طريقة الدفع، أو "
+"الحساب/المرجع، أو الوردية)."
 
 msgid "Choose a receiving account."
 msgstr "اختر الحساب المستلِم."
@@ -1620,12 +1685,20 @@ msgstr "تم تسجيل هذا التحويل مسبقًا."
 msgid "This claim was already answered."
 msgstr "تم الرد على هذا التحويل مسبقًا."
 
-msgid "This order is already paid in full. Reject this claim and return the transfer to the customer."
+msgid ""
+"This order is already paid in full. Reject this claim and return the "
+"transfer to the customer."
 msgstr "هذا الطلب مدفوع بالكامل. ارفض هذا التحويل وأعِده إلى العميل."
 
 #, python-format
-msgid "The transfer (%(amount)s) is %(surplus)s more than the %(due)s still owed on this order. Confirm only %(due)s and return the difference to the customer, or reject the claim and ask for a transfer that matches."
-msgstr "التحويل (%(amount)s) يزيد بمقدار %(surplus)s على المتبقي من هذا الطلب (%(due)s). أكّد %(due)s فقط وأعِد الفرق إلى العميل، أو ارفض التحويل واطلب تحويلًا مطابقًا."
+msgid ""
+"The transfer (%(amount)s) is %(surplus)s more than the %(due)s still owed on "
+"this order. Confirm only %(due)s and return the difference to the customer, "
+"or reject the claim and ask for a transfer that matches."
+msgstr ""
+"التحويل (%(amount)s) يزيد بمقدار %(surplus)s على المتبقي من هذا الطلب "
+"(%(due)s). أكّد %(due)s فقط وأعِد الفرق إلى العميل، أو ارفض التحويل واطلب "
+"تحويلًا مطابقًا."
 
 msgid "Only a confirmed order can be paid."
 msgstr "لا يمكن الدفع إلا لطلب مؤكد."
