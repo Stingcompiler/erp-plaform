@@ -219,33 +219,45 @@ def dashboard(request):
     company_id = getattr(user, "company_id", None)
     branch_id = _dashboard_branch(user)
     sections = {}
+    today = timezone.localdate()
+    month_start = today.replace(day=1)
 
     if role_can(user, "sales", write=False):
         from sales.models import Invoice
         from sales.debt_queries import debt_summary
         from sales.querysets import overdue_invoices
+        from sales.models import InvoiceLine
         inv = _scope_branch(Invoice.objects.filter(company_id=company_id, is_void=False), branch_id)
-        # Top products by revenue — powers the dashboard chart, scoped the same
-        # way as the totals above it. Before tax, like the reports' ranking
-        # (line_total includes tax, so the two screens ordered differently).
+        # Top products this month by invoiced amount — gross, before returns
+        # and before tax, like the reports' ranking. Grouped by product, not
+        # by name: two products sharing a name are two bars.
         top = (
-            inv.values("lines__product__name")
-            .annotate(revenue=Coalesce(Sum("lines__line_subtotal"), Decimal("0")))
-            .exclude(lines__product__name=None)
-            .order_by("-revenue")[:5]
+            _scope_branch(
+                InvoiceLine.objects.filter(
+                    invoice__company_id=company_id, invoice__is_void=False,
+                    invoice__issued_at__date__gte=month_start,
+                    invoice__issued_at__date__lte=today,
+                ),
+                branch_id, field="invoice__branch",
+            )
+            .values("product", "product__name")
+            .annotate(revenue=Coalesce(Sum("line_subtotal"), Decimal("0")))
+            .order_by("-revenue", "product")[:5]
         )
         # Revenue here is the income statement's revenue (net of returns and
         # price-correction notes, before tax) — not invoice totals — so the
-        # overview and the P&L never disagree about the same period.
+        # overview and the P&L never disagree about the same period. Month to
+        # date, not all time: an all-time figure grows forever, says nothing
+        # about how the business is doing now and costs more every month.
         from finance.metrics import net_revenue
-        today = timezone.localdate()
         sections["sales"] = {
             "invoice_count": inv.count(),
             "today_total": str(net_revenue(company_id, today, today, branch_id)),
             "overdue_count": overdue_invoices(inv).count(),
-            "revenue_total": str(net_revenue(company_id, branch_id=branch_id)),
+            "revenue_total": str(net_revenue(company_id, month_start, today, branch_id)),
+            "period_start": month_start.isoformat(),
             "top_products": [
-                {"label": r["lines__product__name"], "value": str(r["revenue"])}
+                {"product": r["product"], "label": r["product__name"], "value": str(r["revenue"])}
                 for r in top
             ],
         }
@@ -254,16 +266,17 @@ def dashboard(request):
         sections["debts"] = debt_summary(user)
 
     if role_can(user, "inventory", write=False):
-        from django.db.models import F
+        from inventory.alerts import expiring_batches, low_stock, negative_stock
         from inventory.models import Product
-        products = Product.objects.filter(company_id=company_id)
-        low = products.annotate(
-            oh=Coalesce(Sum("stock_movements__quantity"), Decimal("0"))
-        ).filter(oh__lte=F("reorder_level"))
-        from inventory.alerts import expiring_batches, negative_stock
         sections["inventory"] = {
-            "product_count": products.count(),
-            "low_stock_count": low.count(),
+            # Products in the catalogue now; archived ones are history.
+            "product_count": Product.objects.filter(
+                company_id=company_id, is_active=True
+            ).count(),
+            # The same rule as the low-stock alert and list: active products
+            # whose stock is tracked (a service or a bag has no stock to run
+            # out of).
+            "low_stock_count": low_stock(company_id).count(),
             # Lots expiring within 30 days (or already expired) that still
             # have stock, and ledger balances below zero left by offline sales
             # — both need a person, not just a number.
@@ -285,16 +298,19 @@ def dashboard(request):
     # belongs to whoever holds the sales-returns module — not purchasing.
     if role_can(user, "sales_returns", write=False):
         from returns.models import SalesReturnLine
-        pending = SalesReturnLine.objects.filter(
-            sales_return__company_id=company_id, disposition="quarantine"
+        pending = _scope_branch(
+            SalesReturnLine.objects.filter(
+                sales_return__company_id=company_id, disposition="quarantine"
+            ),
+            branch_id, field="sales_return__invoice__branch",
         ).count()
         sections["returns"] = {"pending_disposition_count": pending}
 
     if role_can(user, "crm", write=False):
         from crm.models import Lead
-        open_leads = Lead.objects.filter(company_id=company_id).exclude(
-            stage__in=Lead.CLOSED_STAGES
-        )
+        open_leads = _scope_branch(
+            Lead.objects.filter(company_id=company_id), branch_id
+        ).exclude(stage__in=Lead.CLOSED_STAGES)
         sections["crm"] = {
             "open_lead_count": open_leads.count(),
             "pipeline_value": str(
@@ -353,9 +369,12 @@ def dashboard(request):
 
     if role_can(user, "finance", write=False):
         from finance.metrics import operating_summary
-        figures = operating_summary(company_id)
+        # Month to date, like the sales tile: the income statement for this
+        # month, labelled so on the dashboard.
+        figures = operating_summary(company_id, month_start, today)
         sections["finance"] = {
             **figures, "expenses": figures["total_expenses"], "net": figures["net_profit"],
+            "period_start": month_start.isoformat(),
         }
 
     if role_can(user, "website", write=False):

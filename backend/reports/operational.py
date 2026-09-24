@@ -7,8 +7,11 @@ from decimal import Decimal
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
+from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 from rest_framework.response import Response
 
+from core.timezone import company_zone
 from reports.views import MONEY, ZERO, ReportView
 
 QTY = DecimalField(max_digits=16, decimal_places=3)
@@ -25,6 +28,41 @@ def _total(qs, expression):
 
 def _qty(value):
     return str(Decimal(value or 0).normalize()) if value else "0"
+
+
+# CSV cells carry words, not codes: the model choices' labels are English and
+# untranslated, so the export has its own translated labels.
+DISPOSITIONS = {
+    "quarantine": gettext_lazy("Quarantine (pending)"),
+    "restocked": gettext_lazy("Restocked to sellable"),
+    "scrapped": gettext_lazy("Scrapped / written off"),
+}
+STAGES = {
+    "new": gettext_lazy("New"),
+    "contacted": gettext_lazy("Contacted"),
+    "qualified": gettext_lazy("Qualified"),
+    "proposal": gettext_lazy("Proposal sent"),
+    "won": gettext_lazy("Won"),
+    "lost": gettext_lazy("Lost"),
+}
+PAYMENT_METHODS = {
+    "cash": gettext_lazy("Cash"),
+    "bank_transfer": gettext_lazy("Bank transfer"),
+    "credit": gettext_lazy("Store credit"),
+}
+
+
+def _label(labels, code):
+    return str(labels[code]) if code in labels else code
+
+
+def _local(request, moment, fmt="%Y-%m-%d %H:%M"):
+    """A timestamp as the company's clock reads it — a sale at 00:30 in
+    Khartoum is that day's, not the previous day's UTC date."""
+    if not moment:
+        return ""
+    company = getattr(request.user, "company", None)
+    return timezone.localtime(moment, company_zone(company)).strftime(fmt)
 
 
 class SalesReturnsReport(ReportView):
@@ -54,10 +92,11 @@ class SalesReturnsReport(ReportView):
             rows = [
                 [
                     line.sales_return_id,
-                    line.sales_return.created_at.strftime("%Y-%m-%d %H:%M"),
+                    _local(request, line.sales_return.created_at),
                     line.sales_return.invoice.number if line.sales_return.invoice_id else "",
                     line.sales_return.customer.name if line.sales_return.customer_id else "",
-                    line.product.sku, line.product.name, line.quantity, line.disposition,
+                    line.product.sku, line.product.name, line.quantity,
+                    _label(DISPOSITIONS, line.disposition),
                     line.sales_return.reason,
                 ]
                 for line in lines.select_related(
@@ -66,8 +105,8 @@ class SalesReturnsReport(ReportView):
             ]
             return self.csv_response(
                 "sales-returns.csv",
-                ["return", "date", "invoice", "customer", "sku", "product", "quantity",
-                 "disposition", "reason"],
+                [_("Return"), _("Date"), _("Invoice"), _("Customer"), _("SKU"), _("Product"),
+                 _("Quantity"), _("Disposition"), _("Reason")],
                 rows,
             )
 
@@ -129,7 +168,7 @@ class PurchaseReturnsReport(ReportView):
             rows = [
                 [
                     line.purchase_return_id,
-                    line.purchase_return.created_at.strftime("%Y-%m-%d %H:%M"),
+                    _local(request, line.purchase_return.created_at),
                     line.purchase_return.supplier.name,
                     line.product.sku, line.product.name, line.quantity,
                     line.purchase_return.reason,
@@ -140,7 +179,8 @@ class PurchaseReturnsReport(ReportView):
             ]
             return self.csv_response(
                 "purchase-returns.csv",
-                ["return", "date", "supplier", "sku", "product", "quantity", "reason"],
+                [_("Return"), _("Date"), _("Supplier"), _("SKU"), _("Product"), _("Quantity"),
+                 _("Reason")],
                 rows,
             )
 
@@ -196,13 +236,13 @@ class PaymentReconciliationReport(ReportView):
         if self.wants_csv(request):
             rows = [
                 [
-                    p.pk, p.recorded_at.strftime("%Y-%m-%d %H:%M"), p.invoice.number,
+                    p.pk, _local(request, p.recorded_at), p.invoice.number_display,
                     p.invoice.customer.name if p.invoice.customer_id else "",
-                    p.method,
+                    _label(PAYMENT_METHODS, p.method),
                     p.company_bank_account.bank_name if p.company_bank_account_id else "",
                     p.transfer_reference, p.amount, p.currency,
-                    "verified" if p.verified_at else "unverified",
-                    p.verified_at.strftime("%Y-%m-%d %H:%M") if p.verified_at else "",
+                    _("Verified") if p.verified_at else _("Unverified"),
+                    _local(request, p.verified_at),
                 ]
                 for p in payments.select_related(
                     "invoice__customer", "company_bank_account"
@@ -210,8 +250,9 @@ class PaymentReconciliationReport(ReportView):
             ]
             return self.csv_response(
                 "payment-reconciliation.csv",
-                ["payment", "recorded_at", "invoice", "customer", "method", "account",
-                 "reference", "amount", "currency", "status", "verified_at"],
+                [_("Payment"), _("Recorded at"), _("Invoice"), _("Customer"), _("Method"),
+                 _("Account"), _("Reference"), _("Amount"), _("Currency"), _("Status"),
+                 _("Verified at")],
                 rows,
             )
 
@@ -272,6 +313,9 @@ class CrmReport(ReportView):
     the period, win rate of closed leads, and follow-ups that are late."""
 
     report_area = "sales"
+    # Leads carry names and phone numbers: the sales report area is not
+    # enough, the reader must be allowed into the CRM itself.
+    report_module = "crm"
 
     OPEN_STAGES = ("new", "contacted", "qualified", "proposal")
 
@@ -285,8 +329,9 @@ class CrmReport(ReportView):
         if self.wants_csv(request):
             rows = [
                 [
-                    lead.pk, lead.created_at.strftime("%Y-%m-%d"), lead.name, lead.contact_name,
-                    lead.phone, lead.source, lead.stage, lead.estimated_value,
+                    lead.pk, _local(request, lead.created_at, "%Y-%m-%d"), lead.name,
+                    lead.contact_name, lead.phone, lead.source, _label(STAGES, lead.stage),
+                    lead.estimated_value,
                     lead.assigned_to.email if lead.assigned_to_id else "",
                 ]
                 for lead in self.apply_range(leads, "created_at", start, end)
@@ -294,8 +339,8 @@ class CrmReport(ReportView):
             ]
             return self.csv_response(
                 "crm-leads.csv",
-                ["lead", "created", "name", "contact", "phone", "source", "stage",
-                 "estimated_value", "assigned_to"],
+                [_("Lead"), _("Created"), _("Name"), _("Contact"), _("Phone"), _("Source"),
+                 _("Stage"), _("Estimated value"), _("Assigned to")],
                 rows,
             )
 

@@ -9,19 +9,18 @@ counts subscriptions that are active or in grace (still entitled, still
 expected to pay); trials are not revenue yet.
 """
 
-import csv
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal
 
 from django.db.models import Sum
-from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core import platform_roles
+from core.csvexport import csv_download
 from core.permissions import IsPlatformAdmin
 from subscriptions.models import (
     PaymentAllocation,
@@ -272,10 +271,9 @@ class PlatformFinanceView(APIView):
 
     @staticmethod
     def _csv(report):
-        response = HttpResponse(content_type="text/csv; charset=utf-8")
-        response["Content-Disposition"] = 'attachment; filename="vezano-subscriptions.csv"'
-        response.write("﻿")  # Excel reads UTF-8 (and Arabic) only with the BOM
-        writer = csv.writer(response)
+        # BOM for Excel's Arabic, and tenant-chosen names neutralised so a
+        # company called "=HYPERLINK(...)" is text, not a formula.
+        response, writer = csv_download("vezano-subscriptions.csv")
         writer.writerow([
             "company", "plan", "currency", "status", "monthly_price", "outstanding",
             "last_payment_at", "period_ends_at", "trial_ends_at",
