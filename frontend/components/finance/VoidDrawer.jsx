@@ -20,7 +20,7 @@ const money = (v) =>
  * when `paidAmount` is above zero, how the refund goes out: cash from the
  * caller's open drawer, or a transfer from one of the company's accounts.
  */
-export default function VoidDrawer({ open, onClose, onDone, title, summary, paidAmount = 0, submit }) {
+export default function VoidDrawer({ open, onClose, onDone, title, summary, paidAmount = 0, creditAmount = 0, submit }) {
   const { t } = useI18n();
   const [reason, setReason] = useState("");
   const [method, setMethod] = useState("cash");
@@ -35,7 +35,12 @@ export default function VoidDrawer({ open, onClose, onDone, title, summary, paid
   useEffect(() => {
     if (!open) return;
     setReason(""); setMethod("cash"); setAccount(""); setReference(""); setError("");
-    if (!needsRefund) return;
+  }, [open]);
+
+  // Separate from the reset: the refund amount can arrive after the drawer
+  // opens (the invoice's void preview), and must not wipe what was typed.
+  useEffect(() => {
+    if (!open || !needsRefund) return;
     bankApi.list().then((r) => setAccounts(r.data.results || r.data)).catch(() => setAccounts([]));
     cashShifts.current().then((r) => setShift(r.data?.shift ?? r.data ?? null)).catch(() => setShift(null));
   }, [open, needsRefund]);
@@ -85,6 +90,11 @@ export default function VoidDrawer({ open, onClose, onDone, title, summary, paid
         <Field label={t("corrections.reason")}>
           <Input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={255} autoFocus />
         </Field>
+        {Number(creditAmount) > 0 && (
+          <p className="rounded-card border border-line p-3 text-sm text-muted">
+            {t("corrections.keptAsCredit", { amount: money(creditAmount) })}
+          </p>
+        )}
         {needsRefund && (
           <div className="space-y-3 rounded-card border border-line p-3">
             <div className="flex justify-between text-sm">

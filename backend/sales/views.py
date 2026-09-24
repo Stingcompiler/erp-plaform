@@ -63,6 +63,14 @@ class CustomerViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     serializer_class = CustomerSerializer
     activity_entity_type = "Customer"
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.action in ("list", "retrieve"):
+            from sales.querysets import with_ar_balance
+
+            qs = with_ar_balance(qs)
+        return qs
+
     def _status(self, customer):
         """Account state, driven by real credit terms: any invoice past its
         `due_date` marks the customer overdue; otherwise an outstanding
@@ -740,8 +748,9 @@ class InvoiceViewSet(
         reference_last4?, shift?}} — `refund` is required when anything was
         paid, so the money the customer handed over is accounted for.
 
-        Writes, atomically: a full-value Credit Note, a Refund of whatever was
-        paid, one `sales_return_in` movement reversing each `sale_out` of the
+        Writes, atomically: a full-value Credit Note, a Refund of the money
+        (cash/transfer) paid — the store-credit part stays on the note as the
+        customer's credit — one `sales_return_in` movement reversing each `sale_out` of the
         sale (same warehouse, lot and cost), then `is_void`. Refused when the
         invoice already has a return against it: those goods were credited by
         their own note and voiding on top would credit them twice.
@@ -780,15 +789,18 @@ class InvoiceViewSet(
             # What the customer is owed back once the void note lands: what
             # they paid, less what earlier notes already handed back. Refunding
             # everything ever paid failed ("only 60.00 remains refundable") as
-            # soon as one of the invoice's notes had been refunded.
-            paid = max(Decimal("0"), remaining_credit - invoice.amount_due())
+            # soon as one of the invoice's notes had been refunded. Only money
+            # goes back as money: the part paid with store credit stays on the
+            # void note as the customer's credit (remaining_refundable reads
+            # the void invoice's ledger, not its zero amount_due).
+            paid, kept_as_credit = invoice.void_settlement()
             refund_body = request.data.get("refund")
             if paid > 0 and not isinstance(refund_body, dict):
                 return Response(
                     {
                         "refund": _(
-                            "%(paid)s was paid on this invoice. Say how it is being "
-                            "refunded (method, account/reference or till session)."
+                            "%(paid)s was paid in money on this invoice. Say how it is "
+                            "being refunded (method, account/reference or till session)."
                         ) % {"paid": paid}
                     },
                     status=status.HTTP_400_BAD_REQUEST,
@@ -834,10 +846,18 @@ class InvoiceViewSet(
                 metadata={
                     "reason": reason, "credit_note": note.pk,
                     "refund": refund.pk if refund else None,
+                    "kept_as_credit": str(kept_as_credit),
                     "movements": reversed_ids, "total": str(invoice.total),
                 },
             )
         return Response(self.get_serializer(invoice).data)
+
+    @action(detail=True, methods=["get"], url_path="void-preview")
+    def void_preview(self, request, pk=None):
+        """What a void would hand back: `refund` in money (the drawer asks
+        how) and `credit` kept as the customer's store credit."""
+        money, credit = self.get_object().void_settlement()
+        return Response({"refund": str(money), "credit": str(credit)})
 
     @action(detail=False, methods=["get"])
     def export(self, request):

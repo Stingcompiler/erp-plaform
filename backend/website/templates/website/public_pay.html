@@ -87,7 +87,8 @@ form{display:grid;gap:12px}label{display:grid;gap:6px;font-weight:600;font-size:
     document.getElementById("who").textContent = o.contact_name + (o.branch ? " · " + o.branch : "");
     var lines = document.getElementById("lines"); lines.innerHTML = "";
     o.lines.forEach(function (l) { var li = document.createElement("li"); li.innerHTML = "<span></span><span></span>"; li.children[0].textContent = l.name + " × " + Number(l.quantity); li.children[1].textContent = l.unit_price == null ? L("يؤكده المحل", "confirmed by the shop") : money(Number(l.unit_price) * Number(l.quantity), o.currency); lines.appendChild(li); });
-    document.getElementById("total").textContent = L("الإجمالي: ", "Total: ") + (o.priced ? money(o.total, o.currency) : L("يؤكده المحل", "confirmed by the shop"));
+    var taxed = o.priced && Number(o.tax_amount) > 0;
+    document.getElementById("total").textContent = (taxed ? L("الإجمالي شامل الضريبة (", "Total including tax (") + money(o.tax_amount, o.currency) + "): " : L("الإجمالي: ", "Total: ")) + (o.priced ? money(o.total, o.currency) : L("يؤكده المحل", "confirmed by the shop"));
     var acc = document.getElementById("accounts"); acc.innerHTML = ""; var sel = document.getElementById("bank_account"); sel.innerHTML = "";
     o.bank_accounts.forEach(function (a) { var d = document.createElement("div"); d.className = "acct"; d.innerHTML = "<b></b><span class='muted'></span> <code></code>"; d.children[0].textContent = a.bank_name; d.children[1].textContent = a.account_name; d.children[2].textContent = a.account_number; acc.appendChild(d); var op = document.createElement("option"); op.value = a.id; op.textContent = a.bank_name + " — " + a.account_number; sel.appendChild(op); });
     show("accounts-card", o.bank_accounts.length > 0);

@@ -43,7 +43,7 @@ def order_for_visitor(site, reference):
     """The public view of one order: no phone, no internal ids."""
     order = PublicOrder.objects.filter(
         website=site, reference__iexact=str(reference or "").strip()
-    ).prefetch_related("lines", "payments").first()
+    ).prefetch_related("lines", "payments__payment").first()
     return order
 
 
@@ -63,8 +63,13 @@ def claim_payload(claim):
 
 
 def paid_so_far(order):
+    """What was recorded against the order: a confirmed claim counts at the
+    payment it produced (a surplus handed back is not paid)."""
     return sum(
-        (c.amount for c in order.payments.all() if c.status == PublicOrderPayment.CONFIRMED),
+        (
+            c.payment.amount if c.payment_id else c.amount
+            for c in order.payments.all() if c.status == PublicOrderPayment.CONFIRMED
+        ),
         Decimal("0"),
     )
 
@@ -76,7 +81,9 @@ def public_order_payload(order):
         "status": order.status,
         "contact_name": order.contact_name,
         "currency": order.currency,
+        # Tax included: what the confirmation invoices and what to transfer.
         "total": str(order.total) if order.total is not None else None,
+        "tax_amount": str(order.tax_amount) if order.tax_amount is not None else None,
         "priced": order.total is not None,
         "lines": [
             {"name": line.name, "quantity": str(line.quantity),
@@ -180,10 +187,48 @@ def _decide(claim, actor, status, note):
     claim.save()
 
 
+def _check_surplus(claim, due, surplus_returned):
+    """A transfer larger than what is owed is refused until the manager
+    decides, instead of being silently cut to the balance.
+
+    Keeping the surplus as store credit was considered and not done: a
+    payment cannot exceed its invoice, so the extra money would appear
+    nowhere in the bank account's recorded receipts while the customer held
+    spendable credit for it — the books would stop reconciling with the
+    bank, and a credit note outside a return is a manager's decision, not
+    a side effect of a confirmation. The manager either returns the
+    difference to the customer (``surplus_returned``: only the balance due
+    is recorded) or rejects the claim and asks for a transfer that matches.
+    Returns the amount to record."""
+    if due <= 0:
+        raise ValidationError({
+            "code": "already_paid",
+            "detail": _("This order is already paid in full. Reject this claim and return "
+                        "the transfer to the customer."),
+        })
+    if claim.amount <= due:
+        return claim.amount
+    if not surplus_returned:
+        raise ValidationError({
+            "code": "overpayment",
+            "detail": _(
+                "The transfer (%(amount)s) is %(surplus)s more than the %(due)s still owed on "
+                "this order. Confirm only %(due)s and return the difference to the customer, "
+                "or reject the claim and ask for a transfer that matches."
+            ) % {"amount": claim.amount, "surplus": claim.amount - due, "due": due},
+            "amount": str(claim.amount), "due": str(due), "surplus": str(claim.amount - due),
+        })
+    return due
+
+
 @transaction.atomic
-def confirm_payment(claim, actor, request, warehouse=None, note=""):
+def confirm_payment(claim, actor, request, warehouse=None, note="", surplus_returned=False):
     """The money is in the bank: invoice the order, deduct stock, record the
-    verified bank transfer. Returns the claim with ``invoice`` set."""
+    verified bank transfer. Returns the claim with ``invoice`` set.
+
+    A transfer above what is owed is refused (code ``overpayment``) unless
+    ``surplus_returned`` says the manager is handing the difference back;
+    then only the balance due is recorded and the surplus is logged."""
     from core.rbac import can_approve_high_value
     from inventory.models import Warehouse
     from sales.models import Payment
@@ -212,7 +257,9 @@ def confirm_payment(claim, actor, request, warehouse=None, note=""):
         if warehouse is None:
             raise ValidationError({"warehouse": _("Create a warehouse to sell from first.")})
     if sales_order.status == sales_order.CONFIRMED:
-        amount = min(claim.amount, sales_order.total)
+        # The checkout invoices the order's lines at the order's tax, so the
+        # invoice total is the sales order's total.
+        amount = _check_surplus(claim, sales_order.total, surplus_returned)
         serializer = POSCheckoutSerializer(
             data={
                 "customer": sales_order.customer_id,
@@ -247,10 +294,13 @@ def confirm_payment(claim, actor, request, warehouse=None, note=""):
         # (review F01: 800 + 800 on a 1,000 order used to be accepted), the
         # currency taken from the invoice. The shop's confirmation stays the
         # verification, as decided.
+        from sales.models import Invoice
         from sales.payments import record_payment
 
+        locked = Invoice.objects.select_for_update().get(pk=invoice.pk)
+        amount = _check_surplus(claim, locked.amount_due(), surplus_returned)
         payment = record_payment(
-            invoice, amount=claim.amount, method=Payment.BANK_TRANSFER,
+            invoice, amount=amount, method=Payment.BANK_TRANSFER,
             recorded_by=actor, company_bank_account=claim.bank_account,
             sender_bank_name=claim.sender_bank_name, reference_last4=claim.reference_last4,
         )
@@ -260,10 +310,17 @@ def confirm_payment(claim, actor, request, warehouse=None, note=""):
         payment.save(update_fields=["verified_at", "verified_by"])
     claim.payment = payment
     claim.invoice = invoice
+    surplus = claim.amount - amount
+    if surplus > 0:
+        note = " · ".join(p for p in (note, _(
+            "%(surplus)s above the balance is being returned to the customer."
+        ) % {"surplus": surplus}) if p)
     _decide(claim, actor, PublicOrderPayment.CONFIRMED, note)
     log_activity(
         action="public_payment_confirmed", request=request, entity_type="PublicOrderPayment",
-        entity_id=claim.pk, metadata={"reference": order.reference, "invoice": invoice.pk},
+        entity_id=claim.pk,
+        metadata={"reference": order.reference, "invoice": invoice.pk,
+                  "recorded": str(amount), "surplus_returned": str(surplus)},
     )
     return claim
 

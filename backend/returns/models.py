@@ -240,10 +240,13 @@ class CreditNote(models.Model):
             return Decimal("0")
         remaining = self.amount - self.refunded_total() - self.applied_total()
         if self.invoice_id:
-            # amount_due() already nets earlier refunds back in, so a
+            # The ledger balance already nets earlier refunds back in, so a
             # negative balance is exactly the credit still sitting on the
-            # invoice.
-            credit_on_invoice = max(Decimal("0"), -self.invoice.amount_due())
+            # invoice. Not amount_due(): that is zero on a void invoice, and
+            # a void keeps the store-credit part of what was paid as credit
+            # on its note (every older void refunded all it was paid, so
+            # its balance nets to zero and its notes stay spent).
+            credit_on_invoice = max(Decimal("0"), -self.invoice.ledger_balance())
             remaining = min(remaining, credit_on_invoice)
         return max(Decimal("0"), remaining)
 

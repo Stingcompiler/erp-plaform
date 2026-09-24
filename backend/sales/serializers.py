@@ -120,7 +120,11 @@ class CustomerSerializer(serializers.ModelSerializer):
         read_only_fields = ["company", "updated_at"]
 
     def get_ar_balance(self, obj):
-        return obj.ar_balance()
+        # Lists and the sync pull annotate the balance in SQL
+        # (sales.querysets.with_ar_balance); a single row falls back to the
+        # model method, which gives the same number.
+        annotated = getattr(obj, "ar_balance_sql", None)
+        return annotated if annotated is not None else obj.ar_balance()
 
     def get_opening_balance(self, obj):
         opening = obj.invoices.filter(is_opening_balance=True, is_void=False).first()
@@ -1437,6 +1441,14 @@ class RefundSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             validated_data.setdefault("recorded_by", request.user)
         with transaction.atomic():
+            # The invoice first, then the note — the order record_payment
+            # uses too. What may be refunded depends on the whole invoice
+            # (what was paid, what other notes already handed back), so two
+            # notes on one partly-paid invoice refunded at the same moment
+            # each passed the check under a lock on their own note only.
+            invoice_id = validated_data["credit_note"].invoice_id
+            if invoice_id:
+                Invoice.objects.select_for_update().get(pk=invoice_id)
             note = CreditNote.objects.select_for_update().get(
                 pk=validated_data["credit_note"].pk
             )

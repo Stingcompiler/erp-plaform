@@ -83,10 +83,24 @@ function WebOrders() {
     const labels = { confirm: "webOrders.pay.confirmAsk", reject: "webOrders.pay.rejectAsk", fraud: "webOrders.pay.fraudAsk" };
     if (!(await confirm(t(labels[kind], { amount: money(claim.amount, open.currency), last4: claim.reference_last4 })))) return;
     setBusy(true); setError("");
+    const body = { note: payNote, warehouse: warehouse || undefined };
     try {
-      const res = kind === "confirm"
-        ? await api.confirmPayment(open.id, claim.id, { note: payNote, warehouse: warehouse || undefined })
-        : kind === "reject" ? await api.rejectPayment(open.id, claim.id, payNote) : await api.fraudPayment(open.id, claim.id, payNote);
+      let res;
+      try {
+        res = kind === "confirm"
+          ? await api.confirmPayment(open.id, claim.id, body)
+          : kind === "reject" ? await api.rejectPayment(open.id, claim.id, payNote) : await api.fraudPayment(open.id, claim.id, payNote);
+      } catch (err) {
+        // A transfer above what is owed: the manager decides. Confirming
+        // records only the balance and promises the difference back.
+        const d = err?.response?.data;
+        if (kind !== "confirm" || d?.code !== "overpayment") throw err;
+        const ok = await confirm(t("webOrders.pay.overpaymentAsk", {
+          amount: money(d.amount, open.currency), due: money(d.due, open.currency), surplus: money(d.surplus, open.currency),
+        }));
+        if (!ok) return;
+        res = await api.confirmPayment(open.id, claim.id, { ...body, surplus_returned: true });
+      }
       setOpen(res.data); setPayNote(""); await load();
     } catch (err) {
       const d = err?.response?.data;
@@ -164,7 +178,8 @@ function WebOrders() {
             </div>
             <ul className="divide-y divide-line rounded-control border border-line">
               {open.lines.map((l) => <li key={l.id} className="flex justify-between gap-3 px-3 py-2"><span>{l.name} <span className="text-muted">×{Number(l.quantity)}</span></span><span className="tabular">{l.unit_price == null ? <span className="text-muted">{t("webOrders.askPrice")}</span> : money(Number(l.unit_price) * Number(l.quantity), open.currency)}</span></li>)}
-              <li className="flex justify-between px-3 py-2 font-semibold"><span>{t("webOrders.total")}</span><span className="tabular">{open.total == null ? t("webOrders.confirmPrices") : money(open.total, open.currency)}</span></li>
+              {Number(open.tax_amount) > 0 && <li className="flex justify-between px-3 py-2 text-muted"><span>{t("webOrders.tax")}</span><span className="tabular">{money(open.tax_amount, open.currency)}</span></li>}
+              <li className="flex justify-between px-3 py-2 font-semibold"><span>{Number(open.tax_amount) > 0 ? t("webOrders.totalWithTax") : t("webOrders.total")}</span><span className="tabular">{open.total == null ? t("webOrders.confirmPrices") : money(open.total, open.currency)}</span></li>
             </ul>
             {open.payments?.length > 0 && (
               <div className="space-y-3">

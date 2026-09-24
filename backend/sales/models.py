@@ -390,6 +390,34 @@ class Invoice(models.Model):
         """
         if self.is_void:
             return Decimal("0")
+        return self.ledger_balance()
+
+    def void_settlement(self):
+        """What voiding this invoice hands back: ``(money, credit)``.
+
+        The customer is owed what they paid less what earlier notes already
+        gave back. Only the money part (cash/transfer) is refunded as money;
+        the part paid with store credit goes back as credit on the void
+        note — a cash refund of it would turn credit into cash. Earlier
+        refunds and credit spent elsewhere come out of the money part."""
+        owed_back = max(
+            Decimal("0"), self.total - self.credited_total() - self.amount_due()
+        )
+        money_paid = self.payments.filter(method__in=Payment.MONEY_METHODS).aggregate(
+            t=Coalesce(Sum("amount"), Decimal("0"))
+        )["t"]
+        cents = Decimal("0.01")
+        money = max(Decimal("0"), min(
+            owed_back, money_paid - self.refunded_total() - self.credit_spent_elsewhere()
+        )).quantize(cents)
+        return money, (owed_back - money).quantize(cents)
+
+    def ledger_balance(self):
+        """`amount_due()` without the void short-cut: the invoice's own rows
+        netted. A void invoice owes nothing, but the credit notes on it may
+        still hold credit the customer paid for — the part of a voided sale
+        paid with store credit is given back as credit, not cash, and stays
+        on the void note until it is spent or refunded."""
         return (
             self.total - self.amount_paid() - self._applied_credits()
             + self.refunded_total() + self.credit_spent_elsewhere()
