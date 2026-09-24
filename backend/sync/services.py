@@ -141,6 +141,17 @@ def process_operation(request, op):
                 obj = serializer.save(company_id=company_id)
             else:
                 obj = serializer.save()
+            if getattr(serializer, "superseded", False):
+                # An attendance mark taken before the row's latest write (an
+                # HR correction made while the device was offline): the row
+                # stands. Not an error — the device has nothing to repair —
+                # so it clears its queue as for any duplicate.
+                log_activity(
+                    action="sync_superseded", request=request,
+                    entity_type=spec.model.__name__, entity_id=obj.pk,
+                    metadata={"via": "sync", "op_type": op_type},
+                )
+                return DUPLICATE, spec.model.__name__, str(obj.pk), "", client_uuid, ""
             # Rule #8: the document exists now; its audit row must too. The
             # live endpoints log in their views, which a synced op never hits.
             log_activity(

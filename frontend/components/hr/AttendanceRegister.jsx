@@ -81,9 +81,12 @@ export default function AttendanceRegister({ writable }) {
         // A fresh id per mark: a queued record carries the id of the op that
         // created it, and reusing it would make the queue keep the old mark.
         const { id: _id, client_uuid: _cu, queued: _q, ...carried } = existing || {};
+        // recorded_at: when the mark was taken. A mark that waits offline
+        // and syncs after HR corrected the same day loses to the correction
+        // instead of overwriting it (the server compares these times).
         const body = {
           employee: employee.id, date: day, status: "present", ...carried, ...patch,
-          client_uuid: crypto.randomUUID(),
+          client_uuid: crypto.randomUUID(), recorded_at: new Date().toISOString(),
         };
         const r = await mutate("attendance", (payload) => hr.createAttendance(payload), body);
         if (r.queued) {

@@ -133,6 +133,12 @@ class Attendance(models.Model):
         related_name="generated_attendance",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # When the current values were decided — the moment the mark was taken
+    # on the device for an offline mark, the server's clock for a live
+    # write. A late-arriving offline mark taken before this loses to the
+    # row (last writer by business time, not by arrival). Null on rows
+    # written before it existed; created_at stands in for those.
+    recorded_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-date"]
