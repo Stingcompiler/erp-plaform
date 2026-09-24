@@ -91,6 +91,11 @@ class Employee(models.Model):
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=64, blank=True)
     hire_date = models.DateField(null=True, blank=True)
+    # The last day employed (inclusive). Set to the company's today when the
+    # employee is marked terminated without one; payroll pays the leaver's
+    # month up to it and stops after it. Null on leavers terminated before
+    # it existed — those are simply out of every later payroll.
+    termination_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_ACTIVE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -352,6 +357,12 @@ class SalaryAdvance(models.Model):
         blank=True,
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
+    # First day of the payroll month that starts recovering this advance: the
+    # approval month in the company's calendar, or — when that month's payroll
+    # was already approved — the next month without an approved payroll.
+    # Null on advances approved before it existed (their approval month is
+    # used, see hr.postings.advance_due_q).
+    recover_period = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -406,8 +417,23 @@ class PayrollEntry(models.Model):
     position_title = models.CharField(max_length=255, blank=True)
     base_salary = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0"))
     deductions_total = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0"))
+    # The advances outstanding and due this month (what it tries to recover)…
     advances_total = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0"))
+    # …and what the net pay could actually absorb. The remainder stays owed
+    # and is recovered by the following months. Null only on entries older
+    # than this column (filled by migration 0009).
+    advances_recovered = models.DecimalField(
+        max_digits=14, decimal_places=2, null=True, blank=True
+    )
     net_salary = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0"))
+    # The breakdown behind base_salary: the full monthly rate, the calendar
+    # days employed in the month (hire/termination), and approved unpaid
+    # leave days, each costing monthly/days-in-month. absent_days is shown
+    # for HR only — absences are not deducted automatically.
+    monthly_salary = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    days_employed = models.PositiveSmallIntegerField(null=True, blank=True)
+    unpaid_leave_days = models.PositiveSmallIntegerField(null=True, blank=True)
+    absent_days = models.PositiveSmallIntegerField(null=True, blank=True)
 
     class Meta:
         ordering = ["employee_name"]

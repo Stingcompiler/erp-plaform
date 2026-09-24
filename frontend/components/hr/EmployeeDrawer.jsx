@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { hr } from "@/lib/api";
+import { errorText } from "@/lib/errors";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import Drawer from "@/components/ui/Drawer";
@@ -18,10 +19,11 @@ const EMPTY = {
   department: "",
   base_salary_override: "",
   hire_date: "",
+  termination_date: "",
   status: "active",
 };
 
-export default function EmployeeDrawer({ open, employee, positions, departments, writable, onClose, onSaved }) {
+export default function EmployeeDrawer({ open, employee, positions, departments, writable, canViewPayroll, onClose, onSaved }) {
   const { t } = useI18n();
   const toast = useToast();
   const editing = Boolean(employee?.id);
@@ -42,6 +44,7 @@ export default function EmployeeDrawer({ open, employee, positions, departments,
         department: employee.department ?? "",
         base_salary_override: employee.base_salary_override ?? "",
         hire_date: employee.hire_date || "",
+        termination_date: employee.termination_date || "",
         status: employee.status || "active",
       });
     } else {
@@ -57,15 +60,20 @@ export default function EmployeeDrawer({ open, employee, positions, departments,
       department: form.department === "" ? null : form.department,
       base_salary_override: form.base_salary_override === "" ? null : form.base_salary_override,
       hire_date: form.hire_date === "" ? null : form.hire_date,
+      termination_date: form.termination_date === "" ? null : form.termination_date,
     };
+    // Without payroll access the salary is neither shown nor sent.
+    if (!canViewPayroll) delete payload.base_salary_override;
+    // Reinstating someone clears their termination date on the server.
+    if (form.status !== "terminated") delete payload.termination_date;
     try {
       if (editing) await hr.updateEmployee(employee.id, payload);
       else await hr.createEmployee(payload);
       toast.success(t("common.save"));
       onSaved?.();
       onClose();
-    } catch {
-      toast.error(t("common.loadError"));
+    } catch (err) {
+      toast.error(errorText(err, t, "hr.saveError"));
     } finally {
       setSaving(false);
     }
@@ -110,9 +118,11 @@ export default function EmployeeDrawer({ open, employee, positions, departments,
               {(departments || []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </Select>
           </Field>
-          <Field label={t("hr.employeeBaseSalary")} hint={t("hr.employeeBaseSalaryHint")}>
-            <Input type="number" min="0" step="0.01" value={form.base_salary_override} onChange={(e) => set("base_salary_override", e.target.value)} disabled={!writable} />
-          </Field>
+          {canViewPayroll && (
+            <Field label={t("hr.employeeBaseSalary")} hint={t("hr.employeeBaseSalaryHint")}>
+              <Input type="number" min="0" step="0.01" value={form.base_salary_override} onChange={(e) => set("base_salary_override", e.target.value)} disabled={!writable} />
+            </Field>
+          )}
           <Field label={t("common.email")}>
             <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} disabled={!writable} />
           </Field>
@@ -129,6 +139,11 @@ export default function EmployeeDrawer({ open, employee, positions, departments,
               <option value="terminated">{t("hr.statusTerminated")}</option>
             </Select>
           </Field>
+          {form.status === "terminated" && (
+            <Field label={t("hr.terminationDate")} hint={t("hr.terminationDateHint")}>
+              <Input type="date" value={form.termination_date} onChange={(e) => set("termination_date", e.target.value)} disabled={!writable} />
+            </Field>
+          )}
         </div>
         {editing && <EmployeeRecords employee={employee} writable={writable} />}
       </div>

@@ -13,6 +13,8 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 from rest_framework import serializers
 
+from core.permissions import has_payroll_access
+from core.timezone import company_zone
 from hr.models import (
     Attendance,
     Deduction,
@@ -52,7 +54,34 @@ class _CompanyScopedFKMixin:
                         field.queryset = field.queryset.filter(branch_id=user.branch_id)
 
 
-class PositionSerializer(serializers.ModelSerializer):
+class _SalaryVisibilityMixin:
+    """Salaries are payroll data: a role without payroll access (a branch
+    manager, a sales officer…) sees the people and the jobs, not the pay —
+    neither reading it nor writing it."""
+
+    salary_fields = ()
+
+    def _sees_salary(self):
+        request = self.context.get("request")
+        return request is None or has_payroll_access(request.user)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not self._sees_salary():
+            for name in self.salary_fields:
+                data.pop(name, None)
+        return data
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if not self._sees_salary():
+            for name in self.salary_fields:
+                attrs.pop(name, None)
+        return attrs
+
+
+class PositionSerializer(_SalaryVisibilityMixin, serializers.ModelSerializer):
+    salary_fields = ("base_salary",)
     employee_count = serializers.SerializerMethodField()
 
     def validate_base_salary(self, value):
@@ -77,8 +106,35 @@ class PositionSerializer(serializers.ModelSerializer):
         return obj.employees.count()
 
 
-class EmployeeSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
+class EmployeeSerializer(
+    _SalaryVisibilityMixin, _CompanyScopedFKMixin, serializers.ModelSerializer
+):
     scoped_fk_fields = ("branch", "department", "position")
+    salary_fields = ("base_salary_override",)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        status = attrs.get("status", getattr(self.instance, "status", Employee.STATUS_ACTIVE))
+        hire = attrs.get("hire_date", getattr(self.instance, "hire_date", None))
+        was_terminated = getattr(self.instance, "status", None) == Employee.STATUS_TERMINATED
+        if status == Employee.STATUS_TERMINATED:
+            ended = attrs.get("termination_date", getattr(self.instance, "termination_date", None))
+            if ended is None:
+                # The day HR marks the leaver, in the company's calendar.
+                from hr.postings import company_today
+
+                user = getattr(self.context.get("request"), "user", None)
+                company = getattr(self.instance, "company", None) or getattr(user, "company", None)
+                attrs["termination_date"] = company_today(company)
+        elif was_terminated and "termination_date" not in attrs:
+            # Reinstated: employed again from here on.
+            attrs["termination_date"] = None
+        ended = attrs.get("termination_date", getattr(self.instance, "termination_date", None))
+        if hire and ended and ended < hire:
+            raise serializers.ValidationError(
+                {"termination_date": _("The termination date cannot be before the hire date.")}
+            )
+        return attrs
 
     def validate_base_salary_override(self, value):
         if value is not None and value < 0:
@@ -104,6 +160,7 @@ class EmployeeSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
             "position_title",
             "base_salary_override",
             "hire_date",
+            "termination_date",
             "status",
             "status_display",
             "created_at",
@@ -140,7 +197,40 @@ class AttendanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
                 self.instance.employee, self.instance.date, self.instance
             )
         self.validate_leave_protection(employee, day)
+        if self.instance is None or {"employee", "date"}.intersection(attrs):
+            # A note fixed on an existing row does not re-judge its day.
+            self.validate_employment(employee, day)
+        if attrs.get("status") == Attendance.LEAVE and (
+            self.instance is None or self.instance.status != Attendance.LEAVE
+        ):
+            # Leave days are written by an approved leave request (a day it
+            # covers is refused above); a hand-typed "leave" mark would be
+            # an absence nobody approved.
+            raise serializers.ValidationError(
+                {"status": _("Record leave through a leave request; it marks attendance itself.")}
+            )
         return attrs
+
+    def validate_employment(self, employee, day):
+        """A day can only be marked while the person worked here, and not
+        ahead of today in the company's calendar."""
+        from hr.postings import company_today
+
+        if employee.hire_date and day < employee.hire_date:
+            raise serializers.ValidationError(
+                {"date": _("Attendance cannot be recorded before the hire date.")}
+            )
+        ended = employee.termination_date
+        if (employee.status == Employee.STATUS_TERMINATED and ended is None) or (
+            ended is not None and day > ended
+        ):
+            raise serializers.ValidationError(
+                {"date": _("Attendance cannot be recorded after the employee's termination.")}
+            )
+        if day > company_today(employee.company):
+            raise serializers.ValidationError(
+                {"date": _("Attendance cannot be recorded for a future date.")}
+            )
 
     class Meta:
         model = Attendance
@@ -537,9 +627,10 @@ class SalaryAdvanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer
             "status",
             "status_display",
             "reviewed_at",
+            "recover_period",
             "created_at",
         ]
-        read_only_fields = ["reviewed_at", "created_at"]
+        read_only_fields = ["reviewed_at", "recover_period", "created_at"]
 
     def update(self, instance, validated_data):
         request = self.context.get("request")
@@ -560,9 +651,14 @@ class PayrollEntrySerializer(serializers.ModelSerializer):
             "employee_name",
             "department_name",
             "position_title",
+            "monthly_salary",
+            "days_employed",
+            "unpaid_leave_days",
+            "absent_days",
             "base_salary",
             "deductions_total",
             "advances_total",
+            "advances_recovered",
             "net_salary",
         ]
         read_only_fields = fields
@@ -628,6 +724,50 @@ class DeductionSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["created_at"]
+
+    def validate_amount(self, value):
+        if value is None or value <= 0:
+            raise serializers.ValidationError(_("A deduction must be greater than zero."))
+        return value
+
+    @staticmethod
+    def _month_approved(company, day):
+        return PayrollRun.objects.filter(
+            company_id=company.pk, period=day.replace(day=1), status=PayrollRun.APPROVED
+        ).exists()
+
+    def _recorded_on(self, company):
+        return timezone.localdate(self.instance.created_at, company_zone(company))
+
+    def validate(self, attrs):
+        """A deduction belongs to its date's payroll month (the day it was
+        recorded when undated). Once that month's payroll is approved the
+        deduction is part of a paid salary: it cannot be edited, and no new
+        one can be dated into that month."""
+        from hr.postings import company_today
+
+        request = self.context.get("request")
+        company = getattr(getattr(request, "user", None), "company", None)
+        if self.instance is not None:
+            company = self.instance.company
+            current = self.instance.date or self._recorded_on(company)
+            if self._month_approved(company, current):
+                raise serializers.ValidationError(
+                    _("This deduction is part of an approved payroll and cannot be changed.")
+                )
+        if company is None:
+            return attrs
+        day = attrs.get("date", getattr(self.instance, "date", None))
+        if day is None:
+            day = self._recorded_on(company) if self.instance else company_today(company)
+        if self._month_approved(company, day):
+            raise serializers.ValidationError({
+                "date": _(
+                    "Payroll for %(month)s is already approved; date the deduction "
+                    "in an open month."
+                ) % {"month": day.strftime("%Y-%m")}
+            })
+        return attrs
 
     def create(self, validated_data):
         request = self.context.get("request")

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-24 14:16+0000\n"
+"POT-Creation-Date: 2026-09-24 15:33+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -419,10 +419,25 @@ msgstr "رصيد الإجازات المخصَّص لا يكفي."
 msgid "Salary cannot be negative."
 msgstr "لا يمكن أن يكون الراتب سالبًا."
 
+msgid "The termination date cannot be before the hire date."
+msgstr "لا يمكن أن يسبق تاريخ إنهاء الخدمة تاريخ التعيين."
+
 msgid ""
 "Attendance is protected by approved leave. Use the leave cancellation "
 "process."
 msgstr "هذا الحضور محمي بإجازة معتمدة. استخدم إجراء إلغاء الإجازة."
+
+msgid "Record leave through a leave request; it marks attendance itself."
+msgstr "سجّل الإجازة عبر طلب إجازة؛ فهو يسجّل الحضور تلقائيًا."
+
+msgid "Attendance cannot be recorded before the hire date."
+msgstr "لا يمكن تسجيل الحضور قبل تاريخ التعيين."
+
+msgid "Attendance cannot be recorded after the employee's termination."
+msgstr "لا يمكن تسجيل الحضور بعد إنهاء خدمة الموظف."
+
+msgid "Attendance cannot be recorded for a future date."
+msgstr "لا يمكن تسجيل الحضور لتاريخ في المستقبل."
 
 msgid "A medical report must be 10 MB or smaller."
 msgstr "يجب ألا يتجاوز حجم التقرير الطبي 10 ميغابايت."
@@ -488,6 +503,18 @@ msgstr "لا يمكن تعديل سلفة بُتّ فيها."
 msgid "An advance must be greater than zero."
 msgstr "يجب أن تكون السلفة أكبر من صفر."
 
+msgid "A deduction must be greater than zero."
+msgstr "يجب أن يكون الخصم أكبر من صفر."
+
+msgid "This deduction is part of an approved payroll and cannot be changed."
+msgstr "هذا الخصم جزء من مسيّر رواتب معتمد ولا يمكن تعديله."
+
+#, python-format
+msgid ""
+"Payroll for %(month)s is already approved; date the deduction in an open "
+"month."
+msgstr "رواتب %(month)s معتمدة بالفعل؛ اجعل تاريخ الخصم في شهر مفتوح."
+
 msgid "Use YYYY-MM."
 msgstr "استخدم الصيغة YYYY-MM."
 
@@ -530,6 +557,10 @@ msgstr ""
 msgid "This advance has already been decided."
 msgstr "تم البتّ في هذه السلفة مسبقًا."
 
+#, python-format
+msgid "Payroll for %(month)s cannot be prepared before the month starts."
+msgstr "لا يمكن إعداد رواتب %(month)s قبل بداية الشهر."
+
 msgid "Select a company before creating payroll."
 msgstr "اختر شركة قبل إنشاء مسيّر الرواتب."
 
@@ -541,10 +572,11 @@ msgstr "مسيّر الرواتب المعتمد مقفل ولا يمكن إعا
 
 #, python-format
 msgid ""
-"Advances or deductions changed since this payroll was calculated "
-"(%(names)s). Recalculate it, then approve."
+"Salaries, advances, deductions or staff changed since this payroll was "
+"calculated (%(names)s). Recalculate it, then approve."
 msgstr ""
-"تغيّرت السلف أو الخصومات منذ حساب هذا الكشف (%(names)s). أعد حسابه ثم اعتمده."
+"تغيّرت الرواتب أو السلف أو الخصومات أو الموظفون منذ حساب هذا الكشف "
+"(%(names)s). أعد حسابه ثم اعتمده."
 
 msgid ""
 "A deduction cannot be deleted because it affects payroll. Record an "
@@ -1158,6 +1190,9 @@ msgstr "الخصومات"
 
 msgid "Advances"
 msgstr "السلف"
+
+msgid "Advances recovered"
+msgstr "السلف المستردة"
 
 msgid "Net salary"
 msgstr "صافي الراتب"

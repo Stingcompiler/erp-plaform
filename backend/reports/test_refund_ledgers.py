@@ -5,6 +5,7 @@ payment 100 = 1,000 on the account, and the cash-flow report shows the same
 movements to the cent."""
 from decimal import Decimal
 
+from django.conf import settings
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
@@ -80,6 +81,7 @@ class RefundLedgerTests(APITestCase):
         by_method = r.data["refunds_by_method"]
         self.assertEqual((by_method[0]["method"], Decimal(by_method[0]["amount"])),
                          ("bank_transfer", Decimal("200")))
+        self.client.cookies[settings.LANGUAGE_COOKIE_NAME] = "en"
         csv = self.client.get(reverse("report-cash-flow"), {"format": "csv"}).content.decode()
         self.assertIn("customer refunds,200", csv)
 

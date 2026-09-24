@@ -172,6 +172,7 @@ class PayrollReport(ReportView):
 
     def get(self, request):
         from hr.models import PayrollRun
+        from hr.postings import entry_recovered
 
         cid = self.company_id(request)
         start, end = self.date_range(request)
@@ -195,6 +196,9 @@ class PayrollReport(ReportView):
                         sum((entry.deductions_total for entry in entries), ZERO)
                     ),
                     "advances_total": str(sum((entry.advances_total for entry in entries), ZERO)),
+                    "advances_recovered": str(
+                        sum((entry_recovered(entry) for entry in entries), ZERO)
+                    ),
                     "net_total": str(sum((entry.net_salary for entry in entries), ZERO)),
                     "entries": [
                         {
@@ -204,6 +208,7 @@ class PayrollReport(ReportView):
                             "base_salary": str(entry.base_salary),
                             "deductions_total": str(entry.deductions_total),
                             "advances_total": str(entry.advances_total),
+                            "advances_recovered": str(entry_recovered(entry)),
                             "net_salary": str(entry.net_salary),
                         }
                         for entry in entries
@@ -222,6 +227,7 @@ class PayrollReport(ReportView):
                     _("Base salary"),
                     _("Deductions"),
                     _("Advances"),
+                    _("Advances recovered"),
                     _("Net salary"),
                 ],
                 [
@@ -234,6 +240,7 @@ class PayrollReport(ReportView):
                         item["base_salary"],
                         item["deductions_total"],
                         item["advances_total"],
+                        item["advances_recovered"],
                         item["net_salary"],
                     ]
                     for row in rows

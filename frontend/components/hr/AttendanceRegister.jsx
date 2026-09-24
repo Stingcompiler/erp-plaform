@@ -111,7 +111,7 @@ export default function AttendanceRegister({ writable }) {
         <h2 className="flex items-center gap-2 font-display text-lg font-semibold"><CalendarDays size={18} className="text-accent" />{t("hr.attendance.title")}</h2>
         {view === "day" ? (
           <div className="flex items-center gap-2 text-sm">
-            <Input type="date" value={day} onChange={(e) => setDay(e.target.value)} className="w-44" aria-label={t("hr.attendance.day")} />
+            <Input type="date" max={today()} value={day} onChange={(e) => setDay(e.target.value)} className="w-44" aria-label={t("hr.attendance.day")} />
             {employees && <span className="text-muted">{t("hr.attendance.markedOf", { marked, total: employees.length })}</span>}
           </div>
         ) : (

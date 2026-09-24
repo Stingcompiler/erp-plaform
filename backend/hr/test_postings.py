@@ -105,7 +105,8 @@ class AdvancePostingTests(PostingBase):
         adv_id = self._advance("300.00")
         self.cfo.post(reverse("salaryadvance-approve", args=[adv_id]))
         SalaryAdvance.objects.filter(pk=adv_id).update(
-            reviewed_at=timezone.make_aware(timezone.datetime(2026, 9, 5, 10, 0))
+            reviewed_at=timezone.make_aware(timezone.datetime(2026, 9, 5, 10, 0)),
+            recover_period=date(2026, 9, 1),
         )
         run_id = self._run("2026-09")
         run = PayrollRun.objects.get(pk=run_id)
@@ -118,19 +119,22 @@ class AdvancePostingTests(PostingBase):
         total = sum(Expense.objects.values_list("amount", flat=True), Decimal("0"))
         self.assertEqual(total, Decimal("1000.00"))
 
-    def test_advance_from_an_earlier_month_is_not_subtracted(self):
-        # Paid in August (expensed then), recovered in September: September's
-        # cost is the full 1000 of work, so its payroll expense is net + recovered.
+    def test_advance_from_an_earlier_month_carries_and_is_counted_once(self):
+        # Paid in August (expensed then) with no August payroll to recover
+        # it: it stays owed and September recovers it. September pays 700
+        # in cash; the 300 is already on the books as the advance's row.
         adv_id = self._advance("300.00")
         self.cfo.post(reverse("salaryadvance-approve", args=[adv_id]))
         SalaryAdvance.objects.filter(pk=adv_id).update(
-            reviewed_at=timezone.make_aware(timezone.datetime(2026, 8, 20, 10, 0))
+            reviewed_at=timezone.make_aware(timezone.datetime(2026, 8, 20, 10, 0)),
+            recover_period=date(2026, 8, 1),
         )
         run_id = self._run("2026-09")
         run = PayrollRun.objects.get(pk=run_id)
-        # September's recalculation only recovers advances approved in September.
-        self.assertEqual(run.entries.get().advances_total, Decimal("0.00"))
-        self.assertEqual(payroll_expense_amount(run), Decimal("1000.00"))
+        entry = run.entries.get()
+        self.assertEqual((entry.advances_total, entry.advances_recovered, entry.net_salary),
+                         (Decimal("300.00"), Decimal("300.00"), Decimal("700.00")))
+        self.assertEqual(payroll_expense_amount(run), Decimal("700.00"))
 
 
 class AdvanceTimingTests(PostingBase):
