@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-24 17:14+0000\n"
+"POT-Creation-Date: 2026-09-24 17:58+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -842,6 +842,12 @@ msgstr "نوع النشاط غير معروف."
 msgid "Only a manager or owner may set approval thresholds."
 msgstr "المدير أو المالك فقط يمكنه تحديد حدود الموافقة."
 
+msgid "Only a manager or owner may set the discount limit."
+msgstr "المدير أو المالك فقط يمكنه تحديد حد الخصم."
+
+msgid "Must be between 0 and 100 percent."
+msgstr "يجب أن تكون القيمة بين 0 و100 بالمئة."
+
 msgid "Must be a whole number of days."
 msgstr "يجب أن تكون عدد أيام صحيحًا."
 
@@ -1616,9 +1622,7 @@ msgstr ""
 msgid ""
 "The till charged %(till)s%% tax, a rate this company did not have when the "
 "sale was made (%(rate)s%% now). A manager must record this sale by hand."
-msgstr ""
-"احتسبت نقطة البيع ضريبة %(till)s%%، وهي نسبة لم تكن لدى الشركة وقت البيع "
-"(النسبة الآن %(rate)s%%). على المدير تسجيل هذا البيع يدويًا."
+msgstr "احتسبت نقطة البيع ضريبة %(till)s%%، وهي نسبة لم تكن لدى الشركة وقت البيع (النسبة الآن %(rate)s%%). على المدير تسجيل هذا البيع يدويًا."
 
 #, python-format
 msgid "Sales are recorded in the company currency (%(currency)s)."
@@ -1652,6 +1656,22 @@ msgstr "خصم الفاتورة يتجاوز قيمة البيع."
 
 msgid "Credit plus payment exceed the invoice total."
 msgstr "الرصيد المستخدم مع الدفعة يتجاوزان إجمالي الفاتورة."
+
+#, python-format
+msgid ""
+"%(sku)s is priced below the allowed price. Sell it at the list price, or ask "
+"a manager to ring the sale."
+msgstr ""
+"سعر %(sku)s أقل من السعر المسموح. بِعه بسعر القائمة، أو اطلب من المدير تسجيل "
+"هذا البيع."
+
+#, python-format
+msgid ""
+"The discount on %(sku)s is %(percent)s%%, above the allowed %(limit)s%%. Ask "
+"a manager to ring the sale."
+msgstr ""
+"الخصم على %(sku)s هو %(percent)s%%، أعلى من المسموح %(limit)s%%. اطلب من "
+"المدير تسجيل هذا البيع."
 
 msgid "A sale on account needs a named customer."
 msgstr "البيع الآجل يحتاج عميلًا محددًا."
@@ -1984,9 +2004,7 @@ msgstr "دفعة المزامنة هذه قيد المعالجة بالفعل."
 msgid ""
 "The subscription is read-only and this was recorded after it lapsed. It "
 "stays on the device: renew, then send it again."
-msgstr ""
-"الاشتراك في وضع القراءة فقط، وقد سُجّلت هذه العملية بعد انتهائه. تبقى على "
-"الجهاز: جدّد الاشتراك ثم أرسلها مجددًا."
+msgstr "الاشتراك في وضع القراءة فقط، وقد سُجّلت هذه العملية بعد انتهائه. تبقى على الجهاز: جدّد الاشتراك ثم أرسلها مجددًا."
 
 msgid "Invalid or expired page_cursor."
 msgstr "مؤشر الصفحة (page_cursor) غير صالح أو منتهي الصلاحية."

@@ -1013,6 +1013,10 @@ class POSCheckoutSerializer(serializers.Serializer):
     )
     lines = POSLineSerializer(many=True)
     payment = POSPaymentSerializer(required=False, allow_null=True)
+    # A split tender: part cash, part Bankak (or two transfers). Each entry
+    # is recorded as its own payment; `payment` stays for older clients and
+    # queued sales. See _payments_of().
+    payments = POSPaymentSerializer(many=True, required=False)
     # Store credit spent on this sale, alongside (or instead of) money.
     apply_credit = POSApplyCreditSerializer(required=False, allow_null=True)
     # A discount on the whole ticket, spread across lines in proportion to
@@ -1055,6 +1059,11 @@ class POSCheckoutSerializer(serializers.Serializer):
         user_branch_id = getattr(user, "branch_id", None)
         if role and role.scope_level == "branch" and branch_id is None:
             branch_id = user_branch_id
+            validated_data["branch"] = branch_id
+        if branch_id is None and warehouse.branch_id is not None:
+            # An owner or GM selling from a branch's store: the sale belongs
+            # to that branch, or every branch report misses it.
+            branch_id = warehouse.branch_id
             validated_data["branch"] = branch_id
         if branch_id is not None:
             from org.models import Branch
@@ -1273,6 +1282,7 @@ class POSCheckoutSerializer(serializers.Serializer):
                 share = Decimal("0")
             allocated += share
             row.append(share)
+        self._enforce_price_rules(priced, company, user, invoice)
 
         subtotal = Decimal("0")
         tax_total = Decimal("0")
@@ -1345,13 +1355,8 @@ class POSCheckoutSerializer(serializers.Serializer):
         invoice.total = invoice.subtotal + invoice.tax_amount
         invoice.save(update_fields=["subtotal", "discount_total", "tax_amount", "total"])
 
-        pay = validated_data.get("payment")
-        # Nothing tendered is a credit sale, not a payment of zero: a 0.00
-        # row would sit in the verification worklist, the ledger and the
-        # customer's statement as money that never moved.
-        if pay and pay["amount"] <= 0:
-            pay = None
-        paid_now = pay["amount"] if pay else Decimal("0")
+        tenders = self._payments_of(validated_data)
+        paid_now = sum((tender["amount"] for tender in tenders), Decimal("0"))
         applied = validated_data.get("apply_credit")
         credit_used = Decimal("0")
         if applied:
@@ -1376,7 +1381,7 @@ class POSCheckoutSerializer(serializers.Serializer):
         self._assert_credit_allowed(
             validated_data.get("customer"), invoice, invoice.total - paid_now - credit_used, user
         )
-        if pay:
+        for pay in tenders:
             payment = self._record_payment(
                 invoice, pay, company_id, user, validated_data.get("shift"), occurred_at
             )
@@ -1398,6 +1403,86 @@ class POSCheckoutSerializer(serializers.Serializer):
             )
 
         return invoice
+
+    @staticmethod
+    def _payments_of(validated_data):
+        """The tenders of this sale: `payments` (a split) or the single
+        `payment`. Nothing tendered is a credit sale, not a payment of zero:
+        a 0.00 row would sit in the verification worklist, the ledger and the
+        customer's statement as money that never moved. Each tender is then
+        checked against what is still due as it is recorded, so a transfer
+        above the balance is refused (record_payment), never capped."""
+        tenders = list(validated_data.get("payments") or [])
+        if validated_data.get("payment"):
+            tenders.insert(0, validated_data["payment"])
+        return [tender for tender in tenders if tender["amount"] > 0]
+
+    def _enforce_price_rules(self, priced, company, user, invoice):
+        """No line below cost, no discount above the company's limit — unless
+        an approver rings the sale (see Company.max_discount_percent).
+
+        The list price is always allowed, even when it sits under a cost that
+        rose since: that price is the owner's decision, not the cashier's.
+        At the counter a cashier is refused with the reason; an approver's
+        override is written to the audit log. A sale replayed from the
+        offline queue already happened, so it is kept and the audit row is
+        flagged for a manager to review."""
+        limit = company.max_discount_percent
+        breaches = []
+        for ln, product, qty, price, gross, own, share in priced:
+            pack_info = ln.get("_pack")
+            cost = product.cost_price or Decimal("0")
+            if pack_info:
+                pack, packs_sold = pack_info
+                unit_value = gross / packs_sold
+                floor = _q2(cost * pack.quantity)
+                listed = pack.effective_price()
+            else:
+                unit_value, floor, listed = price, cost, product.sale_price
+            if cost > 0 and unit_value < floor and unit_value < listed:
+                breaches.append({
+                    "sku": product.sku, "rule": "below_cost", "price": str(_q2(unit_value)),
+                })
+            discount = own + share
+            if limit is not None and gross > 0 and discount > 0:
+                # A cent of slack: the ticket discount is spread in cents.
+                if discount > _q2(gross * limit / 100) + TWO_PLACES:
+                    breaches.append({
+                        "sku": product.sku, "rule": "discount",
+                        "percent": str(_q2(discount * 100 / gross)),
+                    })
+        if not breaches:
+            return
+        request = self.context.get("request")
+        if can_approve_high_value(user):
+            log_activity(
+                action="pos_price_override", request=request,
+                entity_type="Invoice", entity_id=invoice.pk,
+                metadata={"breaches": breaches, "limit": str(limit)},
+            )
+            return
+        if self.context.get("via_sync"):
+            log_activity(
+                action="pos_price_unapproved", request=request,
+                entity_type="Invoice", entity_id=invoice.pk,
+                metadata={
+                    "breaches": breaches, "limit": str(limit), "via": "sync",
+                    "needs_review": True,
+                },
+            )
+            return
+        first = breaches[0]
+        if first["rule"] == "below_cost":
+            message = _(
+                "%(sku)s is priced below the allowed price. Sell it at the list "
+                "price, or ask a manager to ring the sale."
+            ) % {"sku": first["sku"]}
+        else:
+            message = _(
+                "The discount on %(sku)s is %(percent)s%%, above the allowed "
+                "%(limit)s%%. Ask a manager to ring the sale."
+            ) % {"sku": first["sku"], "percent": first["percent"], "limit": _q2(limit)}
+        raise serializers.ValidationError({"lines": message, "code": "price_rule"})
 
     def _assert_credit_allowed(self, customer, invoice, unpaid, user):
         """A sale that leaves a balance is a loan, and a loan needs a debtor.

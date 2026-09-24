@@ -22,7 +22,7 @@ def seed_current_rates(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('org', '0014_receipt_paper_a5'),
+        ('org', '0015_company_max_discount_percent'),
     ]
 
     operations = [

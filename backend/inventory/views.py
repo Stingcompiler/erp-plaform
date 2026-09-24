@@ -7,11 +7,11 @@ from django.db.models.functions import Coalesce
 from django.utils.translation import gettext as _
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.filters import SearchFilter
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from core.activity import log_activity
+from core.arabic import ArabicSearchFilter
 from core.deletion import ArchiveOnDeleteMixin
 from core.records import rows_csv
 from core.scoping import (
@@ -122,10 +122,12 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     rbac_read_modules = ("website",)
     activity_entity_type = "Product"
     queryset = Product.objects.select_related("category", "brand", "unit").all()
-    filter_backends = [SearchFilter]
+    filter_backends = [ArabicSearchFilter]
     # A carton's barcode finds its product too (DRF wraps the reverse lookup
     # in EXISTS, so the on-hand annotation is not multiplied by the join).
     search_fields = ["sku", "name", "barcode", "packs__barcode"]
+    # "ارز" finds "أرز", "بسمتى" finds "بسمتي" (core.arabic).
+    arabic_search_fields = ("name",)
 
     @action(detail=True, methods=["post", "delete"], url_path="image",
             parser_classes=[MultiPartParser, FormParser, JSONParser])
@@ -505,8 +507,9 @@ class ProductPackViewSet(CompanyScopedModelViewSet):
     queryset = ProductPack.objects.select_related("product").all()
     serializer_class = ProductPackSerializer
     activity_entity_type = "ProductPack"
-    filter_backends = [SearchFilter]
+    filter_backends = [ArabicSearchFilter]
     search_fields = ["name", "barcode", "product__sku", "product__name"]
+    arabic_search_fields = ("name", "product__name")
 
     def get_queryset(self):
         qs = super().get_queryset()

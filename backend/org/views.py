@@ -89,6 +89,7 @@ class CompanyProfileView(APIView):
         "payment_approval_threshold",
         "stock_adjustment_approval_threshold",
         "default_payment_terms_days",
+        "max_discount_percent",
         "reference_currency",
         "receipt_paper",
         "receipt_footer",
@@ -161,6 +162,25 @@ class CompanyProfileView(APIView):
                         return Response({field: _("Must be a number.")}, status=400)
                     if value < 0:
                         return Response({field: _("Cannot be negative.")}, status=400)
+                if field == "max_discount_percent":
+                    # A till control like the thresholds: only an approver
+                    # may loosen (or tighten) what cashiers are allowed.
+                    if not can_approve_high_value(request.user):
+                        return Response(
+                            {field: _("Only a manager or owner may set the discount limit.")},
+                            status=status.HTTP_403_FORBIDDEN,
+                        )
+                    if value in (None, ""):
+                        value = None
+                    else:
+                        try:
+                            value = Decimal(str(value))
+                        except (InvalidOperation, TypeError, ValueError):
+                            return Response({field: _("Must be a number.")}, status=400)
+                        if value < 0 or value > 100:
+                            return Response(
+                                {field: _("Must be between 0 and 100 percent.")}, status=400
+                            )
                 if field == "default_payment_terms_days":
                     try:
                         value = int(value)

@@ -75,6 +75,16 @@ class Company(models.Model):
     # carries their own terms. Zero meant "due the day it was sold", which
     # turned every account sale overdue the next morning.
     default_payment_terms_days = models.PositiveIntegerField(default=30)
+    # The largest discount (line and ticket together, as a percent of the
+    # line's value) a till user may give without an approver role (owner,
+    # GM, CFO). Above it the sale is refused at the counter; an approver may
+    # still give it, and that override is written to the audit log. Blank
+    # (None) removes the cap; 0 means cashiers may give no discount at all.
+    # 10% by default: room for rounding a bill down or a regular's
+    # courtesy, not for selling the stock away.
+    max_discount_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True, default=Decimal("10")
+    )
     # Inflation pricing: catalogue prices may be kept in a stable reference
     # currency (USD for Sudan) and re-derived in the company currency from
     # the day's rate. The rate is denormalised here for cheap reads; every
