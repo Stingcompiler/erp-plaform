@@ -12,6 +12,7 @@ import ZakatCard from "@/components/reports/ZakatCard";
 import OperationalReports from "@/components/reports/OperationalReports";
 import TabBar from "@/components/ui/TabBar";
 import { useHashTab } from "@/lib/useHashTab";
+import { expenseCategory } from "@/lib/expenseCategories";
 
 function Kpi({ label, value, tone = "ink" }) {
   const toneClass = tone === "accent" ? "text-accent" : tone === "ok" ? "text-ok" : "text-ink";
@@ -59,8 +60,10 @@ export default function ReportsPage() {
   ];
   const payrollTab = hrReports ? "hr" : "finance";
   const [tab, setTab] = useHashTab(reportTabs.map((x) => x.id));
+  // No figure (the report failed or has not loaded) shows a dash, never 0.00
+  // — a failed profit report used to read as "gross profit 0.00".
   const money = (v) =>
-    Number(v ?? 0).toLocaleString(language === "ar" ? "ar" : "en", {
+    v === null || v === undefined ? "—" : Number(v).toLocaleString(language === "ar" ? "ar" : "en", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
@@ -91,6 +94,7 @@ export default function ReportsPage() {
   const [hrSummary, setHrSummary] = useState(null);
   const [payroll, setPayroll] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailures, setLoadFailures] = useState(0);
 
   const params = {};
   if (range.start) params.start = range.start;
@@ -101,8 +105,9 @@ export default function ReportsPage() {
     const p = {};
     if (range.start) p.start = range.start;
     if (range.end) p.end = range.end;
+    let failures = 0;
     const settle = (promise, setter, fallback) =>
-      promise.then((r) => setter(r.data)).catch(() => setter(fallback));
+      promise.then((r) => setter(r.data)).catch(() => { failures += 1; setter(fallback); });
     await Promise.all([
       ...(salesReports ? [
         settle(reports.salesSummary(p), setSummary, null),
@@ -128,6 +133,7 @@ export default function ReportsPage() {
       ...(hrReports ? [settle(reports.hrSummary(p), setHrSummary, null)] : []),
       ...(payrollReports ? [settle(reports.payroll(p), setPayroll, [])] : []),
     ]);
+    setLoadFailures(failures);
     setLoading(false);
   }, [range.start, range.end, costMethod, salesReports, inventoryReports, purchasingReports, financeReports, hrReports, payrollReports, forecastWeeks]);
 
@@ -187,8 +193,10 @@ export default function ReportsPage() {
             <Field label={t("reports.costingMethod")}>
               <Select value={costMethod} onChange={(e) => setCostMethod(e.target.value)}>
                 <option value="standard">{t("reports.standardCost")}</option>
-                <option value="average">{t("reports.weightedAverage")}</option>
-                <option value="fifo">{t("reports.fifo")}</option>
+                {/* Average/FIFO are computed company-wide only; a branch
+                    reader asking for them got a failed report. */}
+                {user?.role_scope !== "branch" && <option value="average">{t("reports.weightedAverage")}</option>}
+                {user?.role_scope !== "branch" && <option value="fifo">{t("reports.fifo")}</option>}
               </Select>
             </Field>
           </div>}
@@ -198,6 +206,13 @@ export default function ReportsPage() {
       {loading && <div className="text-muted">{t("reports.loadingReports")}</div>}
 
       {reportTabs.length > 1 && <TabBar value={tab} onChange={setTab} tabs={reportTabs} />}
+
+      {!loading && loadFailures > 0 && (
+        <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-card border border-warn/40 bg-warn/5 px-4 py-3 text-sm text-warn">
+          <span>{t("reports.someFailed", { count: loadFailures })}</span>
+          <Button variant="outline" onClick={load}>{t("improvements.retry")}</Button>
+        </div>
+      )}
 
       {!loading && (
         <div className="space-y-6">
@@ -240,7 +255,9 @@ export default function ReportsPage() {
           {/* Headline KPIs */}
           {tab === "overview" && <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {salesReports && <Kpi label={t("reports.invoices")} value={summary?.totals?.invoice_count ?? "—"} />}
-            {salesReports && <Kpi label={t("reports.revenue")} tone="accent" value={money(summary?.totals?.total)} />}
+            {/* The invoices' own total (tax included, before returns) — not the
+                income statement's revenue, which is on the Finance tab. */}
+            {salesReports && <Kpi label={t("reports.invoicedTotal")} tone="accent" value={money(summary?.totals?.total)} />}
             {financeReports && <Kpi label={t("reports.grossProfit")} tone="ok" value={money(profit?.gross_profit)} />}
             {inventoryReports && <Kpi label={t("reports.inventoryValue")} value={money(valuation?.total_value)} />}
           </div>}
@@ -459,7 +476,7 @@ export default function ReportsPage() {
                   </div>
                   <BarList
                     items={income.expenses_by_category.map((e) => ({
-                      label: e.category,
+                      label: expenseCategory(e.category, t),
                       value: Number(e.amount),
                     }))}
                     format={money}

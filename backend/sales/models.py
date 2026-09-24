@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Sum
+from django.db.models import DecimalField, ExpressionWrapper, F, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
@@ -104,9 +104,13 @@ class CompanyBankAccount(models.Model):
         )["t"]
 
     def paid_total(self):
-        """Supplier payments made out of this account."""
+        """Supplier payments made out of this account, in the company currency
+        (a USD payment is converted at its own rate, not counted as SDG)."""
         return self.supplier_payments.aggregate(
-            t=Coalesce(Sum("amount"), Decimal("0"))
+            t=Coalesce(Sum(ExpressionWrapper(
+                F("amount") * F("exchange_rate"),
+                output_field=DecimalField(max_digits=20, decimal_places=2),
+            )), Decimal("0"))
         )["t"]
 
     def refunded_total(self):

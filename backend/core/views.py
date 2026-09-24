@@ -226,10 +226,11 @@ def dashboard(request):
         from sales.querysets import overdue_invoices
         inv = _scope_branch(Invoice.objects.filter(company_id=company_id, is_void=False), branch_id)
         # Top products by revenue — powers the dashboard chart, scoped the same
-        # way as the totals above it.
+        # way as the totals above it. Before tax, like the reports' ranking
+        # (line_total includes tax, so the two screens ordered differently).
         top = (
             inv.values("lines__product__name")
-            .annotate(revenue=Coalesce(Sum("lines__line_total"), Decimal("0")))
+            .annotate(revenue=Coalesce(Sum("lines__line_subtotal"), Decimal("0")))
             .exclude(lines__product__name=None)
             .order_by("-revenue")[:5]
         )
