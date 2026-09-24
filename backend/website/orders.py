@@ -309,9 +309,12 @@ def confirm(order, actor, note=""):
             address=order.address,
         )
     handler = tax_handler_for(company)
+    # Priced by the owner's own settings, not by a salesperson: the till's
+    # price rule (sales.price_rules) does not measure it, and the invoice
+    # keeps the price the page showed (SalesOrder.prices_trusted).
     sales_order = SalesOrder.objects.create(
         company=company, customer=customer, branch=order.branch,
-        status=SalesOrder.CONFIRMED, created_by=actor,
+        status=SalesOrder.CONFIRMED, created_by=actor, price_checked=False,
     )
     subtotal, tax = Decimal("0"), Decimal("0")
     for line in order.lines.select_related("product"):

@@ -41,6 +41,7 @@ from sales.models import (
 )
 from inventory.models import StockMovement
 from sales.debt_queries import customer_debts, debt_summary, statement_for_period
+from sales.price_rules import check_document_lines, record_document_check
 from sales.serializers import (
     RefundSerializer,
     CashDrawerMovementSerializer,
@@ -626,6 +627,17 @@ class QuotationViewSet(AppendOnlyScopedViewSet):
                 {"detail": _("This quotation has expired; issue a new one.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        lines = list(quotation.lines.select_related("product"))
+        # The order is priced under the till's rule too. A price an approver
+        # already approved on the quote stands; anything else (a quote from
+        # before the rule included) is measured now, by who converts it.
+        breaches = []
+        if quotation.price_approved_at is None:
+            breaches = check_document_lines(
+                quotation.company,
+                [(line.product, line.quantity, line.unit_price) for line in lines],
+                request.user,
+            )
         order = SalesOrder.objects.create(
             company_id=quotation.company_id,
             customer=quotation.customer,
@@ -635,8 +647,11 @@ class QuotationViewSet(AppendOnlyScopedViewSet):
             tax_amount=quotation.tax_amount,
             total=quotation.total,
             created_by=request.user if request.user.is_authenticated else None,
+            price_checked=True,
+            price_approved_by=quotation.price_approved_by,
+            price_approved_at=quotation.price_approved_at,
         )
-        for line in quotation.lines.all():
+        for line in lines:
             SalesOrderLine.objects.create(
                 sales_order=order,
                 product=line.product,
@@ -644,6 +659,10 @@ class QuotationViewSet(AppendOnlyScopedViewSet):
                 quantity=line.quantity,
                 unit_price=line.unit_price,
                 line_total=line.line_total,
+            )
+        if breaches:
+            record_document_check(
+                order, breaches, request.user, request, "order_price_override"
             )
         quotation.status = Quotation.CONVERTED
         quotation.save(update_fields=["status"])
