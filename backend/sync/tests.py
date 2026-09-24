@@ -273,6 +273,91 @@ class QueuedAttendanceTests(SyncBase):
         self.assertEqual(str(rows.get().check_in), "08:30:00")
 
 
+class LateAttendanceMarkTests(SyncBase):
+    """An old offline mark synced late must not undo a newer HR correction:
+    last writer wins by when the mark was taken, not when it arrived. The
+    clock: now is 11:00, HR corrected the day at 10:00."""
+
+    def setUp(self):
+        super().setUp()
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from hr.models import Attendance, Employee
+
+        self.now = timezone.now()
+        self.at = lambda hours: self.now - timedelta(hours=hours)
+        self.employee = Employee.objects.create(
+            company=self.company, full_name="Sara", status="active"
+        )
+        self.row = Attendance.objects.create(
+            company=self.company, employee=self.employee, date="2026-09-18", status="present",
+        )
+        # HR's live correction to "absent", made at 10:00.
+        response = self.client.patch(
+            reverse("attendance-detail", args=[self.row.pk]), {"status": "absent"}, format="json"
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.row.refresh_from_db()
+        self.assertGreaterEqual(self.row.recorded_at, self.now)
+        Attendance.objects.filter(pk=self.row.pk).update(recorded_at=self.at(1))
+
+    def mark(self, taken_at):
+        return self.push([{
+            "op_type": "attendance", "client_uuid": str(uuid.uuid4()),
+            "payload": {"employee": self.employee.id, "date": "2026-09-18",
+                        "status": "present", "recorded_at": taken_at.isoformat()},
+        }])
+
+    def test_mark_taken_before_the_correction_leaves_it_standing(self):
+        response = self.mark(self.at(2))  # taken 09:00, synced 11:00
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["summary"]["duplicate"], 1, response.data)
+        self.assertEqual(response.data["summary"]["error"], 0, response.data)
+        self.row.refresh_from_db()
+        self.assertEqual(self.row.status, "absent")
+        self.assertEqual(self.row.recorded_at, self.at(1))
+
+    def test_mark_taken_after_the_correction_applies(self):
+        response = self.mark(self.at(0.5))  # taken 10:30, synced 11:00
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["summary"]["applied"], 1, response.data)
+        self.row.refresh_from_db()
+        self.assertEqual(self.row.status, "present")
+        self.assertEqual(self.row.recorded_at, self.at(0.5))
+
+    def test_a_mark_stamped_in_the_future_counts_as_now(self):
+        from datetime import timedelta
+
+        self.mark(self.now + timedelta(days=1))
+        self.row.refresh_from_db()
+        self.assertEqual(self.row.status, "present")
+        self.assertLess(self.row.recorded_at, self.now + timedelta(minutes=5))
+
+    def test_row_from_before_recorded_at_existed_is_dated_by_its_creation(self):
+        from hr.models import Attendance
+
+        Attendance.objects.filter(pk=self.row.pk).update(recorded_at=None, created_at=self.at(1))
+        self.assertEqual(self.mark(self.at(2)).data["summary"]["duplicate"], 1)
+        self.row.refresh_from_db()
+        self.assertEqual(self.row.status, "absent")
+        self.assertEqual(self.mark(self.at(0.5)).data["summary"]["applied"], 1)
+
+    def test_live_mark_ignores_a_client_stamp(self):
+        # Online writes happen now; a stale device clock cannot backdate one.
+        response = self.client.post(
+            reverse("attendance-list"),
+            {"employee": self.employee.id, "date": "2026-09-18", "status": "half_day",
+             "recorded_at": self.at(5).isoformat()},
+            format="json",
+        )
+        self.assertIn(response.status_code, (200, 201), response.data)
+        self.row.refresh_from_db()
+        self.assertEqual(self.row.status, "half_day")
+        self.assertGreaterEqual(self.row.recorded_at, self.now)
+
+
 class PullWideningTests(SyncBase):
     def test_pull_includes_orders_bills_employees_and_caps_old_invoices(self):
         from datetime import timedelta

@@ -33,6 +33,7 @@ from hr.models import (
     LeaveAllowance,
     LeaveAccrualPolicy,
 )
+from hr.postings import recoverable_advances
 from hr.leave_sync import (
     apply_approved_leave,
     attendance_conflicts,
@@ -555,13 +556,13 @@ class PayrollRunViewSet(NoDeleteMixin, CompanyScopedModelViewSet):
                 )
                 .aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
             )
-            advances = SalaryAdvance.objects.filter(
-                company_id=run.company_id,
-                employee=employee,
-                status=SalaryAdvance.APPROVED,
-                reviewed_at__date__gte=period,
-                reviewed_at__date__lt=month_end,
-            ).aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
+            # Same month rule as the posting (company calendar), so the
+            # expense subtracts exactly what this entry recovers.
+            advances = (
+                recoverable_advances(run.company, period)
+                .filter(employee=employee)
+                .aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
+            )
             entries.append(
                 PayrollEntry(
                     payroll_run=run,
