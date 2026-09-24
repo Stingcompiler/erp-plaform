@@ -154,32 +154,70 @@ class AttendanceSerializer(_CompanyScopedFKMixin, serializers.ModelSerializer):
             "check_out",
             "note",
             "created_at",
+            "recorded_at",
         ]
         read_only_fields = ["created_at"]
         # The (employee, date) uniqueness is enforced by create() as an
         # upsert rather than refused up front — see below.
         validators = []
 
+    # Set by create() when an offline mark arrived after a newer write to the
+    # same day and was therefore not applied (the sync reports a duplicate).
+    superseded = False
+
+    def _taken_at(self, validated_data):
+        """When this write's values were decided. A live write is decided
+        now. A synced mark was decided when the device took it (its
+        `recorded_at`, already shifted for clock error by the sync view) —
+        never later than now, and now when an older client sent none."""
+        now = timezone.now()
+        taken = validated_data.pop("recorded_at", None)
+        if not self.context.get("via_sync") or taken is None:
+            return now
+        return min(taken, now)
+
     def create(self, validated_data):
         """The register marks a day, it does not append to it: a second mark
         for the same employee and day (a correction, or an offline device
         replaying) updates the existing row instead of tripping the unique
-        constraint."""
+        constraint.
+
+        Last writer wins by business time, not arrival: an offline mark taken
+        at 09:00 and synced at 11:00 must not undo an HR correction made at
+        10:00. If the row was written after the incoming mark was taken, the
+        row is kept and the mark is reported as superseded."""
+        taken = self._taken_at(validated_data)
+        validated_data["recorded_at"] = taken
         company_id = validated_data.get("company_id") or getattr(
             validated_data.get("company"), "pk", None
         )
-        existing = Attendance.objects.filter(
-            company_id=company_id,
-            employee=validated_data["employee"],
-            date=validated_data["date"],
-        ).first()
+        existing = (
+            Attendance.objects.select_for_update()
+            .filter(
+                company_id=company_id,
+                employee=validated_data["employee"],
+                date=validated_data["date"],
+            )
+            .first()
+        )
         if existing is None:
             return super().create(validated_data)
+        # Rows written before recorded_at existed: their creation is the
+        # latest moment known for them.
+        current = existing.recorded_at or existing.created_at
+        if current is not None and taken < current:
+            self.superseded = True
+            return existing
         for attr, value in validated_data.items():
             if attr not in ("company", "company_id"):
                 setattr(existing, attr, value)
         existing.save()
         return existing
+
+    def update(self, instance, validated_data):
+        """An edit of a marked day is a live write: decided now."""
+        validated_data["recorded_at"] = self._taken_at(validated_data)
+        return super().update(instance, validated_data)
 
 
 # What a medical report may be. Anything else is refused on upload, and the

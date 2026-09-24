@@ -2,16 +2,18 @@
 Expense, once, for the right amount, and the income statement moves.
 """
 
-from datetime import date
+from datetime import date, datetime
+from datetime import timezone as dt_timezone
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import Role, User
 from finance.models import Expense
-from hr.models import PayrollRun, SalaryAdvance
-from hr.postings import payroll_expense_amount
+from hr.models import Employee, PayrollRun, SalaryAdvance
+from hr.postings import payroll_expense_amount, post_salary_advance_expense
 from hr.tests import HrBase
 
 
@@ -94,7 +96,8 @@ class AdvancePostingTests(PostingBase):
         self.assertEqual(expense.category, Expense.CATEGORY_SALARY_ADVANCE)
         self.assertEqual(expense.amount, Decimal("300.00"))
         self.assertEqual(expense.salary_advance_id, approved_id)
-        self.assertEqual(expense.date, timezone.localdate())
+        # The company's day (Khartoum by default), not the server's UTC one.
+        self.assertEqual(expense.date, timezone.localdate(timezone=ZoneInfo("Africa/Khartoum")))
 
     def test_advance_recovered_by_payroll_is_counted_once(self):
         # Advance paid out this month (expensed on approval) and recovered
@@ -128,6 +131,89 @@ class AdvancePostingTests(PostingBase):
         # September's recalculation only recovers advances approved in September.
         self.assertEqual(run.entries.get().advances_total, Decimal("0.00"))
         self.assertEqual(payroll_expense_amount(run), Decimal("1000.00"))
+
+
+class AdvanceTimingTests(PostingBase):
+    """Cash leaves in the month it really leaves, and each advance is counted
+    once — on its own row — whichever payroll run recovers it (review
+    2026-09-24: a run used to subtract every advance approved in its month,
+    company-wide, recovered or not, and advances were dated in UTC)."""
+
+    KHARTOUM = ZoneInfo("Africa/Khartoum")
+
+    def _approved_advance(self, when, employee=None):
+        advance = SalaryAdvance.objects.create(
+            company=self.company_a, employee=employee or self.emp_a,
+            amount=Decimal("300.00"), status=SalaryAdvance.APPROVED, reviewed_at=when,
+        )
+        post_salary_advance_expense(advance)
+        return advance
+
+    def _approve_run(self, period):
+        run_id = self._run(period)
+        self.cfo.post(reverse("payrollrun-approve", args=[run_id]))
+        return PayrollRun.objects.get(pk=run_id)
+
+    def _cash_out(self, start, end):
+        return sum(
+            Expense.objects.filter(
+                company=self.company_a, date__gte=start, date__lte=end
+            ).values_list("amount", flat=True),
+            Decimal("0"),
+        )
+
+    def test_march_advance_the_march_run_did_not_recover_is_not_subtracted(self):
+        # March's payroll is calculated on the 15th; an advance of 300 is
+        # paid on the 20th, after the snapshot. March's run does not recover
+        # it, so March's payroll expense stays the full 1000 and March's cash
+        # out is 1300 (it was 1000 before: 300 too low).
+        march_id = self._run("2026-03")
+        advance = self._approved_advance(datetime(2026, 3, 20, 10, 0, tzinfo=self.KHARTOUM))
+        self.assertEqual(advance.expense.date, date(2026, 3, 20))
+        self.cfo.post(reverse("payrollrun-approve", args=[march_id]))
+        march = PayrollRun.objects.get(pk=march_id)
+        self.assertEqual(march.entries.get().advances_total, Decimal("0.00"))
+        self.assertEqual(march.expense.amount, Decimal("1000.00"))
+        self.assertEqual(self._cash_out(date(2026, 3, 1), date(2026, 3, 31)), Decimal("1300.00"))
+
+        # April recovers nothing from March (the month rule), so April's
+        # cash out is exactly April's salary — not 300 too high.
+        april = self._approve_run("2026-04")
+        self.assertEqual(april.expense.amount, Decimal("1000.00"))
+        self.assertEqual(self._cash_out(date(2026, 4, 1), date(2026, 4, 30)), Decimal("1000.00"))
+
+    def test_advance_paid_just_after_midnight_belongs_to_april_and_is_counted_once(self):
+        # 00:30 on 1 April in Khartoum is still 31 March in UTC. The advance
+        # was paid in April: it is dated 1 April, April's run recovers it,
+        # and April's cash out is 300 (advance) + 700 (net pay) = 1000.
+        paid = datetime(2026, 4, 1, 0, 30, tzinfo=self.KHARTOUM)
+        self.assertEqual(paid.astimezone(dt_timezone.utc).date(), date(2026, 3, 31))
+        advance = self._approved_advance(paid)
+        self.assertEqual(advance.expense.date, date(2026, 4, 1))
+
+        march = self._approve_run("2026-03")
+        self.assertEqual(march.entries.get().advances_total, Decimal("0.00"))
+        self.assertEqual(march.expense.amount, Decimal("1000.00"))
+        self.assertEqual(self._cash_out(date(2026, 3, 1), date(2026, 3, 31)), Decimal("1000.00"))
+
+        april = self._approve_run("2026-04")
+        entry = april.entries.get()
+        self.assertEqual((entry.advances_total, entry.net_salary),
+                         (Decimal("300.00"), Decimal("700.00")))
+        self.assertEqual(april.expense.amount, Decimal("700.00"))
+        self.assertEqual(self._cash_out(date(2026, 4, 1), date(2026, 4, 30)), Decimal("1000.00"))
+
+    def test_advance_of_an_employee_outside_the_run_is_not_subtracted(self):
+        # Paid to someone terminated before payroll: the run never recovers
+        # it, so it must not shrink the run's expense.
+        leaver = Employee.objects.create(
+            company=self.company_a, branch=self.branch_a, full_name="Left Early",
+            status=Employee.STATUS_TERMINATED,
+        )
+        self._approved_advance(datetime(2026, 3, 10, 9, 0, tzinfo=self.KHARTOUM), leaver)
+        march = self._approve_run("2026-03")
+        self.assertEqual(march.expense.amount, Decimal("1000.00"))
+        self.assertEqual(self._cash_out(date(2026, 3, 1), date(2026, 3, 31)), Decimal("1300.00"))
 
 
 class IncomeStatementTests(PostingBase):
