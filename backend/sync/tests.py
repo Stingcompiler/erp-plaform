@@ -272,6 +272,37 @@ class QueuedAttendanceTests(SyncBase):
         self.assertEqual(rows.get().status, "half_day")
         self.assertEqual(str(rows.get().check_in), "08:30:00")
 
+    def test_offline_marks_follow_the_employment_rules(self):
+        # A replayed mark for a day the person worked applies; one after
+        # their termination, or ahead of the company's today, is refused.
+        from datetime import date, timedelta
+
+        from hr.models import Attendance, Employee
+        from hr.postings import company_today
+
+        leaver = Employee.objects.create(
+            company=self.company, full_name="Omar", status="terminated",
+            termination_date=date(2026, 9, 10),
+        )
+        tomorrow = company_today(self.company) + timedelta(days=1)
+        ops = [
+            {"op_type": "attendance", "client_uuid": str(uuid.uuid4()),
+             "payload": {"employee": leaver.id, "date": "2026-09-09", "status": "present"}},
+            {"op_type": "attendance", "client_uuid": str(uuid.uuid4()),
+             "payload": {"employee": leaver.id, "date": "2026-09-11", "status": "present"}},
+            {"op_type": "attendance", "client_uuid": str(uuid.uuid4()),
+             "payload": {"employee": leaver.id, "date": tomorrow.isoformat(),
+                         "status": "present"}},
+        ]
+        response = self.push(ops)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["summary"]["applied"], 1, response.data)
+        self.assertEqual(response.data["summary"]["error"], 2, response.data)
+        self.assertEqual(
+            list(Attendance.objects.filter(employee=leaver).values_list("date", flat=True)),
+            [date(2026, 9, 9)],
+        )
+
 
 class LateAttendanceMarkTests(SyncBase):
     """An old offline mark synced late must not undo a newer HR correction:

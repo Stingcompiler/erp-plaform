@@ -1,6 +1,6 @@
 """Keep approved leave, attendance, and the employee status consistent."""
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 from hr.models import Attendance, Employee, LeaveRequest
 
@@ -35,7 +35,13 @@ def apply_approved_leave(leave):
 
 def refresh_employee_leave_statuses(company_id, on_date=None):
     """Mark currently absent staff as on leave and restore them when leave ends."""
-    on_date = on_date or date.today()
+    if on_date is None:
+        # The company's day, not the server's UTC one: leave starting today
+        # in Khartoum begins at 22:00 UTC the evening before.
+        from hr.postings import company_today
+        from org.models import Company
+
+        on_date = company_today(Company.objects.filter(pk=company_id).first())
     on_leave_ids = set(
         LeaveRequest.objects.filter(
             company_id=company_id,

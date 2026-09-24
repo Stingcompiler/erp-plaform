@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, FileText, Lock, Plus, RefreshCw, Stethoscope, Users, X } from "lucide-react";
 
 import { hr, org } from "@/lib/api";
+import { errorText } from "@/lib/errors";
+import { localToday } from "@/lib/dates";
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
@@ -95,8 +97,8 @@ function LeaveDrawer({ open, sick, employees, writable, onClose, onSaved }) {
       toast.success(t("common.save"));
       onSaved?.();
       onClose();
-    } catch {
-      toast.error(t("hr.saveError"));
+    } catch (err) {
+      toast.error(errorText(err, t, "hr.saveError"));
     } finally {
       setSaving(false);
     }
@@ -152,7 +154,7 @@ function LeaveDrawer({ open, sick, employees, writable, onClose, onSaved }) {
   );
 }
 
-function PositionDrawer({ open, position, writable, onClose, onSaved }) {
+function PositionDrawer({ open, position, writable, canViewPayroll, onClose, onSaved }) {
   const { t } = useI18n();
   const toast = useToast();
   const [form, setForm] = useState({ title: "", description: "", base_salary: "" });
@@ -166,8 +168,12 @@ function PositionDrawer({ open, position, writable, onClose, onSaved }) {
   async function save() {
     setSaving(true);
     try {
-      if (position?.id) await hr.updatePosition(position.id, { ...form, base_salary: form.base_salary || "0" });
-      else await hr.createPosition({ ...form, base_salary: form.base_salary || "0" });
+      // Without payroll access the salary is neither shown nor sent.
+      const payload = canViewPayroll
+        ? { ...form, base_salary: form.base_salary || "0" }
+        : { title: form.title, description: form.description };
+      if (position?.id) await hr.updatePosition(position.id, payload);
+      else await hr.createPosition(payload);
       toast.success(t("common.save"));
       onSaved?.();
       onClose();
@@ -198,9 +204,11 @@ function PositionDrawer({ open, position, writable, onClose, onSaved }) {
         <Field label={t("hr.positionTitle")}>
           <Input value={form.title} onChange={(e) => set("title", e.target.value)} />
         </Field>
-        <Field label={t("hr.baseSalary")}>
-          <Input type="number" value={form.base_salary} onChange={(e) => set("base_salary", e.target.value)} />
-        </Field>
+        {canViewPayroll && (
+          <Field label={t("hr.baseSalary")}>
+            <Input type="number" value={form.base_salary} onChange={(e) => set("base_salary", e.target.value)} />
+          </Field>
+        )}
         <Field label={t("hr.positionDesc")}>
           <Input value={form.description} onChange={(e) => set("description", e.target.value)} />
         </Field>
@@ -343,23 +351,23 @@ function PolicyDrawer({ open, writable, onClose, onSaved }) {
 function DeductionDrawer({ open, employees, policies, writable, onClose, onSaved }) {
   const { t } = useI18n();
   const toast = useToast();
-  const [form, setForm] = useState({ employee: "", policy: "", amount: "", note: "" });
+  const [form, setForm] = useState({ employee: "", policy: "", amount: "", note: "", date: "" });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   useEffect(() => {
-    if (open) setForm({ employee: "", policy: "", amount: "", note: "" });
+    if (open) setForm({ employee: "", policy: "", amount: "", note: "", date: "" });
   }, [open]);
 
   async function save() {
     setSaving(true);
     try {
-      await hr.createDeduction({ ...form, policy: form.policy || null });
+      await hr.createDeduction({ ...form, policy: form.policy || null, date: form.date || null });
       toast.success(t("common.save"));
       onSaved?.();
       onClose();
-    } catch {
-      toast.error(t("hr.saveError"));
+    } catch (err) {
+      toast.error(errorText(err, t, "hr.saveError"));
     } finally {
       setSaving(false);
     }
@@ -374,7 +382,7 @@ function DeductionDrawer({ open, employees, policies, writable, onClose, onSaved
         writable && (
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose}>{t("common.cancel")}</Button>
-            <Button onClick={save} disabled={saving || !form.employee || !form.amount}>
+            <Button onClick={save} disabled={saving || !form.employee || !(Number(form.amount) > 0)}>
               {saving ? t("common.saving") : t("hr.recordDeduction")}
             </Button>
           </div>
@@ -392,13 +400,46 @@ function DeductionDrawer({ open, employees, policies, writable, onClose, onSaved
           </Select>
         </Field>
         <Field label={t("hr.amount")}>
-          <Input type="number" value={form.amount} onChange={(e) => set("amount", e.target.value)} />
+          <Input type="number" min="0.01" step="0.01" value={form.amount} onChange={(e) => set("amount", e.target.value)} />
+        </Field>
+        <Field label={t("hr.deductionDate")} hint={t("hr.deductionDateHint")}>
+          <Input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} />
         </Field>
         <Field label={t("hr.deductionNote")}>
           <Input value={form.note} onChange={(e) => set("note", e.target.value)} />
         </Field>
       </div>
     </Drawer>
+  );
+}
+
+// One employee's pay for the month: net on the right, and underneath how it
+// was reached — the monthly rate and days employed, unpaid leave, what was
+// earned, deductions, advances recovered (and any remainder carried to the
+// next month), and absences HR should know about (never deducted here).
+function PayrollEntryRow({ entry, money }) {
+  const { t } = useI18n();
+  const recovered = entry.advances_recovered ?? entry.advances_total;
+  const carried = Number(entry.advances_total) - Number(recovered);
+  const monthly = entry.monthly_salary ?? entry.base_salary;
+  const parts = [
+    t("hr.payrollMonthly", { amount: money(monthly) }),
+    entry.days_employed != null && Number(monthly) !== Number(entry.base_salary) ? t("hr.payrollDaysEmployed", { days: entry.days_employed }) : null,
+    entry.unpaid_leave_days ? t("hr.payrollUnpaidDays", { count: entry.unpaid_leave_days }) : null,
+    t("hr.payrollEarned", { amount: money(entry.base_salary) }),
+    Number(entry.deductions_total) > 0 ? t("hr.payrollDeducted", { amount: money(entry.deductions_total) }) : null,
+    Number(entry.advances_total) > 0 ? t("hr.payrollAdvances", { recovered: money(recovered), due: money(entry.advances_total) }) : null,
+    carried > 0 ? t("hr.payrollAdvancesCarried", { amount: money(carried) }) : null,
+    entry.absent_days ? t("hr.payrollAbsentDays", { count: entry.absent_days }) : null,
+  ].filter(Boolean);
+  return (
+    <div className="py-2 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div><span className="font-medium text-ink">{entry.employee_name}</span><span className="text-muted"> · {entry.department_name || "—"} · {entry.position_title || "—"}</span></div>
+        <div className="tabular font-medium text-ink">{money(entry.net_salary)}</div>
+      </div>
+      <div className="tabular mt-0.5 text-xs text-muted">{parts.join(" · ")}</div>
+    </div>
   );
 }
 
@@ -444,7 +485,7 @@ export default function HrPage() {
   const [deductions, setDeductions] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [payrollRuns, setPayrollRuns] = useState([]);
-  const [payrollPeriod, setPayrollPeriod] = useState(() => new Date().toISOString().slice(0, 7));
+  const [payrollPeriod, setPayrollPeriod] = useState(() => localToday().slice(0, 7));
   const [loading, setLoading] = useState(true);
 
   const [empDrawer, setEmpDrawer] = useState({ open: false, employee: null });
@@ -495,7 +536,11 @@ export default function HrPage() {
       await (kind === "approve" ? approveFn(id) : rejectFn(id));
       load();
     } catch (error) {
-      toast.error(t(error.response?.data?.code === "insufficient_leave_balance" ? "hr.insufficientLeaveBalance" : "common.loadError"));
+      toast.error(
+        error.response?.data?.code === "insufficient_leave_balance"
+          ? t("hr.insufficientLeaveBalance")
+          : errorText(error, t, "hr.decisionError"),
+      );
     }
   }
 
@@ -504,8 +549,8 @@ export default function HrPage() {
       await hr.createPayrollRun(payrollPeriod);
       toast.success(t("common.save"));
       load();
-    } catch {
-      toast.error(t("common.loadError"));
+    } catch (err) {
+      toast.error(errorText(err, t, "hr.payrollCreateError"));
     }
   }
 
@@ -529,8 +574,8 @@ export default function HrPage() {
       await hr.refreshPayrollRun(id);
       toast.success(t("hr.payrollRefreshed"));
       load();
-    } catch {
-      toast.error(t("common.loadError"));
+    } catch (err) {
+      toast.error(errorText(err, t, "hr.payrollRefreshError"));
     }
   }
 
@@ -566,7 +611,7 @@ export default function HrPage() {
       );
     }
     if (tab === "payroll") {
-      return <div className="flex gap-2"><Input type="month" value={payrollPeriod} onChange={(e) => setPayrollPeriod(e.target.value)} /><Button onClick={createPayroll}><Plus size={16} /> {t("hr.createPayroll")}</Button></div>;
+      return <div className="flex gap-2"><Input type="month" max={localToday().slice(0, 7)} value={payrollPeriod} onChange={(e) => setPayrollPeriod(e.target.value)} /><Button onClick={createPayroll}><Plus size={16} /> {t("hr.createPayroll")}</Button></div>;
     }
     return (
       <Button onClick={map[tab]}>
@@ -687,7 +732,7 @@ export default function HrPage() {
                 <div className="flex items-center gap-2"><Badge tone={run.status === "approved" ? "ok" : "warn"}>{run.status === "approved" ? t("hr.approved") : t("hr.pending")}</Badge>{writable && run.status === "draft" && <Button variant="outline" onClick={() => refreshPayroll(run.id)}><RefreshCw size={15} /> {t("hr.refreshPayroll")}</Button>}{canApproveAdvances && run.status === "draft" && <Button variant="outline" onClick={() => decide("approve", run.id, hr.approvePayrollRun, hr.approvePayrollRun)}><Check size={15} /> {t("hr.approve")}</Button>}</div>
               </div>
               <div className="mt-3 divide-y divide-line border-t border-line">
-                {(run.entries || []).map((entry) => <div key={entry.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"><div><span className="font-medium text-ink">{entry.employee_name}</span><span className="text-muted"> · {entry.department_name || "—"} · {entry.position_title || "—"}</span></div><div className="tabular text-ink">{money(entry.net_salary)}</div></div>)}
+                {(run.entries || []).map((entry) => <PayrollEntryRow key={entry.id} entry={entry} money={money} />)}
               </div>
             </Card>
           ))}
@@ -814,6 +859,7 @@ export default function HrPage() {
         positions={positions}
         departments={departments}
         writable={writable}
+        canViewPayroll={canViewPayroll}
         onClose={() => setEmpDrawer({ open: false, employee: null })}
         onSaved={load}
       />
@@ -829,6 +875,7 @@ export default function HrPage() {
         open={positionDrawer.open}
         position={positionDrawer.position}
         writable={writable}
+        canViewPayroll={canViewPayroll}
         onClose={() => setPositionDrawer({ open: false, position: null })}
         onSaved={load}
       />
