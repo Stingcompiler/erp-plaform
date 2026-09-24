@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.utils import timezone
-from django.db.models import F, OuterRef, Subquery, Sum
+from django.db.models import Exists, F, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import Coalesce
 from django.utils.translation import gettext as _
 from rest_framework import status
@@ -33,6 +33,7 @@ from inventory.models import (
     Warehouse,
 )
 from inventory.counts import approve_count, cancel_count, submit_count
+from inventory.stock_scope import branch_movements, with_on_hand
 from inventory.serializers import (
     ProductPackSerializer,
     StockCountSerializer,
@@ -122,7 +123,9 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     activity_entity_type = "Product"
     queryset = Product.objects.select_related("category", "brand", "unit").all()
     filter_backends = [SearchFilter]
-    search_fields = ["sku", "name", "barcode"]
+    # A carton's barcode finds its product too (DRF wraps the reverse lookup
+    # in EXISTS, so the on-hand annotation is not multiplied by the join).
+    search_fields = ["sku", "name", "barcode", "packs__barcode"]
 
     @action(detail=True, methods=["post", "delete"], url_path="image",
             parser_classes=[MultiPartParser, FormParser, JSONParser])
@@ -180,10 +183,11 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     def get_queryset(self):
         # on-hand is ALWAYS derived from the movement ledger — annotated here so
         # list/detail never rely on a stored (drift-prone) quantity field.
+        # A branch-scoped user sees the stock of their own branch's
+        # warehouses (the same figure their till's offline mirror holds), not
+        # a company-wide total that hid a shortage on their shelves.
         qs = (
-            super()
-            .get_queryset()
-            .annotate(annotated_on_hand=Coalesce(Sum("stock_movements__quantity"), Decimal("0")))
+            with_on_hand(super().get_queryset(), self.request.user)
             # The soonest expiry among lots that still hold stock, so the
             # till can warn before ringing up an expired or expiring item.
             # One correlated subquery, not a query per row.
@@ -205,6 +209,15 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         # one action that recovers them 404.
         if self.action not in ("list", "export"):
             return qs
+        # The label printer asks only for things it can print: a product
+        # with a barcode, or with an active pack that has one.
+        if self.request.query_params.get("has_barcode") in ("1", "true"):
+            qs = qs.filter(
+                ~Q(barcode="")
+                | Exists(ProductPack.objects.filter(
+                    product=OuterRef("pk"), is_active=True,
+                ).exclude(barcode=""))
+            )
         archived = self.request.query_params.get("archived")
         if archived in ("1", "true"):
             return qs.filter(is_active=False)
@@ -300,7 +313,9 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
             )
         product = pack = None
         for candidate in scan_candidates(code):
-            product = self.get_queryset().filter(barcode=candidate).first()
+            # An archived product is no longer sold: a scan of its old label
+            # must not ring it up (restore it first if it is back on sale).
+            product = self.get_queryset().filter(barcode=candidate, is_active=True).first()
             if product is not None:
                 break
             # A carton/strip barcode resolves to its product plus the pack,
@@ -308,7 +323,7 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
             pack = (
                 ProductPack.objects.filter(
                     company_id=getattr(request.user, "company_id", None),
-                    barcode=candidate, is_active=True,
+                    barcode=candidate, is_active=True, product__is_active=True,
                 )
                 .select_related("product")
                 .first()
@@ -331,8 +346,9 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         # Non-stock lines (bags, delivery, the miscellaneous catch-all) sit at
         # zero on hand forever; listing them as "low" would bury the products
         # that genuinely need reordering.
+        # Archived products are not reordered either.
         qs = self.get_queryset().filter(
-            is_stock_tracked=True, annotated_on_hand__lte=F("reorder_level")
+            is_active=True, is_stock_tracked=True, annotated_on_hand__lte=F("reorder_level")
         )
         page = self.paginate_queryset(qs)
         serializer = self.get_serializer(page or qs, many=True)
@@ -344,7 +360,9 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     def negative_stock(self, request):
         """Products with a ledger balance below zero — the reconciliation
         worklist left by sales that went through against stale stock."""
-        qs = self.get_queryset().filter(is_stock_tracked=True, annotated_on_hand__lt=0)
+        qs = self.get_queryset().filter(
+            is_active=True, is_stock_tracked=True, annotated_on_hand__lt=0
+        )
         page = self.paginate_queryset(qs)
         serializer = self.get_serializer(page or qs, many=True)
         if page is not None:
@@ -375,24 +393,39 @@ class ProductViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
     @action(detail=True, methods=["get"])
     def stock(self, request, pk=None):
         product = self.get_object()
+        # Only the warehouses the caller may see: a branch user was shown
+        # every other branch's shelves (and a total that included them).
+        moves = branch_movements(
+            product.company_id, request.user, product.stock_movements.all()
+        )
         per_warehouse = list(
-            product.stock_movements.values("warehouse", "warehouse__name")
+            moves.values("warehouse", "warehouse__name")
             .annotate(on_hand=Coalesce(Sum("quantity"), Decimal("0")))
             .order_by("warehouse__name")
         )
+        lots = moves.exclude(batch__isnull=True)
         per_batch = list(
-            product.stock_movements.exclude(batch__isnull=True)
-            .values("batch", "batch__lot_number", "batch__expiry_date")
+            lots.values("batch", "batch__lot_number", "batch__expiry_date")
             .annotate(on_hand=Coalesce(Sum("quantity"), Decimal("0")))
-            .order_by("batch__expiry_date")
+            .order_by("batch__expiry_date", "batch__lot_number")
         )
+        # Lot x warehouse, so the adjust/transfer form can show what a lot
+        # holds in the warehouse being drawn from.
+        per_batch_warehouse = list(
+            lots.values("batch", "warehouse")
+            .annotate(on_hand=Coalesce(Sum("quantity"), Decimal("0")))
+            .order_by("batch", "warehouse")
+        )
+        total = moves.aggregate(total=Coalesce(Sum("quantity"), Decimal("0")))["total"]
         return Response(
             {
                 "product": product.id,
                 "sku": product.sku,
-                "on_hand": product.on_hand(),
+                "track_batches": product.track_batches,
+                "on_hand": total,
                 "by_warehouse": per_warehouse,
                 "by_batch": per_batch,
+                "by_batch_warehouse": per_batch_warehouse,
             }
         )
 

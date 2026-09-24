@@ -64,17 +64,21 @@ def next_internal_sku(company_id):
 @transaction.atomic
 def next_internal_barcode(company_id):
     """Allocate and return the next unused internal EAN-13 for a company."""
-    from inventory.models import BarcodeSequence, Product
+    from inventory.models import BarcodeSequence, Product, ProductPack
 
     seq, _ = BarcodeSequence.objects.select_for_update().get_or_create(
         company_id=company_id
     )
-    # Skip any value already taken (e.g. a code typed in by hand) so the
-    # unique constraint can never be violated.
+    # Skip any value already taken (e.g. a code typed in by hand, on a
+    # product or on a carton) so a scan still resolves to one thing.
     while True:
         seq.last_number += 1
         code = build_ean13(company_id, seq.last_number)
-        if not Product.objects.filter(company_id=company_id, barcode=code).exists():
+        taken = (
+            Product.objects.filter(company_id=company_id, barcode=code).exists()
+            or ProductPack.objects.filter(company_id=company_id, barcode=code).exists()
+        )
+        if not taken:
             break
     seq.save(update_fields=["last_number"])
     return code

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-24 12:53+0000\n"
+"POT-Creation-Date: 2026-09-24 13:17+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -364,7 +364,9 @@ msgid "Not your company's expense."
 msgstr "هذا المصروف لا يخص شركتك."
 
 #, python-format
-msgid "The correction (%(amount)s) is more than what is left of that expense (%(left)s)."
+msgid ""
+"The correction (%(amount)s) is more than what is left of that expense "
+"(%(left)s)."
 msgstr "التصحيح (%(amount)s) أكبر من المتبقي من ذلك المصروف (%(left)s)."
 
 msgid "Only a negative amount can correct an earlier expense."
@@ -614,16 +616,54 @@ msgstr "لا ينتمي إلى شركتك."
 msgid "A pack must hold at least one unit."
 msgstr "العبوة يجب أن تحوي وحدة واحدة على الأقل."
 
-msgid "Cannot be negative."
-msgstr "لا يمكن أن تكون القيمة سالبة."
+#, python-format
+msgid "%(product)s already has a pack named %(name)s; edit that one."
+msgstr "للمنتج %(product)s وحدة باسم %(name)s من قبل؛ عدّلها بدلًا من إضافة أخرى."
+
+#, python-format
+msgid "%(product)s has an archived pack named %(name)s; restore it instead of adding it again."
+msgstr "للمنتج %(product)s وحدة مؤرشفة باسم %(name)s؛ استعِدها بدلًا من إضافتها من جديد."
+
+msgid "This barcode is the product's own; a pack needs a different one."
+msgstr "هذا باركود المنتج نفسه؛ الوحدة تحتاج باركودًا مختلفًا."
 
 #, python-format
 msgid "This barcode already belongs to %(product)s."
 msgstr "هذا الباركود مسجَّل بالفعل للمنتج %(product)s."
 
 #, python-format
+msgid "This barcode already belongs to the %(pack)s pack of %(product)s."
+msgstr "هذا الباركود مسجَّل بالفعل للوحدة %(pack)s من المنتج %(product)s."
+
+msgid "This barcode or pack name is already in use; reload and retry."
+msgstr "هذا الباركود أو اسم الوحدة مستخدم بالفعل؛ حدّث الصفحة وأعد المحاولة."
+
+msgid "Cannot be negative."
+msgstr "لا يمكن أن تكون القيمة سالبة."
+
+#, python-format
+msgid "Lots %(lots)s still hold stock; bring them to zero before turning off lot tracking."
+msgstr "الدفعات %(lots)s ما زال فيها مخزون؛ صفّرها أولًا قبل إيقاف التتبع بالدفعات."
+
+#, python-format
 msgid "This barcode already belongs to a pack of %(product)s."
 msgstr "هذا الباركود مسجَّل بالفعل لعبوة من المنتج %(product)s."
+
+#, python-format
+msgid "%(sku)s is archived; restore it before moving its stock."
+msgstr "الصنف %(sku)s مؤرشف؛ أعد تفعيله قبل تحريك مخزونه."
+
+#, python-format
+msgid "%(sku)s is not a stocked item, so it has no stock to move."
+msgstr "الصنف %(sku)s ليس صنفًا مخزنيًا، فلا مخزون له ليُحرَّك."
+
+#, python-format
+msgid "%(sku)s is tracked by lot: choose the lot."
+msgstr "الصنف %(sku)s يُتتبَّع بالدفعات: اختر الدفعة."
+
+#, python-format
+msgid "Lot %(lot)s holds only %(available)s at %(warehouse)s."
+msgstr "الدفعة %(lot)s فيها %(available)s فقط في %(warehouse)s."
 
 msgid "Quantity cannot be zero."
 msgstr "الكمية لا يمكن أن تكون صفرًا."
@@ -851,6 +891,10 @@ msgstr "المتبقي للاستلام من %(sku)s هو %(remaining)s فقط."
 
 msgid "A receipt in the company currency has a rate of 1."
 msgstr "الاستلام بعملة الشركة سعر صرفه 1."
+
+#, python-format
+msgid "%(sku)s lot %(lot)s was received before with expiry %(recorded)s, not %(given)s. Check the label: use the recorded date, or a different lot number."
+msgstr "الصنف %(sku)s بالدفعة %(lot)s استُلم من قبل بتاريخ انتهاء %(recorded)s وليس %(given)s. راجع الملصق: استخدم التاريخ المسجَّل أو رقم دفعة مختلفًا."
 
 #, python-format
 msgid "Invoice %(number)s from this supplier is already recorded."
@@ -1129,7 +1173,8 @@ msgstr "أدخل مرجع التحويل (أو آخر 4 أرقام منه)."
 msgid "Only a manager or owner may change this bank detail."
 msgstr "تغيير هذه البيانات البنكية للمدير أو المالك فقط."
 
-msgid "Money has already moved through this account; its opening balance is fixed."
+msgid ""
+"Money has already moved through this account; its opening balance is fixed."
 msgstr "تحركت أموال عبر هذا الحساب؛ رصيده الافتتاحي ثابت لا يُغيَّر."
 
 msgid "Quotation and order customer must match."
@@ -1210,6 +1255,10 @@ msgstr "مستخدم الفرع لا يفتح درجًا إلا في فرعه."
 
 msgid "A branch user can only sell from their own branch."
 msgstr "مستخدم الفرع لا يبيع إلا من فرعه."
+
+#, python-format
+msgid "%(sku)s (%(name)s) is archived and no longer sold; remove it from the sale or restore the product."
+msgstr "الصنف %(sku)s (%(name)s) مؤرشف ولم يعد يُباع؛ احذفه من البيع أو أعد تفعيل المنتج."
 
 #, python-format
 msgid ""

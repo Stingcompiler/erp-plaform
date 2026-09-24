@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from rest_framework import serializers
@@ -83,9 +83,23 @@ class ProductPackSerializer(serializers.ModelSerializer):
             "sale_price", "effective_price", "is_active",
         ]
         read_only_fields = ["company"]
+        # The (product, name) uniqueness is checked in validate() with a
+        # sentence a shopkeeper can act on, instead of DRF's "The fields
+        # product, name must make a unique set."
+        validators = []
 
     def get_effective_price(self, obj):
         return str(obj.effective_price())
+
+    def _company_id(self, product):
+        request = self.context.get("request")
+        company_id = getattr(getattr(request, "user", None), "company_id", None)
+        if company_id is None and product is not None:
+            company_id = product.company_id
+        return company_id
+
+    def validate_barcode(self, value):
+        return (value or "").strip()
 
     def validate(self, attrs):
         _assert_tenant_relations(self, attrs, ("product",))
@@ -93,7 +107,77 @@ class ProductPackSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"quantity": _("A pack must hold at least one unit.")}
             )
+        instance = self.instance
+        product = attrs.get("product") or getattr(instance, "product", None)
+        is_active = attrs.get("is_active", getattr(instance, "is_active", True))
+        if is_active is False:
+            # An archived pack gives its barcode back: nothing scans to a
+            # pack that is no longer sold, and a new pack (or a product) can
+            # take the code without tripping the unique constraint.
+            attrs["barcode"] = ""
+        name = attrs.get("name")
+        if product is not None and name is not None:
+            twin = ProductPack.objects.filter(product=product, name=name.strip())
+            if instance is not None:
+                twin = twin.exclude(pk=instance.pk)
+            twin = twin.first()
+            if twin is not None:
+                message = (
+                    _("%(product)s already has a pack named %(name)s; edit that one.")
+                    if twin.is_active
+                    else _("%(product)s has an archived pack named %(name)s; "
+                           "restore it instead of adding it again.")
+                )
+                raise serializers.ValidationError(
+                    {"name": message % {"product": product.name, "name": twin.name}}
+                )
+            attrs["name"] = name.strip()
+        barcode = attrs.get("barcode")
+        if barcode and product is not None:
+            self._check_barcode(barcode, product, instance)
         return attrs
+
+    def _check_barcode(self, barcode, product, instance):
+        """A scan must resolve to one thing: refuse a code already held by a
+        product (this pack's own product included — a scan could not tell
+        a piece from the carton) or by another active pack."""
+        company_id = self._company_id(product)
+        holder = Product.objects.filter(company_id=company_id, barcode=barcode).first()
+        if holder is not None:
+            raise serializers.ValidationError({"barcode": (
+                _("This barcode is the product's own; a pack needs a different one.")
+                if holder.pk == product.pk
+                else _("This barcode already belongs to %(product)s.") % {"product": holder.name}
+            )})
+        other = ProductPack.objects.filter(company_id=company_id, barcode=barcode)
+        if instance is not None:
+            other = other.exclude(pk=instance.pk)
+        other = other.select_related("product").first()
+        if other is not None:
+            raise serializers.ValidationError({"barcode": (
+                _("This barcode already belongs to the %(pack)s pack of %(product)s.")
+                % {"pack": other.name, "product": other.product.name}
+            )})
+
+    def _save_guarded(self, write):
+        # Two managers saving the same code at the same moment both pass
+        # validate(); the unique constraint catches the second. Answer it as
+        # the 400 it is, not a 500.
+        try:
+            with transaction.atomic():
+                return write()
+        except IntegrityError:
+            raise serializers.ValidationError(
+                {"barcode": _("This barcode or pack name is already in use; reload and retry.")}
+            )
+
+    def create(self, validated_data):
+        return self._save_guarded(lambda: super(ProductPackSerializer, self).create(validated_data))
+
+    def update(self, instance, validated_data):
+        return self._save_guarded(
+            lambda: super(ProductPackSerializer, self).update(instance, validated_data)
+        )
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -173,6 +257,28 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         _assert_tenant_relations(self, attrs, ("category", "brand", "unit"))
+        instance = self.instance
+        if (
+            instance is not None and instance.track_batches
+            and attrs.get("track_batches") is False
+        ):
+            # Lots that still hold stock would become invisible: sales would
+            # stop drawing them down and the expiry report would keep
+            # listing goods long gone. Empty the lots (sell, adjust or count
+            # them to zero) first.
+            from django.db.models import Sum
+
+            held = list(
+                StockBatch.objects.filter(product=instance)
+                .annotate(balance=Sum("stock_movements__quantity"))
+                .filter(balance__gt=0)
+                .values_list("lot_number", flat=True)[:5]
+            )
+            if held:
+                raise serializers.ValidationError({"track_batches": _(
+                    "Lots %(lots)s still hold stock; bring them to zero before "
+                    "turning off lot tracking."
+                ) % {"lots": ", ".join(held)}})
         return attrs
 
     def validate_barcode(self, value):
@@ -237,6 +343,68 @@ class StockBatchSerializer(serializers.ModelSerializer):
         return attrs
 
 
+def check_stockable(serializer, product, batch=None, warehouse=None, outgoing=None,
+                    require_lot=True):
+    """The rules every hand-made stock document (an adjustment, a transfer, a
+    receipt line) follows before it may move a product's stock.
+
+    - an archived product is not moved (restore it first);
+    - a product that is not stocked (a bag, a delivery charge) has no stock;
+    - a lot-tracked product names its lot, and when stock leaves a lot
+      (``outgoing`` = the quantity taken out of ``warehouse``) that lot must
+      hold it there.
+
+    Live, a breach is a 400. Replayed from an offline device
+    (``context["via_sync"]``) the adjustment or receipt already happened on
+    the shop floor, and an old client never sent a lot: it is accepted, and
+    the rules it skipped are returned so the caller can audit them once the
+    document exists (``audit_bypassed``).
+    """
+    problems = []
+    if product is None:
+        return problems
+    params = {"sku": product.sku}
+    if not product.is_active:
+        problems.append(("product", "archived", _(
+            "%(sku)s is archived; restore it before moving its stock."
+        ) % params))
+    if not product.is_stock_tracked:
+        problems.append(("product", "not_stock_tracked", _(
+            "%(sku)s is not a stocked item, so it has no stock to move."
+        ) % params))
+    if require_lot and product.track_batches and product.is_stock_tracked:
+        if batch is None:
+            problems.append(("batch", "lot_missing", _(
+                "%(sku)s is tracked by lot: choose the lot."
+            ) % params))
+        elif outgoing and warehouse is not None:
+            available = product.on_hand(warehouse=warehouse, batch=batch)
+            if Decimal(outgoing) > available:
+                problems.append(("batch", "lot_short", _(
+                    "Lot %(lot)s holds only %(available)s at %(warehouse)s."
+                ) % {"lot": batch.lot_number, "available": available,
+                     "warehouse": warehouse.name}))
+    if problems and not serializer.context.get("via_sync"):
+        field, _code, message = problems[0]
+        raise serializers.ValidationError({field: message})
+    return problems
+
+
+def audit_bypassed(serializer, problems, entity_type, entity_id, product):
+    """One audit row per rule a synced document was allowed to skip."""
+    if not problems:
+        return
+    from core.activity import log_activity
+
+    for field, code, message in problems:
+        log_activity(
+            action="sync_stock_rule_bypassed", request=serializer.context.get("request"),
+            entity_type=entity_type, entity_id=entity_id,
+            metadata={"via": "sync", "rule": code, "product": product.pk,
+                      "sku": product.sku, "field": field},
+        )
+
+
 def _validate_sign(movement_type, quantity):
     """Enforce the sign contract for a movement type (see StockMovement)."""
     if quantity == 0:
@@ -281,6 +449,11 @@ class StockMovementSerializer(serializers.ModelSerializer):
             )
         _validate_sign(attrs["movement_type"], attrs["quantity"])
         self._check_same_company(attrs)
+        quantity = attrs["quantity"]
+        self._bypassed = check_stockable(
+            self, attrs.get("product"), attrs.get("batch"), attrs.get("warehouse"),
+            outgoing=-quantity if quantity < 0 else None,
+        )
         return attrs
 
     def _check_same_company(self, attrs):
@@ -310,7 +483,12 @@ class StockMovementSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if request is not None and request.user.is_authenticated:
             validated_data.setdefault("created_by", request.user)
-        return super().create(validated_data)
+        movement = super().create(validated_data)
+        audit_bypassed(
+            self, getattr(self, "_bypassed", None), "StockMovement", movement.pk,
+            movement.product,
+        )
+        return movement
 
 
 class StockAdjustmentSerializer(serializers.ModelSerializer):
@@ -337,6 +515,13 @@ class StockAdjustmentSerializer(serializers.ModelSerializer):
                 {"reason": _("Say why the stock is being adjusted.")}
             )
         StockMovementSerializer._check_same_company(self, attrs)
+        # A lot-tracked product is adjusted lot by lot: an adjustment with no
+        # lot left the lot balances (and the expiry report) wrong for ever.
+        quantity = attrs["quantity"]
+        self._bypassed = check_stockable(
+            self, attrs.get("product"), attrs.get("batch"), attrs.get("warehouse"),
+            outgoing=-quantity if quantity < 0 else None,
+        )
         # Above the company's threshold an adjustment is a supervisory act:
         # the same approver roles that sign off payments and till counts.
         request = self.context.get("request")
@@ -389,6 +574,9 @@ class StockAdjustmentSerializer(serializers.ModelSerializer):
         )
         movement.reference_id = str(adjustment.id)
         movement.save(update_fields=["reference_id"])
+        audit_bypassed(
+            self, getattr(self, "_bypassed", None), "StockAdjustment", adjustment.pk, product
+        )
         return adjustment
 
 
@@ -433,6 +621,10 @@ class StockTransferSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"dest_warehouse": _("Does not belong to your company.")}
             )
+        # A lot-tracked product moves lot by lot, so the lot's balance
+        # follows it to the destination. The lot's shortfall at the source
+        # is checked under a lock in create().
+        self._bypassed = check_stockable(self, attrs.get("product"), attrs.get("batch"))
         return attrs
 
     @transaction.atomic
@@ -493,6 +685,9 @@ class StockTransferSerializer(serializers.ModelSerializer):
         for m in (out_move, in_move):
             m.reference_id = str(transfer.id)
             m.save(update_fields=["reference_id"])
+        audit_bypassed(
+            self, getattr(self, "_bypassed", None), "StockTransfer", transfer.pk, product
+        )
         return transfer
 
 

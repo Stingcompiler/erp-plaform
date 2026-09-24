@@ -35,12 +35,20 @@ CENTS = Decimal("0.01")
 
 
 def round_to_step(value, step):
-    """Round ``value`` to the nearest multiple of ``step`` (half up)."""
+    """Round ``value`` to the nearest multiple of ``step`` (half up).
+
+    A positive price never rounds down to nothing: below half a step it
+    becomes one step (a 30 SDG sweet repriced with a step of 100 costs 100,
+    not 0.00 — a zero price would be rung up free at every till)."""
     step = Decimal(str(step))
     if step <= 0:
         raise ValidationError({"step": _("The rounding step must be positive.")})
-    units = (Decimal(value) / step).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-    return (units * step).quantize(CENTS)
+    value = Decimal(value)
+    units = (value / step).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    rounded = (units * step).quantize(CENTS)
+    if value > 0:
+        rounded = max(step.quantize(CENTS), rounded)
+    return rounded
 
 
 def _decimal(params, key, required=False):
@@ -108,7 +116,7 @@ def reprice(company, params):
     ``sample`` is the first rows with before/after prices so the caller can
     show what will happen before committing.
     """
-    from inventory.models import Product
+    from inventory.models import Product, ProductPack
 
     opts = parse_reprice(params, company)
     qs = Product.objects.filter(company=company, is_active=True).order_by("name")
@@ -154,20 +162,60 @@ def reprice(company, params):
             })
         updates.append((product, new_values))
 
+    # Worked out before the products are touched: the factor is new / old.
+    pack_updates = _pack_updates(updates, opts)
     if not opts["dry_run"] and updates:
         now = timezone.now()
         with transaction.atomic():
             for product, new_values in updates:
                 for field, value in new_values.items():
                     setattr(product, field, value)
-                # updated_at moves so offline tills pull the new prices.
+                # updated_at moves so offline tills pull the new prices (the
+                # product's packs travel with it).
                 product.updated_at = now
             Product.objects.bulk_update(
-                [p for p, _ in updates], [*fields, "updated_at"], batch_size=500
+                [row[0] for row in updates], [*fields, "updated_at"], batch_size=500
             )
+            if pack_updates:
+                ProductPack.objects.bulk_update(pack_updates, ["sale_price"], batch_size=500)
     return {
         "mode": opts["mode"], "target": opts["target"], "step": opts["step"],
         "rate": opts["rate"], "percent": opts["percent"],
         "category": opts["category_id"], "dry_run": opts["dry_run"],
-        "matched": matched, "changed": changed, "skipped": skipped, "sample": sample,
+        "matched": matched, "changed": changed, "skipped": skipped,
+        "packs_changed": len(pack_updates), "sample": sample,
     }
+
+
+def _pack_updates(updates, opts):
+    """Packs whose own fixed price must follow their product's new price.
+
+    A pack without a price already follows (base price x quantity). A pack
+    WITH one (a carton sold at a discount) kept last month's price for ever,
+    so after a devaluation the carton was cheaper than the pieces in it. It
+    is scaled by the same factor as its product's sale price — the carton
+    keeps its discount relative to the pieces — and rounded to the same
+    step. Every pack of the product is scaled, archived ones included, so a
+    pack restored later is not stale.
+    """
+    from inventory.models import ProductPack
+
+    factors = {}
+    for product, new_values in updates:
+        new_price = new_values.get("sale_price")
+        old_price = product.sale_price
+        if new_price is None or not old_price or old_price <= 0:
+            continue
+        factors[product.pk] = Decimal(new_price) / Decimal(old_price)
+    if not factors:
+        return []
+    changed = []
+    packs = ProductPack.objects.filter(
+        product_id__in=list(factors), sale_price__isnull=False,
+    )
+    for pack in packs.iterator(chunk_size=500):
+        value = round_to_step(pack.sale_price * factors[pack.product_id], opts["step"])
+        if value != pack.sale_price:
+            pack.sale_price = value
+            changed.append(pack)
+    return changed
