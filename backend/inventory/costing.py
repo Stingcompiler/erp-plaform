@@ -12,7 +12,15 @@ methods:
 COGS is only accumulated for `sale_out` movements, and (when a window is given)
 only for those whose date falls in the window — so date-filtered profit stays
 correct even though costing itself is perpetual. Valuation is as-of the latest
-movement.
+movement, or as-of the end of a given local day (`as_of`): the ledger is then
+cut at that day and the method runs on what had happened by then.
+
+Stock adjustments (count differences, damage, theft, expiry) are accumulated
+apart from COGS as `adjustments`: the cost of what went missing less the cost
+of what turned up, valued the way the method values stock leaving (standard:
+the movement's cost snapshot; average: the running average; FIFO: the layers
+it consumes). Opening stock entered as an adjustment is not a gain and stays
+out of that figure (it still builds the cost layers).
 
 Three rules keep the figures honest:
 
@@ -33,7 +41,7 @@ from decimal import Decimal
 
 from django.utils import timezone
 
-from inventory.models import StockMovement
+from inventory.models import StockAdjustment, StockMovement
 
 ZERO = Decimal("0")
 STANDARD = "standard"
@@ -43,6 +51,18 @@ METHODS = (STANDARD, AVERAGE, FIFO)
 
 # Movement types that change where stock sits but not what it is worth.
 COST_NEUTRAL = {StockMovement.TRANSFER}
+
+# Adjustments that load a business's existing stock rather than record a loss
+# or a find: the "opening stock" reason, and the demo/e2e seeders that load
+# stock the same way. They are not profit or loss.
+OPENING_REFERENCES = ("seed_demo", "seed_e2e")
+
+
+def is_opening(reference_type, reason_code):
+    return (
+        reference_type in OPENING_REFERENCES
+        or reason_code == StockAdjustment.REASON_OPENING
+    )
 
 
 def _voided_invoices(company_id):
@@ -54,7 +74,7 @@ def _voided_invoices(company_id):
     }
 
 
-def _stream(product, voided=None):
+def _stream(product, voided=None, as_of=None):
     """Movements in order. A voided invoice's sale and its reversal still move
     quantities and cost layers, but neither counts toward COGS: revenue drops
     the voided invoice from its own period, and charging its cost there while
@@ -62,16 +82,23 @@ def _stream(product, voided=None):
     matching gain the next."""
     if voided is None:
         voided = _voided_invoices(product.company_id)
+    movements = product.stock_movements.exclude(movement_type__in=COST_NEUTRAL)
+    if as_of is not None:
+        # The end of that day on the company's calendar (__date is local).
+        movements = movements.filter(created_at__date__lte=as_of)
     rows = list(
-        product.stock_movements.exclude(movement_type__in=COST_NEUTRAL)
-        .order_by("created_at", "id")
+        movements.order_by("created_at", "id")
         .values("movement_type", "quantity", "unit_cost", "created_at",
-                "reference_type", "reference_id")
+                "reference_type", "reference_id", "adjustment__reason_code")
     )
     for row in rows:
         row["voided"] = (
             row["reference_type"] in ("Invoice", "InvoiceVoid")
             and row["reference_id"] in voided
+        )
+        row["shrinkage"] = (
+            row["movement_type"] == StockMovement.ADJUSTMENT
+            and not is_opening(row["reference_type"], row["adjustment__reason_code"])
         )
     return rows
 
@@ -104,6 +131,7 @@ def _standard(product, movements, start, end):
     profit out of thin air (review F12)."""
     fallback = product.cost_price or ZERO
     cogs = ZERO
+    adjustments = ZERO
     on_hand = ZERO
     for m in movements:
         qty = m["quantity"]
@@ -115,7 +143,12 @@ def _standard(product, movements, start, end):
             cogs += (-qty) * unit
         elif _is_sales_return(m):
             cogs -= qty * unit
-    return {"on_hand": on_hand, "cogs": cogs, "valuation": on_hand * fallback}
+        elif m["shrinkage"]:
+            adjustments -= qty * unit
+    return {
+        "on_hand": on_hand, "cogs": cogs, "adjustments": adjustments,
+        "valuation": on_hand * fallback,
+    }
 
 
 def _average(product, movements, start, end):
@@ -123,6 +156,7 @@ def _average(product, movements, start, end):
     avg = fallback
     qty_on_hand = ZERO
     cogs = ZERO
+    adjustments = ZERO
     for m in movements:
         qty = m["quantity"]
         cost = m["unit_cost"]
@@ -138,12 +172,19 @@ def _average(product, movements, start, end):
             qty_on_hand += qty
             if _is_sales_return(m) and counts:
                 cogs -= qty * (cost if cost is not None else avg)
+            elif m["shrinkage"] and counts:
+                adjustments -= qty * in_cost
         else:  # outflow leaves the average unchanged
             if _is_sale(m) and counts:
                 cogs += (-qty) * avg
+            elif m["shrinkage"] and counts:
+                adjustments += (-qty) * avg
             qty_on_hand += qty
     valuation = qty_on_hand * avg if qty_on_hand > 0 else ZERO
-    return {"on_hand": qty_on_hand, "cogs": cogs, "valuation": valuation}
+    return {
+        "on_hand": qty_on_hand, "cogs": cogs, "adjustments": adjustments,
+        "valuation": valuation,
+    }
 
 
 def _fifo(product, movements, start, end):
@@ -151,6 +192,7 @@ def _fifo(product, movements, start, end):
     layers = []  # list of [qty_remaining, unit_cost], oldest first
     oversold = ZERO  # units sold with no layer to draw from
     cogs = ZERO
+    adjustments = ZERO
     for m in movements:
         qty = m["quantity"]
         cost = m["unit_cost"]
@@ -166,50 +208,66 @@ def _fifo(product, movements, start, end):
                 layers.append([remainder, in_cost])
             if _is_sales_return(m) and counts:
                 cogs -= qty * in_cost
+            elif m["shrinkage"] and counts:
+                adjustments -= qty * in_cost
         else:
             need = -qty
+            consumed = ZERO  # cost of the layers this outflow used up
             while need > 0 and layers:
                 layer = layers[0]
                 take = layer[0] if layer[0] <= need else need
-                if _is_sale(m) and counts:
-                    cogs += take * layer[1]
+                consumed += take * layer[1]
                 layer[0] -= take
                 need -= take
                 if layer[0] <= 0:
                     layers.pop(0)
             if need > 0:  # consumed past available stock (oversell)
                 oversold += need
-                if _is_sale(m) and counts:
-                    cogs += need * fallback
+                consumed += need * fallback
+            if _is_sale(m) and counts:
+                cogs += consumed
+            elif m["shrinkage"] and counts:
+                adjustments += consumed
     on_hand = sum((layer[0] for layer in layers), ZERO) - oversold
     valuation = sum((layer[0] * layer[1] for layer in layers), ZERO)
-    return {"on_hand": on_hand, "cogs": cogs, "valuation": valuation}
+    return {
+        "on_hand": on_hand, "cogs": cogs, "adjustments": adjustments,
+        "valuation": valuation,
+    }
 
 
 _ENGINES = {STANDARD: _standard, AVERAGE: _average, FIFO: _fifo}
 
 
-def compute(product, method=STANDARD, start=None, end=None, voided=None):
+def compute(product, method=STANDARD, start=None, end=None, voided=None, as_of=None):
     """
-    Return {on_hand, cogs, valuation} for a product under the given method.
-    `start`/`end` are dates bounding which sales count toward COGS.
+    Return {on_hand, cogs, adjustments, valuation} for a product under the
+    given method. `start`/`end` are dates bounding which sales and stock
+    adjustments count; `as_of` cuts the ledger at the end of that local day.
     """
     if method not in _ENGINES:
         method = STANDARD
-    return _ENGINES[method](product, _stream(product, voided), start, end)
+    return _ENGINES[method](product, _stream(product, voided, as_of), start, end)
 
 
-def company_totals(company_id, method=STANDARD, start=None, end=None):
-    """Aggregate COGS and valuation across a company's products."""
+def company_totals(company_id, method=STANDARD, start=None, end=None, as_of=None):
+    """Aggregate COGS, stock adjustments and valuation across a company's
+    products; with `as_of`, the valuation is the stock held at the end of
+    that day."""
     from inventory.models import Product
 
     cogs = ZERO
+    adjustments = ZERO
     valuation = ZERO
     per_product = []
     voided = _voided_invoices(company_id)
     for product in Product.objects.filter(company_id=company_id):
-        result = compute(product, method, start, end, voided)
+        result = compute(product, method, start, end, voided, as_of)
         cogs += result["cogs"]
+        adjustments += result["adjustments"]
         valuation += result["valuation"]
         per_product.append((product, result))
-    return {"cogs": cogs, "valuation": valuation, "per_product": per_product}
+    return {
+        "cogs": cogs, "adjustments": adjustments, "valuation": valuation,
+        "per_product": per_product,
+    }

@@ -122,6 +122,33 @@ def net_revenue(company_id, start=None, end=None, branch_id=None):
     return _revenue_terms(company_id, start, end, branch_id)[4]
 
 
+def stock_adjustment_cost(company_id, start=None, end=None):
+    """What stock counts and write-offs cost in the period, at standard cost:
+    each adjustment at the cost it carries (unit_cost), else the product's
+    current cost. Shortages are a cost, surpluses reduce it, so a positive
+    figure is a loss. Opening stock loaded as an adjustment is not a gain.
+
+    Scrapped sales returns are not here: they move no stock, and their cost
+    already sits in COGS because a scrapped line reverses the revenue but
+    not the cost of the sale."""
+    from inventory.costing import OPENING_REFERENCES
+    from inventory.models import StockAdjustment, StockMovement
+
+    moves = in_range(
+        StockMovement.objects.filter(
+            company_id=company_id, movement_type=StockMovement.ADJUSTMENT,
+        )
+        .exclude(reference_type__in=OPENING_REFERENCES)
+        .exclude(adjustment__reason_code=StockAdjustment.REASON_OPENING),
+        "created_at__date", start, end,
+    )
+    value = moves.aggregate(t=Coalesce(Sum(ExpressionWrapper(
+        F("quantity") * Coalesce(F("unit_cost"), F("product__cost_price")),
+        output_field=MONEY,
+    )), ZERO, output_field=MONEY))["t"]
+    return -value
+
+
 def operating_summary(company_id, start=None, end=None, method="standard"):
     from finance.models import Expense
     from inventory.costing import METHODS, company_totals
@@ -167,8 +194,11 @@ def operating_summary(company_id, start=None, end=None, method="standard"):
             F("quantity") * F("cost_at_return"), output_field=MONEY,
         )), ZERO, output_field=MONEY))["t"]
         cogs -= restocked
+        stock_adjustments = stock_adjustment_cost(company_id, start, end)
     else:
-        cogs = company_totals(company_id, method=method, start=start, end=end)["cogs"]
+        totals = company_totals(company_id, method=method, start=start, end=end)
+        cogs = totals["cogs"]
+        stock_adjustments = totals["adjustments"]
     expenses = in_range(Expense.objects.filter(company_id=company_id), "date", start, end)
     total = expenses.aggregate(t=Coalesce(Sum("amount"), ZERO, output_field=MONEY))["t"]
     categories = [{"category": row["category"], "amount": str(row["amount"])} for row in
@@ -180,7 +210,10 @@ def operating_summary(company_id, start=None, end=None, method="standard"):
         "sales_returns": str(returned_sales.quantize(cents)),
         "revenue": str(revenue.quantize(cents)),
         "cogs": str(cogs.quantize(cents)), "gross_profit": str((revenue - cogs).quantize(cents)),
+        # Count differences and write-offs: not part of COGS (gross profit is
+        # what selling earned), but they are lost stock and lower net profit.
+        "stock_adjustments": str(stock_adjustments.quantize(cents)),
         "total_expenses": str(total.quantize(cents)),
         "expenses_by_category": categories, "expense_count": expenses.count(),
-        "net_profit": str((revenue - cogs - total).quantize(cents)),
+        "net_profit": str((revenue - cogs - stock_adjustments - total).quantize(cents)),
     }

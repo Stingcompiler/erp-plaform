@@ -18,6 +18,8 @@ from django.db.models import (
 )
 from django.db.models.functions import Coalesce, TruncDate
 from django.http import HttpResponse
+from django.utils.dateparse import parse_date
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -319,13 +321,25 @@ class InventoryValuationReport(ReportView):
         method = request.query_params.get("method", "standard")
         if method not in METHODS:
             method = "standard"
+        # Stock held at the end of that local day; today's stock without it.
+        # The reports page passes the end of its date range.
+        raw_as_of = request.query_params.get("as_of")
+        try:
+            as_of = parse_date(raw_as_of) if raw_as_of else None
+        except (ValueError, TypeError):
+            as_of = None
+        if raw_as_of and as_of is None:
+            raise ValidationError({"as_of": _("Use a valid YYYY-MM-DD date.")})
 
         if method == "standard":
             products = Product.objects.filter(company_id=cid)
             branch_id = self.branch_id(request)
             if branch_id:
                 products = products.filter(stock_movements__warehouse__branch_id=branch_id)
-            products = products.annotate(on_hand=Coalesce(Sum("stock_movements__quantity"), ZERO))
+            held = Q(stock_movements__created_at__date__lte=as_of) if as_of else None
+            products = products.annotate(on_hand=Coalesce(
+                Sum("stock_movements__quantity", filter=held), ZERO,
+            ))
             rows = []
             total_value = ZERO
             for p in products:
@@ -347,7 +361,7 @@ class InventoryValuationReport(ReportView):
                     {"detail": _("Branch valuation currently supports standard costing only.")},
                     status=400,
                 )
-            totals = company_totals(cid, method=method)
+            totals = company_totals(cid, method=method, as_of=as_of)
             rows = []
             total_value = totals["valuation"]
             for p, res in totals["per_product"]:
@@ -371,6 +385,9 @@ class InventoryValuationReport(ReportView):
         return Response(
             {
                 "method": method,
+                # Standard cost values the stock held then at today's cost;
+                # average and FIFO replay the ledger up to that day.
+                "as_of": as_of.isoformat() if as_of else None,
                 "total_value": str(total_value),
                 "items": rows,
             }
@@ -547,6 +564,7 @@ class IncomeStatementReport(ReportView):
                 ["Revenue", data["revenue"]],
                 ["COGS", data["cogs"]],
                 ["Gross profit", data["gross_profit"]],
+                ["Stock adjustments (counts, damage)", data["stock_adjustments"]],
                 *[
                     [f"Expense — {e['category']}", e["amount"]]
                     for e in data["expenses_by_category"]
@@ -779,6 +797,7 @@ class CfoKpiReport(ReportView):
                     "cogs": str(cogs),
                     "gross_profit": str(gross_profit),
                     "operating_expenses": str(opex),
+                    "stock_adjustments": data["stock_adjustments"],
                     "net_profit": str(net_profit),
                     "gross_margin_pct": ratio(gross_profit, revenue),
                     "net_margin_pct": ratio(net_profit, revenue),
@@ -956,7 +975,22 @@ class ZakatReport(ReportView):
         cid = self.company_id(request)
         valuation = request.query_params.get("valuation", "sale")
         exclude_doubtful = request.query_params.get("exclude_doubtful") in ("1", "true")
-        data = zakat_base(cid, valuation=valuation, exclude_doubtful=exclude_doubtful)
+        # The owner's own count of the cash held replaces the estimate.
+        raw_cash = (request.query_params.get("cash_on_hand") or "").strip()
+        cash_on_hand = None
+        if raw_cash:
+            try:
+                cash_on_hand = Decimal(raw_cash)
+            except (ArithmeticError, ValueError):
+                cash_on_hand = None
+            if cash_on_hand is None or not cash_on_hand.is_finite() or cash_on_hand < 0:
+                raise ValidationError(
+                    {"cash_on_hand": _("Enter the cash on hand as an amount of zero or more.")}
+                )
+        data = zakat_base(
+            cid, valuation=valuation, exclude_doubtful=exclude_doubtful,
+            cash_on_hand=cash_on_hand,
+        )
         today = timezone.localdate()
         year, month, day = to_hijri(today)
         data.update({
