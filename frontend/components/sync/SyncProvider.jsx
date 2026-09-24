@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import api, { sync } from "@/lib/api";
 import { queue, storageHeadroom } from "@/lib/syncQueue";
+import { isDue } from "@/lib/syncRetry";
 import { identityScope } from "@/lib/localIdentity";
 import { deviceId } from "@/lib/localReference";
 import { offlineStore, pullCatalogue, requestPersistentStorage } from "@/lib/offlineStore";
@@ -88,7 +89,11 @@ export function SyncProvider({ children }) {
     const run = async () => {
       let ops;
       try {
-        ops = (await queue.list(scope)).filter((op) => manual || !op.error).slice(0, 100);
+        // Automatic runs skip refused ops and ops the server asked to try
+        // again later; the cashier's own "retry" sends everything now.
+        const now = Date.now();
+        ops = (await queue.list(scope))
+          .filter((op) => manual || (!op.error && isDue(op, now))).slice(0, 100);
         if (!ops.length) return;
       } catch { setError("storage"); return; }
       try {

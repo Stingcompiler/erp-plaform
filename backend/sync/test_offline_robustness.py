@@ -331,7 +331,8 @@ class RepairableRefusalTests(OfflineBase):
             "sync.services.POSCheckoutSerializer.save", side_effect=RuntimeError("boom internals")
         ):
             result = self._push([self._op()]).data["results"][0]
-        self.assertEqual(result["status"], "error")
+        # Ours, not the sale's: the device keeps it and tries again.
+        self.assertEqual(result["status"], "retry")
         self.assertNotIn("boom", result["error"])
 
 

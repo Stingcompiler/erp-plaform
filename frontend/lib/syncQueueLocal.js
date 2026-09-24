@@ -1,4 +1,5 @@
 import { storageKey } from "./localIdentity.js";
+import { retryPatch } from "./syncRetry.js";
 
 // One key per operation avoids one tab overwriting another tab's entire queue.
 // A failed write MUST throw: the caller keeps the sale on screen until durable.
@@ -68,6 +69,12 @@ export const queue = {
             JSON.stringify({ id: result.id, confirmed_at: Date.now() }));
         }
         localStorage.removeItem(key);
+      } else if (result?.status === "retry") {
+        const current = localStorage.getItem(key);
+        if (current) {
+          const row = JSON.parse(current);
+          localStorage.setItem(key, JSON.stringify({ ...row, ...retryPatch(row) }));
+        }
       } else {
         const current = localStorage.getItem(key);
         if (current) localStorage.setItem(key, JSON.stringify({ ...JSON.parse(current),
@@ -83,7 +90,8 @@ export const queue = {
     const current = localStorage.getItem(key);
     if (!current) return null;
     const row = JSON.parse(current);
-    const next = { ...row, payload: { ...row.payload, ...patch }, error: null, error_field: null };
+    const next = { ...row, payload: { ...row.payload, ...patch },
+      error: null, error_field: null, attempts: 0, retry_at: null };
     localStorage.setItem(key, JSON.stringify(next));
     return next;
   },
