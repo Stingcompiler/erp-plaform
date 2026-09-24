@@ -6,6 +6,7 @@ import io
 from datetime import timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APITestCase
@@ -160,15 +161,16 @@ class OperationalReportTests(APITestCase):
         self.assertEqual(data["new_leads"], 4)
 
     def test_each_report_downloads_as_csv(self):
+        self.client.cookies[settings.LANGUAGE_COOKIE_NAME] = "en"
         for name, first_header in (
-            ("report-sales-returns", "return"),
-            ("report-purchase-returns", "return"),
-            ("report-payment-reconciliation", "payment"),
-            ("report-crm", "lead"),
+            ("report-sales-returns", "Return"),
+            ("report-purchase-returns", "Return"),
+            ("report-payment-reconciliation", "Payment"),
+            ("report-crm", "Lead"),
         ):
             response = self._get("Business Owner", name, format="csv")
             self.assertEqual(response.status_code, 200, name)
-            rows = list(csv.reader(io.StringIO(response.content.decode())))
+            rows = list(csv.reader(io.StringIO(response.content.decode("utf-8-sig"))))
             self.assertEqual(rows[0][0], first_header, name)
             self.assertGreater(len(rows), 1, name)
 

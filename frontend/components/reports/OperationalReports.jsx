@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
 
 import { API_BASE, reports } from "@/lib/api";
+import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { Badge, Card } from "@/components/ui/kit";
 import BarList from "@/components/reports/BarList";
@@ -46,6 +47,7 @@ function Stat({ label, value, tone = "ink" }) {
 
 export default function OperationalReports({ range, areas }) {
   const { t, language } = useI18n();
+  const { canRead } = useAuth();
   const locale = language === "ar" ? "ar" : "en";
   const money = (v) => Number(v ?? 0).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const count = (v) => Number(v ?? 0).toLocaleString(locale, { maximumFractionDigits: 3 });
@@ -53,6 +55,9 @@ export default function OperationalReports({ range, areas }) {
   const sales = areas.includes("sales");
   const purchasing = areas.includes("purchasing");
   const finance = areas.includes("finance");
+  // Leads carry names and phone numbers: the sales report area is not
+  // enough, the reader must be allowed into the CRM (the server agrees).
+  const crmReport = sales && canRead("crm");
 
   const [salesReturns, setSalesReturns] = useState(null);
   const [purchaseReturns, setPurchaseReturns] = useState(null);
@@ -69,13 +74,11 @@ export default function OperationalReports({ range, areas }) {
     if (range.start) p.start = range.start;
     if (range.end) p.end = range.end;
     const settle = (promise, setter) => promise.then((r) => setter(r.data)).catch(() => setter(false));
-    if (sales) {
-      settle(reports.salesReturns(p), setSalesReturns);
-      settle(reports.crm(p), setCrm);
-    }
+    if (sales) settle(reports.salesReturns(p), setSalesReturns);
+    if (crmReport) settle(reports.crm(p), setCrm);
     if (purchasing) settle(reports.purchaseReturns(p), setPurchaseReturns);
     if (finance) settle(reports.paymentReconciliation(p), setReconciliation);
-  }, [range.start, range.end, sales, purchasing, finance]);
+  }, [range.start, range.end, sales, crmReport, purchasing, finance]);
 
   if (!sales && !purchasing && !finance) return null;
   const failed = <p className="text-sm text-danger">{t("reports.ops.loadError")}</p>;
@@ -170,7 +173,7 @@ export default function OperationalReports({ range, areas }) {
         </Section>
       )}
 
-      {sales && (
+      {crmReport && (
         <Section title={t("reports.ops.crm")} hint={t("reports.ops.crmHint")} csvHref={csv("/reports/crm/")}>
           {body(crm, (d) => (
             <>

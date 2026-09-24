@@ -13,6 +13,15 @@ import OperationalReports from "@/components/reports/OperationalReports";
 import TabBar from "@/components/ui/TabBar";
 import { useHashTab } from "@/lib/useHashTab";
 import { expenseCategory } from "@/lib/expenseCategories";
+import { localToday } from "@/lib/dates";
+
+// The page opens on this month, not all time: every report over the whole
+// history on each visit was the slowest screen in the app, and "this month"
+// is what the owner asks first. "All time" is one click away.
+function thisMonth() {
+  const today = localToday();
+  return { start: `${today.slice(0, 8)}01`, end: today };
+}
 
 function Kpi({ label, value, tone = "ink" }) {
   const toneClass = tone === "accent" ? "text-accent" : tone === "ok" ? "text-ok" : "text-ink";
@@ -75,13 +84,14 @@ export default function ReportsPage() {
       : `${Number(v).toLocaleString(language === "ar" ? "ar" : "en", {
           maximumFractionDigits: 1,
         })}%`;
-  const [range, setRange] = useState({ start: "", end: "" });
+  const [range, setRange] = useState(thisMonth);
   const [costMethod, setCostMethod] = useState("standard");
   const [summary, setSummary] = useState(null);
   const [byProduct, setByProduct] = useState([]);
   const [valuation, setValuation] = useState(null);
   const [aging, setAging] = useState([]);
-  const [profit, setProfit] = useState(null);
+  // The income statement carries revenue, COGS and gross profit — the
+  // profit-summary endpoint returned the same figures in a second request.
   const [income, setIncome] = useState(null);
   const [cash, setCash] = useState(null);
   const [forecast, setForecast] = useState(null);
@@ -108,37 +118,43 @@ export default function ReportsPage() {
     let failures = 0;
     const settle = (promise, setter, fallback) =>
       promise.then((r) => setter(r.data)).catch(() => { failures += 1; setter(fallback); });
+    // Only the open tab's reports: every area at once was a dozen heavy
+    // queries for figures the reader could not see.
+    const overview = tab === "overview";
     await Promise.all([
-      ...(salesReports ? [
+      ...(overview && salesReports ? [
         settle(reports.salesSummary(p), setSummary, null),
         settle(reports.salesByProduct(p), setByProduct, []),
+      ] : []),
+      ...(tab === "sales" && salesReports ? [
         settle(reports.arAging(), setAging, []),
         settle(reports.receivablesDue(), setCollections, null),
       ] : []),
-      ...(inventoryReports ? [
+      ...(overview && inventoryReports ? [
         // Stock held at the end of the range, not always today's.
         settle(reports.inventoryValuation({
           method: costMethod, ...(range.end ? { as_of: range.end } : {}),
         }), setValuation, null),
       ] : []),
-      ...(purchasingReports ? [
+      ...(tab === "purchasing" && purchasingReports ? [
         settle(reports.payablesDue(), setPayables, null),
         settle(reports.apAging(), setApAging, []),
         settle(reports.purchasesSummary(p), setPurchases, null),
       ] : []),
-      ...(financeReports ? [
-        settle(reports.profitSummary({ ...p, method: costMethod }), setProfit, null),
+      ...((overview || tab === "finance") && financeReports ? [
         settle(reports.incomeStatement({ ...p, method: costMethod }), setIncome, null),
+      ] : []),
+      ...(tab === "finance" && financeReports ? [
         settle(reports.cashFlow(p), setCash, null),
         settle(reports.cashFlowForecast({ weeks: forecastWeeks }), setForecast, null),
         settle(reports.cfoKpis({ ...p, method: costMethod }), setKpis, null),
       ] : []),
-      ...(hrReports ? [settle(reports.hrSummary(p), setHrSummary, null)] : []),
-      ...(payrollReports ? [settle(reports.payroll(p), setPayroll, [])] : []),
+      ...(tab === "hr" && hrReports ? [settle(reports.hrSummary(p), setHrSummary, null)] : []),
+      ...(tab === payrollTab && payrollReports ? [settle(reports.payroll(p), setPayroll, [])] : []),
     ]);
     setLoadFailures(failures);
     setLoading(false);
-  }, [range.start, range.end, costMethod, salesReports, inventoryReports, purchasingReports, financeReports, hrReports, payrollReports, forecastWeeks]);
+  }, [tab, payrollTab, range.start, range.end, costMethod, salesReports, inventoryReports, purchasingReports, financeReports, hrReports, payrollReports, forecastWeeks]);
 
   useEffect(() => {
     load();
@@ -192,6 +208,9 @@ export default function ReportsPage() {
               onChange={(e) => setRange((r) => ({ ...r, end: e.target.value }))}
             />
           </Field>
+          <Button variant="outline" onClick={() => setRange(thisMonth())}>
+            {t("reports.thisMonth")}
+          </Button>
           <Button variant="outline" onClick={() => setRange({ start: "", end: "" })}>
             {t("reports.allTime")}
           </Button>
@@ -264,13 +283,13 @@ export default function ReportsPage() {
             {/* The invoices' own total (tax included, before returns) — not the
                 income statement's revenue, which is on the Finance tab. */}
             {salesReports && <Kpi label={t("reports.invoicedTotal")} tone="accent" value={money(summary?.totals?.total)} />}
-            {financeReports && <Kpi label={t("reports.grossProfit")} tone="ok" value={money(profit?.gross_profit)} />}
+            {financeReports && <Kpi label={t("reports.grossProfit")} tone="ok" value={money(income?.gross_profit)} />}
             {inventoryReports && <Kpi label={valuationAsOf(t("reports.inventoryValue"))} value={money(valuation?.total_value)} />}
           </div>}
 
           {tab === "overview" && <div className="grid gap-6 lg:grid-cols-2">
             {salesReports && <SectionCard
-              title={t("reports.topProducts")}
+              title={t("reports.topProductsGross")}
               action={
                 <a href={csv("/reports/sales-by-product/")}>
                   <Button variant="ghost">
@@ -314,11 +333,21 @@ export default function ReportsPage() {
             })}
           >
             <div className="grid gap-4 sm:grid-cols-3">
-              <Kpi label={t("reports.revenue")} value={money(profit?.revenue)} />
-              <Kpi label={t("reports.cogs")} value={money(profit?.cogs ?? profit?.cogs_standard_cost)} />
-              <Kpi label={t("reports.grossProfit")} tone="ok" value={money(profit?.gross_profit)} />
+              <Kpi label={t("reports.revenue")} value={money(income?.revenue)} />
+              <Kpi label={t("reports.cogs")} value={money(income?.cogs)} />
+              <Kpi label={t("reports.grossProfit")} tone="ok" value={money(income?.gross_profit)} />
             </div>
-            {profit?.note && <p className="mt-3 text-xs text-muted">{profit.note}</p>}
+            {income && (
+              <p className="mt-3 text-xs text-muted">
+                {t("reports.cogsMethodNote", {
+                  method: {
+                    standard: t("reports.standardCost"),
+                    average: t("reports.weightedAverage"),
+                    fifo: t("reports.fifo"),
+                  }[income.method] || income.method,
+                })}
+              </p>
+            )}
           </SectionCard>}
 
           {/* CFO financial KPIs — liquidity + profitability ratios */}

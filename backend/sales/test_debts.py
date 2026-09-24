@@ -70,7 +70,7 @@ class DebtLedgerTestCase(APITestCase):
         self.assertEqual(summary.status_code, 200, summary.data)
         self.assertEqual(summary.data, {
             "outstanding": "60.00", "overdue": "60.00",
-            "credit_balance": "15.00", "debtor_count": 1,
+            "credit_balance": "15.00", "debtor_count": 1, "walk_in_outstanding": "0.00",
         })
 
     def test_statement_has_opening_balance_and_running_balance(self):
@@ -148,7 +148,7 @@ class DebtLedgerTestCase(APITestCase):
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data["sections"]["debts"], {
             "outstanding": "70.00", "overdue": "70.00",
-            "credit_balance": "0.00", "debtor_count": 1,
+            "credit_balance": "0.00", "debtor_count": 1, "walk_in_outstanding": "0.00",
         })
 
     def test_branch_user_sees_only_own_branch_invoices(self):

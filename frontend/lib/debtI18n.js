@@ -61,6 +61,8 @@ export const debtEn = {
   clear: "Clear",
   noEvents: "There are no movements in this period.",
   noDebtors: "No customer balances match these filters.",
+  archived: "Archived",
+  walkIn: "Walk-in sales on account (no customer): {amount} — included in the totals above.",
   loadError: "Could not load the debt ledger. Please try again.",
 };
 
@@ -127,5 +129,7 @@ export const debtAr = {
   clear: "مسح",
   noEvents: "لا توجد حركات في هذه الفترة.",
   noDebtors: "لا توجد أرصدة مطابقة للتصفية.",
+  archived: "مؤرشف",
+  walkIn: "مبيعات آجلة بلا عميل مسجّل: {amount} — داخلة في الإجماليات أعلاه.",
   loadError: "تعذر تحميل دفتر الديون. حاول مرة أخرى.",
 };

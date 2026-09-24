@@ -4,7 +4,6 @@ Reporting endpoints (M9). All read-only, company-scoped, gated to the
 documents at query time — there are no stored report totals to drift.
 """
 
-import csv
 from datetime import timedelta
 from decimal import Decimal
 
@@ -17,7 +16,6 @@ from django.db.models import (
     Sum,
 )
 from django.db.models.functions import Coalesce, TruncDate
-from django.http import HttpResponse
 from django.utils.dateparse import parse_date
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -27,6 +25,7 @@ from rest_framework.views import APIView
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
+from core.csvexport import rows_download
 from core.permissions import PayrollReportAccess, ReportAreaAccess
 from core.rbac import RoleModuleAccess
 from finance.metrics import date_range, operating_summary
@@ -35,6 +34,11 @@ from sales.querysets import open_invoices, receivable_total
 
 ZERO = Decimal("0")
 MONEY = DecimalField(max_digits=20, decimal_places=2)
+MAX_HORIZON_DAYS = 365
+
+
+def walk_in_label():
+    return _("(walk-in)")
 
 
 def _in_base(field):
@@ -70,12 +74,18 @@ class ReportView(APIView):
         return qs
 
     def csv_response(self, filename, header, rows):
-        response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = f'attachment; filename="{filename}"'
-        writer = csv.writer(response)
-        writer.writerow(header)
-        writer.writerows(rows)
-        return response
+        # BOM for Excel's Arabic; text cells that would run as formulas are
+        # neutralised (a customer named "=HYPERLINK(...)" stays text).
+        return rows_download(filename, header, rows)
+
+    def horizon_days(self, request, default):
+        """`?days=` look-ahead, clamped to a year: a huge value overflowed
+        the date arithmetic into a 500."""
+        try:
+            days = int(request.query_params.get("days", default))
+        except (TypeError, ValueError):
+            return default
+        return max(0, min(days, MAX_HORIZON_DAYS))
 
     def wants_csv(self, request):
         return request.query_params.get("format") == "csv"
@@ -97,6 +107,9 @@ class HrSummaryReport(ReportView):
         advances = SalaryAdvance.objects.filter(company_id=cid)
         deductions = Deduction.objects.filter(company_id=cid)
         employees = self.apply_branch(request, employees, "branch")
+        # Headcount is who works here: a terminated employee stays in the
+        # status breakdown but not in the total or the departments.
+        current = employees.exclude(status=Employee.STATUS_TERMINATED)
         attendance = self.apply_branch(request, attendance, "employee__branch")
         leave = self.apply_branch(request, leave, "employee__branch")
         advances = self.apply_branch(request, advances, "employee__branch")
@@ -130,7 +143,7 @@ class HrSummaryReport(ReportView):
             total=Coalesce(Sum("amount"), ZERO, output_field=MONEY)
         )["total"]
         departments = list(
-            employees.exclude(department__isnull=True)
+            current.exclude(department__isnull=True)
             .values("department__name")
             .annotate(count=Count("id"))
             .order_by("department__name")
@@ -139,7 +152,7 @@ class HrSummaryReport(ReportView):
         return Response(
             {
                 "employees": counts(employees),
-                "employee_total": employees.count(),
+                "employee_total": current.count(),
                 "attendance": counts(attendance),
                 "leave": counts(leave),
                 "advances": {**counts(advances), "approved_total": str(advance_total)},
@@ -206,16 +219,16 @@ class PayrollReport(ReportView):
             return self.csv_response(
                 "payroll_report.csv",
                 [
-                    "period",
-                    "status",
-                    "employee",
-                    "department",
-                    "position",
-                    "base_salary",
-                    "deductions",
-                    "advances",
-                    "advances_recovered",
-                    "net_salary",
+                    _("Period"),
+                    _("Status"),
+                    _("Employee"),
+                    _("Department"),
+                    _("Position"),
+                    _("Base salary"),
+                    _("Deductions"),
+                    _("Advances"),
+                    _("Advances recovered"),
+                    _("Net salary"),
                 ],
                 [
                     [
@@ -300,7 +313,7 @@ class SalesByProductReport(ReportView):
         if self.wants_csv(request):
             return self.csv_response(
                 "sales_by_product.csv",
-                ["sku", "name", "units", "revenue"],
+                [_("SKU"), _("Product"), _("Units"), _("Revenue before returns")],
                 [[r["product__sku"], r["product__name"], r["units"], r["revenue"]] for r in rows],
             )
         return Response(
@@ -386,7 +399,7 @@ class InventoryValuationReport(ReportView):
         if self.wants_csv(request):
             return self.csv_response(
                 "inventory_valuation.csv",
-                ["sku", "name", "on_hand", "cost_price", "value"],
+                [_("SKU"), _("Product"), _("On hand"), _("Cost price"), _("Value")],
                 [[r["sku"], r["name"], r["on_hand"], r["cost_price"], r["value"]] for r in rows],
             )
         return Response(
@@ -436,7 +449,7 @@ class ARAgingReport(ReportView):
         for inv in invoices.iterator(chunk_size=2000):
             due = inv.outstanding
             key = inv.customer_id
-            name = inv.customer.name if inv.customer else "(walk-in)"
+            name = inv.customer.name if inv.customer else walk_in_label()
             # Age by *due date* so buckets mean days overdue, not days since
             # issue. Legacy rows without a due date fall back to issue date.
             reference = inv.due_date or inv.issued_at.date()
@@ -515,11 +528,12 @@ class PurchasesSummaryReport(ReportView):
             start,
             end,
         )
-        receipts = self.apply_range(
-            GoodsReceipt.objects.filter(company_id=cid),
-            "received_at",
-            start,
-            end,
+        receipts = self.apply_branch(
+            request,
+            self.apply_range(
+                GoodsReceipt.objects.filter(company_id=cid), "received_at", start, end,
+            ),
+            "warehouse__branch",
         )
         agg = bills.aggregate(
             bill_count=Count("id"),
@@ -543,11 +557,18 @@ class ProfitSummaryReport(ReportView):
         data = operating_summary(
             self.company_id(request), start, end, request.query_params.get("method", "standard")
         )
+        methods = {
+            "standard": _("standard"), "average": _("weighted average"), "fifo": _("FIFO"),
+        }
         return Response(
             {
                 **data,
                 "cogs_standard_cost": data["cogs"],
-                "note": f"COGS uses {data['method']} costing.",
+                # A code the client translates; `note` stays for older clients.
+                "note_code": "cogs_method",
+                "note": _("COGS uses %(method)s costing.") % {
+                    "method": methods.get(data["method"], data["method"]),
+                },
             }
         )
 
@@ -568,18 +589,20 @@ class IncomeStatementReport(ReportView):
         )
         if self.wants_csv(request):
             rows = [
-                ["Revenue", data["revenue"]],
-                ["COGS", data["cogs"]],
-                ["Gross profit", data["gross_profit"]],
-                ["Stock adjustments (counts, damage)", data["stock_adjustments"]],
+                [_("Revenue"), data["revenue"]],
+                [_("Cost of goods sold"), data["cogs"]],
+                [_("Gross profit"), data["gross_profit"]],
+                [_("Stock adjustments (counts, damage)"), data["stock_adjustments"]],
                 *[
-                    [f"Expense — {e['category']}", e["amount"]]
+                    [_("Expense — %(category)s") % {"category": e["category"]}, e["amount"]]
                     for e in data["expenses_by_category"]
                 ],
-                ["Total expenses", data["total_expenses"]],
-                ["Net profit", data["net_profit"]],
+                [_("Total expenses"), data["total_expenses"]],
+                [_("Net profit"), data["net_profit"]],
             ]
-            return self.csv_response("income-statement.csv", ["Line", "Amount"], rows)
+            return self.csv_response(
+                "income-statement.csv", [_("Line"), _("Amount")], rows
+            )
         return Response(data)
 
 
@@ -597,10 +620,7 @@ class ReceivablesDueReport(ReportView):
         from sales.tasks import DUE_SOON_DAYS
 
         cid = self.company_id(request)
-        try:
-            horizon = int(request.query_params.get("days", DUE_SOON_DAYS))
-        except ValueError:
-            horizon = DUE_SOON_DAYS
+        horizon = self.horizon_days(request, DUE_SOON_DAYS)
 
         today = timezone.localdate()
         invoices = open_invoices(
@@ -611,7 +631,7 @@ class ReceivablesDueReport(ReportView):
             {
                 "invoice": inv.id,
                 "number": inv.number_display,
-                "customer": inv.customer.name if inv.customer else "(walk-in)",
+                "customer": inv.customer.name if inv.customer else walk_in_label(),
                 "due_date": inv.due_date.isoformat() if inv.due_date else None,
                 "days_overdue": max(0, (today - inv.due_date).days) if inv.due_date else 0,
                 "amount_due": str(inv.outstanding),
@@ -623,7 +643,7 @@ class ReceivablesDueReport(ReportView):
         if self.wants_csv(request):
             return self.csv_response(
                 "receivables-due.csv",
-                ["Invoice", "Customer", "Due date", "Days overdue", "Amount due"],
+                [_("Invoice"), _("Customer"), _("Due date"), _("Days overdue"), _("Amount due")],
                 [
                     [
                         r["number"],
@@ -713,10 +733,12 @@ class CashFlowForecastReport(ReportView):
         if self.wants_csv(request):
             return self.csv_response(
                 "cash-flow-forecast.csv",
-                ["Bucket", "Starts on", "Expected in", "Expected out", "Net", "Cumulative"],
+                [_("Period"), _("Starts on"), _("Expected in"), _("Expected out"), _("Net"),
+                 _("Cumulative")],
                 [
                     [
-                        r["bucket"],
+                        _("Overdue") if r["bucket"] == "overdue"
+                        else _("Week %(number)s") % {"number": r["bucket"].split("_")[1]},
                         r["starts_on"] or "",
                         r["inflow"],
                         r["outflow"],
@@ -733,7 +755,7 @@ class CashFlowForecastReport(ReportView):
                 "generated_on": today.isoformat(),
                 "closing_position": str(running.quantize(cents)),
                 "rows": rows,
-                "note": "Committed documents only — no modelled or predicted amounts.",
+                "note": _("Committed documents only — no modelled or predicted amounts."),
             }
         )
 
@@ -839,10 +861,7 @@ class PayablesDueReport(ReportView):
         from purchasing.models import Bill
 
         cid = self.company_id(request)
-        try:
-            horizon = int(request.query_params.get("days", 7))
-        except ValueError:
-            horizon = 7
+        horizon = self.horizon_days(request, 7)
         today = timezone.localdate()
         cutoff = today + timedelta(days=horizon)
 
@@ -866,7 +885,7 @@ class PayablesDueReport(ReportView):
         if self.wants_csv(request):
             return self.csv_response(
                 "payables-due.csv",
-                ["Bill", "Supplier", "Due date", "Days overdue", "Amount due"],
+                [_("Bill"), _("Supplier"), _("Due date"), _("Days overdue"), _("Amount due")],
                 [
                     [
                         r["reference"],
@@ -946,13 +965,13 @@ class CashFlowReport(ReportView):
 
         if self.wants_csv(request):
             rows = [
-                ["Cash in — customer payments", str(inflows)],
-                ["Cash out — supplier payments", str(supplier_out)],
-                ["Cash out — customer refunds", str(refund_out)],
-                ["Cash out — expenses", str(expense_out)],
-                ["Net cash flow", str(inflows - outflows)],
+                [_("Cash in — customer payments"), str(inflows)],
+                [_("Cash out — supplier payments"), str(supplier_out)],
+                [_("Cash out — customer refunds"), str(refund_out)],
+                [_("Cash out — expenses"), str(expense_out)],
+                [_("Net cash flow"), str(inflows - outflows)],
             ]
-            return self.csv_response("cash-flow.csv", ["Line", "Amount"], rows)
+            return self.csv_response("cash-flow.csv", [_("Line"), _("Amount")], rows)
 
         return Response(
             {
@@ -1016,12 +1035,21 @@ class ZakatReport(ReportView):
         if 1 <= hm <= 12 and 1 <= hd <= 30:
             data["next_hawl"] = next_occurrence(today, hm, hd).isoformat()
         if self.wants_csv(request):
-            keys = [
-                "stock_at_sale", "stock_at_cost", "stock", "cash_in_tills", "bank",
-                "receivables", "doubtful_receivables", "counted_receivables", "payables",
-                "base", "zakat",
+            lines = [
+                ("stock_at_sale", _("Stock at sale price")),
+                ("stock_at_cost", _("Stock at cost")),
+                ("stock", _("Stock counted")),
+                ("cash_in_tills", _("Cash in tills")),
+                ("bank", _("Bank balances")),
+                ("receivables", _("Receivables")),
+                ("doubtful_receivables", _("Doubtful receivables")),
+                ("counted_receivables", _("Receivables counted")),
+                ("payables", _("Payables")),
+                ("base", _("Zakat base")),
+                ("zakat", _("Zakat due")),
             ]
             return self.csv_response(
-                "zakat.csv", ["line", "amount"], [[k, str(data[k])] for k in keys]
+                "zakat.csv", [_("Line"), _("Amount")],
+                [[label, str(data[key])] for key, label in lines],
             )
         return Response({k: (str(v) if isinstance(v, Decimal) else v) for k, v in data.items()})
