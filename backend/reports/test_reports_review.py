@@ -222,8 +222,8 @@ class ReportsReviewTests(APITestCase):
             )
         top = self.client.get(reverse("dashboard")).data["sections"]["sales"]["top_products"]
         self.assertEqual(
-            [(row["product"], row["value"]) for row in top],
-            [(second.id, "20"), (first.id, "10")],
+            [(row["product"], Decimal(row["value"])) for row in top],
+            [(second.id, Decimal("20")), (first.id, Decimal("10"))],
         )
 
     # 8 — branch scoping --------------------------------------------------
