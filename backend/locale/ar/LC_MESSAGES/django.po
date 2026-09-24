@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-24 10:23+0000\n"
+"POT-Creation-Date: 2026-09-24 10:58+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -773,6 +773,13 @@ msgstr "أنت تستخدم هذا الجهاز الآن. احذفه من جها
 msgid "Only a manager or owner may record the exchange rate."
 msgstr "المدير أو المالك فقط يمكنه تسجيل سعر الصرف."
 
+msgid "An amount in the company currency has a rate of 1."
+msgstr "المبلغ بعملة الشركة سعر صرفه 1."
+
+#, python-format
+msgid "Give the %(from)s->%(to)s rate."
+msgstr "أدخل سعر صرف %(from)s إلى %(to)s."
+
 msgid "Not your company's record."
 msgstr "هذا السجل ليس لشركتك."
 
@@ -794,6 +801,16 @@ msgstr ""
 msgid "Purchase order is not for this supplier."
 msgstr "أمر الشراء ليس لهذا المورّد."
 
+#, python-format
+msgid ""
+"This order is for %(branch)s; receive it into one of that branch's "
+"warehouses."
+msgstr "هذا الطلب لفرع %(branch)s؛ استلمه في أحد مخازن ذلك الفرع."
+
+#, python-format
+msgid "A receipt against an order is in the order's currency (%(currency)s)."
+msgstr "الاستلام على طلب شراء يكون بعملة الطلب (%(currency)s)."
+
 msgid "A cancelled purchase order cannot be received."
 msgstr "لا يمكن الاستلام على أمر شراء ملغى."
 
@@ -809,10 +826,6 @@ msgstr "المتبقي للاستلام من %(sku)s هو %(remaining)s فقط."
 
 msgid "A receipt in the company currency has a rate of 1."
 msgstr "الاستلام بعملة الشركة سعر صرفه 1."
-
-#, python-format
-msgid "Give the %(from)s->%(to)s rate."
-msgstr "أدخل سعر صرف %(from)s إلى %(to)s."
 
 #, python-format
 msgid "Invoice %(number)s from this supplier is already recorded."
@@ -840,6 +853,14 @@ msgstr "الإجمالي لا يمكن أن يكون سالبًا."
 
 msgid "Total must equal subtotal plus tax amount."
 msgstr "الإجمالي يجب أن يساوي المجموع الفرعي زائد الضريبة."
+
+#, python-format
+msgid "The bill must be in the receipt's currency (%(currency)s)."
+msgstr "يجب أن تكون فاتورة المورد بعملة الاستلام (%(currency)s)."
+
+#, python-format
+msgid "The bill must be in the order's currency (%(currency)s)."
+msgstr "يجب أن تكون فاتورة المورد بعملة طلب الشراء (%(currency)s)."
 
 msgid "Bank transfer requires the paying-from company bank account."
 msgstr "التحويل البنكي يتطلب تحديد حساب الشركة الدافع."
@@ -976,7 +997,8 @@ msgstr "العميل يجب أن يطابق المرتجع المرتبط."
 msgid "A customer is required unless this note is linked to an invoice."
 msgstr "يلزم تحديد عميل ما لم يكن الإشعار مرتبطًا بفاتورة."
 
-msgid "Only a manager or owner may issue a credit note that is not for a return."
+msgid ""
+"Only a manager or owner may issue a credit note that is not for a return."
 msgstr "إصدار إشعار دائن لا يخص مرتجعًا للمدير أو المالك فقط."
 
 msgid "That invoice is void."
@@ -1179,8 +1201,11 @@ msgid "The sale's customer must match the order's customer."
 msgstr "عميل البيع يجب أن يطابق عميل الأمر."
 
 #, python-format
-msgid "The sale does not deliver the whole order (%(skus)s). Sell the ordered quantities, or edit the order first."
-msgstr "البيع لا يسلّم الطلب كاملًا (%(skus)s). بِع الكميات المطلوبة، أو عدّل الطلب أولًا."
+msgid ""
+"The sale does not deliver the whole order (%(skus)s). Sell the ordered "
+"quantities, or edit the order first."
+msgstr ""
+"البيع لا يسلّم الطلب كاملًا (%(skus)s). بِع الكميات المطلوبة، أو عدّل الطلب أولًا."
 
 msgid "That pack belongs to a different product."
 msgstr "هذه العبوة تخص صنفًا آخر."

@@ -281,11 +281,43 @@ class GoodsReceiptViewSet(
     serializer_class = GoodsReceiptReadSerializer
 
     def get_queryset(self):
-        qs = super().get_queryset()
-        supplier_id = self.request.query_params.get("supplier")
-        if supplier_id:
-            qs = qs.filter(supplier_id=supplier_id)
+        # ?supplier=<id> — one supplier's receipts; ?unbilled=1 — those with
+        # no live bill yet, which the bill-entry screen offers to match.
+        qs = super().get_queryset().select_related("warehouse")
+        params = self.request.query_params
+        supplier_id = params.get("supplier")
+        if supplier_id and str(supplier_id).isdigit():
+            qs = qs.filter(supplier_id=int(supplier_id))
+        if params.get("unbilled") in ("1", "true"):
+            qs = qs.exclude(bills__is_void=False)
         return qs
+
+
+class PurchasingCurrencyView(APIView):
+    """GET /api/purchasing/currencies/ — the currencies a purchase can be
+    kept in and the company's current rate, for the order, receiving and
+    bill screens. Company settings are gated on the settings module, which
+    a buyer usually lacks; these figures are all the screens need."""
+
+    permission_classes = [IsAuthenticated, RoleModuleAccess]
+    rbac_module = "purchasing"
+
+    def get(self, request):
+        from org.models import Company
+
+        company_id = getattr(request.user, "company_id", None)
+        company = Company.objects.filter(pk=company_id).first() if company_id else None
+        if company is None:
+            return Response(
+                {"detail": _("A company-scoped user is required.")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response({
+            "currency": company.currency,
+            "reference_currency": company.reference_currency,
+            "exchange_rate": company.exchange_rate,
+            "exchange_rate_at": company.exchange_rate_at,
+        })
 
 
 class GoodsReceiptCreateView(APIView):

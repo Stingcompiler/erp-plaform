@@ -11,6 +11,11 @@ import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { SkeletonRows } from "@/components/ui/Skeleton";
+import { round2 } from "@/lib/money";
+import {
+  AmountWithBase, CurrencyFields, EMPTY_FX, fxCurrency, fxPayload, fxProblem, fxRate,
+  toDocumentCost, usePurchaseCurrencies,
+} from "@/components/purchasing/PurchaseCurrency";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -23,7 +28,7 @@ const NEXT = {
 };
 const OPEN = new Set(["confirmed", "partially_received", "sent"]);
 
-function NewOrderDrawer({ open, onClose, suppliers, onSaved }) {
+function NewOrderDrawer({ open, onClose, suppliers, onSaved, fxInfo }) {
   const { t } = useI18n();
   const [supplier, setSupplier] = useState("");
   const [expected, setExpected] = useState("");
@@ -32,8 +37,9 @@ function NewOrderDrawer({ open, onClose, suppliers, onSaved }) {
   const [lines, setLines] = useState([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [fx, setFx] = useState(EMPTY_FX);
 
-  useEffect(() => { if (open) { setSupplier(""); setExpected(""); setLines([]); setError(""); } }, [open]);
+  useEffect(() => { if (open) { setSupplier(""); setExpected(""); setLines([]); setError(""); setFx(EMPTY_FX); } }, [open]);
   useEffect(() => {
     if (!query.trim()) { setResults([]); return; }
     const timer = setTimeout(() => {
@@ -45,21 +51,27 @@ function NewOrderDrawer({ open, onClose, suppliers, onSaved }) {
   const add = (p) => {
     setLines((ls) => ls.find((l) => l.product === p.id)
       ? ls.map((l) => (l.product === p.id ? { ...l, qty: String(Number(l.qty) + 1) } : l))
-      : [...ls, { product: p.id, sku: p.sku, name: p.name, qty: "1", cost: String(p.cost_price ?? "0") }]);
+      // The catalogue cost is in the company currency; an order in USD
+      // starts from its USD equivalent at the rate on the form.
+      : [...ls, { product: p.id, sku: p.sku, name: p.name, qty: "1", cost: toDocumentCost(p.cost_price, fx, fxInfo) }]);
     setQuery(""); setResults([]);
   };
   const patch = (id, fields) => setLines((ls) => ls.map((l) => (l.product === id ? { ...l, ...fields } : l)));
-  const total = lines.reduce((s, l) => s + Number(l.qty || 0) * Number(l.cost || 0), 0);
+  const total = round2(lines.reduce((s, l) => s + round2(Number(l.qty || 0) * Number(l.cost || 0)), 0));
+  const currency = fxCurrency(fx, fxInfo);
 
   async function save() {
     setError("");
     if (!supplier) return setError(t("purchasing.selectSupplierErr"));
     if (!lines.length) return setError(t("purchasing.addProductErr"));
+    const fxError = fxProblem(fx, fxInfo, t);
+    if (fxError) return setError(fxError);
     setBusy(true);
     try {
       const r = await purchasing.createPurchaseOrder({
         supplier: Number(supplier),
         expected_date: expected || null,
+        ...fxPayload(fx, fxInfo),
         lines: lines.map((l) => ({ product: l.product, quantity_ordered: l.qty, unit_cost: l.cost })),
       });
       onSaved?.(r.data);
@@ -89,6 +101,7 @@ function NewOrderDrawer({ open, onClose, suppliers, onSaved }) {
             <Input type="date" value={expected} onChange={(e) => setExpected(e.target.value)} />
           </Field>
         </div>
+        <CurrencyFields info={fxInfo} fx={fx} onChange={setFx} />
         <div className="relative">
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("purchasing.searchProduct")} />
           {results.length > 0 && (
@@ -113,7 +126,7 @@ function NewOrderDrawer({ open, onClose, suppliers, onSaved }) {
                 <button onClick={() => setLines((ls) => ls.filter((x) => x.product !== l.product))} className="text-muted hover:text-danger" aria-label={t("common.remove")}><Trash2 size={15} /></button>
               </div>
             ))}
-            <div className="flex justify-between px-3 py-2 text-sm font-semibold"><span>{t("common.total")}</span><span className="tabular">{money(total)}</span></div>
+            <div className="flex justify-between px-3 py-2 text-sm font-semibold"><span>{t("common.total")}</span><AmountWithBase amount={total} currency={currency} rate={fxRate(fx, fxInfo)} info={fxInfo} /></div>
           </div>
         )}
         {error && <p role="alert" className="text-sm text-danger">{error}</p>}
@@ -136,6 +149,7 @@ export default function PurchaseOrders({ suppliers, writable, onReceive, refresh
   const [filter, setFilter] = useState("open");
   const [drawer, setDrawer] = useState(false);
   const [busyId, setBusyId] = useState(null);
+  const fxInfo = usePurchaseCurrencies();
 
   const load = useCallback(() => {
     purchasing.purchaseOrders({ page_size: 200 })
@@ -191,7 +205,7 @@ export default function PurchaseOrders({ suppliers, writable, onReceive, refresh
                     {o.expected_date && <> · {t("purchasing.po.expectedShort", { date: fmt(o.expected_date) })}</>}
                   </div>
                 </div>
-                <div className="tabular font-semibold">{money(o.total)}</div>
+                <AmountWithBase className="font-semibold" amount={o.total} currency={o.currency || fxInfo.currency} rate={o.exchange_rate} info={fxInfo} />
                 {writable && (
                   <div className="flex flex-wrap items-center gap-1">
                     {canReceive && (
@@ -213,7 +227,7 @@ export default function PurchaseOrders({ suppliers, writable, onReceive, refresh
           })}
         </div>
       )}
-      <NewOrderDrawer open={drawer} onClose={() => setDrawer(false)} suppliers={suppliers} onSaved={() => { load(); toast.success(t("purchasing.po.created")); }} />
+      <NewOrderDrawer open={drawer} onClose={() => setDrawer(false)} suppliers={suppliers} fxInfo={fxInfo} onSaved={() => { load(); toast.success(t("purchasing.po.created")); }} />
     </Card>
   );
 }

@@ -269,6 +269,9 @@ export const purchasing = {
     `${API_BASE}/suppliers/${id}/records/?${new URLSearchParams({ ...params, format: "csv" })}`,
   receive: (body) => api.post("/receivings/", body),
   goodsReceipts: (params) => api.get("/goods-receipts/", { params }),
+  // The company currency, its reference currency and today's rate — what
+  // the order, receiving and bill screens offer (settings is not needed).
+  currencies: () => api.get("/purchasing/currencies/"),
   bills: (params) => api.get("/bills/", { params }),
   createBill: (body) => api.post("/bills/", body),
   voidBill: (id, body) => api.post(`/bills/${id}/void/`, body),
