@@ -228,6 +228,10 @@ class TaxProfile(models.Model):
         creating = self._state.adding
         super().save(*args, **kwargs)
         rate = self.flat_tax_rate
+        if getattr(self, "_restoring", False):
+            # A company transfer brings its own history rows.
+            self._saved_rate = rate
+            return
         if previous is None and not creating:
             previous = (
                 TaxRateChange.objects.filter(company_id=self.company_id)
