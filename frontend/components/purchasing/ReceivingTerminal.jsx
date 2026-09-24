@@ -11,6 +11,11 @@ import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import BarcodeScanInput from "@/components/inventory/BarcodeScanInput";
 import { cacheProducts } from "@/lib/productCache";
 import { errorText } from "@/lib/errors";
+import { round2 } from "@/lib/money";
+import {
+  AmountWithBase, CurrencyFields, EMPTY_FX, fxCurrency, fxPayload, fxProblem, fxRate,
+  toDocumentCost, usePurchaseCurrencies,
+} from "@/components/purchasing/PurchaseCurrency";
 
 const money = (v) =>
   Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -28,6 +33,11 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived, i
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
   const [orderId, setOrderId] = useState(null);
+  // Supplier currency: picked here for a receipt without an order; an
+  // order's receipt is in the order's currency at the order's rate.
+  const fxInfo = usePurchaseCurrencies();
+  const [fx, setFx] = useState(EMPTY_FX);
+  const [orderFx, setOrderFx] = useState(null);
 
   // "Receive against this order": supplier and the still-outstanding
   // quantities come from the order, at the order's costs; the receipt
@@ -35,6 +45,7 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived, i
   useEffect(() => {
     if (!initialOrder) return;
     setOrderId(initialOrder.id);
+    setOrderFx({ currency: initialOrder.currency || "", rate: initialOrder.exchange_rate });
     setSupplier(String(initialOrder.supplier));
     setLines(initialOrder.lines
       .filter((l) => Number(l.remaining_quantity) > 0)
@@ -77,7 +88,10 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived, i
       return [
         ...ls,
         {
-          id: p.id, sku: p.sku, name: p.name, qty: 1, unit_cost: String(p.cost_price ?? "0"),
+          id: p.id, sku: p.sku, name: p.name, qty: 1,
+          // Catalogue cost is in the company currency; a USD receipt starts
+          // from its USD equivalent at the rate on the form.
+          unit_cost: orderId ? String(p.cost_price ?? "0") : toDocumentCost(p.cost_price, fx, fxInfo),
           // Lot and expiry are asked for only on batch-tracked products —
           // the server refuses a tracked line without a lot.
           tracked: Boolean(p.track_batches), lot: "", expiry: "",
@@ -92,7 +106,11 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived, i
     setLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...patch } : l)));
   const removeLine = (id) => setLines((ls) => ls.filter((l) => l.id !== id));
 
-  const total = lines.reduce((s, l) => s + Number(l.unit_cost || 0) * Number(l.qty || 0), 0);
+  const total = round2(
+    lines.reduce((s, l) => s + round2(Number(l.unit_cost || 0) * Number(l.qty || 0)), 0)
+  );
+  const currency = orderFx ? orderFx.currency || fxInfo.currency : fxCurrency(fx, fxInfo);
+  const rate = orderFx ? Number(orderFx.rate) || 1 : fxRate(fx, fxInfo);
 
   // "past" | "soon" | null — the shelf-life read the receiver sees while typing.
   const expiryState = (l) => {
@@ -107,6 +125,8 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived, i
     setLines([]);
     setNote("");
     setOrderId(null);
+    setOrderFx(null);
+    setFx(EMPTY_FX);
     receiptUuid.current = null;
   }
 
@@ -119,6 +139,8 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived, i
     if (missingLot) return setError(t("purchasing.lotRequired", { sku: missingLot.sku }));
     const past = lines.find((l) => expiryState(l) === "past");
     if (past) return setError(t("purchasing.expiryPast", { sku: past.sku }));
+    const fxError = orderId ? "" : fxProblem(fx, fxInfo, t);
+    if (fxError) return setError(fxError);
     if (!receiptUuid.current) receiptUuid.current = crypto.randomUUID();
 
     setSubmitting(true);
@@ -127,7 +149,8 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived, i
         client_uuid: receiptUuid.current,
         supplier: Number(supplier),
         warehouse: Number(warehouse),
-        ...(orderId ? { purchase_order: orderId } : {}),
+        // Against an order the server applies the order's currency and rate.
+        ...(orderId ? { purchase_order: orderId } : fxPayload(fx, fxInfo)),
         note,
         lines: lines.map((l) => ({
           product: l.id,
@@ -306,10 +329,22 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived, i
           <Field label={t("purchasing.note")}>
             <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("common.optional")} />
           </Field>
+          <CurrencyFields
+            info={fxInfo}
+            fx={fx}
+            onChange={setFx}
+            locked={orderFx ? { ...orderFx, source: "order" } : null}
+          />
 
           <div className="flex items-center justify-between border-t border-line pt-4">
             <span className="text-sm text-muted">{t("purchasing.goodsValue")}</span>
-            <span className="tabular text-lg font-medium text-ink">{money(total)}</span>
+            <AmountWithBase
+              className="text-lg font-medium text-ink"
+              amount={total}
+              currency={currency}
+              rate={rate}
+              info={fxInfo}
+            />
           </div>
 
           {error && <p className="text-sm text-danger">{error}</p>}

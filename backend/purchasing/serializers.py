@@ -39,6 +39,40 @@ def _company_tax_rate_by_id(company_id):
         return Decimal("0")
 
 
+def _request_company(serializer):
+    from org.models import Company
+
+    request = serializer.context.get("request")
+    company_id = getattr(getattr(request, "user", None), "company_id", None)
+    if company_id is None:
+        return None
+    return Company.objects.filter(pk=company_id).first()
+
+
+def _document_currency(company, currency, rate):
+    """The currency and rate a purchasing document is kept in.
+
+    Blank means the company currency, whose rate is 1 by definition. Any
+    other currency needs the day's rate (company-currency units per one unit
+    of it): without one every converted figure would be off by that factor.
+    """
+    currency = (currency or "").strip().upper() or company.currency
+    if currency == company.currency:
+        if rate is not None and rate != 1:
+            raise serializers.ValidationError(
+                {"exchange_rate": _("An amount in the company currency has a rate of 1.")}
+            )
+        return currency, Decimal("1")
+    if rate is None or rate <= 0:
+        raise serializers.ValidationError(
+            {
+                "exchange_rate": _("Give the %(from)s->%(to)s rate.")
+                % {"from": currency, "to": company.currency}
+            }
+        )
+    return currency, rate
+
+
 class SupplierSerializer(serializers.ModelSerializer):
     ap_balance = serializers.SerializerMethodField()
     opening_balance = serializers.SerializerMethodField()
@@ -117,6 +151,11 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
         _assert_same_company(self, attrs.get("branch"), "branch")
         for line in attrs.get("lines", []):
             _assert_same_company(self, line.get("product"), "product")
+        company = _request_company(self)
+        if company is not None and self.instance is None:
+            attrs["currency"], attrs["exchange_rate"] = _document_currency(
+                company, attrs.get("currency"), attrs.get("exchange_rate")
+            )
         return attrs
 
     @transaction.atomic
@@ -227,6 +266,30 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
         if po is not None and supplier is not None and po.supplier_id != supplier.pk:
             raise serializers.ValidationError(
                 {"purchase_order": _("Purchase order is not for this supplier.")}
+            )
+        warehouse = attrs.get("warehouse")
+        if (
+            po is not None and po.branch_id and warehouse is not None
+            and warehouse.branch_id and warehouse.branch_id != po.branch_id
+        ):
+            # An order raised for one branch lands in that branch's stock;
+            # receiving it elsewhere put the goods where the branch that
+            # ordered (and will sell) them cannot see them.
+            raise serializers.ValidationError(
+                {
+                    "warehouse": _("This order is for %(branch)s; receive it into "
+                                   "one of that branch's warehouses.")
+                    % {"branch": po.branch.name}
+                }
+            )
+        currency = (attrs.get("currency") or "").strip().upper()
+        if po is not None and po.currency and currency and currency != po.currency:
+            raise serializers.ValidationError(
+                {
+                    "currency": _("A receipt against an order is in the order's "
+                                  "currency (%(currency)s).")
+                    % {"currency": po.currency}
+                }
             )
         if po is not None:
             if po.status == PurchaseOrder.CANCELLED:
@@ -461,16 +524,30 @@ class GoodsReceiptLineReadSerializer(serializers.ModelSerializer):
         return str(obj.quantity - returned)
 
 
+def receipt_value(receipt):
+    """What was received, in the receipt's own currency."""
+    return sum(
+        (line.quantity * line.unit_cost for line in receipt.lines.all()), Decimal("0")
+    ).quantize(TWO_PLACES)
+
+
 class GoodsReceiptReadSerializer(serializers.ModelSerializer):
     lines = GoodsReceiptLineReadSerializer(many=True, read_only=True)
+    # The bill-entry screen prefills its subtotal from this and the
+    # three-way match compares against it.
+    received_value = serializers.SerializerMethodField()
+    warehouse_name = serializers.CharField(source="warehouse.name", read_only=True, default="")
 
     class Meta:
         model = GoodsReceipt
         fields = [
-            "id", "company", "supplier", "purchase_order", "warehouse",
+            "id", "company", "supplier", "purchase_order", "warehouse", "warehouse_name",
             "note", "received_at", "recorded_at", "currency", "exchange_rate",
-            "client_uuid", "lines",
+            "received_value", "client_uuid", "lines",
         ]
+
+    def get_received_value(self, obj):
+        return str(receipt_value(obj))
 
 
 # ---------- Bill ----------
@@ -546,9 +623,7 @@ class BillSerializer(serializers.ModelSerializer):
                     {"goods_receipt": _("This receipt already has a bill; void that one first.")}
                 )
             # Three-way match: the bill should cover what was received.
-            received_value = sum(
-                (line.quantity * line.unit_cost for line in receipt.lines.all()), Decimal("0")
-            ).quantize(Decimal("0.01"))
+            received_value = receipt_value(receipt)
             claimed = attrs.get("subtotal", getattr(self.instance, "subtotal", None))
             request = self.context.get("request")
             tolerance = max(received_value * Decimal("0.02"), Decimal("1"))
@@ -567,6 +642,8 @@ class BillSerializer(serializers.ModelSerializer):
                         )
                     }
                 )
+        if self.instance is None and supplier is not None:
+            self._settle_currency(attrs, supplier, po, receipt)
         subtotal = attrs.get("subtotal", getattr(self.instance, "subtotal", None))
         tax = attrs.get("tax_amount", getattr(self.instance, "tax_amount", None))
         total = attrs.get("total", getattr(self.instance, "total", None))
@@ -577,6 +654,31 @@ class BillSerializer(serializers.ModelSerializer):
                 {"total": _("Total must equal subtotal plus tax amount.")}
             )
         return attrs
+
+    @staticmethod
+    def _settle_currency(attrs, supplier, po, receipt):
+        """A bill for received goods is in the receipt's currency (the order's,
+        when only the order is linked) and takes its rate unless the day's
+        rate is given; the three-way match compares like with like."""
+        company = supplier.company
+        source = receipt if receipt is not None else po
+        given = (attrs.get("currency") or "").strip().upper()
+        rate = attrs.get("exchange_rate")
+        if source is not None:
+            source_currency = source.currency or company.currency
+            if given and given != source_currency:
+                message = (
+                    _("The bill must be in the receipt's currency (%(currency)s).")
+                    if receipt is not None
+                    else _("The bill must be in the order's currency (%(currency)s).")
+                )
+                raise serializers.ValidationError(
+                    {"currency": message % {"currency": source_currency}}
+                )
+            given = source_currency
+            if rate is None and source_currency != company.currency:
+                rate = source.exchange_rate
+        attrs["currency"], attrs["exchange_rate"] = _document_currency(company, given, rate)
 
     def create(self, validated_data):
         request = self.context.get("request")
