@@ -31,6 +31,8 @@ Three rules keep the figures honest:
 
 from decimal import Decimal
 
+from django.utils import timezone
+
 from inventory.models import StockMovement
 
 ZERO = Decimal("0")
@@ -43,18 +45,44 @@ METHODS = (STANDARD, AVERAGE, FIFO)
 COST_NEUTRAL = {StockMovement.TRANSFER}
 
 
-def _stream(product):
-    return list(
+def _voided_invoices(company_id):
+    from sales.models import Invoice
+
+    return {
+        str(pk) for pk in
+        Invoice.objects.filter(company_id=company_id, is_void=True).values_list("pk", flat=True)
+    }
+
+
+def _stream(product, voided=None):
+    """Movements in order. A voided invoice's sale and its reversal still move
+    quantities and cost layers, but neither counts toward COGS: revenue drops
+    the voided invoice from its own period, and charging its cost there while
+    crediting it back in the void's period showed a loss one month and a
+    matching gain the next."""
+    if voided is None:
+        voided = _voided_invoices(product.company_id)
+    rows = list(
         product.stock_movements.exclude(movement_type__in=COST_NEUTRAL)
         .order_by("created_at", "id")
-        .values("movement_type", "quantity", "unit_cost", "created_at")
+        .values("movement_type", "quantity", "unit_cost", "created_at",
+                "reference_type", "reference_id")
     )
+    for row in rows:
+        row["voided"] = (
+            row["reference_type"] in ("Invoice", "InvoiceVoid")
+            and row["reference_id"] in voided
+        )
+    return rows
 
 
 def _in_window(when, start, end):
-    if start and when.date() < start:
+    # The company's calendar day, as revenue uses — a sale at 00:30 in
+    # Khartoum is tomorrow's sale, not yesterday's in UTC.
+    day = timezone.localtime(when).date()
+    if start and day < start:
         return False
-    if end and when.date() > end:
+    if end and day > end:
         return False
     return True
 
@@ -80,7 +108,7 @@ def _standard(product, movements, start, end):
     for m in movements:
         qty = m["quantity"]
         on_hand += qty
-        if not _in_window(m["created_at"], start, end):
+        if m["voided"] or not _in_window(m["created_at"], start, end):
             continue
         unit = m["unit_cost"] if m["unit_cost"] is not None else fallback
         if _is_sale(m):
@@ -98,7 +126,7 @@ def _average(product, movements, start, end):
     for m in movements:
         qty = m["quantity"]
         cost = m["unit_cost"]
-        counts = _in_window(m["created_at"], start, end)
+        counts = not m["voided"] and _in_window(m["created_at"], start, end)
         if qty > 0:  # inflow updates the moving average
             in_cost = cost if cost is not None else (avg if qty_on_hand > 0 else fallback)
             if qty_on_hand <= 0:
@@ -126,7 +154,7 @@ def _fifo(product, movements, start, end):
     for m in movements:
         qty = m["quantity"]
         cost = m["unit_cost"]
-        counts = _in_window(m["created_at"], start, end)
+        counts = not m["voided"] and _in_window(m["created_at"], start, end)
         if qty > 0:
             in_cost = cost if cost is not None else fallback
             # A receipt first settles any earlier oversell before it becomes
@@ -161,14 +189,14 @@ def _fifo(product, movements, start, end):
 _ENGINES = {STANDARD: _standard, AVERAGE: _average, FIFO: _fifo}
 
 
-def compute(product, method=STANDARD, start=None, end=None):
+def compute(product, method=STANDARD, start=None, end=None, voided=None):
     """
     Return {on_hand, cogs, valuation} for a product under the given method.
     `start`/`end` are dates bounding which sales count toward COGS.
     """
     if method not in _ENGINES:
         method = STANDARD
-    return _ENGINES[method](product, _stream(product), start, end)
+    return _ENGINES[method](product, _stream(product, voided), start, end)
 
 
 def company_totals(company_id, method=STANDARD, start=None, end=None):
@@ -178,8 +206,9 @@ def company_totals(company_id, method=STANDARD, start=None, end=None):
     cogs = ZERO
     valuation = ZERO
     per_product = []
+    voided = _voided_invoices(company_id)
     for product in Product.objects.filter(company_id=company_id):
-        result = compute(product, method, start, end)
+        result = compute(product, method, start, end, voided)
         cogs += result["cogs"]
         valuation += result["valuation"]
         per_product.append((product, result))

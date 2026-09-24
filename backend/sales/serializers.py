@@ -3,6 +3,7 @@ import re
 from decimal import Decimal
 
 from django.db import transaction
+from django.utils import timezone
 from django.utils.translation import gettext as _
 from rest_framework import serializers
 
@@ -719,11 +720,26 @@ class CashDrawerMovementSerializer(serializers.ModelSerializer):
                 )
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
         request = self.context.get("request")
         if request is not None and request.user.is_authenticated:
             validated_data.setdefault("recorded_by", request.user)
-        return super().create(validated_data)
+        movement = super().create(validated_data)
+        if movement.kind == CashDrawerMovement.PETTY:
+            # Money spent from the till is a running cost like any other: the
+            # movement lowers the expected cash, this row reaches the income
+            # statement and cash flow (which read expenses only). Both used to
+            # miss it, overstating profit by every petty payment.
+            from finance.models import Expense
+
+            Expense.objects.create(
+                company_id=movement.company_id, category=Expense.CATEGORY_PETTY_CASH,
+                description=movement.reason or "", amount=-movement.amount,
+                method=Expense.CASH, date=timezone.localdate(movement.recorded_at),
+                recorded_by=movement.recorded_by, drawer_movement=movement,
+            )
+        return movement
 
 
 class CashShiftSerializer(serializers.ModelSerializer):

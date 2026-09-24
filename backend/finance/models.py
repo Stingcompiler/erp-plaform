@@ -52,12 +52,20 @@ class Expense(models.Model):
         "hr.SalaryAdvance", on_delete=models.PROTECT, null=True, blank=True,
         related_name="expense",
     )
+    # Petty cash paid out of a till (transport, tea, a small repair). The
+    # drawer movement takes it out of the expected cash; this row puts it in
+    # the income statement and cash flow, which only ever read expenses.
+    drawer_movement = models.OneToOneField(
+        "sales.CashDrawerMovement", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="expense",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     # Category labels the HR postings use; the P&L groups by category, so
     # keeping these fixed keeps payroll one line there.
     CATEGORY_PAYROLL = "Payroll"
     CATEGORY_SALARY_ADVANCE = "Salary advances"
+    CATEGORY_PETTY_CASH = "Petty cash"
 
     class Meta:
         ordering = ["-date", "-created_at"]

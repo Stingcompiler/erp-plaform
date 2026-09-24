@@ -1733,6 +1733,8 @@ const en = {
     backupsNote: "Every snapshot — manual or nightly — is kept for 30 days and can be downloaded here; the most recent one is always kept. Restore reads the JSON file.",
   },
   reports: {
+    invoicedTotal: "Invoiced (incl. tax)",
+    someFailed: "{count} report(s) could not be loaded; missing figures show a dash (—), not zero.",
     tabOverview: "Overview",
     tabSales: "Sales & collections",
     tabPurchasing: "Purchasing",
@@ -2672,6 +2674,7 @@ const en = {
     statusSet: "Status → {value}",
   },
   finance: {
+    systemCategory: { payroll: "Payroll", salaryAdvances: "Salary advances", pettyCash: "Petty cash (till)" },
     emptyTitle: "No expenses in this period",
     emptyBody: "Record rent, salaries, transport and other running costs here, so the profit in your reports is the real profit.",
     ledger: {
@@ -4467,6 +4470,8 @@ const ar = {
     backupsNote: "كل نسخة — يدوية أو ليلية — تُحفظ 30 يومًا ويمكن تنزيلها من هنا، وتبقى الأحدث دائمًا. الاسترجاع يقرأ ملف JSON.",
   },
   reports: {
+    invoicedTotal: "إجمالي الفواتير (شامل الضريبة)",
+    someFailed: "تعذر تحميل {count} من التقارير؛ الأرقام الناقصة تظهر بشرطة (—) وليست أصفارًا.",
     tabOverview: "نظرة عامة",
     tabSales: "المبيعات والتحصيل",
     tabPurchasing: "المشتريات",
@@ -5405,6 +5410,7 @@ const ar = {
     statusSet: "الحالة ← {value}",
   },
   finance: {
+    systemCategory: { payroll: "الرواتب", salaryAdvances: "سلف الموظفين", pettyCash: "مصروفات نثرية من الصندوق" },
     emptyTitle: "لا توجد مصروفات في هذه الفترة",
     emptyBody: "سجّل الإيجار والرواتب والنقل وغيرها من مصاريف التشغيل هنا، ليكون الربح في تقاريرك هو الربح الحقيقي.",
     ledger: {

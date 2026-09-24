@@ -11,6 +11,8 @@ from decimal import Decimal
 from django.db.models import (
     Count,
     DecimalField,
+    ExpressionWrapper,
+    F,
     Q,
     Sum,
 )
@@ -31,6 +33,11 @@ from sales.querysets import open_invoices, receivable_total
 
 ZERO = Decimal("0")
 MONEY = DecimalField(max_digits=20, decimal_places=2)
+
+
+def _in_base(field):
+    """A purchasing amount in the company currency (row's own rate)."""
+    return ExpressionWrapper(F(field) * F("exchange_rate"), output_field=MONEY)
 
 
 class ReportView(APIView):
@@ -492,7 +499,8 @@ class PurchasesSummaryReport(ReportView):
         )
         agg = bills.aggregate(
             bill_count=Count("id"),
-            total=Coalesce(Sum("total"), ZERO, output_field=MONEY),
+            # A USD bill is USD 1,000, not 1,000 of the company currency.
+            total=Coalesce(Sum(_in_base("total")), ZERO, output_field=MONEY),
         )
         return Response(
             {
@@ -750,7 +758,7 @@ class CfoKpiReport(ReportView):
         cash_out = (
             self.apply_range(
                 SupplierPayment.objects.filter(company_id=cid), "recorded_at", start, end
-            ).aggregate(t=Coalesce(Sum("amount"), ZERO, output_field=MONEY))["t"]
+            ).aggregate(t=Coalesce(Sum(_in_base("amount")), ZERO, output_field=MONEY))["t"]
             + self.apply_range(
                 Refund.objects.filter(company_id=cid), "recorded_at", start, end
             ).aggregate(t=Coalesce(Sum("amount"), ZERO, output_field=MONEY))["t"]
@@ -891,21 +899,21 @@ class CashFlowReport(ReportView):
         if end:
             expense_qs = expense_qs.filter(date__lte=end)
 
-        def by_method(qs):
+        # Supplier payments can be in a foreign currency; everything else here
+        # is in the company currency. Sum each in the company currency.
+        def by_method(qs, amount="amount"):
             return [
                 {"method": r["method"], "amount": str(r["total"])}
                 for r in qs.values("method")
-                .annotate(total=Coalesce(Sum("amount"), ZERO, output_field=MONEY))
+                .annotate(total=Coalesce(Sum(amount), ZERO, output_field=MONEY))
                 .order_by("-total")
             ]
 
-        def total(qs):
-            return qs.aggregate(t=Coalesce(Sum("amount"), ZERO, output_field=MONEY))[  # noqa: E731
-                "t"
-            ]
+        def total(qs, amount="amount"):
+            return qs.aggregate(t=Coalesce(Sum(amount), ZERO, output_field=MONEY))["t"]
 
         inflows = total(inflow_qs)
-        supplier_out = total(outflow_pay_qs)
+        supplier_out = total(outflow_pay_qs, _in_base("amount"))
         refund_out = total(refund_qs)
         expense_out = total(expense_qs)
         outflows = supplier_out + refund_out + expense_out

@@ -16,6 +16,7 @@ import BudgetsPanel from "@/components/finance/BudgetsPanel";
 import MoneyLedger from "@/components/finance/MoneyLedger";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { expenseCategory } from "@/lib/expenseCategories";
 
 function StatTile({ label, value, tone = "ink", icon: Icon }) {
   const toneClass = tone === "ok" ? "text-ok" : tone === "danger" ? "text-danger" : "text-ink";
@@ -193,7 +194,7 @@ export default function FinancePage() {
         {["category","description","method","date","amount"].map((key) => <th key={key} scope="col" className="px-4 py-3 text-start">{t(`finance.${key}`)}</th>)}
       </tr></thead><tbody>{expenses.map((e) => <tr key={e.id} className="border-b border-line last:border-0">
         <td className="px-4 py-3"><span className="inline-flex items-center gap-2">
-          {e.category}
+          {expenseCategory(e.category, t)}
           {(e.payroll_run || e.salary_advance) && <Badge tone="accent">{t("finance.fromHr")}</Badge>}
         </span></td><td className="px-4 py-3">{e.description || "—"}</td>
         <td className="px-4 py-3"><Badge>{t(e.method === "cash" ? "finance.cash" : "finance.bankTransfer")}</Badge></td>
