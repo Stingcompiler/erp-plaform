@@ -7,14 +7,22 @@ op is:
   - RBAC-checked per its module (M6),
   - idempotent (skipped as a duplicate if its client_uuid already exists),
   - isolated in its own savepoint (one bad op never rolls back the batch).
+
+A refusal the op itself earned (validation, permission) is ERROR: sending it
+again changes nothing. A failure of the server's own (a deadlock, a lock
+timeout, the database dropping the connection, a bug) is RETRY: the same op
+would very likely go through a minute later, so the device keeps it queued
+and tries again on its own instead of asking the cashier to discard a sale.
 """
 
 import logging
 from dataclasses import dataclass
 
-from django.db import IntegrityError, transaction
+from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import IntegrityError, OperationalError, transaction
 from django.utils.translation import gettext as _
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import APIException, ValidationError
 
 from core.activity import log_activity
 from core.rbac import role_can
@@ -44,6 +52,9 @@ from sales.serializers import PaymentSerializer, POSCheckoutSerializer, RefundSe
 APPLIED = "applied"
 DUPLICATE = "duplicate"
 ERROR = "error"
+# Not applied because of a temporary server-side failure; the device keeps the
+# op and sends it again later. Never counted as done.
+RETRY = "retry"
 
 # "model" ops are ModelSerializers that need company injected on save();
 # "plain" ops are Serializers whose .create() reads the company off request.user.
@@ -88,8 +99,10 @@ OP_REGISTRY = {
 
 def process_operation(request, op):
     """
-    Apply one queued op. Returns (status, result_model, result_id, error, uuid).
-    Never raises — failures come back as ERROR so the batch keeps going.
+    Apply one queued op. Returns
+    (status, result_model, result_id, error, uuid, error_field).
+    Never raises — failures come back as ERROR (refused, final) or RETRY
+    (temporary, try again later) so the batch keeps going.
     """
     op_type = op.get("op_type")
     payload = dict(op.get("payload") or {})
@@ -162,14 +175,36 @@ def process_operation(request, op):
         # The raw message names constraints and tables; a client only needs
         # to know the identifier is taken.
         return ERROR, "", "", _("This operation identifier is already in use."), client_uuid, ""
+    except OperationalError:
+        # Deadlock, lock timeout, serialization failure, a dropped
+        # connection: the database, not the sale. Nothing was applied (the
+        # savepoint rolled back), and the same op will very likely succeed
+        # on the next attempt.
+        logger.warning("sync op %s hit a temporary database failure", op_type, exc_info=True)
+        return RETRY, "", "", _retry_message(), client_uuid, ""
+    except DjangoValidationError as exc:
+        detail = getattr(exc, "message_dict", None) or exc.messages
+        return ERROR, "", "", _stringify(detail), client_uuid, _first_field(detail)
+    except DjangoPermissionDenied:
+        return ERROR, "", "", _("Your role does not permit this operation."), client_uuid, ""
+    except APIException as exc:
+        # A deliberate refusal raised by a serializer (permission, not
+        # found, conflict) is as final as a validation error; a 5xx one is not.
+        if exc.status_code >= 500:
+            logger.warning("sync op %s: server-side API error", op_type, exc_info=True)
+            return RETRY, "", "", _retry_message(), client_uuid, ""
+        return ERROR, "", "", _stringify(exc.detail), client_uuid, _first_field(exc.detail)
     except Exception:  # noqa: BLE001 - report, don't crash the batch
         # The exception text is for us, not the cashier: it is English and
-        # names internals. Keep it in the log; send a sentence.
+        # names internals. Keep it in the log. It is retried rather than
+        # refused: an unexpected failure is ours, not the sale's, and the
+        # device gives up (and offers discard) after a few attempts anyway.
         logger.exception("sync op %s failed", op_type)
-        return (
-            ERROR, "", "", _("The server could not apply this operation; it has been reported."),
-            client_uuid, "",
-        )
+        return RETRY, "", "", _retry_message(), client_uuid, ""
+
+
+def _retry_message():
+    return _("The server could not apply this operation right now; it will be retried.")
 
 
 def _first_field(detail):

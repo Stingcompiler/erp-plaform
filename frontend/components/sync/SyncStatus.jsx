@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/kit";
 import AttentionBadge from "@/components/attention/AttentionBadge";
 import { sales } from "@/lib/api";
 import { offlineStore } from "@/lib/offlineStore";
+import { isRetrying, RETRY_EXHAUSTED } from "@/lib/syncRetry";
 
 const money = (v) => Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -125,11 +126,13 @@ export default function SyncStatus() {
         </div>
         {op.error ? (
           <div className="mt-2 rounded-control bg-surface p-2">
-            <p className="break-words text-ink">{op.error === "__no_confirmation__" ? t("sync.noConfirmation") : op.error}</p>
+            <p className="break-words text-ink">{op.error === "__no_confirmation__" ? t("sync.noConfirmation")
+              : op.error === RETRY_EXHAUSTED ? t("sync.retryExhausted") : op.error}</p>
             <p className="mt-1 text-xs text-muted">{t("improvements.syncFailedHint")}</p>
           </div>
         ) : (
-          <p className="mt-2 text-xs text-muted">{t(online ? "improvements.syncPendingHint" : "improvements.syncOfflineHint")}</p>
+          <p className="mt-2 text-xs text-muted">{t(isRetrying(op) ? "sync.willRetry"
+            : online ? "improvements.syncPendingHint" : "improvements.syncOfflineHint")}</p>
         )}
         <details className="mt-2 text-xs text-muted">
           <summary className="cursor-pointer select-none">{t("improvements.technicalDetails")}</summary>

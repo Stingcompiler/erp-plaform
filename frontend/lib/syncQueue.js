@@ -21,6 +21,7 @@
 
 import { localScope, storageKey } from "./localIdentity.js";
 import { queue as localQueue } from "./syncQueueLocal.js";
+import { retryPatch } from "./syncRetry.js";
 
 const VERSION = 1;
 const DB_PREFIX = "vezano.queue.v1:";
@@ -223,7 +224,8 @@ export const queue = {
       const get = store.get(id);
       get.onsuccess = () => {
         if (!get.result) { resolve(null); return; }
-        const next = { ...get.result, payload: { ...get.result.payload, ...patch }, error: null, error_field: null };
+        const next = { ...get.result, payload: { ...get.result.payload, ...patch },
+          error: null, error_field: null, attempts: 0, retry_at: null };
         const put = store.put(next);
         put.onsuccess = () => resolve(next);
         put.onerror = () => reject(put.error);
@@ -249,6 +251,13 @@ export const queue = {
               receipts.put({ client_uuid: op.client_uuid, id: result.id, confirmed_at: Date.now() });
             }
             ops.delete(op.client_uuid);
+          } else if (result?.status === "retry") {
+            // A temporary failure on the server: still pending, sent again
+            // after a pause (see syncRetry.js), an error only after the cap.
+            const get = ops.get(op.client_uuid);
+            get.onsuccess = () => {
+              if (get.result) ops.put({ ...get.result, ...retryPatch(get.result) });
+            };
           } else {
             const get = ops.get(op.client_uuid);
             get.onsuccess = () => {

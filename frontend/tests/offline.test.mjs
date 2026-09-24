@@ -125,3 +125,46 @@ test("without IndexedDB the localStorage queue still takes the sale", async () =
   assert.equal(localQueue.count("1:1"), 1);
   assert.equal((await fresh.list("1:1"))[0].client_uuid, op.client_uuid);
 });
+
+test("a temporary server failure keeps the sale pending, backs off, and errors after the cap", async () => {
+  setup();
+  const { MAX_RETRY_ATTEMPTS, RETRY_EXHAUSTED, isDue, isRetrying } = await import("../lib/syncRetry.js");
+  const op = await queue.enqueue("pos_checkout", { amount: 5 }, "1:1");
+  const retry = [{ client_uuid: op.client_uuid, status: "retry", error: "try later" }];
+  const before = Date.now();
+  await queue.acknowledge([op], retry, "1:1");
+  let [row] = await queue.list("1:1");
+  assert.equal(row.error, null);
+  assert.equal(row.attempts, 1);
+  assert.ok(row.retry_at >= before + 30_000);
+  assert.ok(isRetrying(row));
+  assert.equal(isDue(row, before), false);
+  assert.equal(isDue(row, row.retry_at), true);
+  // The pause grows with each attempt.
+  await queue.acknowledge([op], retry, "1:1");
+  const [second] = await queue.list("1:1");
+  assert.ok(second.retry_at - row.retry_at >= 60_000);
+  for (let i = 2; i < MAX_RETRY_ATTEMPTS; i += 1) await queue.acknowledge([op], retry, "1:1");
+  [row] = await queue.list("1:1");
+  assert.equal(row.attempts, MAX_RETRY_ATTEMPTS);
+  assert.equal(row.error, RETRY_EXHAUSTED);
+  assert.equal(isRetrying(row), false);
+  // A later success still clears it.
+  await queue.acknowledge([op], [{ client_uuid: op.client_uuid, status: "applied", id: 7 }], "1:1");
+  assert.equal(await queue.count("1:1"), 0);
+});
+
+test("the localStorage queue treats retry the same way", async () => {
+  setup();
+  const { MAX_RETRY_ATTEMPTS, RETRY_EXHAUSTED } = await import("../lib/syncRetry.js");
+  const op = localQueue.enqueue("pos_checkout", { amount: 5 }, "1:1");
+  const retry = [{ client_uuid: op.client_uuid, status: "retry" }];
+  localQueue.acknowledge([op], retry, "1:1");
+  let [row] = localQueue.list("1:1");
+  assert.equal(row.error, null);
+  assert.equal(row.attempts, 1);
+  assert.ok(row.retry_at > Date.now());
+  for (let i = 1; i < MAX_RETRY_ATTEMPTS; i += 1) localQueue.acknowledge([op], retry, "1:1");
+  [row] = localQueue.list("1:1");
+  assert.equal(row.error, RETRY_EXHAUSTED);
+});

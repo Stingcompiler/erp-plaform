@@ -36,6 +36,9 @@ class SyncOperation(models.Model):
     APPLIED = "applied"
     DUPLICATE = "duplicate"
     ERROR = "error"
+    # A temporary server failure: nothing was applied and the slot is NOT
+    # done — resuming the batch processes it again (see SyncPushView).
+    RETRY = "retry"
 
     batch = models.ForeignKey(
         SyncBatch, on_delete=models.CASCADE, related_name="operations"

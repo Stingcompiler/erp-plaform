@@ -1,10 +1,12 @@
 from datetime import timezone as dt_timezone
+from decimal import Decimal
 from uuid import UUID
 
 from django.core import signing
 from django.core.signing import BadSignature, SignatureExpired
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Q
+from django.db.models import Count, DecimalField, OuterRef, Q, Subquery, Sum
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.translation import gettext as _
@@ -16,9 +18,10 @@ from rest_framework.views import APIView
 from core.activity import log_activity
 from core.permissions import EntitlementAccess
 from core.rbac import role_can
-from core.scoping import apply_branch_scope
+from core.scoping import apply_branch_scope, branch_scope_for
+from inventory.models import StockMovement
 from sync.models import DiscardedOperation, SyncBatch, SyncOperation
-from sync.services import APPLIED, DUPLICATE, ERROR, process_operation
+from sync.services import APPLIED, DUPLICATE, ERROR, RETRY, process_operation
 
 
 # Business-time fields a queued payload may carry (see validate_business_time).
@@ -85,7 +88,9 @@ class SyncPushView(APIView):
                 user_id=request.user.pk,
                 batch_uuid=batch_uuid,
             )
-            .annotate(saved_operations=Count("operations"))
+            .annotate(saved_operations=Count(
+                "operations", filter=~Q(operations__status=RETRY)
+            ))
             .first()
         )
         return bool(batch and batch.saved_operations == batch.operation_count)
@@ -162,7 +167,10 @@ class SyncPushView(APIView):
                 return Response(
                     {"detail": _("Batch identifier is unavailable.")}, status=409
                 )
-            if existing.operations.count() == existing.operation_count:
+            # A slot that came back "retry" is not done: the batch is only
+            # complete once every slot has a final answer.
+            done = existing.operations.exclude(status=RETRY).count()
+            if done == existing.operation_count:
                 return Response(
                     self._batch_response(existing, replay=True),
                     status=status.HTTP_200_OK,
@@ -198,28 +206,38 @@ class SyncPushView(APIView):
         applied = batch.applied_count
         duplicate = batch.duplicate_count
         errored = batch.error_count
-        completed_indexes = set(batch.operations.values_list("index", flat=True))
+        recorded = dict(batch.operations.values_list("index", "status"))
         for i, op in enumerate(operations):
-            if i in completed_indexes:
+            previous = recorded.get(i)
+            if previous is not None and previous != RETRY:
                 continue
             st, model, rid, err, cu, field = process_operation(request, op)
-            try:
-                with transaction.atomic():
-                    SyncOperation.objects.create(
-                        batch=batch,
-                        index=i,
-                        op_type=op.get("op_type", ""),
-                        client_uuid=cu or None,
-                        status=st,
-                        result_model=model,
-                        result_id=rid,
-                        error_detail=err or "",
-                        error_field=field,
-                    )
-            except IntegrityError:
-                # A concurrent resume already recorded this slot; the op
-                # itself was idempotent, so nothing double-applied.
-                continue
+            row = {
+                "op_type": op.get("op_type", ""),
+                "client_uuid": cu or None,
+                "status": st,
+                "result_model": model,
+                "result_id": rid,
+                "error_detail": err or "",
+                "error_field": field,
+            }
+            if previous == RETRY:
+                # Re-attempt of a slot that failed temporarily last time.
+                # Only a row still marked retry is overwritten: if a
+                # concurrent resume settled it first, its answer stands (the
+                # op is idempotent, so nothing double-applied).
+                if not SyncOperation.objects.filter(
+                    batch=batch, index=i, status=RETRY
+                ).update(**row):
+                    continue
+            else:
+                try:
+                    with transaction.atomic():
+                        SyncOperation.objects.create(batch=batch, index=i, **row)
+                except IntegrityError:
+                    # A concurrent resume already recorded this slot; the op
+                    # itself was idempotent, so nothing double-applied.
+                    continue
             applied += int(st == APPLIED)
             duplicate += int(st == DUPLICATE)
             errored += int(st == ERROR)
@@ -258,6 +276,7 @@ class SyncPushView(APIView):
                 "applied": batch.applied_count,
                 "duplicate": batch.duplicate_count,
                 "error": batch.error_count,
+                "retry": batch.operations.filter(status=RETRY).count(),
             },
             "results": [op.as_result() for op in batch.operations.all()],
         }
@@ -318,6 +337,52 @@ def _pull_specs():
     ]
 
 
+def _stock_branch(user):
+    """The branch whose stock a till is selling from: a branch-scoped user's
+    own branch, else None (company-wide)."""
+    return branch_scope_for(user, "warehouse__branch")
+
+
+def _branch_movements(company_id, user):
+    qs = StockMovement.objects.filter(company_id=company_id)
+    branch_id = _stock_branch(user)
+    if branch_id is not None:
+        qs = qs.filter(warehouse__branch_id=branch_id)
+    return qs
+
+
+def _products_moved(company_id, user, since, snapshot):
+    """Products whose stock (as this user sees it) moved in (since, snapshot].
+
+    A subquery, so the database bounds it, never a list in Python. Paged on
+    the server-stamped received_at like the stock_movements feed, and capped
+    at the snapshot so every page of one pull sees the same set."""
+    return (
+        _branch_movements(company_id, user)
+        .filter(received_at__gt=since, received_at__lte=snapshot)
+        .values("product_id")
+    )
+
+
+def _with_on_hand(qs, user):
+    """Annotate on_hand from the ledger — for the user's branch when the user
+    is branch-scoped (a till sells from its own branch, and a company-wide
+    total hid a shortage there), company-wide otherwise. One correlated
+    subquery rather than a query per product."""
+    total = (
+        _branch_movements(OuterRef("company_id"), user)
+        .filter(product=OuterRef("pk"))
+        .order_by()
+        .values("product")
+        .annotate(total=Sum("quantity"))
+        .values("total")[:1]
+    )
+    return qs.annotate(annotated_on_hand=Coalesce(
+        Subquery(total, output_field=DecimalField()), Decimal("0"),
+        output_field=DecimalField(),
+    ))
+
+
 # A device's first pull mirrors the history it can use, not the whole ledger:
 # an old invoice is neither sold against nor collected on at the till.
 INVOICE_HISTORY_DAYS = 90
@@ -372,7 +437,15 @@ class SyncPullView(APIView):
                 continue
             qs = model.objects.filter(company_id=company_id)
             if since is not None:
-                qs = qs.filter(**{f"{ts_field}__gt": since})
+                changed = Q(**{f"{ts_field}__gt": since})
+                if key == "products":
+                    # A sale or receipt changes a product's stock without
+                    # touching the product row, so updated_at alone would
+                    # leave the till's on_hand stale for ever.
+                    changed |= Q(pk__in=_products_moved(
+                        company_id, request.user, since, snapshot
+                    ))
+                qs = qs.filter(changed)
             elif key == "invoices":
                 qs = qs.filter(
                     received_at__gte=snapshot - timezone.timedelta(days=INVOICE_HISTORY_DAYS)
@@ -393,6 +466,9 @@ class SyncPullView(APIView):
                 qs, request.user, viewset.branch_field,
                 viewset.include_unassigned_branch_rows,
             )
+
+            if key == "products":
+                qs = _with_on_hand(qs, request.user)
 
             rows = list(qs.order_by(ts_field, "pk")[:501])
             more_for_key = len(rows) > 500
