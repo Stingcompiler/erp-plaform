@@ -23,6 +23,9 @@ function slim(p) {
     // Warning inputs for the till; stale offline, but a stale warning beats none.
     on_hand: p.on_hand,
     expiry_status: p.expiry_status,
+    // An archived product is not for sale; dropping this let the mirror
+    // sell one offline.
+    is_active: p.is_active,
   };
 }
 
@@ -74,12 +77,26 @@ export function cachedAt() {
 // An archived product is not for sale, online or off.
 const sellable = (p) => (p && p.is_active !== false ? p : null);
 
+// The localStorage mirror only knows what an online search once returned;
+// the IndexedDB mirror follows the server's pull. When the pull says a
+// product is archived, that wins over an older "active" copy here.
+async function archivedInMirror() {
+  try {
+    const rows = await offlineStore.getAll("products");
+    return new Set(rows.filter((p) => p.is_active === false).map((p) => p.id));
+  } catch {
+    return new Set();
+  }
+}
+
 export async function findProductOffline(code) {
   try {
     const hit = sellable(await offlineStore.findProductByBarcode(code));
     if (hit) return hit;
   } catch { /* no IndexedDB / no scope: fall through */ }
-  return sellable(findCachedByBarcode(code));
+  const cached = sellable(findCachedByBarcode(code));
+  if (!cached) return null;
+  return (await archivedInMirror()).has(cached.id) ? null : cached;
 }
 
 export async function searchProductsOffline(query, limit = 6) {
@@ -88,5 +105,8 @@ export async function searchProductsOffline(query, limit = 6) {
     if (hits.length) return hits;
   } catch { /* fall through */ }
   const needle = String(query || "").toLowerCase();
-  return readAll().filter((p) => sellable(p) && `${p.name} ${p.sku}`.toLowerCase().includes(needle)).slice(0, limit);
+  const archived = await archivedInMirror();
+  return readAll()
+    .filter((p) => sellable(p) && !archived.has(p.id) && `${p.name} ${p.sku}`.toLowerCase().includes(needle))
+    .slice(0, limit);
 }

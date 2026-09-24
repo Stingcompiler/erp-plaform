@@ -147,6 +147,8 @@ export default function ReceivingTerminal({ suppliers, warehouses, onReceived, i
     try {
       const result = await mutate("goods_receipt", purchasing.receive, {
         client_uuid: receiptUuid.current,
+        // When the goods arrived; a queued receipt is dated by it.
+        occurred_at: new Date().toISOString(),
         supplier: Number(supplier),
         warehouse: Number(warehouse),
         // Against an order the server applies the order's currency and rate.

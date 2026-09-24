@@ -28,3 +28,22 @@ export function isDue(op, now = Date.now()) {
 export function isRetrying(op) {
   return Boolean(op && !op.error && Number(op.attempts) > 0);
 }
+
+// Items still on their way to the server: not refused, maybe waiting on a
+// retry. A refused item waits for a person (repair or discard) instead.
+export function waitingToSend(operations) {
+  return (operations || []).filter((op) => !op?.error).length;
+}
+
+// A refusal from the commercial gate (subscription or licence) is not a
+// session problem: signing in again changes nothing, renewing does.
+const COMMERCIAL_CODES = new Set(["subscription_read_only", "license_read_only", "module_not_in_plan"]);
+// What a failed push (no per-item answer) means for the till.
+export function pushErrorKind(err) {
+  const status = err?.response?.status;
+  const data = err?.response?.data;
+  if (status === 409) return "identity";
+  if (status === 403 && COMMERCIAL_CODES.has(data?.code ?? data?.detail?.code)) return "subscription";
+  if (status === 401 || status === 403) return "auth";
+  return "network";
+}

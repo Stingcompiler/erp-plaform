@@ -3,10 +3,12 @@ from datetime import timedelta
 import re
 from decimal import Decimal
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from rest_framework import serializers
+from rest_framework.exceptions import APIException
 
 from core.activity import log_activity
 from core.rbac import can_approve_high_value
@@ -67,6 +69,91 @@ def rung_while_open(shift, when):
     drawer when it was counted. Refusing it lost a paid sale or refund for
     good (the device could only discard it)."""
     return bool(when and shift.closed_at and shift.opened_at <= when <= shift.closed_at)
+
+
+def late_money_shift(serializer, shift, when, entity_type):
+    """The drawer for money an offline device reports after `shift` closed
+    (and outside its open hours). Refusing it lost a payment or refund that
+    physically happened, while a POS sale in the same position is kept. The
+    money goes to the same cashier's drawer that was open at `when`, or to
+    no drawer; either way an audit row says so, as for a sale."""
+    replacement = None
+    if when is not None:
+        replacement = (
+            CashShift.objects.filter(
+                company_id=shift.company_id, opened_by_id=shift.opened_by_id,
+                opened_at__lte=when,
+            )
+            .filter(Q(closed_at__isnull=True, status=CashShift.OPEN) | Q(closed_at__gte=when))
+            .exclude(pk=shift.pk)
+            .order_by("-opened_at")
+            .first()
+        )
+    log_activity(
+        action="money_outside_closed_shift", request=serializer.context.get("request"),
+        entity_type=entity_type, entity_id=shift.pk,
+        metadata={
+            "via": "sync", "shift": shift.pk, "recorded_at": str(when),
+            "moved_to_shift": replacement.pk if replacement else None,
+        },
+    )
+    return replacement
+
+
+# The column's width; a suffix on a colliding reference must still fit.
+LOCAL_REFERENCE_MAX = 48
+
+
+def _free_local_reference(company_id, reference):
+    taken = Invoice.objects.filter(company_id=company_id)
+    if not taken.filter(local_reference=reference).exists():
+        return reference
+    for n in range(2, 10000):
+        suffix = f"-{n}"
+        candidate = reference[: LOCAL_REFERENCE_MAX - len(suffix)] + suffix
+        if not taken.filter(local_reference=candidate).exists():
+            return candidate
+    return ""  # unreachable in practice; a sale is never lost over a label
+
+
+def create_with_local_reference(request, printed, fields):
+    """Create the invoice under the reference the till printed.
+
+    Two tills (or two cashiers who shared one tablet before the counter was
+    made per device) can print the same provisional reference. The sale
+    happened and the customer holds a receipt: a collision must never lose
+    it. The second invoice keeps the printed reference with a suffix, and an
+    audit row records the reference on the paper so the receipt can still be
+    matched."""
+    printed = (printed or "").strip()
+    for _attempt in range(5):
+        reference = _free_local_reference(fields["company_id"], printed) if printed else ""
+        try:
+            with transaction.atomic():
+                invoice = Invoice.objects.create(local_reference=reference, **fields)
+        except IntegrityError:
+            client_uuid = fields.get("client_uuid")
+            if not printed or (
+                client_uuid and Invoice.objects.filter(client_uuid=client_uuid).exists()
+            ):
+                raise
+            continue  # another till took the same reference this instant
+        if reference != printed:
+            holder = (
+                Invoice.objects.filter(company_id=fields["company_id"], local_reference=printed)
+                .exclude(pk=invoice.pk).values_list("pk", flat=True).first()
+            )
+            log_activity(
+                action="local_reference_renumbered", request=request,
+                entity_type="Invoice", entity_id=invoice.pk,
+                metadata={"printed": printed, "stored": reference, "other_invoice": holder},
+            )
+        return invoice
+    # Not the sale's fault: answered as temporary, so a queued sale is
+    # retried by the device instead of refused.
+    exc = APIException(_("The receipt reference could not be saved; try again."))
+    exc.status_code = 503
+    raise exc
 
 
 def _company_tax_rate(company):
@@ -616,16 +703,21 @@ class PaymentSerializer(serializers.ModelSerializer):
             # drawer (or a manager) may book money into it.
             if shift.company_id != company_id:
                 raise serializers.ValidationError({"shift": _("Not your company's till session.")})
-            if shift.status != CashShift.OPEN and not rung_while_open(
-                shift, attrs.get("recorded_at")
-            ):
-                raise serializers.ValidationError(
-                    {"shift": _("That till session is closed — open a new one.")}
-                )
             if shift.opened_by_id != user.pk and not can_approve_high_value(user):
                 raise serializers.ValidationError(
                     {"shift": _("You can only record cash into your own open drawer.")}
                 )
+            if shift.status != CashShift.OPEN and not rung_while_open(
+                shift, attrs.get("recorded_at")
+            ):
+                if not self.context.get("via_sync"):
+                    raise serializers.ValidationError(
+                        {"shift": _("That till session is closed — open a new one.")}
+                    )
+                # Taken offline, reported after the drawer was closed on
+                # another device: the money was received. Keep it (as a POS
+                # sale is kept) in the drawer open at the time, or none.
+                attrs["shift"] = late_money_shift(self, shift, attrs.get("recorded_at"), "Payment")
 
     def create(self, validated_data):
         # validate() pre-checked without a lock; sales.payments.record_payment
@@ -1019,7 +1111,17 @@ class POSCheckoutSerializer(serializers.Serializer):
             # Replayed from the offline queue: the sale already happened at
             # the till's rate, and that is what the customer paid. Record it
             # as it was — a refusal here lost the whole paid sale — and leave
-            # an audit row so the difference is visible.
+            # an audit row so the difference is visible. But only a rate the
+            # company really had while the till could have been offline: any
+            # other figure is not a stale till, it is a made-up tax.
+            from org.models import tax_rate_was_in_effect
+
+            if not tax_rate_was_in_effect(company.pk, till_rate, validated_data.get("occurred_at")):
+                raise serializers.ValidationError({"tax_rate": _(
+                    "The till charged %(till)s%% tax, a rate this company did not have when "
+                    "the sale was made (%(rate)s%% now). A manager must record this sale by "
+                    "hand."
+                ) % {"till": till_rate, "rate": rate}})
             log_activity(
                 action="tax_rate_mismatch", request=self.context.get("request"),
                 entity_type="Company", entity_id=company.pk,
@@ -1096,21 +1198,24 @@ class POSCheckoutSerializer(serializers.Serializer):
                 if sale_customer is not None
                 else company.default_payment_terms_days
             )
-        invoice = Invoice.objects.create(
-            company_id=company_id,
-            customer=validated_data.get("customer"),
-            branch_id=validated_data.get("branch"),
-            warehouse=warehouse,
-            number=number,
-            currency=currency,
-            exchange_rate=validated_data.get("exchange_rate", Decimal("1")),
-            tax_rate_snapshot=rate,
-            created_by=user if user.is_authenticated else None,
-            client_uuid=validated_data.get("client_uuid"),
-            issued_at=occurred_at,
-            local_reference=validated_data.get("local_reference", ""),
-            payment_terms_days=terms,
-            source_order=source_order,
+        invoice = create_with_local_reference(
+            request,
+            validated_data.get("local_reference", ""),
+            dict(
+                company_id=company_id,
+                customer=validated_data.get("customer"),
+                branch_id=validated_data.get("branch"),
+                warehouse=warehouse,
+                number=number,
+                currency=currency,
+                exchange_rate=validated_data.get("exchange_rate", Decimal("1")),
+                tax_rate_snapshot=rate,
+                created_by=user if user.is_authenticated else None,
+                client_uuid=validated_data.get("client_uuid"),
+                issued_at=occurred_at,
+                payment_terms_days=terms,
+                source_order=source_order,
+            ),
         )
         if source_order is not None:
             source_order.status = SalesOrder.FULFILLED
@@ -1540,14 +1645,20 @@ class RefundSerializer(serializers.ModelSerializer):
         if shift is not None:
             if shift.company_id != company_id:
                 raise serializers.ValidationError({"shift": _("Not your company's till session.")})
-            if shift.status != CashShift.OPEN and not rung_while_open(
-                shift, attrs.get("recorded_at")
-            ):
-                raise serializers.ValidationError({"shift": _("That till session is closed.")})
             if shift.opened_by_id != user.pk and not can_approve_high_value(user):
                 raise serializers.ValidationError(
                     {"shift": _("You can only refund cash from your own open drawer.")}
                 )
+            if shift.status != CashShift.OPEN and not rung_while_open(
+                shift, attrs.get("recorded_at")
+            ):
+                if not self.context.get("via_sync"):
+                    raise serializers.ValidationError(
+                        {"shift": _("That till session is closed.")}
+                    )
+                # Handed back offline, reported after the drawer closed: the
+                # cash left. Kept, like the sale it reverses would be.
+                attrs["shift"] = late_money_shift(self, shift, attrs.get("recorded_at"), "Refund")
         elif method == Refund.CASH:
             raise serializers.ValidationError(
                 {"shift": _("A cash refund must come out of an open till session.")}

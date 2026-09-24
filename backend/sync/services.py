@@ -97,12 +97,15 @@ OP_REGISTRY = {
 }
 
 
-def process_operation(request, op):
+def process_operation(request, op, blocked=None):
     """
     Apply one queued op. Returns
     (status, result_model, result_id, error, uuid, error_field).
-    Never raises — failures come back as ERROR (refused, final) or RETRY
-    (temporary, try again later) so the batch keeps going.
+    `blocked` is a refusal decided by the caller (the subscription lapsed
+    before this op was captured): an op that already landed still answers
+    "duplicate", anything else is refused with it. Never raises — failures
+    come back as ERROR (refused, final) or RETRY (temporary, try again
+    later) so the batch keeps going.
     """
     op_type = op.get("op_type")
     payload = dict(op.get("payload") or {})
@@ -130,6 +133,9 @@ def process_operation(request, op):
         if existing:
             return DUPLICATE, spec.model.__name__, str(existing.pk), "", client_uuid, ""
         payload["client_uuid"] = str(client_uuid)
+
+    if blocked:
+        return ERROR, "", "", str(blocked), client_uuid, "subscription"
 
     try:
         with transaction.atomic():  # savepoint — isolates this op

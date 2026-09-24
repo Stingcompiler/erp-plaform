@@ -2,8 +2,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import api, { sync } from "@/lib/api";
-import { queue, storageHeadroom } from "@/lib/syncQueue";
-import { isDue } from "@/lib/syncRetry";
+import { otherAccountsPending, queue, storageHeadroom } from "@/lib/syncQueue";
+import { recordServerTime } from "@/lib/deviceClock";
+import { isDue, pushErrorKind } from "@/lib/syncRetry";
 import { identityScope } from "@/lib/localIdentity";
 import { deviceId } from "@/lib/localReference";
 import { offlineStore, pullCatalogue, requestPersistentStorage } from "@/lib/offlineStore";
@@ -32,12 +33,21 @@ const PULL_INTERVAL_MS = 5 * 60 * 1000;
 async function probeServer() {
   try {
     const base = api.defaults.baseURL || "";
+    const sentAt = Date.now();
     const response = await fetch(`${base}/health/`, {
       method: "GET",
       cache: "no-store",
       credentials: "omit",
       signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
     });
+    if (response.ok) {
+      // The server's clock against ours, measured while we can: queued
+      // items carry it, so a clock reset before the upload cannot move them.
+      try {
+        const body = await response.json();
+        if (body?.server_time) recordServerTime(body.server_time, sentAt);
+      } catch { /* an older server without server_time */ }
+    }
     return response.ok;
   } catch {
     return false;
@@ -58,6 +68,8 @@ export function SyncProvider({ children }) {
   // null until asked; false is the normal answer for an uninstalled tab.
   const [persisted, setPersisted] = useState(null);
   const [storageLow, setStorageLow] = useState(false);
+  // Operations other accounts left waiting on this (shared) device.
+  const [othersPending, setOthersPending] = useState(0);
   // client_uuid → {id} for offline sales the server has confirmed, kept in
   // state so the receipt screen can read it synchronously.
   const [receipts, setReceipts] = useState({});
@@ -73,6 +85,7 @@ export function SyncProvider({ children }) {
       setLegacy(queue.hasLegacy());
       const headroom = await storageHeadroom();
       setStorageLow(Boolean(headroom?.low));
+      setOthersPending(scope ? await otherAccountsPending(scope) : 0);
     } catch { setError("storage"); }
   }, [scope]);
 
@@ -105,7 +118,12 @@ export function SyncProvider({ children }) {
           sent_at: new Date().toISOString(),
           expected_company: user.company, expected_user: user.id,
           expected_branch: user.branch ?? null,
-          operations: ops.map(({ op_type, client_uuid, payload }) => ({ op_type, client_uuid, payload })),
+          // Each item's clock error when it was captured, and when that was:
+          // the server prefers these to the upload-time gap above.
+          operations: ops.map(({ op_type, client_uuid, payload, queued_at, clock_offset_ms }) => ({
+            op_type, client_uuid, payload, queued_at,
+            ...(Number.isFinite(clock_offset_ms) ? { clock_offset_ms } : {}),
+          })),
         });
         try {
           await queue.acknowledge(ops, res.data.results, scope);
@@ -122,11 +140,11 @@ export function SyncProvider({ children }) {
         } catch { setError("storage"); retryAt.current = Date.now() + 60000; }
       } catch (err) {
         if (!err?.response) setReachable(false);
-        const status = err?.response?.status;
         // 401/403 after a long outage: the refresh cookie (7 days) expired or
         // the account lost the module. The queue is intact and scoped to this
-        // user; what it needs is a fresh sign-in, not another retry.
-        setError(status === 409 ? "identity" : status === 401 || status === 403 ? "auth" : "network");
+        // user; what it needs is a fresh sign-in, not another retry — unless
+        // the subscription is the reason, which signing in does not fix.
+        setError(pushErrorKind(err));
         failures.current += 1;
         retryAt.current = Date.now() + Math.min(300000, 15000 * 2 ** failures.current);
       }
@@ -218,12 +236,18 @@ export function SyncProvider({ children }) {
     const ops = await queue.list(scope);
     const op = ops.find((row) => row.client_uuid === clientUuid);
     if (!op) return;
-    await sync.discard({
+    const res = await sync.discard({
       client_uuid: op.client_uuid, op_type: op.op_type, payload: op.payload,
       error: op.error || "", reason: reason || "", device_id: deviceId(),
     });
-    await queue.acknowledge([op], [{ client_uuid: op.client_uuid, status: "discarded" }], scope);
+    // The server found that it DID land (the answer had been lost on the
+    // way back): it is synced, not discarded — kept like any duplicate.
+    const landed = res?.data?.status === "already_applied";
+    await queue.acknowledge([op], [landed
+      ? { client_uuid: op.client_uuid, status: "duplicate", id: res.data.id }
+      : { client_uuid: op.client_uuid, status: "discarded" }], scope);
     refresh();
+    return landed ? "already_applied" : "discarded";
   }, [scope, refresh]);
 
   // A refused operation the cashier can repair (a sale on account that
@@ -250,6 +274,6 @@ export function SyncProvider({ children }) {
   }, [scope]);
 
   return <SyncContext.Provider value={{ online, pending: operations.length, operations,
-    flushing, error, legacy, enqueue, discard, amend, flush, refresh, pull, lastPulledAt, lastSyncedAt, persisted,
+    flushing, error, legacy, othersPending, enqueue, discard, amend, flush, refresh, pull, lastPulledAt, lastSyncedAt, persisted,
     storageLow, confirmation: (id) => receipts[id] || null, lookupReceipt }}>{children}</SyncContext.Provider>;
 }

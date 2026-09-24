@@ -116,6 +116,10 @@ def health_check(request):
         # Uploads: on ephemeral storage every deploy wipes them; a picture a
         # merchant uploaded then 404s. The first thing to check.
         "media": media,
+        # The till probes this every few seconds; the server clock lets it
+        # measure its own clock error and stamp it on each queued item, so
+        # a clock reset before the upload cannot move the sale's time.
+        "server_time": timezone.now().isoformat(),
     }
     # On a customer's server this is what support asks for first: which
     # installation, which release, and whether the licence is the problem.

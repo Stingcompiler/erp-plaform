@@ -198,3 +198,37 @@ def resolve_entitlements(company=None, now=None, *, apply_policy=True):
             decision.reason,
         )
     return decision
+
+
+# Subscription states that are PUT in place (by staff or a job), as opposed
+# to the ones the clock reaches on its own (a trial or a period running out).
+_SET_STATES = {"read_only", "suspended", "cancelled"}
+
+
+def writes_allowed_at(company, when):
+    """Whether the company could record new work at `when`, a past moment.
+
+    Read-only mode blocks NEW work. A till that sold offline while the
+    subscription was still good must be able to upload those sales after it
+    lapsed: they happened, and the customer has the goods. A lapse the clock
+    reaches (trial, period, grace) is evaluated at `when`; a state set by
+    hand counts from the moment it was set."""
+    if when is None:
+        return False
+    if resolve_entitlements(company).allow_writes:
+        return True
+    try:
+        subscription = company.subscription
+    except Exception:  # noqa: BLE001 - no subscription row: nothing to date
+        subscription = None
+    if (
+        subscription is not None
+        and not get_deployment_config().is_standalone
+        and subscription.status in _SET_STATES
+    ):
+        changed = (
+            subscription.events.filter(to_status=subscription.status)
+            .order_by("-created_at").values_list("created_at", flat=True).first()
+        ) or subscription.updated_at
+        return bool(changed and when < changed)
+    return resolve_entitlements(company, now=when).allow_writes

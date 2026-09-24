@@ -430,6 +430,10 @@ class StockAdjustment(models.Model):
         related_name="stock_adjustments",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # created_at is set to when it HAPPENED (an offline device reports it
+    # later, see occurred_at on the write serializer); this is when the
+    # server got it, as on StockMovement.
+    received_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -476,6 +480,10 @@ class StockTransfer(models.Model):
         related_name="stock_transfers",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # created_at is set to when it HAPPENED (an offline device reports it
+    # later, see occurred_at on the write serializer); this is when the
+    # server got it, as on StockMovement.
+    received_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]

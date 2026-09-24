@@ -43,7 +43,11 @@ export default function LoginPage() {
       router.replace(session?.is_platform_admin ? "/platform" : "/dashboard");
     } catch (err) {
       const data = err?.response?.data;
-      if (data?.code === "store_mode_restricted") {
+      if (!err?.response) {
+        // No answer at all: the server is out of reach. Not a wrong
+        // password — signing in simply needs the connection back.
+        setError(t("auth.signInNeedsNetwork"));
+      } else if (data?.code === "store_mode_restricted") {
         setError(t("auth.storeModeRestricted"));
         setOwnerContact(data.owner_contact || "");
       } else if (data?.code === "device_limit_reached") {

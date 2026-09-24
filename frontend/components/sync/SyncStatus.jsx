@@ -10,6 +10,7 @@ import AttentionBadge from "@/components/attention/AttentionBadge";
 import { sales } from "@/lib/api";
 import { offlineStore } from "@/lib/offlineStore";
 import { isRetrying, RETRY_EXHAUSTED } from "@/lib/syncRetry";
+import { errorText } from "@/lib/errors";
 
 const money = (v) => Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -60,16 +61,38 @@ function AttachCustomer({ op, onAttach }) {
 }
 
 export default function SyncStatus() {
-  const { online, pending, flushing, flush, discard, amend, operations, error, legacy, persisted, storageLow } = useSync();
+  const { online, pending, flushing, flush, discard, amend, operations, error, legacy, persisted, storageLow,
+    othersPending } = useSync();
   const [discarding, setDiscarding] = useState(null);
   const [reason, setReason] = useState("");
+  const [discardBusy, setDiscardBusy] = useState(false);
+  const [discardError, setDiscardError] = useState("");
+  const [discardNote, setDiscardNote] = useState("");
   const { installed, canPrompt, prompt } = useInstallPrompt();
   const { t, language } = useI18n();
   const [open, setOpen] = useState(false);
   const failedCount = operations.filter((op) => op.error).length;
   const failed = failedCount > 0;
   const Icon = error || failed || legacy ? AlertTriangle : online ? Cloud : CloudOff;
-  const errorKey = { storage: "syncStorage", network: "syncNetwork", identity: "syncIdentity", auth: "syncAuth" }[error];
+  const errorKey = { storage: "syncStorage", network: "syncNetwork", identity: "syncIdentity", auth: "syncAuth",
+    subscription: "syncSubscription" }[error];
+  // The server's answer to a discard is shown, never swallowed: a refusal
+  // leaves the item in place, and "it had already landed" clears it as synced.
+  const submitDiscard = async (clientUuid) => {
+    setDiscardBusy(true);
+    setDiscardError("");
+    setDiscardNote("");
+    try {
+      const outcome = await discard(clientUuid, reason.trim());
+      setDiscarding(null);
+      setReason("");
+      if (outcome === "already_applied") setDiscardNote(t("sync.discardAlreadyApplied"));
+    } catch (err) {
+      setDiscardError(errorText(err, t, "sync.discardFailed"));
+    } finally {
+      setDiscardBusy(false);
+    }
+  };
   return <>
     <button onClick={() => setOpen(true)} title={t("improvements.syncReview")}
       className={`tap flex items-center gap-1.5 rounded-control px-2 py-1.5 text-sm ${error || failed ? "text-danger" : "text-muted"}`}>
@@ -112,6 +135,12 @@ export default function SyncStatus() {
           {t("improvements.signInAgain")}
         </a>
       )}
+      {othersPending > 0 && (
+        <p role="status" className="mb-3 rounded-control bg-warn/10 p-3 text-sm text-warn" data-testid="others-pending">
+          {t("sync.othersPending", { count: othersPending })}
+        </p>
+      )}
+      {discardNote && <p role="status" className="mb-3 text-sm text-ok">{discardNote}</p>}
       {legacy && <p role="alert" className="mb-3 rounded-control bg-warn/10 p-3 text-sm text-warn">{t("improvements.syncLegacy")}</p>}
       {!pending && !error && <p>{t("improvements.syncEmpty")}</p>}
       <ul className="space-y-3">{operations.map((op) => <li key={op.client_uuid} className={`rounded-card border p-3 text-sm ${op.error ? "border-danger/40 bg-danger/5" : "border-line"}`}>
@@ -149,15 +178,16 @@ export default function SyncStatus() {
                 placeholder={t("improvements.discardReason")} value={reason}
                 onChange={(e) => setReason(e.target.value)} />
               <div className="flex gap-2">
-                <Button variant="danger" disabled={!reason.trim()}
-                  onClick={async () => { await discard(op.client_uuid, reason.trim()); setDiscarding(null); setReason(""); }}>
+                <Button variant="danger" disabled={!reason.trim() || discardBusy}
+                  onClick={() => submitDiscard(op.client_uuid)}>
                   {t("improvements.discardConfirm")}
                 </Button>
-                <Button variant="ghost" onClick={() => setDiscarding(null)}>{t("common.cancel")}</Button>
+                <Button variant="ghost" onClick={() => { setDiscarding(null); setDiscardError(""); }}>{t("common.cancel")}</Button>
               </div>
+              {discardError && <p role="alert" className="text-xs text-danger">{discardError}</p>}
             </div>
           ) : (
-            <button type="button" onClick={() => setDiscarding(op.client_uuid)}
+            <button type="button" onClick={() => { setDiscarding(op.client_uuid); setDiscardError(""); }}
               className="mt-2 text-sm text-danger hover:underline">{t("improvements.syncDiscard")}</button>
           )
         )}

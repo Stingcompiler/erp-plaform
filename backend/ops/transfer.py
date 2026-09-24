@@ -562,6 +562,9 @@ def _create_row(model, row, identity, company, report, deferred):
             report.skipped_users.append(str(row.get("email") or row.get("__pk__")))
             return
     instance = model(**attrs)
+    # Save hooks that write derived rows (e.g. the tax-rate history) skip
+    # them: the archive carries those rows itself.
+    instance._restoring = True
     instance.save()
     identity.setdefault(label, {})[row["__pk__"]] = instance.pk
     report.created[label] = report.created.get(label, 0) + 1
@@ -615,6 +618,12 @@ def import_company(payload, company, report=None, archive=None, media_root=None)
         from org.models import TaxProfile
 
         TaxProfile.objects.filter(company=company).delete()
+    # ...and that default profile wrote a first row of tax-rate history; the
+    # archive carries the real history.
+    if objects.get("org.TaxRateChange"):
+        from org.models import TaxRateChange
+
+        TaxRateChange.objects.filter(company=company).delete()
 
     if media_root is not None and archive is not None:
         report.media_copied = _extract_media(archive, media_root)

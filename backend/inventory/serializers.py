@@ -513,6 +513,21 @@ class StockMovementSerializer(serializers.ModelSerializer):
         return movement
 
 
+def _validate_occurred_at(value):
+    from sales.serializers import validate_business_time
+
+    return validate_business_time(value)
+
+
+def happened_at(value):
+    """When an adjustment or transfer happened on the floor: the device's
+    time for one reported later by an offline device (never later than
+    now), else now. Its document and stock movements carry that date, like
+    a sale's, so the stock card shows the day it really moved."""
+    now = timezone.now()
+    return min(value, now) if value else now
+
+
 class StockAdjustmentSerializer(serializers.ModelSerializer):
     reason_code_display = serializers.CharField(
         source="get_reason_code_display", read_only=True
@@ -523,11 +538,16 @@ class StockAdjustmentSerializer(serializers.ModelSerializer):
         fields = [
             "id", "company", "product", "warehouse", "batch", "quantity",
             "reason_code", "reason_code_display", "reason", "movement", "client_uuid",
-            "created_by", "approved_by", "created_at",
+            "created_by", "approved_by", "created_at", "received_at", "occurred_at",
         ]
         read_only_fields = [
-            "company", "movement", "created_by", "approved_by", "created_at",
+            "company", "movement", "created_by", "approved_by", "created_at", "received_at",
         ]
+
+    occurred_at = serializers.DateTimeField(required=False, allow_null=True, write_only=True)
+
+    def validate_occurred_at(self, value):
+        return _validate_occurred_at(value)
 
     def validate(self, attrs):
         if attrs["quantity"] == 0:
@@ -573,8 +593,10 @@ class StockAdjustmentSerializer(serializers.ModelSerializer):
         if company_id is None:
             raise serializers.ValidationError(_("Company context is required."))
         product = validated_data["product"]
+        occurred = happened_at(validated_data.pop("occurred_at", None))
         movement = StockMovement.objects.create(
             company_id=company_id,
+            created_at=occurred,
             product=product,
             warehouse=validated_data["warehouse"],
             batch=validated_data.get("batch"),
@@ -596,6 +618,8 @@ class StockAdjustmentSerializer(serializers.ModelSerializer):
         )
         movement.reference_id = str(adjustment.id)
         movement.save(update_fields=["reference_id"])
+        StockAdjustment.objects.filter(pk=adjustment.pk).update(created_at=occurred)
+        adjustment.created_at = occurred
         audit_bypassed(
             self, getattr(self, "_bypassed", None), "StockAdjustment", adjustment.pk, product
         )
@@ -608,11 +632,18 @@ class StockTransferSerializer(serializers.ModelSerializer):
         fields = [
             "id", "company", "product", "batch", "source_warehouse",
             "dest_warehouse", "quantity", "note", "source_movement",
-            "dest_movement", "client_uuid", "created_by", "created_at",
+            "dest_movement", "client_uuid", "created_by", "created_at", "received_at",
+            "occurred_at",
         ]
         read_only_fields = [
             "company", "source_movement", "dest_movement", "created_by", "created_at",
+            "received_at",
         ]
+
+    occurred_at = serializers.DateTimeField(required=False, allow_null=True, write_only=True)
+
+    def validate_occurred_at(self, value):
+        return _validate_occurred_at(value)
 
     def validate(self, attrs):
         if attrs["quantity"] <= 0:
@@ -661,6 +692,7 @@ class StockTransferSerializer(serializers.ModelSerializer):
         batch = validated_data.get("batch")
         qty = validated_data["quantity"]
         source = validated_data["source_warehouse"]
+        occurred = happened_at(validated_data.pop("occurred_at", None))
 
         # A transfer moves stock that exists. Unlike a sale, nothing physical
         # has already happened when the form is submitted, so a shortfall is
@@ -689,14 +721,14 @@ class StockTransferSerializer(serializers.ModelSerializer):
             company_id=company_id, product=product,
             warehouse=source, batch=batch,
             movement_type=StockMovement.TRANSFER, quantity=-Decimal(qty),
-            unit_cost=cost,
+            unit_cost=cost, created_at=occurred,
             reference_type="StockTransfer", created_by=creator,
         )
         in_move = StockMovement.objects.create(
             company_id=company_id, product=product,
             warehouse=validated_data["dest_warehouse"], batch=batch,
             movement_type=StockMovement.TRANSFER, quantity=Decimal(qty),
-            unit_cost=cost,
+            unit_cost=cost, created_at=occurred,
             reference_type="StockTransfer", created_by=creator,
         )
         validated_data["product"] = product
@@ -707,6 +739,8 @@ class StockTransferSerializer(serializers.ModelSerializer):
         for m in (out_move, in_move):
             m.reference_id = str(transfer.id)
             m.save(update_fields=["reference_id"])
+        StockTransfer.objects.filter(pk=transfer.pk).update(created_at=occurred)
+        transfer.created_at = occurred
         audit_bypassed(
             self, getattr(self, "_bypassed", None), "StockTransfer", transfer.pk, product
         )

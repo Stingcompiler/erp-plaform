@@ -113,7 +113,13 @@ class BatchApplyTests(SyncBase):
             blocked = self.push([self.movement_op(uuid.uuid4())])
         self.assertEqual(replay.status_code, status.HTTP_200_OK)
         self.assertTrue(replay.data["replay"])
-        self.assertEqual(blocked.status_code, status.HTTP_403_FORBIDDEN)
+        # New work is still refused, item by item (work captured before a
+        # lapse goes through: see sync.test_sync_review), and never applied.
+        self.assertEqual(blocked.status_code, status.HTTP_201_CREATED)
+        result = blocked.data["results"][0]
+        self.assertEqual(result["status"], "error")
+        self.assertEqual(result["error_field"], "subscription")
+        self.assertEqual(StockMovement.objects.count(), 1)
 
     def test_same_op_uuid_in_new_batch_is_duplicate(self):
         cu = uuid.uuid4()

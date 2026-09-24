@@ -67,7 +67,7 @@ class SalesReturnReadSerializer(serializers.ModelSerializer):
         model = SalesReturn
         fields = [
             "id", "company", "invoice", "customer", "reason",
-            "is_fully_dispositioned", "lines", "client_uuid", "created_at",
+            "is_fully_dispositioned", "lines", "client_uuid", "created_at", "received_at",
         ]
 
 
@@ -76,6 +76,15 @@ class SalesReturnWriteSerializer(serializers.Serializer):
     reason = serializers.CharField(required=False, allow_blank=True)
     client_uuid = serializers.UUIDField(required=False, allow_null=True)
     lines = SalesReturnLineInputSerializer(many=True)
+    # When the goods came back over the counter. An offline till reports the
+    # return later; the return is dated when it happened (reports count it
+    # on that day), not when the server heard of it.
+    occurred_at = serializers.DateTimeField(required=False, allow_null=True)
+
+    def validate_occurred_at(self, value):
+        from sales.serializers import validate_business_time
+
+        return validate_business_time(value)
 
     def validate_lines(self, lines):
         if not lines:
@@ -192,6 +201,11 @@ class SalesReturnWriteSerializer(serializers.Serializer):
             created_by=user if user.is_authenticated else None,
             client_uuid=validated_data.get("client_uuid"),
         )
+        occurred = validated_data.get("occurred_at")
+        if occurred is not None:
+            occurred = min(occurred, sales_return.created_at)
+            SalesReturn.objects.filter(pk=sales_return.pk).update(created_at=occurred)
+            sales_return.created_at = occurred
         # Rule #5: NO stock movement here. Lines are quarantined until a
         # deliberate disposition restocks them.
         credit_total = Decimal("0")

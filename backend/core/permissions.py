@@ -62,6 +62,12 @@ class EntitlementAccess(BasePermission):
                 if get_deployment_config().is_standalone
                 else "subscription_read_only"
             )
+            if getattr(view, "entitlement_checks_items", False):
+                # Offline sync: work captured before the lapse still goes
+                # through; the view checks each item's capture time against
+                # the subscription and refuses only what came after.
+                request.entitlement_read_only = code
+                return True
             raise PermissionDenied(
                 {
                     "code": code,
