@@ -39,7 +39,10 @@ import {
 //
 // `attentionKey` names the attention source(s) (backend core/attention.py)
 // whose count sits on this leaf as a badge; a group shows the sum of its
-// children. Opening the leaf marks those keys seen.
+// children. Opening the leaf marks those keys seen — unless `tabsMarkSeen`
+// is set: then the page shows the same keys on its own tabs, and opening a
+// tab is what marks it seen (clearing them on the menu click hid every tab
+// badge before anyone saw it).
 export const NAV = [
   {
     labelKey: "nav.dashboard",
@@ -52,7 +55,7 @@ export const NAV = [
     labelKey: "nav.groups.sales",
     icon: ShoppingCart,
     children: [
-      { labelKey: "nav.sales", href: "/sales", module: "sales", icon: ShoppingCart, attentionKey: ["sales", "price-flags"] },
+      { labelKey: "nav.sales", href: "/sales", module: "sales", icon: ShoppingCart, attentionKey: ["till", "quotes", "sales", "price-flags"], tabsMarkSeen: true },
       { labelKey: "nav.debts", href: "/debts", module: "sales", icon: Wallet, attentionKey: "debts" },
       { labelKey: "nav.webOrders", href: "/web-orders", module: "sales", icon: Globe, attentionKey: "web-orders" },
       {

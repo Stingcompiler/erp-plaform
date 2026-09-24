@@ -21,6 +21,16 @@ from org.models import Branch, Company
 from sales.models import Customer, Invoice
 
 
+def _local_day(invoice):
+    """The day the invoice was issued in the company's calendar — what the
+    due date counts from (UTC's date is a day behind after midnight)."""
+    from django.utils import timezone as _tz
+
+    from core.timezone import company_zone
+
+    return _tz.localtime(invoice.issued_at, company_zone(invoice.company)).date()
+
+
 class TermsBase(TestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Alpha", default_payment_terms_days=30)
@@ -53,7 +63,7 @@ class CheckoutTermsTests(TermsBase):
     def test_company_default_applies(self):
         inv = self._sell()
         self.assertEqual(inv.payment_terms_days, 30)
-        self.assertEqual(inv.due_date, inv.issued_at.date() + timedelta(days=30))
+        self.assertEqual(inv.due_date, _local_day(inv) + timedelta(days=30))
         self.assertFalse(inv.is_overdue)
 
     def test_customer_terms_override_the_default(self):
@@ -70,7 +80,7 @@ class CheckoutTermsTests(TermsBase):
         self.customer.payment_terms_days = 0
         self.customer.save()
         inv = self._sell()
-        self.assertEqual(inv.due_date, inv.issued_at.date())
+        self.assertEqual(inv.due_date, _local_day(inv))
 
 
 class ZeroTenderTests(TermsBase):
