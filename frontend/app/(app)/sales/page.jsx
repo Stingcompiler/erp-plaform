@@ -66,8 +66,8 @@ export default function SalesPage() {
   const tabs = [
     ...(writable ? [{ id: "pos", label: t("sales.pos") }] : []),
     // Approvers who cannot sell (the CFO) still sign off drawer counts.
-    ...(writable || can("finance.approve") ? [{ id: "till", label: t("till.tab") }] : []),
-    { id: "quotes", label: t("quotes.tab") },
+    ...(writable || can("finance.approve") ? [{ id: "till", label: t("till.tab"), attentionKey: "till" }] : []),
+    { id: "quotes", label: t("quotes.tab"), attentionKey: "quotes" },
     { id: "invoices", label: t("sales.invoices"), attentionKey: "sales" },
     ...(writable ? [{ id: "banks", label: t("sales.bankAccounts") }] : []),
     // Offline sales kept with a price the till would have refused.
