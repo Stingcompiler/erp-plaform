@@ -53,8 +53,15 @@ function sized(className) {
   return /\bw-\S+/.test(className) ? controlClass.replace("w-full ", "") : controlClass;
 }
 
+// A date or time control lays its fields out in the page direction: on an
+// Arabic (RTL) page "10/05/2026, 01:40" came out reordered as
+// "10 / 05 / 2026 , 40 : 1". Its fields are Latin-ordered, so it is LTR
+// unless a caller says otherwise.
+const LTR_TYPES = new Set(["date", "datetime-local", "time", "month", "week"]);
+
 export const Input = forwardRef(function Input({ className = "", ...props }, ref) {
-  return <input ref={ref} className={`${sized(className)} ${className}`} {...props} />;
+  const dir = props.dir ?? (LTR_TYPES.has(props.type) ? "ltr" : undefined);
+  return <input ref={ref} className={`${sized(className)} ${className}`} {...props} dir={dir} />;
 });
 
 export function Select({ className = "", children, ...props }) {

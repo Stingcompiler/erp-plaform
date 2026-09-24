@@ -130,6 +130,7 @@ class PlanSerializer(serializers.ModelSerializer):
 class SubscriptionSerializer(serializers.ModelSerializer):
     addon_lines = serializers.SerializerMethodField()
     recurring_amount = serializers.SerializerMethodField()
+    next_renewal = serializers.SerializerMethodField()
     company_name = serializers.CharField(source="company.name", read_only=True)
     # The company's own contact number, so the platform team can call or
     # WhatsApp a customer from the subscription row.
@@ -155,12 +156,14 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             "extra_limits",
             "addon_lines",
             "recurring_amount",
+            "next_renewal",
             "revision",
             "created_at",
             "updated_at",
         ]
         read_only_fields = [
             "revision", "created_at", "updated_at", "addon_lines", "recurring_amount",
+            "next_renewal",
         ]
 
     def get_addon_lines(self, obj):
@@ -172,6 +175,11 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         from subscriptions.services import recurring_price
 
         return str(recurring_price(obj))
+
+    def get_next_renewal(self, obj):
+        from subscriptions.renewals import next_renewal
+
+        return next_renewal(obj)
 
     def validate(self, attrs):
         status_value = attrs.get("status", getattr(self.instance, "status", None))
@@ -283,6 +291,7 @@ class SubscriptionPaymentSerializer(serializers.ModelSerializer):
     recorded_by_name = serializers.SerializerMethodField()
     company_name = serializers.CharField(source="company.name", read_only=True)
     proof_available = serializers.SerializerMethodField()
+    allocations = serializers.SerializerMethodField()
 
     class Meta:
         model = SubscriptionPayment
@@ -292,6 +301,7 @@ class SubscriptionPaymentSerializer(serializers.ModelSerializer):
             "company_name",
             "amount",
             "currency",
+            "allocations",
             "method",
             "sender_bank_name",
             "reference_last4",
@@ -314,6 +324,25 @@ class SubscriptionPaymentSerializer(serializers.ModelSerializer):
             "rejection_reason",
             "created_at",
             "proof_available",
+            "allocations",
+        ]
+
+    def get_allocations(self, obj):
+        """What a verified payment paid for: invoice, period and whether the
+        invoice is settled — so a partial payment is visible to both sides."""
+        if obj.status != SubscriptionPayment.VERIFIED:
+            return []
+        return [
+            {
+                "invoice": row.invoice_id,
+                "invoice_number": row.invoice.number,
+                "amount": str(row.amount),
+                "invoice_amount": str(row.invoice.amount),
+                "invoice_status": row.invoice.status,
+                "period_start": row.invoice.period_start.isoformat(),
+                "period_end": row.invoice.period_end.isoformat(),
+            }
+            for row in obj.allocations.select_related("invoice").order_by("invoice__period_start")
         ]
 
     def get_proof_available(self, obj):
@@ -324,7 +353,10 @@ class SubscriptionPaymentSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         from sales.serializers import normalise_reference
+        from subscriptions.services import normalise_currency
 
+        if "currency" in attrs:
+            attrs["currency"] = normalise_currency(attrs["currency"])
         full = normalise_reference(attrs.get("transfer_reference"))
         attrs["transfer_reference"] = full
         last4 = str(attrs.get("reference_last4") or "").strip()
@@ -356,6 +388,24 @@ class SubscriptionPaymentSerializer(serializers.ModelSerializer):
         except DRFValidationError as exc:
             raise serializers.ValidationError(exc.detail.get("proof", exc.detail))
         return value
+
+
+class PlatformSubscriptionPaymentSerializer(SubscriptionPaymentSerializer):
+    """The platform's view of a payment: a pending one carries the renewal
+    its approval would perform (subscriptions.renewals.plan_renewal)."""
+
+    renewal = serializers.SerializerMethodField()
+
+    class Meta(SubscriptionPaymentSerializer.Meta):
+        fields = SubscriptionPaymentSerializer.Meta.fields + ["renewal"]
+        read_only_fields = SubscriptionPaymentSerializer.Meta.read_only_fields + ["renewal"]
+
+    def get_renewal(self, obj):
+        if obj.status != SubscriptionPayment.PENDING:
+            return None
+        from subscriptions.renewals import plan_renewal, renewal_as_json
+
+        return renewal_as_json(plan_renewal(obj))
 
 
 class PaymentVerificationSerializer(serializers.Serializer):

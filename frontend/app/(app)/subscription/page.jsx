@@ -17,6 +17,10 @@ import { SkeletonCard } from "@/components/ui/Skeleton";
 // inside an LTR span was bidi-reordered to "202026/9/".
 const showDate = (value) => {
   if (!value) return "—";
+  // A calendar day (an invoice period) is not a moment: parsing it as UTC
+  // midnight would show the day before west of Greenwich.
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (day) return `${day[3]}/${day[2]}/${day[1]}`;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
   const pad = (n) => String(n).padStart(2, "0");
@@ -57,7 +61,7 @@ export default function SubscriptionPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [licenseText, setLicenseText] = useState("");
-  const [payment, setPayment] = useState({ amount: "", currency: "USD", method: "bank_transfer", transfer_reference: "", proof: null });
+  const [payment, setPayment] = useState({ amount: "", currency: "", method: "bank_transfer", transfer_reference: "", proof: null });
   const [devices, setDevices] = useState(null);
   const [deviceBusy, setDeviceBusy] = useState(null);
 
@@ -114,7 +118,7 @@ export default function SubscriptionPage() {
       await subscriptionApi.submitPayment(body);
       setNotice(t("subscription.paymentSent"));
       setPayment((current) => ({ ...current, amount: "", transfer_reference: "", proof: null })); await load();
-    } catch { setError(t("subscription.loadError")); }
+    } catch (requestError) { setError(errorText(requestError, t, "subscription.paymentError")); }
   };
 
   // The plan's currency plus any open invoice's: a plan change into another
@@ -132,6 +136,13 @@ export default function SubscriptionPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payableKey]);
+  // What the next renewal costs is what most owners pay; start from it.
+  const renewalAmount = data?.subscription?.next_renewal?.amount;
+  useEffect(() => {
+    if (renewalAmount && Number(renewalAmount) > 0) {
+      setPayment((p) => (p.amount ? p : { ...p, amount: renewalAmount }));
+    }
+  }, [renewalAmount]);
 
   if (user?.role_name !== "Business Owner") return <Card className="mx-auto mt-16 max-w-md p-8 text-center"><Lock className="mx-auto text-muted"/><p className="mt-3 text-muted">{t("subscription.ownerOnly")}</p></Card>;
   if (!data && !error) return <SkeletonCard />;
@@ -194,8 +205,63 @@ export default function SubscriptionPage() {
         </div>
       </Card>}
       {standalone ? <Card className="mt-5 p-5"><h2 className="font-display font-semibold">{t("subscription.importLicense")}</h2><label className="mt-3 block text-sm text-muted">{t("subscription.licenceUpload")}<Input className="mt-1" type="file" accept=".json,application/json" onChange={(event) => readLicenseFile(event.target.files?.[0])}/></label><textarea className="mt-3 min-h-40 w-full rounded-control border border-line bg-surface p-3 font-mono text-xs" value={licenseText} onChange={(event) => setLicenseText(event.target.value)} placeholder={t("subscription.licenseFile")}/><Button className="mt-3" onClick={importLicense} disabled={!licenseText.trim()}>{t("subscription.importLicense")}</Button></Card> : <>
-        <Card className="mt-5 p-5"><h2 className="font-display font-semibold">{t("subscription.invoices")}</h2>{data.invoices?.length ? <div className="mt-3 divide-y divide-line">{data.invoices.map((row) => <div key={row.id} className="flex flex-wrap justify-between gap-3 py-3"><span>{row.number}</span><span className="tabular">{row.amount} {row.currency}</span><Badge>{row.status}</Badge></div>)}</div> : <p className="mt-3 text-sm text-muted">{t("subscription.noInvoices")}</p>}</Card>
-        <Card className="mt-5 p-5"><h2 className="font-display font-semibold">{t("subscription.payments")}</h2><form onSubmit={submitPayment} className="mt-3 grid gap-3 sm:grid-cols-4"><Input required type="number" min="0.01" step="0.01" placeholder={t("subscription.amount")} value={payment.amount} onChange={(event) => setPayment({...payment, amount: event.target.value})}/><Select required value={payment.currency} onChange={(event) => setPayment({...payment, currency: event.target.value})}>{payableCurrencies.map((c) => <option key={c} value={c}>{c}</option>)}</Select><Select value={payment.method} onChange={(event) => setPayment({...payment, method: event.target.value})}><option value="bank_transfer">{t("common.bankTransfer")}</option><option value="cash">{t("common.cash")}</option></Select><Input required={payment.method === "bank_transfer"} maxLength={64} dir="ltr" placeholder={t("subscription.reference")} value={payment.transfer_reference} onChange={(event) => setPayment({...payment, transfer_reference: event.target.value})}/><label className="sm:col-span-4 text-sm text-muted">{t("subscription.proof")}<Input className="mt-1" type="file" accept="image/*,.pdf" onChange={(event) => setPayment({...payment, proof: event.target.files?.[0] || null})}/></label><Button type="submit" className="sm:col-span-4 sm:justify-self-start">{t("subscription.submitPayment")}</Button></form>{data.payments?.length > 0 && <div className="mt-4 divide-y divide-line">{data.payments.map((row) => <div key={row.id} className="flex justify-between py-2 text-sm"><span>{row.amount} {row.currency}</span><Badge>{row.status}</Badge></div>)}</div>}</Card>
+        {record?.next_renewal && <Card className="mt-5 p-5">
+          <h2 className="font-display font-semibold">{t("subscription.nextRenewal")}</h2>
+          <p className="mt-2 text-sm">{t("subscription.nextRenewalBody", {
+            amount: record.next_renewal.amount, currency: record.next_renewal.currency,
+            start: showDate(record.next_renewal.period_start), end: showDate(record.next_renewal.period_end),
+          })}</p>
+          {Number(record.next_renewal.open_balance) > 0 && (
+            <p className="mt-2 rounded-control bg-warn/10 p-3 text-sm text-ink">
+              {t("subscription.openBalance", { amount: record.next_renewal.open_balance, currency: record.next_renewal.currency })}
+            </p>
+          )}
+        </Card>}
+        <Card className="mt-5 p-5">
+          <h2 className="font-display font-semibold">{t("subscription.invoices")}</h2>
+          {data.invoices?.length ? <div className="mt-3 divide-y divide-line">{data.invoices.map((row) => (
+            <div key={row.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
+              <div>
+                <div>{row.number}</div>
+                <div className="text-xs text-muted">{t("subscription.invoicePeriod", { start: showDate(row.period_start), end: showDate(row.period_end) })}</div>
+              </div>
+              <div className="text-end">
+                <div className="tabular">{row.amount} {row.currency}</div>
+                {row.status === "issued" && Number(row.allocated_amount) > 0 && (
+                  <div className="text-xs text-warn">{t("subscription.invoicePaidOf", { paid: row.allocated_amount, amount: row.amount, currency: row.currency })}</div>
+                )}
+              </div>
+              <Badge tone={row.status === "paid" ? "ok" : row.status === "issued" ? "warn" : "muted"}>{t(`subscription.invoiceStatus.${row.status}`)}</Badge>
+            </div>
+          ))}</div> : <p className="mt-3 text-sm text-muted">{t("subscription.noInvoices")}</p>}
+        </Card>
+        <Card className="mt-5 p-5">
+          <h2 className="font-display font-semibold">{t("subscription.payments")}</h2>
+          <form onSubmit={submitPayment} className="mt-3 grid gap-3 sm:grid-cols-4">
+            <Input required type="number" min="0.01" step="0.01" dir="ltr" placeholder={t("subscription.amount")} value={payment.amount} onChange={(event) => setPayment({...payment, amount: event.target.value})}/>
+            <Select required value={payment.currency} onChange={(event) => setPayment({...payment, currency: event.target.value})}>{payableCurrencies.map((c) => <option key={c} value={c}>{c}</option>)}</Select>
+            <Select value={payment.method} onChange={(event) => setPayment({...payment, method: event.target.value})}><option value="bank_transfer">{t("common.bankTransfer")}</option><option value="cash">{t("common.cash")}</option></Select>
+            <Input required={payment.method === "bank_transfer"} maxLength={64} dir="ltr" placeholder={t("subscription.reference")} value={payment.transfer_reference} onChange={(event) => setPayment({...payment, transfer_reference: event.target.value})}/>
+            {planCurrency && <p className="sm:col-span-4 text-xs text-muted">{t("subscription.billedIn", { currency: planCurrency })}</p>}
+            <label className="sm:col-span-4 text-sm text-muted">{t("subscription.proof")}<Input className="mt-1" type="file" accept="image/*,.pdf" onChange={(event) => setPayment({...payment, proof: event.target.files?.[0] || null})}/></label>
+            <Button type="submit" className="sm:col-span-4 sm:justify-self-start">{t("subscription.submitPayment")}</Button>
+          </form>
+          {data.payments?.length > 0 && <div className="mt-4 divide-y divide-line">{data.payments.map((row) => (
+            <div key={row.id} className="py-2 text-sm">
+              <div className="flex justify-between gap-3">
+                <span className="tabular">{row.amount} {row.currency} · {showDate(row.created_at)}</span>
+                <Badge tone={row.status === "verified" ? "ok" : row.status === "rejected" ? "danger" : "warn"}>{t(`subscription.paymentStatus.${row.status}`)}</Badge>
+              </div>
+              {row.status === "rejected" && row.rejection_reason && <div className="mt-1 text-xs text-danger">{row.rejection_reason}</div>}
+              {(row.allocations || []).map((line) => (
+                <div key={line.invoice} className="mt-1 text-xs text-muted">
+                  {t("subscription.paymentPaidFor", { invoice: line.invoice_number, start: showDate(line.period_start), end: showDate(line.period_end) })}
+                  {line.invoice_status === "issued" && <> · {t("subscription.paymentPartialNote", { paid: line.amount, amount: line.invoice_amount })}</>}
+                </div>
+              ))}
+            </div>
+          ))}</div>}
+        </Card>
         <Card className="mt-5 p-5"><h2 className="font-display font-semibold">{t("subscription.events")}</h2>{data.events?.length ? <div className="mt-3 divide-y divide-line">{data.events.map((row) => <EventRow key={row.id} row={row} t={t} />)}</div> : <p className="mt-3 text-sm text-muted">{t("subscription.noEvents")}</p>}</Card>
       </>}
     </>}

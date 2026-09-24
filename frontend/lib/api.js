@@ -628,6 +628,10 @@ export const platformSubscriptions = {
     api.post(`/platform/subscription-payments/${id}/verify/`, { allocations }),
   rejectPayment: (id, reason) =>
     api.post(`/platform/subscription-payments/${id}/reject/`, { reason }),
+  // Approve and renew: the server issues the renewal invoice(s) the payment
+  // pays for; `expected` is the preview key the admin confirmed.
+  renewPayment: (id, expected) =>
+    api.post(`/platform/subscription-payments/${id}/renew/`, { expected }),
   paymentProofUrl: (id) =>
     `${api.defaults.baseURL}/platform/subscription-payments/${id}/proof/`,
   createPlan: (body) => api.post("/platform/plans/", body),

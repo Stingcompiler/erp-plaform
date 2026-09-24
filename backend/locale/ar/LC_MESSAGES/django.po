@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-24 21:00+0000\n"
+"POT-Creation-Date: 2026-09-24 22:08+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1888,6 +1888,39 @@ msgstr "لا يمكن اعتماد إلا طلب معلّق."
 
 msgid "Only a pending request can be rejected."
 msgstr "لا يمكن رفض إلا طلب معلّق."
+
+msgid "Only a pending payment can be approved."
+msgstr "لا يمكن اعتماد إلا دفعة بانتظار المراجعة."
+
+msgid "This company has no subscription to renew."
+msgstr "لا يوجد لهذه الشركة اشتراك لتجديده."
+
+#, python-format
+msgid ""
+"Paid in %(paid)s but the subscription is billed in %(billed)s; it cannot "
+"renew it. Reject it and ask the company to pay in %(billed)s."
+msgstr ""
+"دُفعت بعملة %(paid)s بينما الاشتراك مُفوتَر بعملة %(billed)s؛ لا يمكن "
+"التجديد بها. ارفضها واطلب من الشركة الدفع بعملة %(billed)s."
+
+msgid "This plan has no price, so there is nothing to renew with a payment."
+msgstr "هذه الخطة بلا سعر، فلا يوجد ما يُجدَّد بدفعة."
+
+#, python-format
+msgid ""
+"This payment would cover more than %(count)s billing cycles. Check the "
+"amount with the company before approving it."
+msgstr ""
+"هذه الدفعة تغطي أكثر من %(count)s دورة فوترة. تحقّق من المبلغ مع الشركة قبل "
+"اعتمادها."
+
+msgid ""
+"The renewal this payment buys has changed since the page was loaded (another "
+"payment from this company was approved). Check the new period and approve "
+"again."
+msgstr ""
+"تغيّر التجديد الذي تشتريه هذه الدفعة منذ فتح الصفحة (اعتُمدت دفعة أخرى لهذه "
+"الشركة). راجع الفترة الجديدة ثم اعتمدها مرة أخرى."
 
 msgid "One or more add-ons are unknown."
 msgstr "إضافة واحدة أو أكثر غير معروفة."

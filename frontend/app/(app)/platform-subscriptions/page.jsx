@@ -42,6 +42,18 @@ function dateInputValue(date = new Date()) {
 
 function invoiceDefaultsForSubscription(subscription) {
   const now = new Date();
+  // The server knows the next uninvoiced period (after the trial or the paid
+  // period, after any open renewal invoice) and the price with add-ons.
+  const next = subscription?.next_renewal;
+  if (next) {
+    return {
+      subscription: String(subscription.id),
+      amount: next.amount,
+      period_start: next.period_start,
+      period_end: next.period_end,
+      due_at: localDateTime(now),
+    };
+  }
   const currentEnd = subscription?.period_ends_at ? new Date(subscription.period_ends_at) : null;
   const start = currentEnd && currentEnd > now
     ? new Date(currentEnd.getFullYear(), currentEnd.getMonth(), currentEnd.getDate() + 1)
@@ -110,7 +122,11 @@ export default function PlatformSubscriptionsPage() {
         payment.id,
         current[payment.id] || { invoice: "", amount: payment.amount },
       ])));
-      setInvoiceDraft((current) => current.subscription ? current : invoiceDefaultsForSubscription(nextRows[0]));
+      // Recomputed on every load: after a renewal the old defaults would
+      // offer to invoice the period that was just paid a second time.
+      setInvoiceDraft((current) => invoiceDefaultsForSubscription(
+        nextRows.find((row) => String(row.id) === current.subscription) || nextRows[0],
+      ));
     } catch {
       setError(t("subscription.loadError"));
     }
@@ -173,9 +189,51 @@ export default function PlatformSubscriptionsPage() {
     }
   };
 
+  const renewPayment = async (payment) => {
+    const plan = payment.renewal;
+    if (!plan?.ok) return;
+    const paid = plan.steps.filter((step) => step.completes);
+    const open = plan.steps.find((step) => !step.completes);
+    const message = paid.length
+      ? t("subscription.renewConfirm", {
+        amount: payment.amount, currency: payment.currency, company: payment.company_name,
+        start: paid[0].period_start, end: paid[paid.length - 1].period_end,
+      })
+      : t("subscription.renewConfirmPartial", {
+        amount: payment.amount, currency: payment.currency, company: payment.company_name,
+        balance: open?.balance_after,
+      });
+    if (!(await confirm(message))) return;
+    setSaving(`payment-${payment.id}`);
+    setError("");
+    setSuccess("");
+    try {
+      await api.renewPayment(payment.id, plan.key);
+      setSuccess(t("subscription.renewed"));
+      await load();
+    } catch (requestError) {
+      setError(errorText(requestError, t, "subscription.loadError"));
+      // A stale preview (another payment approved meanwhile) is refused by
+      // the server; reload so the new period is what the admin sees next.
+      await load();
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const rejectPayment = async (payment) => {
+    const subscription = rows.find((row) => row.company === payment.company);
+    const billed = subscription?.plan?.currency;
     const reason = await confirm(t("subscription.rejectReasonPrompt"), {
-      tone: "danger", input: { label: t("subscription.rejectReason"), required: true },
+      tone: "danger",
+      input: {
+        label: t("subscription.rejectReason"),
+        required: true,
+        // A payment in the wrong currency gets the sentence the owner needs.
+        initial: billed && billed !== payment.currency
+          ? t("subscription.rejectCurrencyReason", { paid: payment.currency, billed })
+          : "",
+      },
     });
     if (reason === false) return;
     setSaving(`payment-${payment.id}`);
@@ -288,6 +346,11 @@ export default function PlatformSubscriptionsPage() {
                   <div className="mt-1 text-sm text-muted">
                     {row.plan?.plan_name} · {row.plan?.billing_cycle}
                   </div>
+                  {row.next_renewal && (
+                    <div className="text-xs text-muted">
+                      {t("subscription.nextRenewal")}: <span className="tabular inline-block" dir="ltr">{row.next_renewal.amount} {row.next_renewal.currency} · {row.next_renewal.period_start} → {row.next_renewal.period_end}</span>
+                    </div>
+                  )}
                   <Badge tone={row.status === "active" || row.status === "legacy" ? "ok" : "warn"}>
                     {row.status}
                   </Badge>
@@ -359,23 +422,18 @@ export default function PlatformSubscriptionsPage() {
           {payments.map((payment) => {
             const draft = paymentDrafts[payment.id] || { invoice: "", amount: payment.amount };
             const availableInvoices = invoices.filter(
-              (invoice) => invoice.company === payment.company && invoice.status === "issued",
+              (invoice) => invoice.company === payment.company && invoice.status === "issued"
+                && invoice.currency === payment.currency,
             );
-            const subscription = rows.find((row) => row.company === payment.company);
-            const planCurrency = subscription?.plan?.currency;
-            const wrongCurrency = planCurrency && planCurrency !== payment.currency;
-            const issueForCompany = () => {
-              if (!subscription) return;
-              setInvoiceDraft(invoiceDefaultsForSubscription(subscription));
-              document.getElementById("renewal-invoice")?.scrollIntoView({ behavior: "smooth", block: "start" });
-            };
+            const plan = payment.renewal;
+            const busy = saving === `payment-${payment.id}`;
             return (
               <Card key={payment.id} className="p-5">
-                <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end">
+                <div className="grid gap-4 lg:grid-cols-[1fr_2fr_auto] lg:items-start">
                   <div>
                     <div className="font-semibold">{payment.company_name}</div>
                     <div className="mt-1 text-sm text-muted">
-                      {payment.amount} {payment.currency} · {payment.method}
+                      <span className="tabular" dir="ltr">{payment.amount} {payment.currency}</span> · {payment.method === "cash" ? t("common.cash") : t("common.bankTransfer")}
                     </div>
                     <div className="text-xs text-muted">
                       {t("subscription.submittedBy")}: {payment.recorded_by_name || "—"}
@@ -397,53 +455,90 @@ export default function PlatformSubscriptionsPage() {
                       <div className="mt-2 text-xs text-muted">{t("subscription.noProof")}</div>
                     )}
                   </div>
-                  <Field label={t("subscription.invoice")}>
-                    <Select
-                      value={draft.invoice}
-                      onChange={(event) => setPaymentDrafts((current) => ({
-                        ...current,
-                        [payment.id]: { ...draft, invoice: event.target.value },
-                      }))}
-                    >
-                      <option value="">—</option>
-                      {availableInvoices.map((invoice) => (
-                        <option key={invoice.id} value={invoice.id}>
-                          {invoice.number} · {invoice.amount} {invoice.currency}
-                        </option>
-                      ))}
-                    </Select>
-                    {!availableInvoices.length && (
-                      <p className="mt-1 text-xs text-warn">
-                        {t("subscription.noOpenInvoice")}
-                        {canBill && subscription && <> <button type="button" className="font-semibold underline" onClick={issueForCompany}>{t("subscription.issueForCompany")}</button></>}
+                  <div className="text-sm">
+                    {plan?.ok ? (
+                      <div className="rounded-control bg-paper p-3">
+                        <div className="font-medium">{t("subscription.renewPreviewTitle")}</div>
+                        <ul className="mt-2 space-y-1">
+                          {plan.steps.map((step, index) => (
+                            <li key={index}>
+                              {step.invoice_id ? t("subscription.renewExistingInvoice", { number: step.number }) : t("subscription.renewNewInvoice")}
+                              {" "}<span className="tabular font-semibold" dir="ltr">{step.period_start} → {step.period_end}</span>
+                              {" "}— {step.completes
+                                ? t("subscription.renewPaidInFull")
+                                : t("subscription.renewPartial", { paid: step.allocate, amount: step.balance, currency: plan.currency, balance: step.balance_after })}
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+                          {plan.access_until && <span>{t("subscription.renewAccessUntil", { date: plan.access_until.slice(0, 10) })}</span>}
+                          {plan.status_after !== plan.status_before && (
+                            <span>{t("subscription.renewStatus", {
+                              from: t(`platformCompanies.status.${plan.status_before}`),
+                              to: t(`platformCompanies.status.${plan.status_after}`),
+                            })}</span>
+                          )}
+                        </div>
+                        {plan.other_pending > 0 && (
+                          <p className="mt-2 text-xs text-warn">{t("subscription.renewOtherPending", { count: plan.other_pending })}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="rounded-control bg-danger/10 p-3 text-danger">
+                        {t("subscription.cannotRenew")} {plan?.reason}
                       </p>
                     )}
-                    {wrongCurrency && (
-                      <p className="mt-1 text-xs text-danger">{t("subscription.currencyMismatch", { paid: payment.currency, billed: planCurrency })}</p>
+                    {canBill && availableInvoices.length > 0 && (
+                      <details className="mt-3">
+                        <summary className="cursor-pointer text-xs text-muted">{t("subscription.manualAllocation")}</summary>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-[2fr_1fr_auto] sm:items-end">
+                          <Field label={t("subscription.invoice")}>
+                            <Select
+                              value={draft.invoice}
+                              onChange={(event) => setPaymentDrafts((current) => ({
+                                ...current,
+                                [payment.id]: { ...draft, invoice: event.target.value },
+                              }))}
+                            >
+                              <option value="">—</option>
+                              {availableInvoices.map((invoice) => (
+                                <option key={invoice.id} value={invoice.id}>
+                                  {invoice.number} · {invoice.amount} {invoice.currency}
+                                </option>
+                              ))}
+                            </Select>
+                          </Field>
+                          <Field label={t("subscription.allocationAmount")}>
+                            <Input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              dir="ltr"
+                              value={draft.amount}
+                              onChange={(event) => setPaymentDrafts((current) => ({
+                                ...current,
+                                [payment.id]: { ...draft, amount: event.target.value },
+                              }))}
+                            />
+                          </Field>
+                          <Button
+                            variant="outline"
+                            disabled={!draft.invoice || !draft.amount || busy}
+                            onClick={() => verifyPayment(payment)}
+                          >
+                            {t("subscription.verifyPayment")}
+                          </Button>
+                        </div>
+                      </details>
                     )}
-                  </Field>
-                  <Field label={t("subscription.allocationAmount")}>
-                    <Input
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      value={draft.amount}
-                      onChange={(event) => setPaymentDrafts((current) => ({
-                        ...current,
-                        [payment.id]: { ...draft, amount: event.target.value },
-                      }))}
-                    />
-                  </Field>
+                  </div>
                   {canBill && <div className="flex flex-col gap-2">
-                    <Button
-                      disabled={!draft.invoice || !draft.amount || saving === `payment-${payment.id}`}
-                      onClick={() => verifyPayment(payment)}
-                    >
-                      {t("subscription.verifyPayment")}
+                    <Button disabled={!plan?.ok || busy} onClick={() => renewPayment(payment)}>
+                      {t("subscription.approveRenew")}
                     </Button>
                     <Button
                       variant="outline"
-                      disabled={saving === `payment-${payment.id}`}
+                      disabled={busy}
                       onClick={() => rejectPayment(payment)}
                     >
                       <XCircle size={15} />{t("subscription.rejectPayment")}

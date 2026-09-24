@@ -67,6 +67,14 @@ def classify(from_version, to_version):
     )
 
 
+def _local_day(company, moment):
+    """The calendar day of ``moment`` where the company is — not UTC: at
+    01:00 in Khartoum the UTC date is still yesterday."""
+    from core.timezone import company_zone
+
+    return timezone.localtime(moment, company_zone(company)).date()
+
+
 def cycle_days(version):
     return 365 if version.billing_cycle == PlanVersion.YEARLY else 30
 
@@ -275,8 +283,10 @@ def approve_request(request, actor, note=""):
         invoice = SubscriptionInvoice.objects.create(
             company=request.company, subscription=subscription,
             number=f"PENDING-{uuid4().hex}", status=SubscriptionInvoice.ISSUED,
-            period_start=now.date(),
-            period_end=(now + timedelta(days=cycle_days(to_version))).date(),
+            period_start=_local_day(request.company, now),
+            period_end=_local_day(
+                request.company, now + timedelta(days=cycle_days(to_version))
+            ),
             currency=to_version.currency, amount=Decimal(to_version.price),
             due_at=now + timedelta(days=7), issued_at=now,
             line_snapshot=[{
@@ -300,11 +310,11 @@ def approve_request(request, actor, note=""):
                 subscription, request.from_version, request.to_version, now
             )
         if amount > 0:
-            period_end = (subscription.period_ends_at or now).date()
+            period_end = _local_day(request.company, subscription.period_ends_at or now)
             invoice = SubscriptionInvoice.objects.create(
                 company=request.company, subscription=subscription,
                 number=f"PENDING-{uuid4().hex}", status=SubscriptionInvoice.ISSUED,
-                period_start=now.date(), period_end=period_end,
+                period_start=_local_day(request.company, now), period_end=period_end,
                 currency=request.to_version.currency, amount=amount,
                 due_at=now + timedelta(days=7), issued_at=now,
                 # This period is already granted; paying must switch the plan,
