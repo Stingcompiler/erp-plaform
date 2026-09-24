@@ -353,7 +353,11 @@ def write_export(company, destination, include_media=True, media_root=None):
         }
         archive.writestr(
             MANIFEST_NAME,
-            json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=False),
+            # The company's own fields carry Decimals (thresholds, the
+            # discount limit), so the manifest needs Django's encoder too.
+            json.dumps(
+                manifest, cls=DjangoJSONEncoder, indent=2, sort_keys=True, ensure_ascii=False
+            ),
         )
 
     return {

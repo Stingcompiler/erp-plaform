@@ -77,16 +77,22 @@ export default function SalesPage() {
 
       <TabBar value={tab} onChange={setTab} tabs={tabs} />
 
-      {tab === "pos" && writable && (
-        <PosTerminal
-          warehouses={warehouses}
-          customers={customers}
-          onCustomersChanged={() => sales.allCustomers().then((rows) => setCustomers(rows)).catch(() => {})}
-          bankAccounts={accounts}
-          shift={shift}
-          initialOrder={orderToInvoice}
-          onSold={() => { setOrderToInvoice(null); setRefreshKey((k) => k + 1); }}
-        />
+      {/* Kept mounted while another tab is open: a look at the invoices in
+          the middle of a sale used to unmount the till and drop the cart. */}
+      {writable && (
+        <div className={tab === "pos" ? "" : "hidden"}>
+          <PosTerminal
+            active={tab === "pos"}
+            warehouses={warehouses}
+            customers={customers}
+            // listAll resolves to { data: rows }, like an axios response.
+            onCustomersChanged={() => sales.allCustomers().then((r) => setCustomers(r.data)).catch(() => {})}
+            bankAccounts={accounts}
+            shift={shift}
+            initialOrder={orderToInvoice}
+            onSold={() => { setOrderToInvoice(null); setRefreshKey((k) => k + 1); }}
+          />
+        </div>
       )}
       {tab === "quotes" && (
         <QuotesOrders

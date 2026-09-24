@@ -5,7 +5,7 @@ from django.utils.translation import gettext as _
 from rest_framework import serializers
 
 from accounts.models import Permission, Role, User
-from core.rbac import can_approve_high_value, report_areas_for
+from core.rbac import can_approve_high_value, can_see_cost, report_areas_for
 from core.platform_roles import platform_capabilities_for
 from org.store_mode import is_system_mode_owner
 
@@ -336,6 +336,16 @@ class MeSerializer(serializers.ModelSerializer):
         profile = getattr(obj.company, "tax_profile", None)
         return str(profile.flat_tax_rate) if profile else "0"
 
+    # The till warns before a discount it would refuse (see
+    # Company.max_discount_percent); None = no limit.
+    max_discount_percent = serializers.SerializerMethodField()
+
+    def get_max_discount_percent(self, obj):
+        if not obj.company_id:
+            return None
+        limit = obj.company.max_discount_percent
+        return None if limit is None else str(limit)
+
     # The access decision the shell needs on first paint: whether writes are
     # open, why not, and when the current state ends — so a licence in grace
     # or a lapsed subscription is announced on every screen, not discovered
@@ -378,6 +388,8 @@ class MeSerializer(serializers.ModelSerializer):
             # Voiding documents, overriding credit limits, signing off tills:
             # the same approver roles core.rbac.can_approve_high_value names.
             "finance.approve": can_approve_high_value(obj),
+            # Sees what goods cost (product cost fields are hidden otherwise).
+            "inventory.see_cost": can_see_cost(obj),
             "scope.branch_id": obj.branch_id,
             **{name: True for name in platform_capabilities_for(obj)},
         }
@@ -398,6 +410,7 @@ class MeSerializer(serializers.ModelSerializer):
             "role_name",
             "role_scope",
             "tax_rate",
+            "max_discount_percent",
             "entitlements",
             "deployment_mode",
             "is_platform_admin",

@@ -43,6 +43,17 @@ class TaxHandler:
         raise NotImplementedError
 
 
+def _local_day(moment, company):
+    """ISO date of `moment` in the company's business zone (or None)."""
+    if moment is None:
+        return None
+    from django.utils import timezone
+
+    from core.timezone import company_zone
+
+    return timezone.localdate(moment, company_zone(company)).isoformat()
+
+
 class SimpleTaxHandler(TaxHandler):
     code = "simple"
     label = "Simple / plain invoice"
@@ -65,7 +76,10 @@ class SimpleTaxHandler(TaxHandler):
             # the existing document consumers; `party` carries the full block.
             "customer": invoice.customer.name if invoice.customer else None,
             "party": party_block(invoice.customer),
-            "issued_at": invoice.issued_at.date().isoformat() if invoice.issued_at else None,
+            # The shop's calendar day, not UTC's: a sale at 00:30 in
+            # Khartoum is 22:30 UTC the day before, and the receipt printed
+            # yesterday's date.
+            "issued_at": _local_day(invoice.issued_at, invoice.company),
             "due_date": invoice.due_date.isoformat() if invoice.due_date else None,
             "payment_terms_days": invoice.payment_terms_days,
             "tax_rate": str(invoice.tax_rate_snapshot),
