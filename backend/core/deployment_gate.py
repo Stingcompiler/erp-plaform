@@ -23,7 +23,8 @@ from config.deployment import get_deployment_config
 SAAS_ONLY = re.compile(
     r"^/api/(?:"
     r"platform/"
-    r"|public/(?:demo-requests|plans|registration-requests|owner-invitations|platform-invitations)/"
+    r"|public/(?:demo-requests|plans|registration-requests|owner-invitations"
+    r"|platform-invitations|track)/"
     r")"
 )
 

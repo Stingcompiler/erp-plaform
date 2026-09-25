@@ -11,7 +11,6 @@ confirmed sales order the till already knows how to finish.
 """
 
 import re
-import secrets
 from decimal import Decimal
 
 from django.conf import settings
@@ -56,11 +55,9 @@ def catalogue(site):
 
 
 def _new_reference():
-    for _attempt in range(20):
-        ref = "W" + "".join(secrets.choice(REFERENCE_ALPHABET) for _i in range(6))
-        if not PublicOrder.objects.filter(reference=ref).exists():
-            return ref
-    raise RuntimeError("could not allocate an order reference")
+    from website.tracking import new_reference
+
+    return new_reference("W", lambda ref: PublicOrder.objects.filter(reference=ref).exists())
 
 
 def clean_phone(raw):

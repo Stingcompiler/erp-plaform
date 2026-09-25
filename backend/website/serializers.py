@@ -260,13 +260,15 @@ class PlatformLeadSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlatformLead
         fields = [
-            "id", "request_uuid", "name", "email", "phone", "preferred_channel", "message",
+            "id", "request_uuid", "public_reference", "name", "email", "phone",
+            "preferred_channel", "message",
             "status", "internal_note", "last_contacted_at", "last_contact_channel",
             "next_follow_up_at", "follow_up_due", "source", "created_at",
         ]
         read_only_fields = [
-            "id", "request_uuid", "name", "email", "phone", "preferred_channel", "message",
-            "last_contacted_at", "last_contact_channel", "follow_up_due", "source", "created_at",
+            "id", "request_uuid", "public_reference", "name", "email", "phone",
+            "preferred_channel", "message", "last_contacted_at", "last_contact_channel",
+            "follow_up_due", "source", "created_at",
         ]
 
 
@@ -355,14 +357,16 @@ class PlatformRegistrationRequestSerializer(serializers.ModelSerializer):
             "id", "request_uuid", "company_name", "contact_name", "email", "phone", "country",
             "timezone_name", "estimated_users", "estimated_branches", "delivery_mode",
             "plan_version", "plan_name", "message", "privacy_version", "status", "internal_note",
-            "last_contacted_at", "last_contact_channel", "next_follow_up_at", "follow_up_due",
+            "public_note", "public_reference", "last_contacted_at", "last_contact_channel",
+            "next_follow_up_at", "follow_up_due",
             "reviewed_by", "reviewed_at", "company_id", "created_at", "updated_at",
         ]
         read_only_fields = [
             "request_uuid", "company_name", "contact_name", "email", "phone", "country",
             "timezone_name", "estimated_users", "estimated_branches",
             "delivery_mode", "message", "privacy_version",
-            "status", "last_contacted_at", "last_contact_channel", "follow_up_due",
+            "status", "public_note", "public_reference",
+            "last_contacted_at", "last_contact_channel", "follow_up_due",
             "reviewed_by", "reviewed_at", "company_id",
             "created_at", "updated_at",
         ]

@@ -107,6 +107,7 @@ class PlatformLeadViewSet(
         if search:
             queryset = queryset.filter(
                 models.Q(name__icontains=search)
+                | models.Q(public_reference__iexact=search)
                 | models.Q(email__icontains=search)
                 | models.Q(phone__icontains=search)
                 | models.Q(message__icontains=search)
@@ -258,9 +259,21 @@ class PublicRegistrationRequestView(APIView):
         if created:
             _email_request_received(registration)
         return Response(
-            {"reference": str(registration.request_uuid), "status": registration.status},
+            {
+                "reference": str(registration.request_uuid),
+                # What the applicant quotes and searches on vezano.app/track/.
+                "public_reference": registration.public_reference,
+                "track_url": _track_url(),
+                "status": registration.status,
+            },
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
+
+
+def _track_url():
+    from website.public_pages import site_url
+
+    return site_url("/track/")
 
 
 def _email_request_received(registration):
@@ -276,15 +289,19 @@ def _email_request_received(registration):
             f"مرحباً {registration.contact_name}،",
             f"استلمنا طلب «{registration.company_name}» وسنراجعه قريبًا.",
             "عند الموافقة يصلك رابط تفعيل حساب المالك على هذا البريد.",
-            f"مرجع الطلب: {registration.request_uuid}",
+            f"رقم الطلب: {registration.public_reference}",
+            "تابع حالة طلبك في أي وقت برقم الطلب أو بريدك أو هاتفك من الرابط أدناه.",
         ],
         en=[
             f"Hello {registration.contact_name},",
             f"We received the request for “{registration.company_name}” "
             "and will review it shortly.",
             "Once approved, the owner activation link arrives at this address.",
-            f"Request reference: {registration.request_uuid}",
+            f"Request reference: {registration.public_reference}",
+            "Follow your request any time with this reference, your email or your phone "
+            "at the link below.",
         ],
+        link=_track_url(),
         recipient=registration.email,
     )
 
@@ -390,10 +407,14 @@ class PlatformRegistrationRequestViewSet(
         registration.internal_note = request.data.get(
             "internal_note", registration.internal_note
         )
+        if target in (RegistrationRequest.REJECTED, RegistrationRequest.NEEDS_INFORMATION):
+            # What the applicant reads on vezano.app/track/.
+            registration.public_note = str(request.data.get("public_note") or "").strip()[:1000]
         registration.mark_reviewed(request.user)
         registration.save(
             update_fields=[
-                "status", "internal_note", "reviewed_by", "reviewed_at", "updated_at"
+                "status", "internal_note", "public_note", "reviewed_by", "reviewed_at",
+                "updated_at",
             ]
         )
         log_activity(
@@ -735,7 +756,7 @@ class DemoRequestView(APIView):
         data = serializer.validated_data
         with transaction.atomic():
             reference = str(data["request_uuid"])
-            PlatformLead.objects.get_or_create(
+            lead, _created = PlatformLead.objects.get_or_create(
                 request_uuid=data["request_uuid"],
                 defaults={
                     "name": data["name"],
@@ -745,7 +766,10 @@ class DemoRequestView(APIView):
                     "message": data.get("message", ""),
                 },
             )
-        return Response({"reference": reference, "status": "saved"}, status=201)
+        return Response({
+            "reference": reference, "public_reference": lead.public_reference,
+            "track_url": _track_url(), "status": "saved",
+        }, status=201)
 
 
 class PublicOrderCreateView(APIView):
@@ -981,3 +1005,43 @@ class PushSubscriptionView(APIView):
         endpoint = str(request.data.get("endpoint") or "")
         PushSubscription.objects.filter(user=request.user, endpoint=endpoint).delete()
         return Response(status=204)
+
+
+class PlatformTrackView(APIView):
+    """POST /api/public/track/ — UNAUTHENTICATED. The search behind
+    vezano.app/track/: web orders from any published store, and the
+    visitor's registration / demo requests and subscription payments with
+    Vezano (website.platform_tracking says what is found and shown).
+
+    A POST so the query never lands in a URL or an access log; nothing here
+    changes state, so no CSRF token is needed (no session auth either). The
+    per-address budget is the store tracking page's, shared."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    @staticmethod
+    def _private(response):
+        response["Cache-Control"] = "no-store"
+        response["X-Robots-Tag"] = "noindex"
+        return response
+
+    def post(self, request):
+        from website import platform_tracking, tracking
+
+        query = str(request.data.get("q") or "").strip()[:254]
+        language = "en" if str(request.data.get("language") or "").startswith("en") else "ar"
+        if not query:
+            return self._private(Response(
+                {"detail": _("Enter a reference, a phone number, an email or a name.")},
+                status=status.HTTP_400_BAD_REQUEST,
+            ))
+        if tracking.rate_limited(request):
+            return self._private(Response(
+                {"limited": True, "results": []}, status=status.HTTP_429_TOO_MANY_REQUESTS,
+            ))
+        kind, items = platform_tracking.lookup(query, language)
+        platform_tracking.log_lookup(kind, items)
+        return self._private(Response({
+            "limited": False, "results": items, "lookup_days": tracking.LOOKUP_DAYS,
+        }))

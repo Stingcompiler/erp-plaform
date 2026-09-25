@@ -511,6 +511,7 @@ def _order_page_context(request, site):
         "dir": "rtl" if language == "ar" else "ltr", "colour": colour, "logo": logo,
         "site_path": public_site_path(slug),
         "track_path": f"/s/{slug}/track/",
+        "platform_track_url": site_url("/track/"),
         "is_demo": site.company.is_demo,
     }
 

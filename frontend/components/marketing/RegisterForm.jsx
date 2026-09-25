@@ -107,7 +107,10 @@ export default function RegisterForm() {
         message: form.get("message"),
         privacy_version: "2026-09",
       });
-      setSent({ reference: response.data.reference, email: String(form.get("email") || "").trim() });
+      setSent({
+        reference: response.data.public_reference || response.data.reference,
+        email: String(form.get("email") || "").trim(),
+      });
     } catch {
       setError(t("registration.publicError"));
     } finally { setBusy(false); }
@@ -130,7 +133,11 @@ export default function RegisterForm() {
           </div>
         </div>
         <p className="mt-4 text-sm text-muted">{t("register.sentBody")}</p>
-        <p className="tabular mt-2 rounded-control bg-surface px-3 py-2 font-mono text-sm" dir="ltr">{sent.reference}</p>
+        <p className="tabular mt-2 rounded-control bg-surface px-3 py-2 font-mono text-lg font-bold tracking-wide" dir="ltr">{sent.reference}</p>
+        <Link href={href("/track")} className="mt-3 inline-block text-sm font-medium text-accent hover:underline">
+          {t("track.thankYouTrack")}
+        </Link>
+        <br />
         <Link href={href("/")} className="mt-6 inline-block rounded-control border border-line bg-surface px-5 py-3 font-medium hover:border-accent">
           {t("register.backHome")}
         </Link>

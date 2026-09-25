@@ -30,7 +30,10 @@ class DemoRequestTests(APITestCase):
         self.assertEqual(first.status_code, 201, first.data)
         self.assertEqual(again.data, first.data)
         self.assertEqual(PlatformLead.objects.count(), 1)
-        self.assertEqual(set(first.data), {"status", "reference"})
+        self.assertEqual(
+            set(first.data), {"status", "reference", "public_reference", "track_url"}
+        )
+        self.assertRegex(first.data["public_reference"], r"^D[A-Z0-9]{6}$")
 
     def test_phone_and_preferred_channel(self):
         url = reverse("demo-request")

@@ -57,6 +57,10 @@ const NAV_LINKS = [
   ["/#contact", "landing.navContact"],
 ];
 
+// vezano.app/track/: after the other links; on a narrow desktop header it
+// lives in the phone menu and the footer only, so the bar never overflows.
+const TRACK_LINK = ["/track", "track.nav", "hidden lg:inline"];
+
 // The stores directory joins the header as soon as one complete, listed
 // store exists (owner's call: one real example is worth showing). The footer
 // links it always (crawlers and the curious still find it).
@@ -81,7 +85,9 @@ export function MarketingHeader() {
   const showStores = useStoresNav();
   // The directory is a Django page on the same origin, not a Next route, so
   // it is never language-prefixed.
-  const navLinks = showStores ? [...NAV_LINKS, [STORES_PATH, "landing.navStores"]] : NAV_LINKS;
+  const navLinks = [
+    ...NAV_LINKS, ...(showStores ? [[STORES_PATH, "landing.navStores"]] : []), TRACK_LINK,
+  ];
   const navHref = (path) => (path === STORES_PATH ? path : href(path));
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
@@ -130,8 +136,8 @@ export function MarketingHeader() {
           {t("common.appName")}
         </Link>
         <nav className="hidden items-center gap-6 text-sm text-muted md:flex">
-          {navLinks.map(([path, key]) => (
-            <a key={path} href={navHref(path)} className="hover:text-ink">{t(key)}</a>
+          {navLinks.map(([path, key, visibility]) => (
+            <a key={path} href={navHref(path)} className={`hover:text-ink ${visibility || ""}`}>{t(key)}</a>
           ))}
         </nav>
         {/* Desktop / tablet: everything inline. */}
@@ -237,6 +243,7 @@ export function MarketingFooter() {
               </div>
               <ul className="mt-3 space-y-2 text-sm text-paper/60">
                 <li><Link href={href("/#contact")} className="hover:text-paper">{t("landing.navContact")}</Link></li>
+                <li><Link href={href("/track")} className="hover:text-paper">{t("track.title")}</Link></li>
               </ul>
               <SiteContactLines className="mt-3 space-y-2 text-sm text-paper/60" />
             </div>

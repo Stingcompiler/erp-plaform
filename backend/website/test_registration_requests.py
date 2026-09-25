@@ -48,7 +48,11 @@ class RegistrationRequestTests(APITestCase):
         self.assertEqual(first.status_code, 201, first.data)
         self.assertEqual(again.status_code, 200, again.data)
         self.assertEqual(RegistrationRequest.objects.count(), 1)
-        self.assertEqual(set(first.data), {"reference", "status"})
+        self.assertEqual(
+            set(first.data), {"reference", "public_reference", "track_url", "status"}
+        )
+        self.assertRegex(first.data["public_reference"], r"^R[A-Z0-9]{6}$")
+        self.assertEqual(again.data["public_reference"], first.data["public_reference"])
 
     @override_settings(
         EMAIL_ENABLED=True, EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend"
@@ -59,7 +63,9 @@ class RegistrationRequestTests(APITestCase):
         self.assertEqual(len(mail.outbox), 1)
         message = mail.outbox[0]
         self.assertEqual(message.to, ["amina@northwind.test"])
-        self.assertIn(self.body["request_uuid"], message.body)
+        reference = RegistrationRequest.objects.get().public_reference
+        self.assertIn(reference, message.body)
+        self.assertIn("/track/", message.body)
         self.assertIn("Northwind Trading", message.body)
         # A retry of the same request must not send a second acknowledgement.
         self.assertEqual(self.client.post(url, self.body, format="json").status_code, 200)

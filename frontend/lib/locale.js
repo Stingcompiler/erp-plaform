@@ -14,7 +14,7 @@ export const EN_PREFIX = "/en";
 // Root-relative public pages, without the language prefix and without the
 // trailing slash the export adds. The content sections (lib/content) add
 // pages under these prefixes; anything below them is a marketing page too.
-export const MARKETING_PATHS = ["/", "/product", "/pricing", "/register", "/register/hosting"];
+export const MARKETING_PATHS = ["/", "/product", "/pricing", "/register", "/register/hosting", "/track"];
 export const MARKETING_PREFIXES = ["/solutions", "/guides", "/compare"];
 
 function isMarketingPath(bare) {
