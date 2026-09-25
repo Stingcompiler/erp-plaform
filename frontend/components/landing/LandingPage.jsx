@@ -8,19 +8,22 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import {
-  Boxes,
+  ArrowRight,
+  Banknote,
   Briefcase,
+  Building2,
+  ChartColumn,
   Check,
   Contact,
   DatabaseBackup,
-  Globe,
-  LayoutDashboard,
+  Languages,
   LifeBuoy,
   Mail,
   MessageCircle,
   Package,
-  RotateCcw,
+  ShieldCheck,
   ShoppingCart,
+  Smartphone,
   Truck,
   Users,
   Wallet,
@@ -37,19 +40,20 @@ import { DirectWhatsAppLink, SiteContactProvider, WhatsAppFloat, useSiteContact 
 import PlanCards from "@/components/marketing/PlanCards";
 import Shot from "@/components/marketing/Shot";
 
-const MODULES = [
-  { icon: LayoutDashboard, key: "nav.dashboard" },
-  { icon: Package, key: "nav.inventory" },
-  { icon: ShoppingCart, key: "nav.sales" },
-  { icon: Truck, key: "nav.purchasing" },
-  { icon: RotateCcw, key: "nav.returns" },
-  { icon: Contact, key: "nav.crm" },
-  { icon: Wallet, key: "nav.finance" },
-  { icon: Briefcase, key: "nav.hr" },
-  { icon: Boxes, key: "nav.reports" },
-  { icon: Globe, key: "nav.website" },
-  { icon: Users, key: "nav.users" },
-];
+// Icons for the module cards (home.modules[].key); the copy and the /product
+// anchor each card links to live in lib/marketingI18n.js.
+const MODULE_ICONS = {
+  sales: ShoppingCart,
+  inventory: Package,
+  purchasing: Truck,
+  crm: Contact,
+  hr: Briefcase,
+  finance: Wallet,
+  reports: ChartColumn,
+  branches: Building2,
+};
+
+const SUDAN_ICONS = [WifiOff, Smartphone, Languages, Banknote];
 
 const STORY_SHOTS = [
   { light: "/marketing/pos.png", dark: "/marketing/pos-dark.png" },
@@ -88,7 +92,7 @@ function Hero() {
             </span>
           </Reveal>
           <Reveal immediate delay={0.05}>
-            <h1 className="mt-5 font-display text-4xl font-bold leading-[1.15] tracking-tight sm:text-6xl">
+            <h1 className="mt-5 font-display text-3xl font-bold leading-[1.2] tracking-tight sm:text-5xl">
               {t("home.heroTitle")}
             </h1>
           </Reveal>
@@ -144,7 +148,7 @@ function Stories() {
   const stories = t("home.stories");
   if (!Array.isArray(stories)) return null;
   return (
-    <section id="features" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+    <section id="features" className="mx-auto max-w-6xl border-t border-line px-4 py-16 sm:px-6 sm:py-24">
       <h2 className="text-center font-display text-2xl font-bold tracking-tight sm:text-3xl">{t("home.storiesTitle")}</h2>
       <div className="mt-14 space-y-20">
         {stories.map((story, index) => {
@@ -176,25 +180,117 @@ function Stories() {
   );
 }
 
+// Every department in one system: one card per module, each linking to its
+// section of /product. Only what the code does (see the copy's comment).
 function Modules() {
-  const { t } = useI18n();
+  const { t, href } = useI18n();
+  const modules = t("home.modules");
+  if (!Array.isArray(modules)) return null;
   return (
-    <section id="modules" className="border-t border-line bg-surface">
+    <section id="modules" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+      <div className="mx-auto max-w-2xl text-center">
+        <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">{t("home.modulesTitle")}</h2>
+        <p className="mt-3 text-muted">{t("home.modulesSubtitle")}</p>
+      </div>
+      <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {modules.map((module, index) => {
+          const Icon = MODULE_ICONS[module.key] || Package;
+          return (
+            <Reveal key={module.key} delay={index * 0.03} className="h-full">
+              <Link
+                href={href(`/product#${module.anchor}`)}
+                className="group flex h-full flex-col rounded-card border border-line bg-surface p-5 shadow-card transition-colors hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+              >
+                <span className="grid h-10 w-10 place-items-center rounded-control bg-accent/10 text-accent"><Icon size={20} aria-hidden="true" /></span>
+                <h3 className="mt-4 font-display text-lg font-semibold">{module.title}</h3>
+                <p className="mt-2 flex-1 text-sm text-muted">{module.body}</p>
+                <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-accent">
+                  {t("home.modulesMore")}
+                  <ArrowRight size={15} aria-hidden="true" className="transition-transform group-hover:translate-x-0.5 rtl:rotate-180 rtl:group-hover:-translate-x-0.5" />
+                </span>
+              </Link>
+            </Reveal>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// For companies with several branches and layered roles: branch scoping,
+// the fixed role set (core.rbac / seed_roles) and the approval points.
+function MultiBranch() {
+  const { t } = useI18n();
+  const roles = t("home.multiRoles");
+  const approvals = t("home.multiApprovals");
+  const card = "h-full rounded-card border border-line bg-paper p-6 shadow-card";
+  const heading = "flex items-center gap-2 font-display text-lg font-semibold";
+  return (
+    <section id="branches" className="border-y border-line bg-surface">
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">{t("landing.modulesTitle")}</h2>
-          <p className="mt-3 text-muted">{t("landing.modulesSubtitle")}</p>
+          <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">{t("home.multiTitle")}</h2>
+          <p className="mt-3 text-muted">{t("home.multiSubtitle")}</p>
         </div>
-        <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {MODULES.map(({ icon: Icon, key }, index) => (
-            <Reveal key={key} delay={index * 0.03}>
-              <div className="flex items-center gap-3 rounded-card border border-line bg-paper px-4 py-3.5 shadow-card">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-control bg-accent/10 text-accent"><Icon size={18} /></span>
-                <span className="text-sm font-medium">{t(key)}</span>
+        <div className="mt-10 grid gap-5 lg:grid-cols-3">
+          <Reveal className="h-full">
+            <div className={card}>
+              <h3 className={heading}><Building2 size={20} aria-hidden="true" className="shrink-0 text-accent" />{t("home.multiBranchTitle")}</h3>
+              <p className="mt-3 text-sm text-muted">{t("home.multiBranchBody")}</p>
+            </div>
+          </Reveal>
+          <Reveal delay={0.05} className="h-full">
+            <div className={card}>
+              <h3 className={heading}><Users size={20} aria-hidden="true" className="shrink-0 text-accent" />{t("home.multiRolesTitle")}</h3>
+              {Array.isArray(roles) && (
+                <ul className="mt-4 flex flex-wrap gap-2">
+                  {roles.map((role) => (
+                    <li key={role} className="rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-ink">{role}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </Reveal>
+          <Reveal delay={0.1} className="h-full">
+            <div className={card}>
+              <h3 className={heading}><ShieldCheck size={20} aria-hidden="true" className="shrink-0 text-accent" />{t("home.multiApprovalsTitle")}</h3>
+              {Array.isArray(approvals) && (
+                <ul className="mt-4 space-y-2.5 text-sm">
+                  {approvals.map((line) => (
+                    <li key={line} className="flex items-start gap-2">
+                      <Check size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-accent" /><span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </Reveal>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SudanFit() {
+  const { t } = useI18n();
+  const items = t("home.sudan");
+  if (!Array.isArray(items)) return null;
+  return (
+    <section id="sudan" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+      <h2 className="text-center font-display text-2xl font-bold tracking-tight sm:text-3xl">{t("home.sudanTitle")}</h2>
+      <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {items.map(([title, body], index) => {
+          const Icon = SUDAN_ICONS[index] || Check;
+          return (
+            <Reveal key={title} delay={index * 0.05} className="h-full">
+              <div className="h-full rounded-card border border-line bg-paper p-5 shadow-card">
+                <span className="grid h-9 w-9 place-items-center rounded-control bg-accent/10 text-accent"><Icon size={18} aria-hidden="true" /></span>
+                <h3 className="mt-3 font-display font-semibold">{title}</h3>
+                <p className="mt-2 text-sm text-muted">{body}</p>
               </div>
             </Reveal>
-          ))}
-        </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -428,9 +524,11 @@ export default function LandingPage() {
         <main>
           <Hero />
           <TrustStrip />
+          <Modules />
+          <MultiBranch />
+          <SudanFit />
           <Stories />
           <Showcase />
-          <Modules />
           <HowItWorks />
           <TrustSupport />
           <PricingPreview />
