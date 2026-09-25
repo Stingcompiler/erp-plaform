@@ -5,6 +5,7 @@ from subscriptions.models import PlanVersion
 from core.public_media import stored_public_url
 from website.models import (
     PublicOrder,
+    PublicOrderEvent,
     PublicOrderLine,
     PublicOrderPayment,
     FeaturedProduct, PlatformLead, RegistrationRequest, Section, Website, WebsiteImage,
@@ -426,13 +427,30 @@ class PublicOrderPaymentSerializer(serializers.ModelSerializer):
         return bool(obj.proof)
 
 
+class PublicOrderEventSerializer(serializers.ModelSerializer):
+    actor_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PublicOrderEvent
+        fields = ["id", "from_status", "to_status", "note", "actor_name", "created_at"]
+        read_only_fields = fields
+
+    def get_actor_name(self, obj):
+        user = obj.actor
+        return (user.full_name or user.email) if user else None
+
+
 class PublicOrderSerializer(serializers.ModelSerializer):
     lines = PublicOrderLineSerializer(many=True, read_only=True)
     payments = PublicOrderPaymentSerializer(many=True, read_only=True)
+    events = PublicOrderEventSerializer(many=True, read_only=True)
     branch_name = serializers.CharField(source="branch.name", read_only=True, default=None)
     customer_name = serializers.CharField(source="customer.name", read_only=True, default=None)
     decided_by_name = serializers.SerializerMethodField()
     whatsapp = serializers.SerializerMethodField()
+    next_steps = serializers.SerializerMethodField()
+    tracking_url = serializers.SerializerMethodField()
+    invoiced = serializers.SerializerMethodField()
 
     class Meta:
         model = PublicOrder
@@ -441,9 +459,26 @@ class PublicOrderSerializer(serializers.ModelSerializer):
             "note", "language", "currency", "total", "tax_amount", "branch", "branch_name",
             "customer",
             "customer_name", "sales_order", "decided_by_name", "decided_at", "decision_note",
-            "whatsapp", "created_at", "lines", "payments", "email",
+            "whatsapp", "created_at", "lines", "payments", "email", "events", "next_steps",
+            "tracking_url", "invoiced",
         ]
         read_only_fields = fields
+
+    def get_next_steps(self, obj):
+        from website.tracking import allowed_next
+
+        return allowed_next(obj)
+
+    def get_tracking_url(self, obj):
+        from website.tracking import tracking_url
+
+        return tracking_url(obj) if obj.tracking_token else ""
+
+    def get_invoiced(self, obj):
+        # A cancellation leaves an invoice alone; the page says a return is due.
+        if obj.sales_order_id and obj.sales_order.status == "fulfilled":
+            return True
+        return any(claim.invoice_id for claim in obj.payments.all())
 
     def get_decided_by_name(self, obj):
         user = obj.decided_by

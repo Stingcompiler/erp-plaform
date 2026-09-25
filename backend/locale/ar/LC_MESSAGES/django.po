@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-25 09:43+0000\n"
+"POT-Creation-Date: 2026-09-25 16:09+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2216,6 +2216,9 @@ msgstr "تم الرد على هذا الطلب مسبقًا."
 msgid "%(name)s is no longer in the catalogue."
 msgstr "%(name)s لم يعد متاحًا في قائمة المنتجات. احذفه من الطلب أو أعد تفعيله."
 
+msgid "Give the reason for rejecting; the customer sees it."
+msgstr "اذكر سبب الرفض؛ سيراه العميل."
+
 msgid "Use the measurement id as Google shows it, such as G-XXXXXXXXXX."
 msgstr "أدخل معرّف القياس كما يظهر في Google، مثل G-XXXXXXXXXX."
 
@@ -2285,6 +2288,12 @@ msgstr "دعوة المالك متاحة فقط لطلبات التسجيل ال
 
 msgid "The company has no active owner to invite."
 msgstr "لا يوجد مالك نشط لهذه الشركة لإرسال الدعوة إليه."
+
+msgid "This order cannot move to that stage now."
+msgstr "لا يمكن نقل هذا الطلب إلى هذه المرحلة الآن."
+
+msgid "Give the reason for cancelling; the customer sees it."
+msgstr "اذكر سبب الإلغاء؛ سيراه العميل."
 
 msgid "This status transition is not allowed."
 msgstr "لا يُسمح بتغيير الحالة بهذا الشكل."

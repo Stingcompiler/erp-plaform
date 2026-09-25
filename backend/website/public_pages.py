@@ -27,7 +27,8 @@ from django.utils.html import strip_tags
 from django.utils.text import Truncator
 from django.utils.xmlutils import SimplerXMLGenerator
 from django.views.decorators.cache import cache_control
-from django.views.decorators.http import require_GET
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET, require_http_methods
 
 from org.models import Company
 from website.models import Website, normalize_seo_path, service_lines
@@ -329,6 +330,10 @@ def render_site(request, site, *, preview=False):
             site.company.branches.filter(is_active=True).values("id", "name", "phone")
         ) if data.get("accept_orders") else [],
         "order_api": f"/api/public/site/{slug}/orders/",
+        # Customers who ordered find their orders here, even after the page
+        # stopped taking new ones.
+        "track_path": f"/s/{slug}/track/"
+        if data.get("accept_orders") or site.public_orders.exists() else "",
         # The cart sums shown prices; the order itself is quoted with tax.
         "order_taxed": bool(data.get("accept_orders")) and _company_taxed(site.company),
         "platform_url": site_url("/"),
@@ -488,6 +493,99 @@ def public_pay_page(request, slug):
         "site_path": public_site_path(slug),
         "api_base": f"/api/public/site/{slug}/orders/",
     })
+    return _private(response)
+
+
+def _order_page_context(request, site):
+    """What every per-order public page (tracking) shows of the shop: name,
+    logo, colour and language."""
+    slug = site.company.slug
+    data = PublicSiteSerializer(site).data
+    language = _language(site, data)
+    colour = data["primary_color"] if HEX_COLOUR.match(data["primary_color"] or "") else "#111827"
+    logo = absolute(data["logo_image_url"], request) or (
+        data["logo_url"] if (data["logo_url"] or "").startswith(("http://", "https://")) else ""
+    )
+    return {
+        "name": _display_name(site), "language": language,
+        "dir": "rtl" if language == "ar" else "ltr", "colour": colour, "logo": logo,
+        "site_path": public_site_path(slug),
+        "track_path": f"/s/{slug}/track/",
+        "is_demo": site.company.is_demo,
+    }
+
+
+def _private(response):
+    """One person's order: never cached, never indexed."""
     response["Cache-Control"] = "no-store"
     response["X-Robots-Tag"] = "noindex"
     return response
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def public_track_page(request, slug):
+    """/s/<slug>/track/ — a customer finds their recent orders by reference,
+    email or exact name (website.tracking says what is shown and why).
+
+    The search is a POST so an email or a name never lands in a URL, a
+    browser history or an access log. It changes nothing, so it carries no
+    CSRF token, and a visitor whose browser blocks cookies can still use it.
+    """
+    from website import tracking
+
+    site = _site_or_404(slug)
+    context = _order_page_context(request, site)
+    query = ""
+    searched, limited, results = False, False, []
+    if request.method == "POST":
+        query = str(request.POST.get("q") or "").strip()[:254]
+        if query:
+            searched = True
+            limited = tracking.rate_limited(request)
+            if not limited:
+                who, orders = tracking.lookup(site, query)
+                results = [
+                    tracking.public_view(order, context["language"], who=who)
+                    for order in orders
+                ]
+                kind = (tracking.classify(query) or ("none",))[0]
+                tracking.log_lookup(site, kind, len(results))
+    context.update({
+        "query": query, "searched": searched, "limited": limited, "results": results,
+        "lookup_days": tracking.LOOKUP_DAYS, "single": False,
+    })
+    return _private(render(request, "website/public_track.html", context))
+
+
+@require_GET
+def public_track_order_page(request, slug, token):
+    """/s/<slug>/track/<token>/ — the customer's private link to one order."""
+    from website import tracking
+    from website.models import PublicOrder
+
+    site = _site_or_404(slug)
+    context = _order_page_context(request, site)
+    order = None
+    limited = tracking.rate_limited(request, count=False)
+    if not limited:
+        order = (
+            PublicOrder.objects.filter(website=site, tracking_token=str(token)[:48])
+            .select_related("branch", "company", "website")
+            .prefetch_related("lines", "payments", "events")
+            .first()
+        )
+        if order is None:
+            # A wrong token costs the address a lookup, like a failed search.
+            tracking.rate_limited(request)
+    results = []
+    if order is not None:
+        results = [tracking.public_view(order, context["language"], who="first", full=True)]
+    context.update({
+        "query": "", "searched": True, "limited": limited, "results": results,
+        "lookup_days": tracking.LOOKUP_DAYS, "single": True,
+    })
+    response = render(
+        request, "website/public_track.html", context, status=200 if order else 404
+    )
+    return _private(response)

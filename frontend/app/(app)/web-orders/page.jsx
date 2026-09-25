@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Globe, Lock, MessageCircle, Truck, Store, Landmark, FileText, ShieldAlert } from "lucide-react";
+import { Globe, Lock, MessageCircle, Truck, Store, Landmark, FileText, ShieldAlert, PackageCheck, XCircle, Link2, History } from "lucide-react";
 
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
@@ -20,8 +20,15 @@ import { SkeletonTableRows } from "@/components/ui/Skeleton";
 import { EmptyTableRow } from "@/components/ui/EmptyState";
 import { formatMoney } from "@/lib/money";
 
-const TABS = ["new", "confirmed", "rejected", "all"];
-const TONE = { new: "warn", confirmed: "ok", rejected: "danger", cancelled: "muted" };
+const TABS = ["new", "active", "completed", "closed", "all"];
+// The stages each tab lists (the API takes a comma-separated list).
+const TAB_STATUS = { new: "new", active: "confirmed,preparing,ready,delivering", completed: "completed", closed: "rejected,cancelled" };
+const TONE = { new: "warn", confirmed: "accent", preparing: "accent", ready: "accent", delivering: "accent", completed: "ok", rejected: "danger", cancelled: "muted" };
+const tabFor = (status) => Object.keys(TAB_STATUS).find((key) => TAB_STATUS[key].split(",").includes(status)) || "all";
+// The label of a "move forward" button: completing says how it ended.
+const nextLabel = (order, step, t) => step === "completed"
+  ? t(`webOrders.stage.next.completed_${order.delivery_mode === "delivery" ? "delivery" : "pickup"}`)
+  : t(`webOrders.stage.next.${step}`);
 const PAY_TONE = { verifying: "warn", confirmed: "ok", rejected: "danger", fraud: "danger" };
 const payState = (r) => (r.payments || []).reduce((best, p) => {
   const rank = { confirmed: 3, verifying: 2, fraud: 1, rejected: 0 };
@@ -48,11 +55,13 @@ function WebOrders() {
   const [warehouses, setWarehouses] = useState([]);
   const [warehouse, setWarehouse] = useState("");
   const [payNote, setPayNote] = useState("");
+  const [reason, setReason] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const res = await api.list(tab === "all" ? {} : { status: tab });
+      const res = await api.list(tab === "all" ? {} : { status: TAB_STATUS[tab] });
       setRows(res.data.results || res.data);
     } catch (err) {
       setRows([]);
@@ -69,7 +78,7 @@ function WebOrders() {
     if (!ref) return;
     api.list({ ref }).then((res) => {
       const found = (res.data.results || res.data)[0];
-      if (found) { setOpen(found); if (found.status !== "new") setTab("all"); }
+      if (found) { setOpen(found); setTab(tabFor(found.status)); }
     }).catch(() => {});
   }, [params]);
 
@@ -79,6 +88,25 @@ function WebOrders() {
     try { const res = await fn(open.id, note); setOpen(res.data); setNote(""); await load(); }
     catch (err) { setError(errorText(err, t, "webOrders.decideError")); }
     finally { setBusy(false); }
+  };
+  const reject = () => {
+    if (!note.trim()) { setError(t("webOrders.stage.reasonRequired")); return; }
+    decide(api.reject);
+  };
+  const moveTo = async (status) => {
+    if (status === "cancelled") {
+      if (!reason.trim()) { setError(t("webOrders.stage.reasonRequired")); return; }
+      if (!(await confirm(t("webOrders.stage.cancelAsk", { ref: open.reference })))) return;
+    }
+    setBusy(true); setError("");
+    try {
+      const res = await api.stage(open.id, status, status === "cancelled" ? reason : "");
+      setOpen(res.data); setReason(""); await load();
+    } catch (err) { setError(errorText(err, t, "webOrders.decideError")); }
+    finally { setBusy(false); }
+  };
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(open.tracking_url); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* the link stays visible to copy by hand */ }
   };
   const decidePayment = async (claim, kind) => {
     const labels = { confirm: "webOrders.pay.confirmAsk", reject: "webOrders.pay.rejectAsk", fraud: "webOrders.pay.fraudAsk" };
@@ -117,10 +145,21 @@ function WebOrders() {
       paid: language === "ar" ? `مرحباً ${name}، وصل تحويلك لطلب ${order.reference} وسنجهّزه للتسليم.` : `Hello ${name}, your transfer for order ${order.reference} arrived; we are preparing it.`,
       payRejected: language === "ar" ? `مرحباً ${name}، لم نجد التحويل المسجّل لطلب ${order.reference}. راجع البيانات وسجّله مجددًا.` : `Hello ${name}, we could not find the transfer declared for order ${order.reference}. Please check and declare it again.`,
     };
+    const ar = language === "ar";
+    const reasonText = (order.events || []).filter((e) => e.to_status === "cancelled" && e.note).map((e) => e.note).pop();
+    Object.assign(map, {
+      preparing: ar ? `مرحباً ${name}، بدأنا تجهيز طلبك رقم ${order.reference}.` : `Hello ${name}, we started preparing your order ${order.reference}.`,
+      ready: ar ? `مرحباً ${name}، طلبك رقم ${order.reference} جاهز للاستلام${order.branch_name ? ` من ${order.branch_name}` : ""}.` : `Hello ${name}, your order ${order.reference} is ready for pickup${order.branch_name ? ` at ${order.branch_name}` : ""}.`,
+      delivering: ar ? `مرحباً ${name}، طلبك رقم ${order.reference} خرج للتوصيل.` : `Hello ${name}, your order ${order.reference} is out for delivery.`,
+      completed: ar ? `مرحباً ${name}، شكراً لطلبك رقم ${order.reference}!` : `Hello ${name}, thank you for your order ${order.reference}!`,
+      cancelled: ar ? `مرحباً ${name}، أُلغي طلبك رقم ${order.reference}.${reasonText ? ` السبب: ${reasonText}` : ""}` : `Hello ${name}, your order ${order.reference} was cancelled.${reasonText ? ` Reason: ${reasonText}` : ""}`,
+    });
+    const track = order.tracking_url ? `\n${ar ? "تابع طلبك" : "Follow your order"}: ${order.tracking_url}` : "";
     const pay = payState(order);
-    if (pay === "confirmed") return map.paid;
-    if (pay === "rejected") return map.payRejected;
-    return map[kind] || map.new;
+    const inProgress = ["new", "confirmed"].includes(kind);
+    if (inProgress && pay === "confirmed") return map.paid + track;
+    if (inProgress && pay === "rejected") return map.payRejected + track;
+    return (map[kind] || map.new) + track;
   };
 
   const counts = useMemo(() => rows.length, [rows]);
@@ -167,7 +206,7 @@ function WebOrders() {
         </table>
       </Card>
 
-      <Drawer open={Boolean(open)} onClose={() => { setOpen(null); setNote(""); }} title={open ? `${t("webOrders.order")} ${open.reference}` : ""}>
+      <Drawer open={Boolean(open)} onClose={() => { setOpen(null); setNote(""); setReason(""); }} title={open ? `${t("webOrders.order")} ${open.reference}` : ""}>
         {open && (
           <div className="space-y-4 text-sm">
             <div className="flex flex-wrap items-center gap-2"><Badge tone={TONE[open.status]}>{t(`webOrders.status.${open.status}`)}</Badge><span className="text-muted">{fmt(open.created_at)}</span>{open.branch_name && <Badge tone="muted">{open.branch_name}</Badge>}</div>
@@ -229,7 +268,7 @@ function WebOrders() {
                 <Input placeholder={t("webOrders.notePlaceholder")} value={note} onChange={(e) => setNote(e.target.value)} />
                 <div className="flex gap-2">
                   <Button disabled={busy} onClick={() => decide(api.confirm)}>{t("webOrders.confirm")}</Button>
-                  <Button variant="outline" disabled={busy} onClick={() => decide(api.reject)}>{t("webOrders.reject")}</Button>
+                  <Button variant="outline" disabled={busy} onClick={reject}>{t("webOrders.reject")}</Button>
                 </div>
               </div>
             )}
@@ -238,6 +277,47 @@ function WebOrders() {
                 {t("webOrders.decidedBy", { name: open.decided_by_name || "—", date: fmt(open.decided_at) })}
                 {open.decision_note && <> · «{open.decision_note}»</>}
                 {open.sales_order && <div className="mt-1"><Link href="/sales/?tab=quotes" className="text-accent hover:underline">{t("webOrders.openSalesOrder")}</Link></div>}
+              </div>
+            )}
+            {open.status !== "new" && writable && (open.next_steps || []).length > 0 && (
+              <div className="space-y-2 rounded-control bg-paper p-3">
+                <h3 className="flex items-center gap-2 font-display font-semibold"><PackageCheck size={16} className="text-accent" />{t("webOrders.stage.title")}</h3>
+                <p className="text-xs text-muted">{t("webOrders.stage.hint")}</p>
+                <div className="flex flex-wrap gap-2">
+                  {open.next_steps.filter((s) => s !== "cancelled").map((step) => (
+                    <Button key={step} disabled={busy} onClick={() => moveTo(step)}>{nextLabel(open, step, t)}</Button>
+                  ))}
+                </div>
+                {open.next_steps.includes("cancelled") && (
+                  <div className="space-y-2 border-t border-line pt-2">
+                    {open.invoiced && <p className="text-xs text-warn">{t("webOrders.stage.invoicedHint")}</p>}
+                    <Input placeholder={t("webOrders.stage.reasonPlaceholder")} value={reason} onChange={(e) => setReason(e.target.value)} />
+                    <Button variant="outline" className="text-danger" disabled={busy} onClick={() => moveTo("cancelled")}><XCircle size={14} />{t("webOrders.stage.cancel")}</Button>
+                  </div>
+                )}
+              </div>
+            )}
+            {open.tracking_url && (
+              <div className="rounded-control border border-line p-3">
+                <div className="mb-1 flex items-center gap-2 font-medium"><Link2 size={14} className="text-accent" />{t("webOrders.stage.trackingLink")}</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <a href={open.tracking_url} target="_blank" rel="noreferrer" dir="ltr" className="min-w-0 flex-1 truncate text-xs text-accent hover:underline">{open.tracking_url}</a>
+                  <Button variant="outline" onClick={copyLink}>{copied ? t("webOrders.stage.copied") : t("webOrders.stage.copy")}</Button>
+                </div>
+              </div>
+            )}
+            {(open.events || []).length > 0 && (
+              <div>
+                <h3 className="mb-2 flex items-center gap-2 font-display font-semibold"><History size={16} className="text-accent" />{t("webOrders.stage.history")}</h3>
+                <ol className="space-y-2 border-s-2 border-line ps-3">
+                  {open.events.map((e) => (
+                    <li key={e.id}>
+                      <Badge tone={TONE[e.to_status]}>{t(`webOrders.status.${e.to_status}`)}</Badge>
+                      <span className="ms-2 text-xs text-muted">{t("webOrders.stage.by", { name: e.actor_name || t("webOrders.stage.system"), date: fmt(e.created_at) })}</span>
+                      {e.note && <div className="mt-0.5 text-xs">«{e.note}»</div>}
+                    </li>
+                  ))}
+                </ol>
               </div>
             )}
           </div>
