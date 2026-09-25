@@ -5,9 +5,15 @@ from decimal import Decimal
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from django.utils import timezone
 
 from sales.models import CompanyBankAccount, Payment
 from sales.test_payment_verification import VerificationBase
+
+# Statement rows are matched within a few days of when the payment was
+# recorded (reconcile.DATE_SLACK_DAYS), so they carry today's date — a fixed
+# date made these tests fail a week after they were written.
+TODAY = timezone.localdate().isoformat()
 
 
 class BankAppBase(VerificationBase):
@@ -105,9 +111,9 @@ class ReconcileTests(BankAppBase):
         b = Payment.objects.get(pk=self._transfer(cashier, "450.00", last4="2222").data["id"])
         c = Payment.objects.get(pk=self._transfer(cashier, "80.00", reference="CC3333").data["id"])
         r = self._reconcile(self.finance, [
-            "2026-09-19 10:00,AA-1111,300.00,Ahmed",
-            "2026-09-19 10:05,99992222,450,Sara",
-            "2026-09-19 10:09,ZZ9999,120.00,Unknown",
+            f"{TODAY} 10:00,AA-1111,300.00,Ahmed",
+            f"{TODAY} 10:05,99992222,450,Sara",
+            f"{TODAY} 10:09,ZZ9999,120.00,Unknown",
         ])
         self.assertEqual(r.status_code, 200, r.data)
         self.assertEqual(r.data["rows"], 3)
@@ -125,20 +131,20 @@ class ReconcileTests(BankAppBase):
     def test_dry_run_previews_and_self_recorded_are_skipped(self):
         owner = self.client_for(self.owner)
         p = Payment.objects.get(pk=self._transfer(owner, "300.00", reference="AA1111").data["id"])
-        preview = self._reconcile(self.finance, ["2026-09-19,AA1111,300,Ahmed"], dry_run=True)
+        preview = self._reconcile(self.finance, [f"{TODAY},AA1111,300,Ahmed"], dry_run=True)
         self.assertEqual(preview.status_code, 200, preview.data)
         self.assertEqual((preview.data["applied"], len(preview.data["matched"])), (0, 1))
         p.refresh_from_db()
         self.assertIsNone(p.verified_at)
         # The owner recorded it, so the owner's own statement upload does not verify it.
-        own = self._reconcile(self.owner, ["2026-09-19,AA1111,300,Ahmed"])
+        own = self._reconcile(self.owner, [f"{TODAY},AA1111,300,Ahmed"])
         self.assertEqual((own.data["applied"], own.data["skipped_self"]), (0, 1))
         self.assertEqual(own.data["matched"][0]["outcome"], "self_recorded")
 
     def test_amount_mismatch_is_reported_not_verified(self):
         cashier = self.client_for(self.cashier)
         self._transfer(cashier, "300.00", reference="AA1111")
-        r = self._reconcile(self.finance, ["2026-09-19,AA1111,250,Ahmed"])
+        r = self._reconcile(self.finance, [f"{TODAY},AA1111,250,Ahmed"])
         self.assertTrue(r.data["matched"][0]["amount_differs"])
         self.assertEqual(r.data["matched"][0]["outcome"], "amount_differs")
         self.assertEqual(r.data["applied"], 0)
@@ -150,7 +156,7 @@ class ReconcileTests(BankAppBase):
             email="stores@alpha.test", password="passw0rd123", company=self.company,
             role=Role.objects.create(name="Inventory Officer", scope_level=Role.SCOPE_BUSINESS),
         )
-        r = self._reconcile(stores, ["2026-09-19,AA1111,300,Ahmed"])
+        r = self._reconcile(stores, [f"{TODAY},AA1111,300,Ahmed"])
         self.assertEqual(r.status_code, 403)
         client = self.client_for(self.finance)
         r = client.post(reverse("payment-reconcile"), {
@@ -168,7 +174,7 @@ class ReconcileTests(BankAppBase):
         wb = Workbook()
         ws = wb.active
         ws.append(["Date", "Transaction ID", "Amount"])
-        ws.append(["2026-09-19", "AA1111", 300])
+        ws.append([TODAY, "AA1111", 300])
         buf = io.BytesIO()
         wb.save(buf)
         client = self.client_for(self.finance)
