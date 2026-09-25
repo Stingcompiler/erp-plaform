@@ -14,9 +14,9 @@ export const COMPARISONS = [
       title: "فيزانو مقابل إكسل والدفاتر الورقية",
       metaTitle: "فيزانو مقابل إكسل والدفاتر الورقية — متى يكفي الجدول ومتى يلزم نظام",
       description:
-        "مقارنة صريحة بين إدارة المحل بالدفاتر وجداول إكسل وبين نظام فيزانو: أين يكفي الجدول، وأين تبدأ الخسارة الصامتة في المخزون والديون والفروع.",
+        "مقارنة صريحة بين إدارة متجرك أو شركتك بالدفاتر وجداول إكسل وبين نظام فيزانو: أين يكفي الجدول، وأين تبدأ الخسارة الصامتة في المخزون والديون والفروع والأدوار.",
       lead:
-        "الدفتر وجدول إكسل ليسا خطأ. معظم المحلات الناجحة بدأت بهما، وكثير منها يستمر بهما لسنوات. المقارنة أدناه ليست عن أيهما أفضل مطلقًا، بل عن اللحظة التي يتحول فيها الجدول من أداة إلى عبء.",
+        "الدفتر وجدول إكسل ليسا خطأ. معظم المتاجر والشركات الناجحة بدأت بهما، وكثير منها يستمر بهما لسنوات. المقارنة أدناه ليست عن أيهما أفضل مطلقًا، بل عن اللحظة التي يتحول فيها الجدول من أداة إلى عبء.",
       columns: ["الدفتر الورقي", "جدول إكسل", "فيزانو"],
       rows: [
         ["البيع في الكاونتر", "يدوي وبطيء", "غير مناسب", "كاشير بالباركود والوزن والعبوة"],
@@ -27,14 +27,15 @@ export const COMPARISONS = [
         ["أكثر من شخص يعمل في الوقت نفسه", false, "نسخ متضاربة", "صلاحيات لكل دور وفرع"],
         ["من غيّر ماذا ومتى", false, false, "سجل تدقيق كامل"],
         ["فرع ثانٍ", "دفتر ثانٍ", "ملف ثانٍ وجمع يدوي", "إعداد واحد، تقارير موحّدة"],
+        ["الموظفون والحضور والرواتب", "دفتر منفصل", "ملف منفصل", "حضور وإجازات وسُلف ومسيّرات رواتب في النظام نفسه"],
         ["النسخ الاحتياطي", "لا يوجد", "إن تذكّرت", "نسخة ليلية تلقائية للسجلات الأساسية على السحابة، أو سكربت على خادمك"],
-        ["الوقت لإعداد التقرير الشهري", "ساعات", "ساعة أو أكثر", "لحظي، لأي فترة وأي فرع"],
+        ["الوقت لإعداد التقرير الشهري", "ساعات", "ساعة أو أكثر", "لحظي لأي فترة؛ الإدارة ترى الشركة كلها وكل فرع يرى فرعه"],
         ["التكلفة الشهرية", "لا شيء", "لا شيء", "باقة شهرية أو رخصة دائمة"],
         ["الوقت لبدء العمل", "فوري", "فوري", "ظهيرة واحدة مع استيراد المنتجات"],
       ],
       verdict: [
         "يكفي الدفتر أو الجدول ما دام شخص واحد يبيع، والأصناف قليلة ولا صلاحية لها، والبيع نقدًا. في هذه الحالة النظام تكلفة بلا عائد.",
-        "يبدأ الجدول في الخسارة الصامتة عند أول واحدة من ثلاث علامات: صنف انتهت صلاحيته على الرف ولم يلاحظه أحد، عميل اختُلف معه على رصيده ولا وثيقة تحسم الخلاف، أو موظف ثانٍ يحتاج أن يبيع في الوقت نفسه. عندها تكلفة النظام أقل من تكلفة الخطأ الواحد.",
+        "يبدأ الجدول في الخسارة الصامتة عند أول واحدة من أربع علامات: صنف انتهت صلاحيته على الرف ولم يلاحظه أحد، عميل اختُلف معه على رصيده ولا وثيقة تحسم الخلاف، موظف ثانٍ يحتاج أن يبيع في الوقت نفسه، أو فرع ثانٍ تحتاج أرقامه أن تُجمع مع الأول. عندها تكلفة النظام أقل من تكلفة الخطأ الواحد.",
         "فيزانو مصمّم للانتقال في ظهيرة واحدة: استورد منتجاتك من ملف إكسل نفسه، أدخل الرصيد الافتتاحي، وابدأ البيع. البيانات تبقى ملكك: تنزّل نسخك الاحتياطية من الإعدادات متى شئت، وفريقنا يصدّر الشركة كاملة عند الطلب.",
       ],
       cta: "استورد جدولك وابدأ التجربة",
@@ -43,9 +44,9 @@ export const COMPARISONS = [
       title: "Vezano versus Excel and paper ledgers",
       metaTitle: "Vezano versus Excel and paper ledgers — when a spreadsheet is enough and when a system is needed",
       description:
-        "A frank comparison between running a shop on ledgers and spreadsheets and running it on Vezano: where the spreadsheet is enough, and where the silent losses in stock, debts and branches begin.",
+        "A frank comparison between running your store or company on ledgers and spreadsheets and running it on Vezano: where the spreadsheet is enough, and where the silent losses in stock, debts, branches and roles begin.",
       lead:
-        "A ledger and an Excel sheet are not a mistake. Most successful shops started with them, and many carry on with them for years. The comparison below is not about which is better in the abstract, but about the moment the spreadsheet turns from a tool into a burden.",
+        "A ledger and an Excel sheet are not a mistake. Most successful stores and companies started with them, and many carry on with them for years. The comparison below is not about which is better in the abstract, but about the moment the spreadsheet turns from a tool into a burden.",
       columns: ["Paper ledger", "Excel sheet", "Vezano"],
       rows: [
         ["Selling at the counter", "Manual and slow", "Not suitable", "Cashier with barcode, weight and packs"],
@@ -56,14 +57,15 @@ export const COMPARISONS = [
         ["More than one person working at once", false, "Conflicting copies", "Permissions per role and branch"],
         ["Who changed what and when", false, false, "A full audit log"],
         ["A second branch", "A second ledger", "A second file and manual totals", "One setting, consolidated reports"],
+        ["Staff, attendance and payroll", "A separate ledger", "A separate file", "Attendance, leave, advances and payroll runs in the same system"],
         ["Backups", "None", "If you remember", "An automatic nightly backup of core records in the cloud, or a script on your server"],
-        ["Time to prepare the monthly report", "Hours", "An hour or more", "Instant, for any period and any branch"],
+        ["Time to prepare the monthly report", "Hours", "An hour or more", "Instant for any period; head office sees the whole company, each branch its own"],
         ["Monthly cost", "Nothing", "Nothing", "A monthly plan or a perpetual licence"],
         ["Time to get started", "Immediate", "Immediate", "One afternoon, with products imported"],
       ],
       verdict: [
         "A ledger or a spreadsheet is enough as long as one person sells, the items are few and do not expire, and sales are cash. In that case a system is cost without return.",
-        "The spreadsheet starts losing silently at the first of three signs: an item expires on the shelf and nobody noticed, a customer disputes their balance and no document settles it, or a second employee needs to sell at the same time. At that point the system costs less than a single mistake.",
+        "The spreadsheet starts losing silently at the first of four signs: an item expires on the shelf and nobody noticed, a customer disputes their balance and no document settles it, a second employee needs to sell at the same time, or a second branch whose figures must be added to the first. At that point the system costs less than a single mistake.",
         "Vezano is designed for a one-afternoon move: import your products from the same Excel file, enter opening stock, and start selling. The data remains yours: download your backups from Settings whenever you like, and our team exports the whole company on request.",
       ],
       cta: "Import your spreadsheet and start the trial",

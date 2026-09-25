@@ -151,7 +151,7 @@ export const registerEn = {
           "Monthly or yearly subscription per plan; add branches, users and devices as you grow.",
           "Payments through Bankak, Fawry, O-Cash and other bank apps are recorded with the transaction number for review; there is no direct link to the banks.",
         ],
-        bestFor: "Best for: shops, pharmacies, wholesalers and distributors who want to start now with no IT team.",
+        bestFor: "Best for: stores, companies, wholesalers and distributors with one branch or many who want to start now with no IT team.",
       },
       {
         key: "standalone",
@@ -225,7 +225,7 @@ export const registerAr = {
           "اشتراك شهري أو سنوي حسب الباقة؛ أضف فروعًا ومستخدمين وأجهزة كلما كبرت.",
           "مدفوعات بنكك وفوري وأوكاش وغيرها من تطبيقات البنوك تُسجَّل برقم العملية للمراجعة؛ لا يوجد ربط مباشر مع البنوك.",
         ],
-        bestFor: "الأنسب لـ: المحلات والصيدليات وتجار الجملة والموزعين الذين يريدون البدء الآن دون فريق تقني.",
+        bestFor: "الأنسب لـ: المتاجر والشركات وتجار الجملة والموزعين بفرع أو عدة فروع الذين يريدون البدء الآن دون فريق تقني.",
       },
       {
         key: "standalone",
@@ -378,7 +378,7 @@ export const homeEn = {
     ["Does it work without internet?", "For the daily work, yes: sales at the till, customer payments, returns, goods receipts, stock counts and attendance are saved on the device and synced once when the connection returns. Signing in, opening or closing a cash shift, new products or customers, expenses and settings need a connection, and reports show the last copy loaded. The on-server edition runs on your local network with no internet at all."],
     ["Is it in Arabic?", "Fully — right-to-left layout, Arabic documents and receipts, with an English switch on every screen."],
     ["Who owns the data?", "You do. A backup of your core records is taken every night and you can download it from Settings; our team exports the whole company on request, or you can run the on-server edition with the database on your own machine."],
-    ["Does it suit a company with several branches and warehouses?", "Yes, that is what it is built for. Each branch has its own warehouses, stock and points of sale; transfers between warehouses are tracked until they are received; and each user sees their own branch according to their role, while head office sees every branch in the reports. Your plan sets how many branches and users you have."],
+    ["Does it suit a company with several branches and warehouses?", "Yes, that is what it is built for. Each branch has its own warehouses, stock and points of sale; a transfer between warehouses is recorded out of one and into the other at the same moment; and each user sees their own branch according to their role, while head office sees every branch in the reports. Your plan sets how many branches and users you have."],
     ["Can we start with a single branch?", "Yes. Start with one branch on the smallest plan and turn on what you need; when you open a new branch or warehouse you add it in the settings and upgrade the plan if you go past its capacity, with all your data where it was."],
   ],
   backupTitle: "Backups and restore",
@@ -506,7 +506,7 @@ export const homeAr = {
     ["هل يعمل بدون إنترنت؟", "في العمل اليومي نعم: البيع على الكاشير، ودفعات العملاء، والمرتجعات، واستلام البضاعة، والجرد، وتسجيل الحضور تُحفظ على الجهاز وتُزامَن مرة واحدة عند عودة الاتصال. تسجيل الدخول، وفتح وردية الصندوق وإغلاقها، وإضافة منتج أو عميل جديد، والمصروفات، والإعدادات تحتاج اتصالًا، والتقارير تعرض آخر نسخة حُمِّلت. نسخة الخادم الخاص تعمل على شبكتك المحلية دون إنترنت أصلًا."],
     ["هل هو بالعربية؟", "بالكامل — تخطيط من اليمين لليسار، مستندات وإيصالات عربية، مع مبدّل إنجليزي في كل شاشة."],
     ["من يملك البيانات؟", "أنت. تُؤخذ نسخة احتياطية لسجلاتك الأساسية كل ليلة ويمكنك تنزيلها من الإعدادات؛ وفريقنا يصدّر الشركة كاملة عند الطلب، أو شغّل نسخة الخادم الخاص حيث قاعدة البيانات على جهازك."],
-    ["هل يناسب شركة بعدة فروع ومخازن؟", "نعم، هذا ما صُمم له: لكل فرع مستودعاته ومخزونه ونقاط بيعه، والتحويلات بين المستودعات تُتابَع حتى استلامها، وكل مستخدم يرى فرعه بحسب دوره بينما ترى الإدارة العامة كل الفروع في التقارير. عدد الفروع والمستخدمين تحدده الباقة."],
+    ["هل يناسب شركة بعدة فروع ومخازن؟", "نعم، هذا ما صُمم له: لكل فرع مستودعاته ومخزونه ونقاط بيعه، والتحويل بين المستودعات يُسجَّل خروجًا من مستودع ودخولًا إلى آخر في اللحظة نفسها، وكل مستخدم يرى فرعه بحسب دوره بينما ترى الإدارة العامة كل الفروع في التقارير. عدد الفروع والمستخدمين تحدده الباقة."],
     ["هل نستطيع البدء بفرع واحد؟", "نعم. ابدأ بفرع واحد على أصغر باقة وفعّل ما تحتاجه؛ وحين تفتح فرعًا أو مستودعًا جديدًا تضيفه من الإعدادات وترفع الباقة إن تجاوزت سعتها، وتبقى بياناتك كما هي."],
   ],
   backupTitle: "النسخ الاحتياطي والاستعادة",
@@ -547,7 +547,7 @@ export const productEn = {
       id: "inventory", title: "Inventory", shot: "inventory",
       intro: "A typed stock-movement ledger, not a quantity column: on-hand is always derivable and every change has a reason and an author.",
       points: [
-        "Multiple warehouses per branch, transfers with in-transit state",
+        "Multiple warehouses per branch; a transfer is recorded out of one and into the other at the same moment",
         "Batches with expiry; sales consume first-expiry-first (FEFO)",
         "Reorder levels; low-stock and near-expiry items listed on the dashboard",
         "Periodic stock counts with approved variances",
@@ -648,7 +648,7 @@ export const productAr = {
       id: "inventory", title: "المخزون", shot: "inventory",
       intro: "دفتر حركات مخزون مُصنَّف، لا عمود كمية: الرصيد قابل للاشتقاق دائمًا ولكل تغيير سبب وصاحب.",
       points: [
-        "مستودعات متعددة لكل فرع، تحويلات بحالة «في الطريق»",
+        "مستودعات متعددة لكل فرع؛ التحويل يُسجَّل خروجًا من مستودع ودخولًا إلى آخر في اللحظة نفسها",
         "دفعات بتاريخ صلاحية؛ البيع يستهلك الأقرب انتهاءً أولًا (FEFO)",
         "حدود إعادة الطلب؛ ما نقص وما يقترب من انتهاء صلاحيته يظهر على اللوحة",
         "جرد دوري بفروقات معتمدة",
