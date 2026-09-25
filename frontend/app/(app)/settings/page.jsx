@@ -12,6 +12,7 @@ import { useConfirm } from "@/components/ui/ConfirmDialog";
 import TabBar from "@/components/ui/TabBar";
 import { useHashTab } from "@/lib/useHashTab";
 import { SkeletonLines } from "@/components/ui/Skeleton";
+import { translateRole } from "@/lib/i18n";
 
 const bytes = (n) => (n > 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
 
@@ -521,8 +522,8 @@ export default function SettingsPage() {
               <h3 className="font-semibold text-ink">{t("settings.additionalRequirements")}</h3>
               <p className="mt-1 text-sm text-muted">{t("settings.additionalRequirementsHint")}</p>
               <div className="mt-4 grid gap-5 lg:grid-cols-2">
-                <div><p className="mb-2 text-sm font-medium">{t("settings.allowedRoles")}</p><div className="max-h-48 space-y-2 overflow-y-auto rounded-control border border-line p-3">{modeRoles.map((role) => <label key={role.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={exceptionRoles.includes(role.id)} onChange={toggle(setExceptionRoles, role.id)} />{role.name}</label>)}</div></div>
-                <div><p className="mb-2 text-sm font-medium">{t("settings.allowedUsers")}</p><div className="max-h-48 space-y-2 overflow-y-auto rounded-control border border-line p-3">{modeUsers.map((modeUser) => <label key={modeUser.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={exceptionUsers.includes(modeUser.id)} onChange={toggle(setExceptionUsers, modeUser.id)} />{modeUser.full_name || modeUser.email}<span className="text-xs text-muted">{modeUser.role_name}</span></label>)}</div></div>
+                <div><p className="mb-2 text-sm font-medium">{t("settings.allowedRoles")}</p><div className="max-h-48 space-y-2 overflow-y-auto rounded-control border border-line p-3">{modeRoles.map((role) => <label key={role.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={exceptionRoles.includes(role.id)} onChange={toggle(setExceptionRoles, role.id)} />{translateRole(role.name, t)}</label>)}</div></div>
+                <div><p className="mb-2 text-sm font-medium">{t("settings.allowedUsers")}</p><div className="max-h-48 space-y-2 overflow-y-auto rounded-control border border-line p-3">{modeUsers.map((modeUser) => <label key={modeUser.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={exceptionUsers.includes(modeUser.id)} onChange={toggle(setExceptionUsers, modeUser.id)} />{modeUser.full_name || modeUser.email}<span className="text-xs text-muted">{translateRole(modeUser.role_name, t)}</span></label>)}</div></div>
               </div>
               <Button className="mt-4" variant="outline" onClick={saveExceptions} disabled={savingMode}>{savingMode ? t("common.saving") : t("settings.saveAdditionalRequirements")}</Button>
             </div>

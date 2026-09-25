@@ -27,6 +27,7 @@ import { useI18n } from "../../providers/I18nProvider";
 import { translateRole } from "@/lib/i18n";
 import BarList from "@/components/reports/BarList";
 import { SkeletonCard } from "@/components/ui/Skeleton";
+import { formatMoney } from "@/lib/money";
 
 function Stat({ icon: Icon, label, value, tone = "ink", sub }) {
   const toneClass =
@@ -37,7 +38,7 @@ function Stat({ icon: Icon, label, value, tone = "ink", sub }) {
         <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-paper ${toneClass}`}><Icon size={17} strokeWidth={1.8} /></span>
         <span className="text-sm">{label}</span>
       </div>
-      <div className={`tabular mt-3 break-words text-2xl font-semibold sm:text-3xl ${toneClass}`}>{value}</div>
+      <div className={`tabular mt-3 break-words text-xl font-semibold sm:text-3xl ${toneClass}`}>{value}</div>
       {sub && <div className="mt-1 text-xs text-muted">{sub}</div>}
     </div>
   );
@@ -61,10 +62,9 @@ export default function DashboardPage() {
   const [error, setError] = useState(false);
   const [advanceAlertDismissed, setAdvanceAlertDismissed] = useState(false);
 
-  const money = (v) =>
-    Number(v ?? 0).toLocaleString(language === "ar" ? "ar" : "en", {
-      maximumFractionDigits: 2,
-    });
+  // One money rule app-wide (lib/money.js): two decimals and the currency
+  // label ("ج.س" / "SDG") on every figure, instead of a code under one card.
+  const money = (v) => formatMoney(v, { currency: data?.currency || user?.currency, language });
 
   const load = () => {
     setError(false);
@@ -201,7 +201,7 @@ export default function DashboardPage() {
             </Link>
           )}
           {sections.sales && <div className="mb-6 grid grid-cols-2 gap-3">
-            <Link href="/sales?tab=invoices"><Stat icon={Receipt} label={t("improvements.todaySales")} value={money(sections.sales.today_total)} sub={data.currency} tone="accent" /></Link>
+            <Link href="/sales?tab=invoices"><Stat icon={Receipt} label={t("improvements.todaySales")} value={money(sections.sales.today_total)} tone="accent" /></Link>
             <Link href="/sales?tab=invoices&overdue=1"><Stat icon={CalendarClock} label={t("improvements.overdue")} value={sections.sales.overdue_count} /></Link>
           </div>}
           {sections.sales && (
@@ -248,7 +248,6 @@ export default function DashboardPage() {
                     label: p.label,
                     value: Number(p.value),
                   }))}
-                  format={money}
                 />
               </div>
             </section>

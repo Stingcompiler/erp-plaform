@@ -11,14 +11,14 @@ import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { SkeletonRows } from "@/components/ui/Skeleton";
-import { round2 } from "@/lib/money";
+import { formatAmount, round2 } from "@/lib/money";
 import {
   AmountWithBase, CurrencyFields, EMPTY_FX, fxCurrency, fxPayload, fxProblem, fxRate,
   toDocumentCost, usePurchaseCurrencies,
 } from "@/components/purchasing/PurchaseCurrency";
 
 const money = (v) =>
-  Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatAmount(v);
 const TONE = { draft: "muted", sent: "accent", confirmed: "ok", partially_received: "warn", received: "ok", cancelled: "danger" };
 // What the server allows from each state (mirrors PurchaseOrderViewSet.TRANSITIONS).
 const NEXT = {

@@ -11,8 +11,9 @@ import { sales } from "@/lib/api";
 import { offlineStore } from "@/lib/offlineStore";
 import { isRetrying, RETRY_EXHAUSTED } from "@/lib/syncRetry";
 import { errorText } from "@/lib/errors";
+import { formatAmount } from "@/lib/money";
 
-const money = (v) => Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = (v) => formatAmount(v);
 
 // One line a person recognises the operation by: how much, how many items,
 // which day — never ids.

@@ -13,9 +13,10 @@ import VoidDrawer from "@/components/finance/VoidDrawer";
 import { Badge, Button, Card, Input } from "@/components/ui/kit";
 import { SkeletonTableRows } from "@/components/ui/Skeleton";
 import { EmptyTableRow } from "@/components/ui/EmptyState";
+import { formatAmount } from "@/lib/money";
+import { invoiceStatusLabel } from "@/lib/labels";
 
-const money = (v) =>
-  Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = (v) => formatAmount(v);
 
 // Invoice.status on the server: issued / partially_paid / paid / void.
 const statusTone = { paid: "ok", partially_paid: "warn", issued: "danger", void: "muted" };
@@ -115,7 +116,7 @@ export default function InvoiceList({ refreshKey }) {
                   <td className="px-4 py-3 text-ink">{inv.customer_name || t("sales.walkIn")}</td>
                   <td className="tabular px-4 py-3 text-end text-ink">{money(inv.total)}</td>
                   <td className="px-4 py-3 text-end">
-                    <Badge tone={statusTone[inv.status] || "muted"}>{inv.status}</Badge>
+                    <Badge tone={statusTone[inv.status] || "muted"}>{invoiceStatusLabel(t, inv.status)}</Badge>
                   </td>
                   {/* Opening the row already showed the document, but nothing
                       said so — an explicit action is what people look for. */}

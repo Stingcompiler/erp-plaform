@@ -8,6 +8,7 @@ import { subscription as api } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { errorText } from "@/lib/errors";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { formatMoney } from "@/lib/money";
 
 const STATUS_TONE = { pending: "warn", approved: "accent", applied: "ok", rejected: "danger", cancelled: "muted" };
 
@@ -27,7 +28,7 @@ export default function PlanChangePanel({ onChanged }) {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const money = (v, c) => `${Number(v || 0).toLocaleString("en", { maximumFractionDigits: 2 })} ${c}`;
+  const money = (v, c) => formatMoney(v, { currency: c, language });
   const fmt = (v) => v ? new Date(v).toLocaleDateString(language === "ar" ? "ar" : "en") : "—";
 
   const ask = async (option) => {

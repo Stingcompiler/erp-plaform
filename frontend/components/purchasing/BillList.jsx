@@ -15,9 +15,10 @@ import { SkeletonTableRows } from "@/components/ui/Skeleton";
 import { EmptyTableRow } from "@/components/ui/EmptyState";
 import { useStableIds } from "@/lib/useStableIds";
 import { AmountWithBase, usePurchaseCurrencies } from "@/components/purchasing/PurchaseCurrency";
+import { formatAmount } from "@/lib/money";
 
 const money = (v) =>
-  Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatAmount(v);
 
 // A bill settles in its own currency (a USD bill is paid in USD); the
 // company-currency figure sits under it.

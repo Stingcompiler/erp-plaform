@@ -10,6 +10,7 @@ import { Badge, Button, Card, PageHeader, Select } from "@/components/ui/kit";
 import FollowUpPanel, { ContactLinks, FollowUpBadge } from "@/components/platform/FollowUpPanel";
 import { errorText } from "@/lib/errors";
 import { SkeletonCard } from "@/components/ui/Skeleton";
+import { enumLabel } from "@/lib/labels";
 
 const ACTIVE = ["submitted", "under_review", "needs_information", "approved"];
 const REVIEW = ["under_review", "needs_information", "rejected"];
@@ -136,7 +137,7 @@ export default function PlatformRegistrationsPage() {
                     </div>
                     <div className="mt-3 grid gap-1 text-sm text-muted sm:grid-cols-2">
                       <span>{t("platformRegistration.plan")}: {row.plan_name || "—"}</span>
-                      <span>{t("platformRegistration.delivery")}: {row.delivery_mode}</span>
+                      <span>{t("platformRegistration.delivery")}: {enumLabel(t, "subscription", row.delivery_mode)}</span>
                       <span>{t("platformRegistration.country")}: {row.country}</span>
                       <span>{t("platformRegistration.received")}: {new Date(row.created_at).toLocaleDateString(language === "ar" ? "ar" : "en")}</span>
                     </div>

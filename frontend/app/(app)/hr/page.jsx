@@ -18,6 +18,7 @@ import LeavePolicies from "@/components/hr/LeavePolicies";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { formatAmount } from "@/lib/money";
 
 const EMP_STATUS_TONE = { active: "ok", on_leave: "warn", terminated: "danger" };
 const EMP_STATUS_KEY = {
@@ -528,8 +529,7 @@ export default function HrPage() {
   }, [employees, leave]);
 
   const dateFmt = (d) => (d ? new Date(d).toLocaleDateString(language === "ar" ? "ar" : "en") : "—");
-  const money = (v) =>
-    Number(v ?? 0).toLocaleString(language === "ar" ? "ar" : "en", { minimumFractionDigits: 2 });
+  const money = (v) => formatAmount(v);
 
   async function decide(kind, id, approveFn, rejectFn) {
     try {

@@ -11,12 +11,9 @@ import { code128Svg } from "@/lib/code128";
 import { Button, Card, Input, PageHeader, Select } from "@/components/ui/kit";
 import PrintSheet from "@/components/print/PrintSheet";
 import { SkeletonRows } from "@/components/ui/Skeleton";
+import { formatAmount } from "@/lib/money";
 
-const money = (v, lang) =>
-  Number(v ?? 0).toLocaleString(lang === "ar" ? "ar" : "en", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+const money = (v) => formatAmount(v);
 
 // Real label stock, in millimetres. `bars` is the box the EAN-13 bars are
 // drawn into: wide enough for a module of at least 0.29 mm (88 % of the

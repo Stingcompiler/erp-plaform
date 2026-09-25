@@ -12,6 +12,7 @@ import LeadDrawer from "@/components/crm/LeadDrawer";
 import { errorText } from "@/lib/errors";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { formatAmount } from "@/lib/money";
 
 const STAGE_LABEL = {
   new: "crm.stageNew",
@@ -88,10 +89,7 @@ export default function CrmPage() {
     }
   }
 
-  const money = (v) =>
-    Number(v ?? 0).toLocaleString(language === "ar" ? "ar" : "en", {
-      maximumFractionDigits: 0,
-    });
+  const money = (v) => formatAmount(v);
 
   const stats = useMemo(() => {
     if (!pipeline) return { open: 0, value: 0, won: 0 };

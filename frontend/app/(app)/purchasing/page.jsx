@@ -18,9 +18,10 @@ import BillList from "@/components/purchasing/BillList";
 import NewBillDrawer from "@/components/purchasing/NewBillDrawer";
 import { SkeletonTableRows } from "@/components/ui/Skeleton";
 import { EmptyTableRow } from "@/components/ui/EmptyState";
+import { formatAmount } from "@/lib/money";
 
 const money = (v) =>
-  Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatAmount(v);
 
 function SupplierList({ suppliers, loading, writable, onNew, onOpen, onImport }) {
   const { t } = useI18n();

@@ -2,6 +2,8 @@
 
 import { useI18n } from "../../app/providers/I18nProvider";
 import { channelLabel } from "@/lib/bankChannels";
+import { currencyLabel, formatAmount } from "@/lib/money";
+import { paymentMethodLabel } from "@/lib/labels";
 
 /**
  * A till receipt for 80 mm / 58 mm thermal rolls.
@@ -16,7 +18,7 @@ import { channelLabel } from "@/lib/bankChannels";
  */
 
 const money = (v) =>
-  Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatAmount(v);
 
 // Always digits in day/month/year order, Latin numerals: a receipt is read
 // in a doorway, and bidi reordering of Arabic-locale dates inside an LTR
@@ -52,12 +54,12 @@ function Row({ label, value, strong }) {
 }
 
 export default function ReceiptView({ doc, paper = "80mm" }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   if (!doc) return null;
   const narrow = paper === "58mm";
   const type = doc.doc_type || "invoice";
   const issuer = doc.issuer || {};
-  const currency = doc.currency || "";
+  const currency = currencyLabel(doc.currency, language);
   const isInvoice = type === "invoice";
   const width = narrow ? "48mm" : "72mm";
   const methodLabel = (p) =>
@@ -109,7 +111,7 @@ export default function ReceiptView({ doc, paper = "80mm" }) {
       {!isInvoice && (
         <div className="space-y-0.5">
           {(doc.against_invoice || doc.against_bill) && <Row label={t("doc.against")} value={doc.against_invoice || doc.against_bill} />}
-          {doc.method && <Row label={t("doc.method")} value={doc.method} />}
+          {doc.method && <Row label={t("doc.method")} value={paymentMethodLabel(t, doc.method)} />}
           {doc.bank?.account && <Row label={t("doc.bankAccount")} value={doc.bank.account} />}
           {doc.bank?.reference_last4 && <Row label={t("doc.reference")} value={doc.bank.reference_last4} />}
           {doc.reason && <div>{t("doc.reason")}: {doc.reason}</div>}

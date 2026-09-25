@@ -7,6 +7,7 @@ import { Badge, Button, Card, Input } from "@/components/ui/kit";
 import { platformPlanChanges as api } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { errorText } from "@/lib/errors";
+import { formatMoney } from "@/lib/money";
 
 const KIND_TONE = { upgrade: "ok", downgrade: "warn", addon: "ok", addon_remove: "warn", switch: "accent" };
 
@@ -32,7 +33,7 @@ export default function PlanChangeRequests({ canManage, onChanged }) {
     finally { setBusy(null); }
   };
   const fmt = (v) => v ? new Date(v).toLocaleDateString(language === "ar" ? "ar" : "en") : "—";
-  const money = (v, c) => `${Number(v || 0).toLocaleString("en", { maximumFractionDigits: 2 })} ${c}`;
+  const money = (v, c) => formatMoney(v, { currency: c, language });
 
   if (!rows.length) return null;
   return (

@@ -11,12 +11,10 @@ import RefundDrawer from "@/components/finance/RefundDrawer";
 import VoidDrawer from "@/components/finance/VoidDrawer";
 import { Badge, Card } from "@/components/ui/kit";
 import { SkeletonTableRows } from "@/components/ui/Skeleton";
+import { formatAmount } from "@/lib/money";
 
 const money = (v) =>
-  Number(v ?? 0).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  formatAmount(v);
 
 /**
  * Credit and debit notes with their printable document.

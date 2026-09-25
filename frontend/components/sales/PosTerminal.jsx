@@ -17,13 +17,14 @@ import { heldCarts } from "@/lib/syncQueue";
 import { cacheProducts, searchProductsOffline } from "@/lib/productCache";
 import { nextLocalReference } from "@/lib/localReference";
 import { errorText } from "@/lib/errors";
-import { round2 } from "@/lib/money";
+import { formatAmount, round2 } from "@/lib/money";
 import { localToday } from "@/lib/dates";
 import { identityScope, storageKey } from "@/lib/localIdentity";
 import { draftStore, newTender, overDiscountLimit, paymentsFor, tenderPlan } from "@/lib/posCart";
+import { useMoney } from "@/lib/useMoney";
 
 const money = (v) =>
-  Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatAmount(v);
 
 // A discount field never goes negative: a "-5" ticket discount raised the
 // till's total while the server (which refuses negatives) saw none.
@@ -42,6 +43,8 @@ export default function PosTerminal({
   active = true,
 }) {
   const { t, language } = useI18n();
+  // Totals carry the currency label (lib/money.js); line figures stay bare.
+  const { money: moneyTotal } = useMoney();
   const [warehouse, setWarehouse] = useState("");
   const [customer, setCustomer] = useState("");
   const [newCustomerOpen, setNewCustomerOpen] = useState(false);
@@ -588,7 +591,7 @@ export default function PosTerminal({
           <span className="tabular block break-all text-ink">{receipt.queued ? receipt.local_reference : (receipt.number_display || receipt.number)}</span>
           {receipt.queued && <span className="mt-1 block font-mono text-[11px] text-muted">{receipt.reference}</span>}
         </p>
-        <div className="tabular mt-4 text-3xl font-medium text-ink">{money(receipt.total)}</div>
+        <div className="tabular mt-4 text-3xl font-medium text-ink">{moneyTotal(receipt.total)}</div>
         {!receipt.queued && <div className="mt-1 text-sm text-muted">
           {t("sales.tax")} {money(receipt.tax_amount)} · {t("sales.subtotal")} {money(receipt.subtotal)}
         </div>}
@@ -925,7 +928,7 @@ export default function PosTerminal({
             )}
             <div className="mt-2 flex items-center justify-between gap-3 border-t border-line pt-2">
               <span className="text-sm text-muted">{t("common.total")}</span>
-              <span className="tabular text-2xl font-semibold text-ink">{money(grandTotal)}</span>
+              <span className="tabular text-2xl font-semibold text-ink">{moneyTotal(grandTotal)}</span>
             </div>
           </div>
 
@@ -1045,7 +1048,7 @@ export default function PosTerminal({
           {plan.change > 0 && !plan.overTransfer && (
             <div className="flex items-center justify-between rounded-card border border-ok/40 bg-ok/5 px-3 py-2">
               <span className="text-sm text-muted">{t("sales.changeDue")}</span>
-              <span className="tabular text-lg font-semibold text-ok">{money(plan.change)}</span>
+              <span className="tabular text-lg font-semibold text-ok">{moneyTotal(plan.change)}</span>
             </div>
           )}
           {plan.overTransfer && (
@@ -1056,7 +1059,7 @@ export default function PosTerminal({
           {!plan.overTransfer && plan.owed > 0 && (
             <div className="flex items-center justify-between rounded-card border border-warn/40 bg-warn/5 px-3 py-2">
               <span className="text-sm text-muted">{t("sales.stillOwed")}</span>
-              <span className="tabular text-lg font-semibold text-warn">{money(plan.owed)}</span>
+              <span className="tabular text-lg font-semibold text-warn">{moneyTotal(plan.owed)}</span>
             </div>
           )}
           {!plan.overTransfer && plan.owed > 0 && !customer && (
@@ -1101,7 +1104,7 @@ export default function PosTerminal({
             className="min-w-0 flex-1 text-start"
           >
             <span className="block text-xs text-muted">{t("common.total")} · {t("sales.payment")}</span>
-            <span className="tabular block truncate text-xl font-semibold text-ink">{money(grandTotal)}</span>
+            <span className="tabular block truncate text-xl font-semibold text-ink">{moneyTotal(grandTotal)}</span>
           </button>
           <Button className="min-h-12 shrink-0" onClick={checkout} disabled={submitting}>
             {submitting ? t("sales.recording") : t("sales.completeSale")}

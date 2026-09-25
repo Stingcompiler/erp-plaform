@@ -1,6 +1,7 @@
 import { improvementsEn, improvementsAr } from "./improvementsI18n.js";
 import { debtEn, debtAr } from "./debtI18n.js";
 import { subscriptionEn, subscriptionAr } from "./subscriptionI18n.js";
+import { labelsAr, labelsEn, statesAr, statesEn } from "./labelsI18n.js";
 import { homeAr, homeEn, pricingAr, pricingEn, productAr, productEn, registerAr, registerEn } from "./marketingI18n.js";
 // Central translation catalog. Keys are dot-namespaced by surface. `t(key)`
 // (from useI18n) looks a key up in the active language, falling back to English,
@@ -877,7 +878,7 @@ const en = {
     willEnterDrawer: "This amount goes into the drawer.",
     reason: "Note",
     amountRequired: "Enter an amount.",
-    saveError: "Couldn't save.",
+    saveError: "Couldn't save. Check the fields and the connection, then try again.",
     noShiftWarning:
       "No till session is open — these sales won't be counted against any drawer.",
     kind: {
@@ -1395,7 +1396,7 @@ const en = {
       noDocuments: "No documents on file.",
       removeDocConfirm: "Remove \"{title}\" from this employee's file?",
       open: "Open",
-      saveError: "Could not save.",
+      saveError: "Couldn't save. Check the fields and the connection, then try again.",
     },
     title: "Human Resources",
     subtitle: "Employees, attendance and leave",
@@ -1768,7 +1769,7 @@ const en = {
     eInvoicingLabel: "Enable e-invoicing (adds UUID/hash placeholders to the document)",
     saveTaxProfile: "Save tax profile",
     taxSaved: "Tax profile saved.",
-    saveFailed: "Save failed.",
+    saveFailed: "Couldn't save. Check the fields and the connection, then try again.",
     backUpNow: "Back up now",
     backingUp: "Backing up…",
     offSite: "off-site",
@@ -1787,14 +1788,12 @@ const en = {
   },
   reports: {
     invoicedTotal: "Invoiced (incl. tax)",
-    someFailed: "{count} report(s) could not be loaded; missing figures show a dash (—), not zero.",
     tabOverview: "Overview",
     tabSales: "Sales & collections",
     tabPurchasing: "Purchasing",
     tabFinance: "Finance",
     tabHr: "HR & payroll",
     ops: {
-      loadError: "This report could not be loaded.",
       reconciliation: "Payment reconciliation",
       reconciliationHint: "Money recorded against invoices in the period, and how much of it a manager has verified against the bank.",
       recorded: "Recorded",
@@ -1866,7 +1865,6 @@ const en = {
     topProductsGross: "Top products by sales (gross, before returns)",
     cogsMethodNote: "COGS uses {method} costing.",
     standardCost: "Standard cost",
-    loadingReports: "Loading reports…",
     inventoryValue: "Inventory value",
     topProducts: "Top products by revenue",
     invValueByProduct: "Inventory value by product",
@@ -2044,7 +2042,7 @@ const en = {
     noSections: "No sections yet.",
     noFeatured: "No featured products yet.",
     saved: "Saved.",
-    saveError: "Couldn't save.",
+    saveError: "Couldn't save. Check the fields and the connection, then try again.",
     subtitlePublic: "Your company's public landing page.",
     businessName: "Business name",
     contactEmail: "Contact email",
@@ -2474,7 +2472,7 @@ const en = {
     editSupplier: "Edit supplier",
     supplier: "Supplier",
     receiveStock: "Receive stock",
-    saveError: "Could not save.",
+    saveError: "Couldn't save. Check the fields and the connection, then try again.",
     searchProduct: "Search a product to add…",
     fx: {
       currency: "Currency",
@@ -2533,7 +2531,7 @@ const en = {
     saveSupplier: "Save supplier",
     createSupplier: "Create supplier",
     received: "Stock received.",
-    saveError: "Couldn't save.",
+    saveError: "Couldn't save. Check the fields and the connection, then try again.",
     apBalance: "AP balance",
     addLine: "Add line",
     lineTotal: "Line total",
@@ -3734,7 +3732,7 @@ const ar = {
     willEnterDrawer: "هذا المبلغ يدخل الصندوق.",
     reason: "ملاحظة",
     amountRequired: "أدخل المبلغ.",
-    saveError: "تعذّر الحفظ.",
+    saveError: "تعذّر الحفظ. راجع الحقول والاتصال ثم حاول مرة أخرى.",
     noShiftWarning:
       "لا توجد وردية مفتوحة — هذه المبيعات لن تُحسب على أي صندوق.",
     kind: {
@@ -4252,7 +4250,7 @@ const ar = {
       noDocuments: "لا مستندات في الملف.",
       removeDocConfirm: "إزالة «{title}» من ملف هذا الموظف؟",
       open: "فتح",
-      saveError: "تعذر الحفظ.",
+      saveError: "تعذّر الحفظ. راجع الحقول والاتصال ثم حاول مرة أخرى.",
     },
     title: "الموارد البشرية",
     subtitle: "الموظفون والحضور والإجازات",
@@ -4621,7 +4619,7 @@ const ar = {
     eInvoicingLabel: "تفعيل الفوترة الإلكترونية (يضيف عناصر UUID/التجزئة إلى المستند)",
     saveTaxProfile: "حفظ ملف الضرائب",
     taxSaved: "تم حفظ ملف الضرائب.",
-    saveFailed: "فشل الحفظ.",
+    saveFailed: "تعذّر الحفظ. راجع الحقول والاتصال ثم حاول مرة أخرى.",
     backUpNow: "إنشاء نسخة الآن",
     backingUp: "جارٍ النسخ…",
     offSite: "خارج الموقع",
@@ -4640,14 +4638,12 @@ const ar = {
   },
   reports: {
     invoicedTotal: "إجمالي الفواتير (شامل الضريبة)",
-    someFailed: "تعذر تحميل {count} من التقارير؛ الأرقام الناقصة تظهر بشرطة (—) وليست أصفارًا.",
     tabOverview: "نظرة عامة",
     tabSales: "المبيعات والتحصيل",
     tabPurchasing: "المشتريات",
     tabFinance: "المالية",
     tabHr: "الموارد البشرية والرواتب",
     ops: {
-      loadError: "تعذّر تحميل هذا التقرير.",
       reconciliation: "مطابقة المدفوعات",
       reconciliationHint: "المبالغ المسجّلة على الفواتير في الفترة، وكم منها تحقّق منه مدير مقابل كشف البنك.",
       recorded: "مسجّل",
@@ -4719,7 +4715,6 @@ const ar = {
     topProductsGross: "أعلى المنتجات مبيعًا (إجمالي قبل المرتجعات)",
     cogsMethodNote: "تكلفة البضاعة المباعة محسوبة بطريقة {method}.",
     standardCost: "التكلفة القياسية",
-    loadingReports: "جارٍ تحميل التقارير…",
     inventoryValue: "قيمة المخزون",
     topProducts: "أعلى المنتجات إيرادًا",
     invValueByProduct: "قيمة المخزون حسب المنتج",
@@ -4897,7 +4892,7 @@ const ar = {
     noSections: "لا توجد أقسام بعد.",
     noFeatured: "لا توجد منتجات مميزة بعد.",
     saved: "تم الحفظ.",
-    saveError: "تعذّر الحفظ.",
+    saveError: "تعذّر الحفظ. راجع الحقول والاتصال ثم حاول مرة أخرى.",
     subtitlePublic: "صفحة الهبوط العامة لشركتك.",
     businessName: "اسم النشاط",
     contactEmail: "بريد التواصل",
@@ -5327,7 +5322,7 @@ const ar = {
     editSupplier: "تعديل المورد",
     supplier: "المورد",
     receiveStock: "استلام مخزون",
-    saveError: "تعذر الحفظ.",
+    saveError: "تعذّر الحفظ. راجع الحقول والاتصال ثم حاول مرة أخرى.",
     searchProduct: "ابحث عن منتج لإضافته…",
     fx: {
       currency: "العملة",
@@ -5386,7 +5381,7 @@ const ar = {
     saveSupplier: "حفظ المورد",
     createSupplier: "إنشاء مورد",
     received: "تم استلام المخزون.",
-    saveError: "تعذّر الحفظ.",
+    saveError: "تعذّر الحفظ. راجع الحقول والاتصال ثم حاول مرة أخرى.",
     apBalance: "رصيد الدائنين",
     addLine: "إضافة بند",
     lineTotal: "إجمالي البند",
@@ -5746,6 +5741,10 @@ en.home = homeEn;
 ar.home = homeAr;
 en.product = productEn;
 ar.product = productAr;
+en.labels = labelsEn;
+ar.labels = labelsAr;
+en.states = statesEn;
+ar.states = statesAr;
 const CATALOG = { en, ar };
 
 function lookup(obj, path) {

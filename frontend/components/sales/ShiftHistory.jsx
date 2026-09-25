@@ -10,9 +10,10 @@ import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { SkeletonRows } from "@/components/ui/Skeleton";
+import { formatAmount } from "@/lib/money";
 
 const money = (v) =>
-  Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatAmount(v);
 
 /**
  * Past till sessions and the manager sign-off. Closing a drawer recorded a

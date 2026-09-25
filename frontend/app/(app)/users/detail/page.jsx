@@ -20,6 +20,7 @@ import UserForm from "@/components/users/UserForm";
 import { errorText } from "@/lib/errors";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { SkeletonCard } from "@/components/ui/Skeleton";
+import { activityActionLabel } from "@/lib/labels";
 
 function Row({ label, children }) {
   return (
@@ -236,7 +237,7 @@ function UserDetail() {
                     {person.activity.map((row) => (
                       <tr key={row.id}>
                         <td className="py-2 pe-4 whitespace-nowrap text-muted">{fmt(row.created_at)}</td>
-                        <td className="py-2 pe-4"><Badge>{row.action}</Badge></td>
+                        <td className="py-2 pe-4"><Badge>{activityActionLabel(t, row.action)}</Badge></td>
                         <td className="py-2 font-medium">{row.entity_type}{row.entity_id && <span className="text-muted"> #{row.entity_id}</span>}</td>
                       </tr>
                     ))}

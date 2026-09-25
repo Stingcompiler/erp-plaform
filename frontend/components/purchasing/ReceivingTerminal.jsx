@@ -11,14 +11,14 @@ import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import BarcodeScanInput from "@/components/inventory/BarcodeScanInput";
 import { cacheProducts } from "@/lib/productCache";
 import { errorText } from "@/lib/errors";
-import { round2 } from "@/lib/money";
+import { formatAmount, round2 } from "@/lib/money";
 import {
   AmountWithBase, CurrencyFields, EMPTY_FX, fxCurrency, fxPayload, fxProblem, fxRate,
   toDocumentCost, usePurchaseCurrencies,
 } from "@/components/purchasing/PurchaseCurrency";
 
 const money = (v) =>
-  Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatAmount(v);
 
 export default function ReceivingTerminal({ suppliers, warehouses, onReceived, initialOrder = null }) {
   const { t } = useI18n();

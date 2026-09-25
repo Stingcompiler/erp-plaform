@@ -11,12 +11,10 @@ import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { useSync } from "@/components/sync/SyncProvider";
 import { SkeletonCard } from "@/components/ui/Skeleton";
+import { formatAmount } from "@/lib/money";
 
 const money = (v) =>
-  Number(v ?? 0).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  formatAmount(v);
 
 /** Kinds a cashier can record, with the sign the API demands for each.
  * No "refund": a refund moves the drawer from its return or invoice, which

@@ -7,13 +7,13 @@ import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { platformFinance as api } from "@/lib/api";
 import { Badge, Button, Card, PageHeader } from "@/components/ui/kit";
+import { formatMoney } from "@/lib/money";
 
 const STATUS_TONE = { active: "ok", trialing: "accent", grace: "warn", read_only: "warn", suspended: "danger", cancelled: "muted", legacy: "muted" };
 
 // Western digits in both languages, like every other money figure in the app.
-function fmtMoney(value, currency) {
-  const n = Number(value || 0);
-  return `${n.toLocaleString("en", { maximumFractionDigits: 2 })} ${currency}`;
+function fmtMoney(value, currency, language = "en") {
+  return formatMoney(value, { currency, language });
 }
 
 function fmtMonth(key, language) {
@@ -53,7 +53,7 @@ function MonthlyBars({ rows, currency }) {
           <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-ink/25" />{t("platformFinance.invoiced")}</span>
           <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-accent" />{t("platformFinance.collected")}</span>
         </div>
-        {point && <span className="tabular">{fmtMonth(point.month, language)} · {t("platformFinance.invoiced")} {fmtMoney(point.invoiced, currency)} · {t("platformFinance.collected")} {fmtMoney(point.collected, currency)}</span>}
+        {point && <span className="tabular">{fmtMonth(point.month, language)} · {t("platformFinance.invoiced")} {fmtMoney(point.invoiced, currency, language)} · {t("platformFinance.collected")} {fmtMoney(point.collected, currency, language)}</span>}
       </div>
     </div>
   );
@@ -115,10 +115,10 @@ export default function PlatformFinancePage() {
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Kpi label={t("platformFinance.mrr")} value={fmtMoney(block.mrr, block.currency)} hint={t("platformFinance.mrrHint")} />
-            <Kpi label={t("platformFinance.arr")} value={fmtMoney(block.arr, block.currency)} />
-            <Kpi label={t("platformFinance.collectedMonth")} value={fmtMoney(block.collected_month, block.currency)} hint={t("platformFinance.collectedWindow", { n: months, amount: fmtMoney(block.collected_window, block.currency) })} />
-            <Kpi label={t("platformFinance.outstanding")} value={fmtMoney(block.outstanding, block.currency)} hint={t("platformFinance.overdue", { amount: fmtMoney(block.overdue, block.currency) })} tone={Number(block.overdue) > 0 ? "danger" : undefined} />
+            <Kpi label={t("platformFinance.mrr")} value={fmtMoney(block.mrr, block.currency, language)} hint={t("platformFinance.mrrHint")} />
+            <Kpi label={t("platformFinance.arr")} value={fmtMoney(block.arr, block.currency, language)} />
+            <Kpi label={t("platformFinance.collectedMonth")} value={fmtMoney(block.collected_month, block.currency, language)} hint={t("platformFinance.collectedWindow", { n: months, amount: fmtMoney(block.collected_window, block.currency, language) })} />
+            <Kpi label={t("platformFinance.outstanding")} value={fmtMoney(block.outstanding, block.currency, language)} hint={t("platformFinance.overdue", { amount: fmtMoney(block.overdue, block.currency, language) })} tone={Number(block.overdue) > 0 ? "danger" : undefined} />
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <Kpi label={t("platformFinance.statusMix")} value={Object.entries(data.statuses).map(([k, v]) => `${v} ${t(`platformCompanies.status.${k}`)}`).join(" · ") || "—"} />
@@ -139,7 +139,7 @@ export default function PlatformFinancePage() {
               </thead>
               <tbody className="divide-y divide-line">
                 {block.by_plan.map((p) => (
-                  <tr key={p.code}><td className="px-4 py-2 font-medium">{p.name}</td><td className="px-3 py-2 text-center tabular">{p.active}</td><td className="px-3 py-2 text-center tabular">{p.trialing}</td><td className="px-3 py-2 text-center tabular text-muted">{p.other}</td><td className="px-3 py-2 text-end tabular">{fmtMoney(p.mrr, block.currency)}</td><td className="px-3 py-2 text-end tabular">{fmtMoney(p.collected_window, block.currency)}</td><td className={`px-3 py-2 text-end tabular ${Number(p.outstanding) > 0 ? "text-warn" : ""}`}>{fmtMoney(p.outstanding, block.currency)}</td></tr>
+                  <tr key={p.code}><td className="px-4 py-2 font-medium">{p.name}</td><td className="px-3 py-2 text-center tabular">{p.active}</td><td className="px-3 py-2 text-center tabular">{p.trialing}</td><td className="px-3 py-2 text-center tabular text-muted">{p.other}</td><td className="px-3 py-2 text-end tabular">{fmtMoney(p.mrr, block.currency, language)}</td><td className="px-3 py-2 text-end tabular">{fmtMoney(p.collected_window, block.currency, language)}</td><td className={`px-3 py-2 text-end tabular ${Number(p.outstanding) > 0 ? "text-warn" : ""}`}>{fmtMoney(p.outstanding, block.currency, language)}</td></tr>
                 ))}
               </tbody>
             </table>
@@ -153,7 +153,7 @@ export default function PlatformFinancePage() {
               </thead>
               <tbody className="divide-y divide-line">
                 {companies.map((c) => (
-                  <tr key={c.company_id}><td className="px-4 py-2 font-medium">{c.company}</td><td className="px-3 py-2">{c.plan} <Badge tone={STATUS_TONE[c.status] || "muted"}>{t(`platformCompanies.status.${c.status}`)}</Badge></td><td className="px-3 py-2 text-end tabular">{c.monthly_price ? fmtMoney(c.monthly_price, c.currency) : "—"}</td><td className={`px-3 py-2 text-end tabular ${Number(c.outstanding) > 0 ? "text-warn font-semibold" : ""}`}>{fmtMoney(c.outstanding, c.currency)}</td><td className="px-3 py-2 text-muted">{fmt(c.last_payment_at)}</td><td className="px-3 py-2 text-muted">{fmt(c.status === "trialing" ? c.trial_ends_at : c.period_ends_at)}</td></tr>
+                  <tr key={c.company_id}><td className="px-4 py-2 font-medium">{c.company}</td><td className="px-3 py-2">{c.plan} <Badge tone={STATUS_TONE[c.status] || "muted"}>{t(`platformCompanies.status.${c.status}`)}</Badge></td><td className="px-3 py-2 text-end tabular">{c.monthly_price ? fmtMoney(c.monthly_price, c.currency, language) : "—"}</td><td className={`px-3 py-2 text-end tabular ${Number(c.outstanding) > 0 ? "text-warn font-semibold" : ""}`}>{fmtMoney(c.outstanding, c.currency, language)}</td><td className="px-3 py-2 text-muted">{fmt(c.last_payment_at)}</td><td className="px-3 py-2 text-muted">{fmt(c.status === "trialing" ? c.trial_ends_at : c.period_ends_at)}</td></tr>
                 ))}
               </tbody>
             </table>

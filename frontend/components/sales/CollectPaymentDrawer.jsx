@@ -12,11 +12,11 @@ import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { SkeletonLines } from "@/components/ui/Skeleton";
-import { round2 } from "@/lib/money";
+import { formatAmount, round2 } from "@/lib/money";
 import { useStableIds } from "@/lib/useStableIds";
 
 const money = (v) =>
-  Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatAmount(v);
 
 /**
  * Settle a customer's debt. Opened from the debt ledger (whole account) or

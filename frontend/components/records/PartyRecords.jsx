@@ -11,6 +11,7 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import PhoneLink from "@/components/ui/PhoneLink";
 import { SkeletonRows } from "@/components/ui/Skeleton";
+import { formatAmount } from "@/lib/money";
 
 const STATUS_TONE = {
   active: "ok",
@@ -130,10 +131,7 @@ export default function PartyRecords({
   const money = (v) =>
     v == null
       ? "—"
-      : Number(v).toLocaleString(language === "ar" ? "ar" : "en", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        });
+      : formatAmount(v);
   const dt = (d) => (d ? new Date(d).toLocaleString(language === "ar" ? "ar" : "en") : "—");
   const day = (d) => (d ? new Date(d).toLocaleDateString(language === "ar" ? "ar" : "en") : "—");
 
