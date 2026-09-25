@@ -612,6 +612,7 @@ export const platformFinance = {
 export const platformCompanies = {
   list: () => api.get("/platform/companies/"),
   devices: (id) => api.get(`/platform/companies/${id}/devices/`),
+  setDemo: (id, isDemo) => api.post(`/platform/companies/${id}/demo/`, { is_demo: isDemo }),
   revokeDevice: (id, deviceId) => api.post(`/platform/companies/${id}/devices/${deviceId}/revoke/`),
   reactivateDevice: (id, deviceId) =>
     api.post(`/platform/companies/${id}/devices/${deviceId}/reactivate/`),

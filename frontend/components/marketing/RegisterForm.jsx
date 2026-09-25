@@ -14,7 +14,54 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import { registration } from "@/lib/api";
 import { formatPrice, usePublicPlans } from "./PlanCards";
 
-const inputClass = "w-full rounded-control border border-line bg-surface px-3 py-3 outline-none focus:border-accent";
+// Placeholders use the muted token (≥ 4.5:1 on the field in light and dark),
+// never the browser's pale default; every field also has a visible label.
+const inputClass = "w-full rounded-control border border-line bg-surface px-3 py-3 text-ink outline-none placeholder:text-muted focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40";
+const labelClass = "mb-1.5 block text-sm font-medium text-ink";
+
+// Where hosted customers come from first; the backend stores the ISO code.
+const COUNTRIES = ["SD", "SS", "EG", "SA", "AE", "QA", "KW", "BH", "OM", "LY", "TD", "ET", "ER", "JO", "YE"];
+
+function countryName(code, language) {
+  try {
+    return new Intl.DisplayNames([language], { type: "region" }).of(code) || code;
+  } catch {
+    return code;
+  }
+}
+
+function Field({ id, label, children }) {
+  return (
+    <div>
+      <label htmlFor={id} className={labelClass}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
+// Three steps before the form, so nobody expects an instant workspace: the
+// request is reviewed and activated the same day.
+function Flow({ standalone }) {
+  const { t } = useI18n();
+  const steps = t(standalone ? "register.standaloneFlow" : "register.flow");
+  if (!Array.isArray(steps)) return null;
+  return (
+    <section aria-labelledby="register-flow" className="mx-auto mb-8 max-w-5xl">
+      <h2 id="register-flow" className="sr-only">{t("register.flowTitle")}</h2>
+      <ol className="grid gap-3 sm:grid-cols-3">
+        {steps.map(([title, body], index) => (
+          <li key={title} className="flex items-start gap-3 rounded-card border border-line bg-surface p-4">
+            <span aria-hidden="true" className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent font-display text-sm font-bold text-white">{index + 1}</span>
+            <span>
+              <span className="block font-semibold text-ink">{title}</span>
+              <span className="mt-1 block text-sm text-muted">{body}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
 
 export default function RegisterForm() {
   const { t, language, href } = useI18n();
@@ -51,7 +98,7 @@ export default function RegisterForm() {
         contact_name: form.get("contact_name"),
         email: form.get("email"),
         phone: form.get("phone"),
-        country: String(form.get("country") || "").toUpperCase(),
+        country: String(form.get("country") || "SD").toUpperCase(),
         timezone_name: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
         estimated_users: Number(form.get("estimated_users")) || undefined,
         estimated_branches: Number(form.get("estimated_branches")) || undefined,
@@ -92,6 +139,8 @@ export default function RegisterForm() {
   }
 
   return (
+    <>
+    <Flow standalone={standalone} />
     <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[1fr_320px]">
       <form onSubmit={onSubmit} className="rounded-card border border-line bg-paper p-6 shadow-card sm:p-8">
         {error && <p role="alert" className="mb-4 rounded-control bg-danger/10 p-3 text-sm text-danger">{error}</p>}
@@ -119,26 +168,57 @@ export default function RegisterForm() {
           </Link>
         </fieldset>
 
+        <p className="mb-4 text-sm text-muted">{t("register.requiredNote")}</p>
         <div className="grid gap-4 sm:grid-cols-2">
-          <input required name="company_name" maxLength={255} placeholder={t("registration.companyName")} className={inputClass} />
-          <input required name="contact_name" maxLength={255} placeholder={t("registration.contactName")} className={inputClass} />
-          <input required type="email" name="email" maxLength={254} placeholder={t("registration.email")} className={inputClass} />
-          <input required name="phone" maxLength={64} placeholder={t("registration.phone")} className={inputClass} />
-          <input required name="country" minLength={2} maxLength={2} placeholder={t("registration.country")} className={`${inputClass} uppercase`} />
-          {!standalone && (
-            <select required value={planId} onChange={(event) => setPlanId(event.target.value)} className={inputClass}>
-              <option value="" disabled>{t("registration.plan")}</option>
-              {(plans || []).map((plan) => (
-                <option key={plan.id} value={plan.id}>
-                  {plan.display?.name?.[language] || plan.plan_name} · {formatPrice(plan.price, plan.currency, language)}
-                </option>
-              ))}
+          <Field id="reg-company" label={t("registration.companyName")}>
+            <input id="reg-company" required name="company_name" maxLength={255} autoComplete="organization" className={inputClass} />
+          </Field>
+          <Field id="reg-contact" label={t("registration.contactName")}>
+            <input id="reg-contact" required name="contact_name" maxLength={255} autoComplete="name" className={inputClass} />
+          </Field>
+          <Field id="reg-email" label={t("registration.email")}>
+            <input id="reg-email" required type="email" name="email" maxLength={254} autoComplete="email" dir="ltr" className={`${inputClass} text-start`} />
+          </Field>
+          <Field id="reg-phone" label={t("registration.phone")}>
+            <input id="reg-phone" required type="tel" inputMode="tel" name="phone" maxLength={64} autoComplete="tel" dir="ltr" placeholder="+249 9…" className={`${inputClass} text-start`} />
+          </Field>
+          <Field id="reg-country" label={t("register.countryLabel")}>
+            <select id="reg-country" required name="country" defaultValue="SD" autoComplete="country" className={inputClass}>
+              {COUNTRIES.map((code) => <option key={code} value={code}>{countryName(code, language)}</option>)}
             </select>
+          </Field>
+          {!standalone && (
+            <Field id="reg-plan" label={t("register.planLabel")}>
+              <select id="reg-plan" required value={planId} onChange={(event) => setPlanId(event.target.value)} className={inputClass}>
+                <option value="" disabled>{t("registration.plan")}</option>
+                {(plans || []).map((plan) => (
+                  <option key={plan.id} value={plan.id}>
+                    {plan.display?.name?.[language] || plan.plan_name} · {formatPrice(plan.price, plan.currency, language)}
+                  </option>
+                ))}
+              </select>
+            </Field>
           )}
-          <input type="number" min="1" name="estimated_users" placeholder={t("registration.estimatedUsers")} className={inputClass} />
-          <input type="number" min="1" name="estimated_branches" placeholder={t("registration.estimatedBranches")} className={inputClass} />
         </div>
-        <textarea rows={3} name="message" maxLength={4000} placeholder={t(standalone ? "register.serverNote" : "registration.message")} className={`${inputClass} mt-4`} />
+        {/* Not needed to open the request (the serializer marks them
+            optional), so they wait behind a disclosure. */}
+        <details className="mt-5 rounded-control border border-line bg-surface p-4">
+          <summary className="cursor-pointer text-sm font-medium text-ink">{t("register.moreDetails")}</summary>
+          <p className="mt-2 text-xs text-muted">{t("register.moreDetailsHint")}</p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field id="reg-users" label={t("registration.estimatedUsers")}>
+              <input id="reg-users" type="number" min="1" name="estimated_users" className={inputClass} />
+            </Field>
+            <Field id="reg-branches" label={t("registration.estimatedBranches")}>
+              <input id="reg-branches" type="number" min="1" name="estimated_branches" className={inputClass} />
+            </Field>
+          </div>
+          <div className="mt-4">
+            <Field id="reg-message" label={t(standalone ? "register.serverNote" : "registration.message")}>
+              <textarea id="reg-message" rows={3} name="message" maxLength={4000} className={inputClass} />
+            </Field>
+          </div>
+        </details>
         <p className="mt-3 text-xs text-muted">{t("registration.privacy")}</p>
         <button
           type="submit"
@@ -174,5 +254,6 @@ export default function RegisterForm() {
         )}
       </aside>
     </div>
+    </>
   );
 }

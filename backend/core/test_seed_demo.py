@@ -38,6 +38,9 @@ class SeedDemoTests(TestCase):
                 self.assertTrue(site.is_published)
                 self.assertEqual(completeness(site), [])
                 self.assertEqual(site.featured_products.count(), 6)
+                # A seeded company is labelled a demo on its public page.
+                self.company.refresh_from_db()
+                self.assertTrue(self.company.is_demo)
                 # Second run: no duplicate master data, only more sales.
                 call_command("seed_demo", owner="owner@demo.test", sales=3, yes=True,
                              verbosity=0)

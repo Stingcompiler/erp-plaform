@@ -108,6 +108,12 @@ class Company(models.Model):
     )
     exchange_rate_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    # A sample tenant the platform uses to show the system off (seed_demo
+    # data, the screenshots on the marketing site). Its public page and its
+    # card in the showcase carry a visible "demo company" label, so a visitor
+    # never reads it as a real customer. Set by the platform team only (the
+    # platform companies page, or `seed_demo`); tenants cannot change it.
+    is_demo = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

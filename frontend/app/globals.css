@@ -19,7 +19,7 @@
   --danger: 185 28 28;
 
   /* Script-specific font pairing. LTR (English) uses Inter/Sora; the RTL
-     override below swaps to Cairo (body) + Tajawal (display) for Arabic. */
+     override below swaps to Tajawal (body and display) for Arabic. */
   --font-body: var(--font-inter);
   --font-display: var(--font-sora);
 }

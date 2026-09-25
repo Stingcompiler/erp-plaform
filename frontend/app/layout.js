@@ -1,4 +1,4 @@
-import { Cairo, IBM_Plex_Mono, Inter, Sora, Tajawal } from "next/font/google";
+import { IBM_Plex_Mono, Inter, Sora, Tajawal } from "next/font/google";
 
 import "./globals.css";
 import { AuthProvider } from "./providers/AuthProvider";
@@ -7,8 +7,8 @@ import JsonLd from "@/components/seo/JsonLd";
 import { organizationJsonLd, softwareApplicationJsonLd } from "@/lib/seo";
 import { OG_IMAGE, SITE_NAME, SITE_NAME_LATIN, SITE_URL } from "@/lib/site";
 
-// Latin UI: Inter (body) + Sora (display). Arabic UI: Cairo (body) + Tajawal
-// (headings/UI), per the design spec. The CSS variables are swapped onto the
+// Latin UI: Inter (body) + Sora (display). Arabic UI: Tajawal for body and
+// headings — the same face the public company pages (/s/<slug>/) load. The CSS variables are swapped onto the
 // document by I18nProvider when the language flips, so the right script-specific
 // pairing is always active.
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -22,12 +22,6 @@ const mono = IBM_Plex_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
   weight: ["400", "500"],
-  display: "swap",
-});
-const cairo = Cairo({
-  subsets: ["arabic"],
-  variable: "--font-cairo",
-  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 const tajawal = Tajawal({
@@ -45,11 +39,11 @@ const tajawal = Tajawal({
 export const metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${SITE_NAME} | نظام إدارة المبيعات والمخزون ونقطة البيع للمحلات والموزعين`,
+    default: `${SITE_NAME} | نظام كاشير ومخزون وديون للمحلات والبقالات يعمل بلا إنترنت`,
     template: `%s | ${SITE_NAME}`,
   },
   description:
-    "فيزانو منصة سحابية لإدارة الأعمال: نقطة بيع تعمل بلا إنترنت، مخزون بالدفعات والصلاحية، دفتر ديون العملاء، فروع متعددة، بالعربية والإنجليزية. تجربة مجانية 14 يومًا بلا بطاقة.",
+    "فيزانو لأصحاب المحلات والبقالات: بِع بالباركود، وتابع المخزون وديون الزبائن، والبيع يستمر حين تنقطع الشبكة أو الكهرباء ويُزامَن عند عودتها. بالعربية والإنجليزية. تجربة مجانية 14 يومًا بلا بطاقة، وتفعيل في نفس اليوم بعد المراجعة.",
   keywords: [
     "نظام إدارة المبيعات",
     "نظام مخزون",
@@ -98,7 +92,7 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <HtmlShell className={`${inter.variable} ${sora.variable} ${mono.variable} ${cairo.variable} ${tajawal.variable}`}>
+    <HtmlShell className={`${inter.variable} ${sora.variable} ${mono.variable} ${tajawal.variable}`}>
       <JsonLd data={[organizationJsonLd(), softwareApplicationJsonLd()]} />
       <AuthProvider>{children}</AuthProvider>
     </HtmlShell>
