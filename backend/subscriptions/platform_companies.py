@@ -8,14 +8,17 @@ means the next attempt is refused there.
 from datetime import timedelta
 
 from django.db.models import Count, Max
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework import viewsets
+from django.utils.translation import gettext as _
+from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from config.deployment import get_deployment_config
 from core import platform_roles
+from core.activity import log_activity
 from core.entitlements import resolve_entitlements
 from core.permissions import IsPlatformAdmin
 from org.devices import reactivate_device, revoke_device
@@ -48,6 +51,7 @@ def company_row(company, subscription, owner, invoices_30d, last_active_at):
         "name": company.name,
         "slug": company.slug,
         "business_type": company.business_type,
+        "is_demo": company.is_demo,
         "currency": company.currency,
         "created_at": company.created_at,
         "owner": (
@@ -115,6 +119,25 @@ class PlatformCompanyViewSet(viewsets.ViewSet):
                 "policy": get_deployment_config().entitlement_policy,
             }
         )
+
+    @action(detail=True, methods=["post"])
+    def demo(self, request, pk=None):
+        """Mark a company as a demo tenant, or clear the mark. The public page
+        and the showcase card then carry the "demo company" label."""
+        value = request.data.get("is_demo")
+        if not isinstance(value, bool):
+            raise serializers.ValidationError({"is_demo": _("Send true or false.")})
+        company = get_object_or_404(Company, pk=pk)
+        if company.is_demo != value:
+            company.is_demo = value
+            company.save(update_fields=["is_demo", "updated_at"])
+            log_activity(
+                action="company_demo_marked" if value else "company_demo_cleared",
+                request=request, user=request.user, company=company,
+                entity_type="Company", entity_id=company.pk,
+                metadata={"is_demo": value},
+            )
+        return Response({"id": company.pk, "is_demo": company.is_demo})
 
     @action(detail=True, methods=["get"])
     def devices(self, request, pk=None):

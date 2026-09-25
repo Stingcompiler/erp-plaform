@@ -24,7 +24,7 @@ module.exports = {
         danger: withAlpha("--danger"),
       },
       fontFamily: {
-        // These resolve to Inter/Sora in LTR and Cairo/Tajawal in RTL — the
+        // These resolve to Inter/Sora in LTR and Tajawal in RTL — the
         // --font-body / --font-display vars are swapped by [dir="rtl"] in
         // globals.css when the language flips.
         display: ["var(--font-display)", "system-ui", "sans-serif"],

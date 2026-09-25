@@ -285,3 +285,23 @@ class PlatformCompaniesTests(TestCase):
         client = APIClient()
         client.force_authenticate(self.owner)
         self.assertEqual(client.get("/api/platform/companies/").status_code, 403)
+
+    def test_platform_marks_and_clears_a_demo_company(self):
+        url = f"/api/platform/companies/{self.company.pk}/demo/"
+        self.assertEqual(self.client.post(url, {}, format="json").status_code, 400)
+        response = self.client.post(url, {"is_demo": True}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.company.refresh_from_db()
+        self.assertTrue(self.company.is_demo)
+        row = self.client.get("/api/platform/companies/").data["companies"][0]
+        self.assertTrue(row["is_demo"])
+        self.client.post(url, {"is_demo": False}, format="json")
+        self.company.refresh_from_db()
+        self.assertFalse(self.company.is_demo)
+        tenant = APIClient()
+        tenant.force_authenticate(self.owner)
+        self.assertEqual(tenant.post(url, {"is_demo": True}, format="json").status_code, 403)
+        missing = self.client.post(
+            "/api/platform/companies/999999/demo/", {"is_demo": True}, format="json"
+        )
+        self.assertEqual(missing.status_code, 404)

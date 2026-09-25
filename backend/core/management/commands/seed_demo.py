@@ -1,7 +1,8 @@
 """Fill a real company with demo data so its workspace and public page look
 lived-in: catalogue, stock, customers with debts, suppliers, CRM leads, a
 month of sales, and a complete published company page with generated
-pictures.
+pictures. The company is marked `is_demo`, so its public page and its
+showcase card carry a visible "demo company" label.
 
 Meant for a demo tenant on the hosted platform or a fresh install, run by
 an operator who can reach `manage.py` (Render shell, SSH). It never asks
@@ -174,6 +175,12 @@ class Command(BaseCommand):
         out = [f"Company: {company.name} (#{company.pk}) via {user.email}"]
 
         with transaction.atomic():
+            # A seeded company is a demo, never a real customer: its public
+            # page and showcase card say so ("demo company" label).
+            if not company.is_demo:
+                company.is_demo = True
+                company.save(update_fields=["is_demo", "updated_at"])
+            out.append("Marked as a demo company (public page shows the label).")
             branch = user.branch or Branch.objects.filter(company=company).order_by("pk").first()
             if branch is None:
                 branch = Branch.objects.create(

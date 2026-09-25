@@ -50,6 +50,14 @@ export default function PlatformCompaniesPage() {
     finally { setBusy(null); }
   };
 
+  // The demo mark labels a sample tenant's public page and showcase card.
+  const setDemo = async (companyId, isDemo) => {
+    setBusy(`demo-${companyId}`); setError("");
+    try { await api.setDemo(companyId, isDemo); await load(); }
+    catch { setError(t("platformCompanies.loadError")); }
+    finally { setBusy(null); }
+  };
+
   const rows = useMemo(() => {
     const list = data?.companies || [];
     const q = query.trim().toLowerCase();
@@ -99,7 +107,7 @@ export default function PlatformCompaniesPage() {
               <>
                 <tr key={r.id} className={`cursor-pointer hover:bg-paper ${r.over_limit.length ? "bg-danger/5" : ""}`} onClick={() => toggle(r.id)}>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2 font-medium"><Building2 size={15} className="text-muted" />{r.name}</div>
+                    <div className="flex items-center gap-2 font-medium"><Building2 size={15} className="text-muted" />{r.name}{r.is_demo && <Badge tone="warn">{t("platformCompanies.demoBadge")}</Badge>}</div>
                     <div className="mt-0.5 text-xs text-muted">{t(`platformCompanies.type.${r.business_type}`)} · {t("platformCompanies.since")} {fmtDate(r.created_at)}{r.over_limit.length > 0 && <> · <span className="text-danger">{t("platformCompanies.overOn", { what: r.over_limit.map((k) => t(`usage.${k}`)).join("، ") })}</span></>}</div>
                   </td>
                   <td className="px-4 py-3">{r.plan ? <><div>{r.plan.name || "—"}</div><Badge tone={STATUS_TONE[r.plan.status] || "muted"}>{t(`platformCompanies.status.${r.plan.status}`)}</Badge></> : <Badge tone="muted">{t("platformCompanies.noPlan")}</Badge>}</td>
@@ -111,6 +119,14 @@ export default function PlatformCompaniesPage() {
                 {open === r.id && (
                   <tr key={`${r.id}-detail`} className="bg-paper/60">
                     <td colSpan={5 + USAGE_KEYS.length} className="px-4 py-4">
+                      <label className={`mb-4 inline-flex items-center gap-2 text-sm ${canManage ? "cursor-pointer" : "opacity-70"}`}>
+                        <input
+                          type="checkbox" className="accent-accent" checked={!!r.is_demo}
+                          disabled={!canManage || busy === `demo-${r.id}`}
+                          onChange={(e) => setDemo(r.id, e.target.checked)}
+                        />
+                        {t("platformCompanies.demoToggle")}
+                      </label>
                       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
                         <div><h3 className="mb-3 font-display font-semibold">{t("subscription.limits")}</h3><UsageMeter usage={r.usage} /></div>
                         <div>

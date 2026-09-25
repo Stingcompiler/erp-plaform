@@ -42,7 +42,7 @@ export const SOLUTIONS = [
         {
           heading: "ليس الكاشير وحده",
           body:
-            "كل عملية على مستوى الفرع تنضم إلى نفس الطابور: استلام بضاعة، تحويل بين المستودعات، تسوية مخزون، تسجيل دفعة من عميل. الفرع يواصل عمله اليومي كاملًا ثم يُزامن دفعة واحدة.",
+            "عمليات الفرع اليومية تنضم إلى نفس الطابور: دفعة من عميل، مرتجع أو استرداد، استلام بضاعة، تحويل بين المستودعات، تسوية أو جرد مخزون، دفعة لمورد، وتسجيل الحضور. ما يحتاج اتصالًا: تسجيل الدخول، وفتح وردية الصندوق وإغلاقها، وإضافة منتج أو عميل جديد، والمصروفات، والإعدادات. التقارير واللوحة تعرض آخر نسخة حُمِّلت على الجهاز مع علامة أنها قديمة.",
         },
         {
           heading: "إن كان الإنترنت غير موجود أصلًا",
@@ -89,7 +89,7 @@ export const SOLUTIONS = [
         {
           heading: "Not only the till",
           body:
-            "Every branch-level operation joins the same queue: goods receipt, transfers between warehouses, stock adjustments, a customer payment. The branch carries on with its full day's work and syncs in one go.",
+            "The branch's daily operations join the same queue: a customer payment, a return or refund, a goods receipt, a transfer between warehouses, a stock adjustment or count, a supplier payment, and attendance. What needs a connection: signing in, opening and closing a cash shift, adding a new product or customer, expenses, and settings. Reports and the dashboard show the last copy loaded on the device, marked as out of date.",
         },
         {
           heading: "If there is no internet at all",
@@ -111,9 +111,9 @@ export const SOLUTIONS = [
     shot: "inventory",
     ar: {
       title: "مخزون بالدفعات وتواريخ الصلاحية",
-      metaTitle: "برنامج إدارة مخزون بتاريخ الصلاحية — دفعات، FEFO، وتنبيهات قبل التلف",
+      metaTitle: "برنامج إدارة مخزون بتاريخ الصلاحية — دفعات، FEFO، وتنبيه قبل التلف على اللوحة",
       description:
-        "نظام مخزون للأغذية والأدوية ومستحضرات التجميل: كل استلام دفعة بتاريخ صلاحية، والبيع يستهلك الأقرب انتهاءً أولًا، وتنبيه كل صباح بما يقترب من التلف أو النفاد.",
+        "نظام مخزون للأغذية والأدوية ومستحضرات التجميل: كل استلام دفعة بتاريخ صلاحية، والبيع يستهلك الأقرب انتهاءً أولًا، ولوحة تعرض ما يقترب من التلف أو النفاد.",
       lead:
         "التاجر الذي يبيع ما له صلاحية يخسر بطريقتين: بضاعة تنتهي على الرف لأن الأحدث بيعت قبل الأقدم، أو رف يفرغ لأن أحدًا لم يلاحظ أن الرصيد وصل حد الخطر. كلا الخسارتين مسألة معلومات، لا مسألة حظ.",
       sections: [
@@ -138,9 +138,9 @@ export const SOLUTIONS = [
           ],
         },
         {
-          heading: "تنبيهات كل صباح",
+          heading: "على اللوحة كل صباح",
           body:
-            "حدد لكل منتج حد إعادة الطلب. فحص يومي مجدول يراجع كل الفروع ويضع على لوحة المالك ومدير الفرع ما نقص وما يقترب من انتهاء صلاحيته. لا حاجة لأن يفتح أحد التقرير ليكتشف المشكلة.",
+            "حدد لكل منتج حد إعادة الطلب. لوحة المالك ومدير الفرع تعرض ما نزل تحت الحد وما يقترب من انتهاء صلاحيته، محسوبًا من دفتر المخزون لحظة فتحها. لا حاجة لأن يفتح أحد التقرير ليكتشف المشكلة.",
         },
         {
           heading: "البيع بالعبوة والوزن",
@@ -185,9 +185,9 @@ export const SOLUTIONS = [
           ],
         },
         {
-          heading: "Alerts every morning",
+          heading: "On the dashboard every morning",
           body:
-            "Set a reorder level per product. A scheduled daily scan reviews every branch and puts what is short, and what is close to expiry, on the owner's and branch manager's dashboards. Nobody has to open a report to discover the problem.",
+            "Set a reorder level per product. The owner's and branch manager's dashboards list what has fallen below that level and what is close to expiry, computed from the stock ledger when they open it. Nobody has to open a report to discover the problem.",
         },
         {
           heading: "Selling by the pack and by weight",
@@ -243,7 +243,7 @@ export const SOLUTIONS = [
         {
           heading: "تسجيل السداد",
           body:
-            "الدفعة تُسجَّل على الفاتورة نقدًا أو تحويلًا بنكيًا. التحويل يحمل اسم بنك المرسل وآخر أربعة أرقام من مرجعه والحساب البنكي للشركة الذي استقبله، فتُطابقه مع كشف البنك لاحقًا. الدفعة الجزئية تُخصم ويبقى الباقي مستحقًا بتاريخ استحقاقه الأصلي. كل دفعة تحمل من سجّلها ومتى.",
+            "الدفعة تُسجَّل على الفاتورة نقدًا أو تحويلًا بنكيًا. التحويل (من تطبيق بنكك أو غيره) يُسجَّل يدويًا باسم بنك المرسل ورقم العملية والحساب البنكي للشركة الذي استقبله، فتُطابقه لاحقًا مع كشف التطبيق أو البنك. لا يوجد ربط مباشر مع البنك. الدفعة الجزئية تُخصم ويبقى الباقي مستحقًا بتاريخ استحقاقه الأصلي. كل دفعة تحمل من سجّلها ومتى.",
           bullets: [
             "نقد أو تحويل بنكي بمرجع وحساب مستلم",
             "دفعات جزئية بلا حد لعددها",
@@ -311,7 +311,7 @@ export const SOLUTIONS = [
         {
           heading: "Recording a payment",
           body:
-            "A payment is recorded against the invoice in cash or by bank transfer. A transfer carries the sender's bank, the last four digits of its reference and the company bank account that received it, so you can match it to the bank statement later. A partial payment is deducted and the remainder stays due under its original due date. Every payment carries who recorded it and when.",
+            "A payment is recorded against the invoice in cash or by bank transfer. A transfer (from Bankak or another bank app) is recorded by hand with the sender's bank, the transaction number and the company bank account that received it, so you can match it to the app's or the bank's statement later. There is no direct link to the bank. A partial payment is deducted and the remainder stays due under its original due date. Every payment carries who recorded it and when.",
           bullets: [
             "Cash or bank transfer with a reference and a receiving account",
             "Partial payments, as many as needed",
@@ -437,9 +437,9 @@ export const SOLUTIONS = [
     shot: "store-page",
     ar: {
       title: "صفحة عامة لشركتك أو متجرك على الإنترنت",
-      metaTitle: "صفحة عامة لشركتك — واجهة إلكترونية بغلاف ومنتجات وقنوات تواصل وخريطة، تُفهرس في Google",
+      metaTitle: "صفحة عامة لشركتك — واجهة إلكترونية بغلاف ومنتجات وقنوات تواصل وخريطة، جاهزة لـ Google",
       description:
-        "كل اشتراك في فيزانو يشمل صفحة عامة لنشاطك: غلاف وشعار، منتجات بالصور والأسعار، زر واتساب، ساعات العمل والموقع على الخريطة، تُفهرس في Google تلقائيًا دون مصمم ولا استضافة.",
+        "كل اشتراك في فيزانو يشمل صفحة عامة لنشاطك: غلاف وشعار، منتجات بالصور والأسعار، زر واتساب، ساعات العمل والموقع على الخريطة، جاهزة لتفهرسها محركات البحث مثل Google، دون مصمم ولا استضافة.",
       lead:
         "العميل اليوم يبحث عن الشركة في Google قبل أن يتصل بها، ويريد قناة تواصل مباشرة لا صفحة على شبكة اجتماعية. صفحة شركتك على فيزانو تُنشأ من بياناتك الموجودة أصلًا في النظام، وتصبح على الإنترنت بضغطة، وعنوانها vezano.app/s/اسم-الشركة.",
       sections: [
@@ -458,7 +458,7 @@ export const SOLUTIONS = [
           body:
             "الصفحة تُبنى من الخادم كـ HTML حقيقي، بعنوان ووصف وبيانات منظمة من نوع LocalBusiness: الاسم والهاتف والعنوان وساعات العمل والصور والمنتجات بأسعارها. هذه هي البيانات التي تجعل محلك يظهر حين يبحث أحدهم عن نشاطك في مدينتك.",
           bullets: [
-            "خريطة موقع خاصة بالمتاجر تُقدَّم لـ Google تلقائيًا عند النشر",
+            "خريطة موقع خاصة بالمتاجر (sitemap) تقرؤها محركات البحث، وتُضاف إليها صفحتك عند النشر",
             "دليل المتاجر على فيزانو يربط صفحتك من صفحة مفهرسة",
             "بطاقة معاينة عند مشاركة الرابط في واتساب وفيسبوك",
           ],
@@ -484,9 +484,9 @@ export const SOLUTIONS = [
     },
     en: {
       title: "A public web page for your company or store",
-      metaTitle: "A public page for your company — an online presence with cover, products, contact channels and a map, indexed by Google",
+      metaTitle: "A public page for your company — an online presence with cover, products, contact channels and a map, ready for Google",
       description:
-        "Every Vezano subscription includes a public page for the business: cover and logo, products with photos and prices, a WhatsApp button, opening hours and a map link, indexed by Google automatically, with no designer and no hosting.",
+        "Every Vezano subscription includes a public page for the business: cover and logo, products with photos and prices, a WhatsApp button, opening hours and a map link, ready for search engines such as Google to index, with no designer and no hosting.",
       lead:
         "Customers look a shop up on Google before they visit, and they want a WhatsApp number, not a Facebook page. Your store page on Vezano is built from the data already in the system, goes live with one click, and lives at vezano.app/s/your-store.",
       sections: [
@@ -505,7 +505,7 @@ export const SOLUTIONS = [
           body:
             "The page is served as real HTML with a title, a description and LocalBusiness structured data: name, phone, address, opening hours, photos and products with prices. That is the data that makes a shop appear when someone searches for your trade in your city.",
           bullets: [
-            "A stores sitemap is submitted to Google automatically on publish",
+            "A stores sitemap that search engines read; your page joins it when you publish",
             "The Vezano store directory links to your page from an indexed page",
             "A preview card when the link is shared on WhatsApp or Facebook",
           ],

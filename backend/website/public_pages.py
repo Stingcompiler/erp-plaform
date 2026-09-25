@@ -332,8 +332,9 @@ def render_site(request, site, *, preview=False):
         # The cart sums shown prices; the order itself is quoted with tax.
         "order_taxed": bool(data.get("accept_orders")) and _company_taxed(site.company),
         "platform_url": site_url("/"),
-        "directory_url": site_url("/s/"),
         "preview": preview,
+        # A platform sample tenant: the page says so, above the fold.
+        "is_demo": site.company.is_demo,
     }
     if not preview:
         from website.analytics import record
@@ -383,6 +384,9 @@ def site_card(site, request=None):
         "logo": absolute(logo, request),
         "cover": absolute(cover, request),
         "complete": is_complete(site),
+        # Sample tenants carry a visible "demo company" label wherever the
+        # platform shows them off, so no one reads them as a real customer.
+        "is_demo": site.company.is_demo,
     }
 
 

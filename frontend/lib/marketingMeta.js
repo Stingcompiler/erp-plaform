@@ -9,9 +9,9 @@ import { OG_IMAGE, SITE_NAME, SITE_NAME_LATIN } from "./site";
 const COPY = {
   ar: {
     "/": {
-      title: `${SITE_NAME} | نظام إدارة المبيعات والمخزون ونقطة البيع للمحلات والموزعين`,
+      title: `${SITE_NAME} | نظام كاشير ومخزون وديون للمحلات والبقالات يعمل بلا إنترنت`,
       description:
-        "فيزانو منصة سحابية لإدارة الأعمال: نقطة بيع تعمل بلا إنترنت، مخزون بالدفعات والصلاحية، دفتر ديون العملاء، فروع متعددة، بالعربية والإنجليزية. تجربة مجانية 14 يومًا بلا بطاقة.",
+        "فيزانو لأصحاب المحلات والبقالات: بِع بالباركود، وتابع المخزون وديون الزبائن، والبيع يستمر حين تنقطع الشبكة أو الكهرباء ويُزامَن عند عودتها. بالعربية والإنجليزية. تجربة مجانية 14 يومًا بلا بطاقة، وتفعيل في نفس اليوم بعد المراجعة.",
     },
     "/product": {
       title: "المنتج — نقطة البيع والمخزون والمشتريات والديون والفروع في نظام واحد",
@@ -26,19 +26,19 @@ const COPY = {
     "/register": {
       title: "ابدأ تجربة شركتك المجانية",
       description:
-        "سجّل شركتك في فيزانو: تجربة 14 يومًا بلا بطاقة على السحابة، أو اطلب عرض رخصة دائمة لخادمك الخاص. نراجع الطلب وننشئ مساحة العمل ونرسل للمالك رابط التفعيل.",
+        "سجّل شركتك في فيزانو: تجربة 14 يومًا بلا بطاقة على السحابة، أو اطلب عرض رخصة دائمة لخادمك الخاص. نراجع الطلب ونفعّل مساحة العمل في نفس اليوم ونرسل للمالك رابط التفعيل.",
     },
     "/register/hosting": {
       title: "السحابة أم خادمك الخاص؟ — الفرق بين خياري تشغيل فيزانو",
       description:
-        "فيزانو على السحابة: لا تركيب، تحديثات ونسخ احتياطي علينا، اشتراك بالباقة. أو على خادمك الخاص: بياناتك عندك، رخصة دائمة، يعمل دون إنترنت. اعرف أيهما يناسب شركتك.",
+        "فيزانو على السحابة: لا تركيب، تحديثات ونسخ احتياطي ليلي علينا، اشتراك بالباقة. أو على خادمك الخاص: بياناتك عندك، رخصة دائمة، يعمل دون إنترنت. اعرف أيهما يناسب شركتك.",
     },
   },
   en: {
     "/": {
-      title: `${SITE_NAME_LATIN} | Sales, Inventory and Offline POS for Shops, Wholesalers and Distributors`,
+      title: `${SITE_NAME_LATIN} | Till, Stock and Debt Ledger for Shops and Groceries — Works Offline`,
       description:
-        "Vezano is a cloud business platform: a point of sale that keeps selling offline, batch and expiry inventory, a customer debt ledger, multiple branches, Arabic and English. 14-day free trial, no card.",
+        "Vezano for shop and grocery owners: sell by barcode, track stock and customer debts, and keep selling when the network or power drops — it syncs when it is back. Arabic and English. 14-day free trial, no card, activated the same day after review.",
     },
     "/product": {
       title: "Product — POS, Inventory, Purchasing, Receivables and Branches in One System",
@@ -53,12 +53,12 @@ const COPY = {
     "/register": {
       title: "Start Your Company's Free Trial",
       description:
-        "Register your company on Vezano: a 14-day cloud trial with no card, or request a perpetual-licence quote for your own server. We review the request, create the workspace and send the owner an activation link.",
+        "Register your company on Vezano: a 14-day cloud trial with no card, or request a perpetual-licence quote for your own server. We review the request, activate the workspace the same day and send the owner an activation link.",
     },
     "/register/hosting": {
       title: "Cloud or Your Own Server? — Vezano's Two Ways to Run",
       description:
-        "Vezano in the cloud: nothing to install, updates and backups on us, a plan subscription. Or on your own server: data stays with you, a perpetual licence, runs without internet. Find out which fits your company.",
+        "Vezano in the cloud: nothing to install, updates and nightly backups on us, a plan subscription. Or on your own server: data stays with you, a perpetual licence, runs without internet. Find out which fits your company.",
     },
   },
 };
