@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-25 16:09+0000\n"
+"POT-Creation-Date: 2026-09-25 17:09+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2313,6 +2313,9 @@ msgstr "الإشعارات غير مُعدّة على الخادم."
 msgid "A push subscription is required."
 msgstr ""
 "بيانات اشتراك الإشعارات مطلوبة. فعّل الإشعارات من المتصفح ثم أعد المحاولة."
+
+msgid "Enter a reference, a phone number, an email or a name."
+msgstr "اكتب رقم الطلب أو رقم الهاتف أو البريد الإلكتروني أو الاسم."
 
 #, python-format
 #~ msgid "An order that is %(current)s cannot be set to %(target)s."

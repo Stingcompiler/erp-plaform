@@ -2,7 +2,7 @@ import { improvementsEn, improvementsAr } from "./improvementsI18n.js";
 import { debtEn, debtAr } from "./debtI18n.js";
 import { subscriptionEn, subscriptionAr } from "./subscriptionI18n.js";
 import { labelsAr, labelsEn, statesAr, statesEn } from "./labelsI18n.js";
-import { homeAr, homeEn, pricingAr, pricingEn, productAr, productEn, registerAr, registerEn } from "./marketingI18n.js";
+import { homeAr, homeEn, pricingAr, pricingEn, productAr, productEn, registerAr, registerEn, trackAr, trackEn } from "./marketingI18n.js";
 // Central translation catalog. Keys are dot-namespaced by surface. `t(key)`
 // (from useI18n) looks a key up in the active language, falling back to English,
 // then to the raw key — so a missing translation is visible, never a crash.
@@ -694,6 +694,9 @@ const en = {
   },
   platformRegistration: {
     title: "Company registration requests",
+    publicNotePrompt: "Set \"{status}\"? Write what the applicant should read on the tracking page (optional).",
+    publicNoteLabel: "Note to the applicant",
+    reference: "Request number",
     subtitle: "Review, approve, and provision customer workspaces without accessing their operational records.",
     count: "{count} requests",
     loadError: "Could not load registration requests.",
@@ -3564,6 +3567,9 @@ const ar = {
   },
   platformRegistration: {
     title: "طلبات تسجيل الشركات",
+    publicNotePrompt: "تغيير الحالة إلى «{status}»؟ اكتب ما يقرؤه صاحب الطلب في صفحة التتبّع (اختياري).",
+    publicNoteLabel: "ملاحظة لصاحب الطلب",
+    reference: "رقم الطلب",
     subtitle: "راجع الطلبات واعتمدها وجهّز مساحة عمل الشركة دون الوصول إلى سجلاتها التشغيلية.",
     count: "{count} طلبات",
     loadError: "تعذر تحميل طلبات التسجيل.",
@@ -5769,6 +5775,8 @@ en.home = homeEn;
 ar.home = homeAr;
 en.product = productEn;
 ar.product = productAr;
+en.track = trackEn;
+ar.track = trackAr;
 en.labels = labelsEn;
 ar.labels = labelsAr;
 en.states = statesEn;

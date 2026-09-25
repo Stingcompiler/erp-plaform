@@ -13,6 +13,7 @@ from website.views import (
     PlatformLeadViewSet,
     PlatformOverviewView,
     PlatformRegistrationRequestViewSet,
+    PlatformTrackView,
     PublicPlanListView,
     PublicRegistrationRequestView,
     PublicOrderCreateView,
@@ -59,6 +60,7 @@ urlpatterns = [
     ),
     path("public/demo-requests/", DemoRequestView.as_view(), name="demo-request"),
     path("public/plans/", PublicPlanListView.as_view(), name="public-plan-list"),
+    path("public/track/", PlatformTrackView.as_view(), name="platform-track"),
     path(
         "public/registration-requests/", PublicRegistrationRequestView.as_view(),
         name="registration-request",

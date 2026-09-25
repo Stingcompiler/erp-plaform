@@ -56,6 +56,18 @@ def new_tracking_token():
     return secrets.token_urlsafe(24)
 
 
+def new_reference(prefix, taken):
+    """``prefix`` + 6 unambiguous characters (the web-order alphabet) that
+    ``taken(ref)`` says is free."""
+    from website.orders import REFERENCE_ALPHABET
+
+    for _attempt in range(20):
+        ref = prefix + "".join(secrets.choice(REFERENCE_ALPHABET) for _i in range(6))
+        if not taken(ref):
+            return ref
+    raise RuntimeError("could not allocate a reference")
+
+
 def name_key(name):
     """The form a name is compared in: trimmed, single-spaced, Arabic
     spelling folded, case-folded. Exact equality on this is the name match."""
@@ -341,7 +353,8 @@ def public_view(order, language, *, who, full=False):
         "customer": initials(order.contact_name) if who == "initials"
         else first_name(order.contact_name),
         "lines": [
-            {"name": line.name, "quantity": f"{line.quantity:g}"} for line in order.lines.all()
+            {"name": line.name, "quantity": f"{Decimal(line.quantity).normalize():f}"}
+            for line in order.lines.all()
         ],
         # Strings, so the page shows 1000.00 whatever the active locale's
         # decimal separator (the same form the order page and emails use).
@@ -388,8 +401,10 @@ def rate_limited(request, *, count=True):
     return used > RATE_LIMIT
 
 
-def classify(query):
-    """("reference" | "email" | "phone" | "name", normalised value) or None."""
+def classify(query, reference=REFERENCE):
+    """("reference" | "email" | "phone" | "name", normalised value) or None.
+    ``reference`` is the pattern a reference must match (web orders by
+    default; vezano.app/track/ also takes registration and demo ones)."""
     text = " ".join(str(query or "").split())[:254]
     if len(text) < 2:
         return None
@@ -399,7 +414,7 @@ def classify(query):
     if re.fullmatch(r"[+\d\s\-().٠-٩۰-۹]+", text) and phone_key(text):
         return "phone", phone_key(text)
     compact = text.lstrip("#").replace(" ", "").upper()
-    if REFERENCE.match(compact):
+    if reference.match(compact):
         return "reference", compact
     return "name", name_key(text)
 

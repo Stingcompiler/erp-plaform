@@ -28,6 +28,27 @@ class FollowUpMixin(models.Model):
         return bool(self.next_follow_up_at) and self.next_follow_up_at <= timezone.now()
 
 
+def _lookup_columns(instance, prefix, model, *, name, extra):
+    """Fill the tracking columns of a platform request: its short public
+    reference (kept once given) and the folded name / phone keys."""
+    from website.tracking import name_key, new_reference, phone_key
+
+    if not instance.public_reference:
+        instance.public_reference = new_reference(
+            prefix, lambda ref: model.objects.filter(public_reference=ref).exists()
+        )
+    instance.lookup_name = name_key(name)
+    instance.lookup_phone = phone_key(instance.phone)
+    for field, value in extra.items():
+        setattr(instance, field, value)
+
+
+def _with_update_fields(kwargs, *fields):
+    update_fields = kwargs.get("update_fields")
+    if update_fields is not None:
+        kwargs["update_fields"] = set(update_fields) | set(fields)
+
+
 class PlatformLead(FollowUpMixin, models.Model):
     """A prospective Vezano customer captured from the public platform site.
 
@@ -69,6 +90,12 @@ class PlatformLead(FollowUpMixin, models.Model):
     # The team's own notes; never shown to the prospect.
     internal_note = models.TextField(blank=True)
     source = models.CharField(max_length=64, default="platform-website")
+    # The short reference the visitor quotes on vezano.app/track/ ("D" + 6);
+    # null only on rows written before it existed (backfilled).
+    public_reference = models.CharField(max_length=8, unique=True, null=True, blank=True)
+    # name / phone folded for the exact lookup (website.tracking.name_key, phone_key).
+    lookup_name = models.CharField(max_length=120, blank=True, db_index=True)
+    lookup_phone = models.CharField(max_length=16, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -77,6 +104,12 @@ class PlatformLead(FollowUpMixin, models.Model):
 
     def __str__(self):
         return f"{self.name} <{self.email or self.phone}>"
+
+    def save(self, *args, **kwargs):
+        # Columns of this row, not derived rows (see PublicOrder.save).
+        _lookup_columns(self, "D", PlatformLead, name=self.name, extra={})
+        _with_update_fields(kwargs, "public_reference", "lookup_name", "lookup_phone")
+        super().save(*args, **kwargs)
 
 
 class RegistrationRequest(FollowUpMixin, models.Model):
@@ -130,6 +163,16 @@ class RegistrationRequest(FollowUpMixin, models.Model):
         "org.Company", on_delete=models.SET_NULL, null=True, blank=True,
         related_name="registration_request",
     )
+    # What the applicant reads on vezano.app/track/ when the request is
+    # rejected or needs more information; internal_note stays internal.
+    public_note = models.TextField(blank=True)
+    # The short reference the applicant quotes on vezano.app/track/ ("R" + 6);
+    # null only on rows written before it existed (backfilled).
+    public_reference = models.CharField(max_length=8, unique=True, null=True, blank=True)
+    # Contact name, company name and phone folded for the exact lookup.
+    lookup_name = models.CharField(max_length=120, blank=True, db_index=True)
+    lookup_company = models.CharField(max_length=120, blank=True, db_index=True)
+    lookup_phone = models.CharField(max_length=16, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -138,6 +181,18 @@ class RegistrationRequest(FollowUpMixin, models.Model):
 
     def __str__(self):
         return f"{self.company_name} ({self.email})"
+
+    def save(self, *args, **kwargs):
+        from website.tracking import name_key
+
+        _lookup_columns(
+            self, "R", RegistrationRequest, name=self.contact_name,
+            extra={"lookup_company": name_key(self.company_name)},
+        )
+        _with_update_fields(
+            kwargs, "public_reference", "lookup_name", "lookup_company", "lookup_phone",
+        )
+        super().save(*args, **kwargs)
 
     def mark_reviewed(self, user):
         self.reviewed_by = user

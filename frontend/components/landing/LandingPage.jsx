@@ -434,7 +434,7 @@ const CONTACT_LABEL = "mb-1.5 block text-sm font-medium text-ink";
 const CONTACT_INPUT = "w-full rounded-control border border-line bg-paper px-3 py-3 text-ink outline-none placeholder:text-muted focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40";
 
 function ContactCTA() {
-  const { t } = useI18n();
+  const { t, href } = useI18n();
   const [sent, setSent] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -450,7 +450,7 @@ function ContactCTA() {
         name: form.get("name"), phone: form.get("phone"), email: form.get("email"),
         preferred_channel: form.get("preferred_channel") || "whatsapp",
         message: form.get("message"), website: form.get("website") });
-      setSent(res.data.reference);
+      setSent(res.data.public_reference || res.data.reference);
     } catch (err) { setError(t(err?.response?.status === 503 ? "improvements.contactUnavailable" : "improvements.contactError")); }
     finally { setBusy(false); }
   }
@@ -466,7 +466,10 @@ function ContactCTA() {
         </div>
         {sent ? (
           <p className="mt-8 rounded-control bg-ok/10 px-4 py-6 text-center font-medium text-ok">
-            {t("landing.contactSent")}<span className="mt-2 block text-xs">{t("improvements.contactReference", { id: sent })}</span>
+            {t("landing.contactSent")}
+            <span className="mt-3 block text-sm">{t("track.referenceLabel")}</span>
+            <bdi dir="ltr" className="mt-1 block font-mono text-lg font-bold tracking-wide text-ink">{sent}</bdi>
+            <Link href={href("/track")} className="mt-3 inline-block text-sm text-accent hover:underline">{t("track.thankYouTrack")}</Link>
           </p>
         ) : (
           <form onSubmit={onSubmit} className="mt-8 space-y-4">

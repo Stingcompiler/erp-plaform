@@ -83,7 +83,7 @@ footer{margin-top:28px;color:var(--muted);font-size:.88rem;text-align:center}
   <div class="note warn" role="status">{% if language == 'ar' %}عذراً، بحثت كثيراً خلال وقت قصير. انتظر بضع دقائق ثم حاول مجدداً، أو استخدم رابط الطلب الذي وصلك.{% else %}Sorry, that was a lot of searches in a short time. Please wait a few minutes and try again, or use the order link you received.{% endif %}</div>
   {% elif searched and not results %}
   <div class="note info" role="status">
-    {% if single %}<b>{% if language == 'ar' %}هذا الرابط لا يفتح أي طلب.{% else %}This link does not open an order.{% endif %}</b> <a href="{{ track_path }}">{% if language == 'ar' %}ابحث عن طلبك{% else %}Search for your order{% endif %}</a>{% else %}{% if language == 'ar' %}لم نجد طلبات بهذه البيانات. تأكد من رقم الطلب أو البريد، أو اكتب الاسم كما كتبته عند الطلب.{% else %}No orders found. Check the reference or the email, or write the name exactly as you did when ordering.{% endif %}{% endif %}
+    {% if single %}<b>{% if language == 'ar' %}هذا الرابط لا يفتح أي طلب.{% else %}This link does not open an order.{% endif %}</b> <a href="{{ track_path }}">{% if language == 'ar' %}ابحث عن طلبك{% else %}Search for your order{% endif %}</a>{% else %}{% if language == 'ar' %}لم نجد طلبات بهذه البيانات. تأكد من رقم الطلب أو رقم الهاتف/واتساب أو البريد، أو اكتب الاسم كما كتبته عند الطلب.{% else %}No orders found. Check the reference, the phone/WhatsApp number or the email, or write the name exactly as you did when ordering.{% endif %}{% endif %}
   </div>
   {% endif %}
 
@@ -122,7 +122,7 @@ footer{margin-top:28px;color:var(--muted);font-size:.88rem;text-align:center}
   {% endfor %}
 
   {% if single %}<p class="small" style="text-align:center"><a href="{{ track_path }}">{% if language == 'ar' %}تتبّع طلباً آخر{% else %}Track another order{% endif %}</a></p>{% endif %}
-  <footer>{% if language == 'ar' %}احتفظ برابط طلبك أو رقمه لمتابعته.{% else %}Keep your order link or reference to follow it.{% endif %}</footer>
+  <footer>{% if language == 'ar' %}احتفظ برابط طلبك أو رقمه لمتابعته.{% else %}Keep your order link or reference to follow it.{% endif %}<br>{% if language == 'ar' %}طلبات من متاجر أخرى على فيزانو؟ تابعها كلها من <a href="{{ platform_track_url }}">vezano.app/track</a>{% else %}Orders from other stores on Vezano? Track them all at <a href="{{ platform_track_url }}">vezano.app/track</a>{% endif %}</footer>
 </div>
 </body>
 </html>

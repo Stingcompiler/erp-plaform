@@ -11,6 +11,7 @@ import FollowUpPanel, { ContactLinks, FollowUpBadge } from "@/components/platfor
 import { errorText } from "@/lib/errors";
 import { SkeletonCard } from "@/components/ui/Skeleton";
 import { enumLabel } from "@/lib/labels";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 const ACTIVE = ["submitted", "under_review", "needs_information", "approved"];
 const REVIEW = ["under_review", "needs_information", "rejected"];
@@ -24,6 +25,7 @@ export default function PlatformRegistrationsPage() {
   const canProvision = can("platform.registrations.provision");
   const canReissue = can("platform.invitations.reissue");
   const { t, language } = useI18n();
+  const confirm = useConfirm();
   const [rows, setRows] = useState([]);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -94,6 +96,21 @@ export default function PlatformRegistrationsPage() {
     }
   };
 
+  // Rejecting or asking for more: the applicant reads this note on
+  // vezano.app/track/ (the internal note stays internal).
+  const review = async (row, status) => {
+    const body = { status };
+    if (status === "rejected" || status === "needs_information") {
+      const note = await confirm(t("platformRegistration.publicNotePrompt", { status: label(status) }), {
+        tone: status === "rejected" ? "danger" : undefined,
+        input: { label: t("platformRegistration.publicNoteLabel"), initial: row.public_note || "" },
+      });
+      if (note === false) return;
+      body.public_note = note;
+    }
+    run(row, "review", body);
+  };
+
   if (!canView) return <Card className="mx-auto mt-16 max-w-md p-8 text-center"><Lock className="mx-auto text-muted" /><p className="mt-3 text-muted">{t("platformRegistration.noAccess")}</p></Card>;
 
   return (
@@ -143,6 +160,8 @@ export default function PlatformRegistrationsPage() {
                     </div>
                     {open && !live && <p className="mt-2 text-sm font-medium text-danger">{t("platformRegistration.planUnavailable")}</p>}
                     {row.message && <p className="mt-3 whitespace-pre-wrap text-sm text-muted">{row.message}</p>}
+                    {row.public_note && <p className="mt-2 text-sm"><span className="text-muted">{t("platformRegistration.publicNoteLabel")}:</span> {row.public_note}</p>}
+                    {row.public_reference && <p className="mt-1 text-xs text-muted">{t("platformRegistration.reference")}: <bdi dir="ltr" className="font-mono">{row.public_reference}</bdi></p>}
                     <FollowUpPanel row={row} canEdit={canReview} saving={saving === `followup-${row.id}`} onSave={(patch) => saveFollowUp(row, patch)} />
                   </div>
                   <div className="flex shrink-0 flex-wrap items-start gap-2">
@@ -153,7 +172,7 @@ export default function PlatformRegistrationsPage() {
                       </Select>
                     )}
                     {canReview && open && (
-                      <Select value="" onChange={(event) => event.target.value && run(row, "review", { status: event.target.value })} className="w-44">
+                      <Select value="" onChange={(event) => event.target.value && review(row, event.target.value)} className="w-44">
                         <option value="" disabled>{t("platformRegistration.setStatus")}</option>
                         {REVIEW.map((status) => <option key={status} value={status}>{label(status)}</option>)}
                       </Select>

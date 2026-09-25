@@ -487,6 +487,8 @@ export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhos
 export default api;
 
 export const demoRequests = { create: (body) => api.post("/public/demo-requests/", body) };
+// vezano.app/track/: a POST so the query never lands in a URL.
+export const publicTrack = { search: (body) => api.post("/public/track/", body) };
 
 // Unauthenticated reads of the public company pages.
 export const publicSite = {
