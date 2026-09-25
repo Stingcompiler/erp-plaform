@@ -52,6 +52,11 @@ export default function Showcase() {
                 )}
               </div>
               <div className="px-4 pb-4 pt-6">
+                {site.is_demo && (
+                  <p className="mb-1.5 inline-block rounded-full border border-warn/40 bg-warn/10 px-2 py-0.5 text-xs font-semibold text-ink">
+                    {t("home.showcaseDemo")}
+                  </p>
+                )}
                 <h3 className="font-display font-semibold group-hover:text-accent">{site.name}</h3>
                 {site.tagline && <p className="mt-1 line-clamp-2 text-sm text-muted">{site.tagline}</p>}
                 <div className="mt-2 flex flex-wrap gap-1.5 text-xs text-muted">

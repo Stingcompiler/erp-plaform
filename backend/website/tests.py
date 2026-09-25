@@ -176,6 +176,24 @@ class PublicCompanyPageTests(PublicSiteTests):
         self.assertNotIn("cost_price", html)
         self.assertNotIn("reorder_level", html)
 
+    def test_demo_company_is_labelled_and_vezano_only_in_the_footer(self):
+        self._publish_with_content()
+        anon = self.client_class()
+        url = reverse("public-site-page", args=[self.company_a.slug])
+        html = anon.get(url).content.decode()
+        # A real customer: no demo label; Vezano appears once, in the footer.
+        self.assertNotIn("شركة تجريبية لاستكشاف النظام", html)
+        self.assertIn("مدعوم من <a", html)
+        self.assertEqual(html.count("فيزانو"), 1)
+        self.assertIn("family=Tajawal", html)
+        self.assertNotIn("Cairo", html)
+        self.company_a.is_demo = True
+        self.company_a.save(update_fields=["is_demo"])
+        html = anon.get(url).content.decode()
+        self.assertIn('<p class="demo-note" role="note">شركة تجريبية لاستكشاف النظام</p>', html)
+        directory = anon.get(reverse("public-site-directory")).content.decode()
+        self.assertIn('<p class="demo">شركة تجريبية لاستكشاف النظام</p>', directory)
+
     def test_english_content_renders_ltr(self):
         self._build_and_publish()
         site = Website.objects.get(company=self.company_a)
@@ -500,6 +518,10 @@ class PreviewAndShowcaseTests(LandingPageImageTests):
         self.assertTrue(card["logo"].startswith("https://vezano.app/media/public/"))
         self.assertEqual(card["category_label"], "مواد غذائية")
         self.assertTrue(card["complete"])
+        self.assertFalse(card["is_demo"])
+        self.company_a.is_demo = True
+        self.company_a.save(update_fields=["is_demo"])
+        self.assertTrue(anon.get(reverse("public-showcase")).json()["sites"][0]["is_demo"])
         Website.objects.filter(company=self.company_a).update(list_in_directory=False)
         self.assertEqual(anon.get(reverse("public-showcase")).json()["sites"], [])
 

@@ -21,14 +21,14 @@
 {% if logo %}<link rel="icon" href="{{ logo }}">{% endif %}
 <meta name="theme-color" content="{{ colour }}">
 {% if language == 'ar' %}<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">{% endif %}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap">{% endif %}
 {% for block in json_ld %}<script type="application/ld+json">{{ block|safe }}</script>
 {% endfor %}<style>
-:root{--accent:{{ colour }};--ink:#14202c;--muted:#5f6d78;--paper:#f6f8f7;--surface:#fff;--line:#e2e8e8;--shadow:0 10px 30px rgba(20,32,44,.08);--ok-bg:#f0fdf4;--ok-line:#bbf7d0;--ok-ink:#15803d;--err-ink:#b91c1c}
-@media (prefers-color-scheme: dark){:root{--ink:#eef2f3;--muted:#9aa8b1;--paper:#0f1a22;--surface:#16232c;--line:#25343f;--shadow:0 10px 30px rgba(0,0,0,.35);--ok-bg:#0f2a1c;--ok-line:#1f5134;--ok-ink:#4ade80;--err-ink:#f87171}}
+:root{--accent:{{ colour }};--ink:#14202c;--muted:#5f6d78;--paper:#f6f8f7;--surface:#fff;--line:#e2e8e8;--shadow:0 10px 30px rgba(20,32,44,.08);--ok-bg:#f0fdf4;--ok-line:#bbf7d0;--ok-ink:#15803d;--err-ink:#b91c1c;--demo-bg:#fef3c7;--demo-line:#f59e0b;--demo-ink:#78350f}
+@media (prefers-color-scheme: dark){:root{--ink:#eef2f3;--muted:#9aa8b1;--paper:#0f1a22;--surface:#16232c;--line:#25343f;--shadow:0 10px 30px rgba(0,0,0,.35);--ok-bg:#0f2a1c;--ok-line:#1f5134;--ok-ink:#4ade80;--err-ink:#f87171;--demo-bg:#3a2a0a;--demo-line:#b45309;--demo-ink:#fcd34d}}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{margin:0;background:var(--paper);color:var(--ink);font-family:{% if language == 'ar' %}"Cairo",{% endif %}system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.7;padding:0}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:{% if language == 'ar' %}"Tajawal",{% endif %}system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.7;padding:0}
 a{color:var(--accent)}
 img{max-width:100%;display:block}
 .wrap{max-width:1040px;margin-inline:auto;padding-inline:20px}
@@ -105,12 +105,15 @@ section.block .sub{margin:0 0 22px;color:var(--muted);white-space:pre-line;max-w
 footer.site{margin-top:24px;padding-block:24px 96px;border-top:1px solid var(--line);color:var(--muted);font-size:.9rem}
 footer.site .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
 footer.site a{color:var(--muted)}
+.demo-note{background:var(--demo-bg);color:var(--demo-ink);border-bottom:1px solid var(--demo-line);text-align:center;padding:8px 12px;font-size:.95rem;font-weight:700}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .fab{position:fixed;bottom:16px;inset-inline-end:16px;z-index:20;background:#25d366;color:#fff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.25);display:inline-flex;align-items:center;gap:8px}
 @media (min-width:760px){.fab{display:none}.fab.cart-fab{display:inline-flex}footer.site{padding-bottom:32px}}
 </style>
 </head>
 <body>
 {% if preview %}<div style="background:#a8690f;color:#fff;text-align:center;padding:8px 12px;font-size:.9rem">{% if language == 'ar' %}معاينة — هكذا يراها الزوار{% if not data.published_at %}، ولم تُنشر بعد{% endif %}{% else %}Preview — this is how visitors see it{% if not data.published_at %}; not published yet{% endif %}{% endif %}</div>{% endif %}
+{% if is_demo %}<p class="demo-note" role="note">{% if language == 'ar' %}شركة تجريبية لاستكشاف النظام{% else %}Demo company to explore the system{% endif %}</p>{% endif %}
 <div class="bar">
   <div class="wrap">
     <a class="brand" href="#top">
@@ -271,7 +274,7 @@ footer.site a{color:var(--muted)}
 <footer class="site">
   <div class="wrap">
     <span>© {% now "Y" %} {{ name }}</span>
-    <span>{% if language == 'ar' %}يعمل بنظام{% else %}Runs on{% endif %} <a href="{{ platform_url }}">Vezano</a> · <a href="{{ directory_url }}">{% if language == 'ar' %}دليل المتاجر{% else %}Directory{% endif %}</a></span>
+    <span>{% if language == 'ar' %}مدعوم من <a href="{{ platform_url }}">فيزانو</a>{% else %}Powered by <a href="{{ platform_url }}">Vezano</a>{% endif %}</span>
   </div>
 </footer>
 {% if whatsapp %}<a class="fab" href="https://wa.me/{{ whatsapp }}" rel="noopener">💬 {% if language == 'ar' %}واتساب{% else %}WhatsApp{% endif %}</a>{% endif %}

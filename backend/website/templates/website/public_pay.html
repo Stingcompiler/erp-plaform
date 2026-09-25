@@ -8,12 +8,12 @@
 {% if logo %}<link rel="icon" href="{{ logo }}">{% endif %}
 <meta name="theme-color" content="{{ colour }}">
 {% if language == 'ar' %}<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">{% endif %}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap">{% endif %}
 <style>
 :root{--accent:{{ colour }};--ink:#14202c;--muted:#5f6d78;--paper:#f6f8f7;--surface:#fff;--line:#e2e8e8;--ok-bg:#f0fdf4;--ok-line:#bbf7d0;--ok-ink:#15803d;--err-ink:#b91c1c}
 @media (prefers-color-scheme: dark){:root{--ink:#eef2f3;--muted:#9aa8b1;--paper:#0f1a22;--surface:#16232c;--line:#25343f;--ok-bg:#0f2a1c;--ok-line:#1f5134;--ok-ink:#4ade80;--err-ink:#f87171}}
 *{box-sizing:border-box}[hidden]{display:none!important}
-body{margin:0;font-family:{% if language == 'ar' %}Cairo,{% endif %}system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--paper);color:var(--ink);line-height:1.6}
+body{margin:0;font-family:{% if language == 'ar' %}Tajawal,{% endif %}system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--paper);color:var(--ink);line-height:1.6}
 .wrap{max-width:640px;margin:0 auto;padding:24px 16px 60px}
 .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.1rem;margin-bottom:20px}.brand img{width:36px;height:36px;border-radius:10px;object-fit:cover}.brand .ph{width:36px;height:36px;border-radius:10px;background:var(--accent);color:#fff;display:grid;place-items:center}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}

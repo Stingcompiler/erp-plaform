@@ -255,7 +255,7 @@ export const GUIDES = [
         {
           heading: "٢ · كشف الحساب بدل المطالبة",
           paragraphs: [
-            "المطالبة الشفهية تفتح جدالًا: كم؟ منذ متى؟ أليس هذا مدفوعًا؟ كشف الحساب يغلقه. قائمة بالفواتير والدفعات والمرتجعات بالتاريخ والرقم، تصل للعميل أول كل شهر على واتساب أو مطبوعة مع أول توصيلة. من يرى الكشف يدفع دون أن يُطلب منه، ومن يعترض يعترض على رقم محدد يمكن التحقق منه.",
+            "المطالبة الشفهية تفتح جدالًا: كم؟ منذ متى؟ أليس هذا مدفوعًا؟ كشف الحساب يغلقه. قائمة بالفواتير والدفعات والمرتجعات بالتاريخ والرقم، ترسلها أنت للعميل أول كل شهر على واتساب أو مطبوعة مع أول توصيلة. من يرى الكشف يدفع دون أن يُطلب منه، ومن يعترض يعترض على رقم محدد يمكن التحقق منه.",
           ],
           bullets: [
             "كشف حساب شهري ثابت الموعد لكل عميل له رصيد",
@@ -306,7 +306,7 @@ export const GUIDES = [
         {
           heading: "2 · A statement instead of a demand",
           paragraphs: [
-            "A verbal demand opens an argument: how much? Since when? Wasn't that paid? A statement closes it. A list of invoices, payments and returns with dates and numbers, reaching the customer on the first of each month by WhatsApp or printed with the first delivery. Those who see the statement pay without being asked, and those who object object to a specific figure that can be checked.",
+            "A verbal demand opens an argument: how much? Since when? Wasn't that paid? A statement closes it. A list of invoices, payments and returns with dates and numbers, that you send the customer on the first of each month by WhatsApp or print with the first delivery. Those who see the statement pay without being asked, and those who object object to a specific figure that can be checked.",
           ],
           bullets: [
             "A monthly statement on a fixed date for every customer with a balance",

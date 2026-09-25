@@ -12,14 +12,19 @@ import {
   Briefcase,
   Check,
   Contact,
+  DatabaseBackup,
   Globe,
   LayoutDashboard,
+  LifeBuoy,
+  Mail,
+  MessageCircle,
   Package,
   RotateCcw,
   ShoppingCart,
   Truck,
   Users,
   Wallet,
+  WifiOff,
 } from "lucide-react";
 
 import { useI18n } from "../../app/providers/I18nProvider";
@@ -28,7 +33,7 @@ import InstallCard from "@/components/sync/InstallCard";
 
 import { demoRequests } from "@/lib/api";
 import { MarketingFooter, MarketingHeader } from "@/components/marketing/Chrome";
-import { DirectWhatsAppLink, SiteContactProvider, WhatsAppFloat } from "@/components/marketing/SiteContact";
+import { DirectWhatsAppLink, SiteContactProvider, WhatsAppFloat, useSiteContact } from "@/components/marketing/SiteContact";
 import PlanCards from "@/components/marketing/PlanCards";
 import Shot from "@/components/marketing/Shot";
 
@@ -89,6 +94,10 @@ function Hero() {
           </Reveal>
           <Reveal immediate delay={0.1}>
             <p className="mx-auto mt-5 max-w-2xl text-base text-muted sm:text-lg">{t("home.heroSubtitle")}</p>
+            <p className="mx-auto mt-4 flex max-w-2xl items-start justify-center gap-2 text-sm text-ink/80">
+              <WifiOff size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-accent" />
+              <span>{t("home.heroOffline")}</span>
+            </p>
           </Reveal>
           <Reveal immediate delay={0.15}>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -213,6 +222,56 @@ function HowItWorks() {
   );
 }
 
+// What a visitor can check before trusting us with the shop: what the
+// nightly backup holds and how it comes back, and how to reach a person.
+// Only what the product does (ops.snapshots / Settings → Backups); no
+// response-time promise.
+function TrustSupport() {
+  const { t } = useI18n();
+  const { email, whatsapp, whatsappHref } = useSiteContact();
+  const points = t("home.backupPoints");
+  const linkClass = "inline-flex items-center gap-2 rounded-control border border-line bg-paper px-4 py-2 text-sm font-medium text-ink hover:border-accent";
+  return (
+    <section id="trust" className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 sm:pb-24">
+      <div className="grid gap-5 md:grid-cols-2">
+        <div className="rounded-card border border-line bg-surface p-6 shadow-card">
+          <h2 className="flex items-center gap-2 font-display text-xl font-bold">
+            <DatabaseBackup size={20} aria-hidden="true" className="text-accent" />{t("home.backupTitle")}
+          </h2>
+          {Array.isArray(points) && (
+            <ul className="mt-4 space-y-2.5 text-sm">
+              {points.map((line) => (
+                <li key={line} className="flex items-start gap-2">
+                  <Check size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-accent" /><span>{line}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="rounded-card border border-line bg-surface p-6 shadow-card">
+          <h2 className="flex items-center gap-2 font-display text-xl font-bold">
+            <LifeBuoy size={20} aria-hidden="true" className="text-accent" />{t("home.supportTitle")}
+          </h2>
+          <p className="mt-4 text-sm">{t("home.supportBody")}</p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            {email && (
+              <a href={`mailto:${email}`} className={linkClass}>
+                <Mail size={15} aria-hidden="true" />{t("home.supportEmail")}: <bdi dir="ltr">{email}</bdi>
+              </a>
+            )}
+            {whatsappHref && (
+              <a href={whatsappHref} target="_blank" rel="noreferrer noopener" className={linkClass}>
+                <MessageCircle size={15} aria-hidden="true" />{t("home.supportWhatsApp")}: <bdi dir="ltr">{whatsapp}</bdi>
+              </a>
+            )}
+            <a href="#contact" className={linkClass}>{t("home.supportForm")}</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Faq() {
   const { t } = useI18n();
   const items = t("home.faq");
@@ -274,6 +333,10 @@ function PricingPreview() {
   );
 }
 
+// Visible labels (not placeholder-only) so a field keeps its name once filled.
+const CONTACT_LABEL = "mb-1.5 block text-sm font-medium text-ink";
+const CONTACT_INPUT = "w-full rounded-control border border-line bg-paper px-3 py-3 text-ink outline-none placeholder:text-muted focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40";
+
 function ContactCTA() {
   const { t } = useI18n();
   const [sent, setSent] = useState(null);
@@ -314,25 +377,24 @@ function ContactCTA() {
             <div className="hidden" aria-hidden="true"><input name="website" tabIndex={-1} autoComplete="off" /></div>
             {error && <p role="alert" className="text-danger">{error}</p>}
             <div className="grid gap-4 sm:grid-cols-2">
-              <input
-                required name="name" maxLength={255} aria-label={t("landing.contactName")}
-                placeholder={t("landing.contactName")}
-                className="w-full rounded-control border border-line bg-paper px-3 py-3 outline-none focus:border-accent"
-              />
-              <input
-                type="tel" name="phone" maxLength={32} required inputMode="tel" dir="ltr"
-                aria-label={t("landing.contactPhone")}
-                placeholder={t("landing.contactPhone")}
-                className="w-full rounded-control border border-line bg-paper px-3 py-3 text-start outline-none focus:border-accent"
-              />
+              <label className="block">
+                <span className={CONTACT_LABEL}>{t("landing.contactName")}</span>
+                <input required name="name" maxLength={255} autoComplete="name" className={CONTACT_INPUT} />
+              </label>
+              <label className="block">
+                <span className={CONTACT_LABEL}>{t("landing.contactPhone")}</span>
+                <input
+                  type="tel" name="phone" maxLength={32} required inputMode="tel" dir="ltr" autoComplete="tel"
+                  className={`${CONTACT_INPUT} text-start`}
+                />
+              </label>
             </div>
-            <input
-              type="email" name="email" maxLength={254} aria-label={t("landing.contactEmailOptional")}
-              placeholder={t("landing.contactEmailOptional")}
-              className="w-full rounded-control border border-line bg-paper px-3 py-3 outline-none focus:border-accent"
-            />
+            <label className="block">
+              <span className={CONTACT_LABEL}>{t("landing.contactEmailOptional")}</span>
+              <input type="email" name="email" maxLength={254} dir="ltr" autoComplete="email" className={`${CONTACT_INPUT} text-start`} />
+            </label>
             <fieldset className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-              <legend className="mb-2 text-muted">{t("landing.contactChannel")}</legend>
+              <legend className="mb-2 font-medium text-ink">{t("landing.contactChannel")}</legend>
               {["whatsapp", "call", "email"].map((channel) => (
                 <label key={channel} className="inline-flex cursor-pointer items-center gap-2">
                   <input type="radio" name="preferred_channel" value={channel} defaultChecked={channel === "whatsapp"} className="accent-accent" />
@@ -340,11 +402,10 @@ function ContactCTA() {
                 </label>
               ))}
             </fieldset>
-            <textarea
-              rows={4} name="message" maxLength={4000} aria-label={t("landing.contactMessage")}
-              placeholder={t("landing.contactMessage")}
-              className="w-full rounded-control border border-line bg-paper px-3 py-3 outline-none focus:border-accent"
-            />
+            <label className="block">
+              <span className={CONTACT_LABEL}>{t("landing.contactMessage")}</span>
+              <textarea rows={4} name="message" maxLength={4000} className={CONTACT_INPUT} />
+            </label>
             <button
               type="submit" disabled={busy}
               className="w-full rounded-control bg-accent py-3 font-medium text-white hover:bg-accent-strong"
@@ -371,6 +432,7 @@ export default function LandingPage() {
           <Showcase />
           <Modules />
           <HowItWorks />
+          <TrustSupport />
           <PricingPreview />
           <Faq />
           <FinalCta />
