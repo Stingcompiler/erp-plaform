@@ -62,6 +62,19 @@ def name_key(name):
     return fold_arabic(" ".join(str(name or "").split())).casefold()[:120]
 
 
+# The subscriber part of a phone number: the last 9 digits (a Sudanese
+# mobile number without the 0 or +249, and enough to tell numbers apart
+# anywhere). "0912 345 678", "+249912345678", "00249 91 234 5678" and
+# "912345678" all give "912345678"; the WhatsApp number is the same number.
+PHONE_KEY_DIGITS = 9
+_ARABIC_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
+
+
+def phone_key(phone):
+    digits = "".join(ch for ch in str(phone or "").translate(_ARABIC_DIGITS) if ch.isdigit())
+    return digits[-PHONE_KEY_DIGITS:] if len(digits) >= PHONE_KEY_DIGITS else ""
+
+
 def first_name(name):
     parts = str(name or "").split()
     return parts[0] if parts else ""
@@ -376,12 +389,15 @@ def rate_limited(request, *, count=True):
 
 
 def classify(query):
-    """("reference" | "email" | "name", normalised value) or None."""
+    """("reference" | "email" | "phone" | "name", normalised value) or None."""
     text = " ".join(str(query or "").split())[:254]
     if len(text) < 2:
         return None
     if "@" in text:
         return "email", text.replace(" ", "")
+    # A phone / WhatsApp number: only digits and the usual separators.
+    if re.fullmatch(r"[+\d\s\-().٠-٩۰-۹]+", text) and phone_key(text):
+        return "phone", phone_key(text)
     compact = text.lstrip("#").replace(" ", "").upper()
     if REFERENCE.match(compact):
         return "reference", compact
@@ -416,6 +432,8 @@ def lookup(site, query):
         kind, value = "name", name_key(query)
     if kind == "email":
         hits = orders.filter(email__iexact=value)
+    elif kind == "phone":
+        hits = orders.filter(lookup_phone=value)
     else:
         hits = orders.filter(lookup_name=value) if value else orders.none()
     return "initials", list(hits[:LOOKUP_LIMIT])

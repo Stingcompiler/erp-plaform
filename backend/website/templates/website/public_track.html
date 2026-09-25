@@ -68,11 +68,11 @@ footer{margin-top:28px;color:var(--muted);font-size:.88rem;text-align:center}
   {% if not single %}
   <div class="card">
     <h1>{% if language == 'ar' %}تتبّع طلبك{% else %}Track your order{% endif %}</h1>
-    <p class="muted small">{% if language == 'ar' %}اكتب رقم الطلب، أو البريد الإلكتروني الذي طلبت به، أو اسمك كما كتبته عند الطلب تماماً. نعرض طلبات آخر {{ lookup_days }} يوماً.{% else %}Enter the order reference, the email you ordered with, or your name exactly as you wrote it when ordering. Orders from the last {{ lookup_days }} days are shown.{% endif %}</p>
+    <p class="muted small">{% if language == 'ar' %}اكتب رقم الطلب، أو رقم هاتفك أو واتساب الذي طلبت به، أو بريدك الإلكتروني، أو اسمك كما كتبته عند الطلب تماماً. نعرض طلبات آخر {{ lookup_days }} يوماً.{% else %}Enter the order reference, the phone or WhatsApp number you ordered with, your email, or your name exactly as you wrote it when ordering. Orders from the last {{ lookup_days }} days are shown.{% endif %}</p>
     <form class="search" method="post" action="{{ track_path }}">
-      <label for="q">{% if language == 'ar' %}رقم الطلب أو البريد أو الاسم{% else %}Reference, email or name{% endif %}</label>
+      <label for="q">{% if language == 'ar' %}رقم الطلب أو الهاتف/واتساب أو البريد أو الاسم{% else %}Reference, phone/WhatsApp, email or name{% endif %}</label>
       <div class="row">
-        <input id="q" name="q" required maxlength="254" autocomplete="off" {% if language == 'ar' %}placeholder="مثال: W7K3MQ2"{% else %}placeholder="e.g. W7K3MQ2"{% endif %}>
+        <input id="q" name="q" required maxlength="254" autocomplete="off" {% if language == 'ar' %}placeholder="مثال: W7K3MQ2 أو 09xxxxxxxx"{% else %}placeholder="e.g. W7K3MQ2 or 09xxxxxxxx"{% endif %}>
         <button class="btn" type="submit">{% if language == 'ar' %}بحث{% else %}Search{% endif %}</button>
       </div>
     </form>

@@ -131,6 +131,25 @@ class TrackingLookupTests(TrackingTestBase):
             self.assertNotIn(secret, html)
         self.assertNotIn(order.reference, self._search("mal@example.com").content.decode())
 
+    def test_phone_or_whatsapp_lookup_matches_any_way_the_number_is_written(self):
+        order = self._order(name="Amal Hassan")
+        order.phone = "0912 345 678"
+        order.save()
+        other = self._order(name="Omar Salih")
+        other.phone = "+249 91 111 2222"
+        other.save()
+        for query in ("0912345678", "+249912345678", "00249 91 234 5678", "912-345-678",
+                      "٠٩١٢٣٤٥٦٧٨"):
+            html = self._search(query).content.decode()
+            self.assertIn(order.reference, html, query)
+            self.assertNotIn(other.reference, html, query)
+            # The customer is masked, and the number is never echoed back.
+            self.assertIn("A. H.", html)
+            self.assertNotIn("Amal Hassan", html)
+            self.assertNotIn("0912 345 678", html)
+        # Too short to be a number: no match, and not treated as a phone.
+        self.assertNotIn(order.reference, self._search("345678").content.decode())
+
     def test_name_lookup_is_exact_after_folding_arabic_and_spaces(self):
         order = self._order(name="  أحمد   عليّ ")
         for query in ("احمد علي", "أحمد عليّ", "  اَحمد   على "):

@@ -608,6 +608,8 @@ class PublicOrder(models.Model):
     tracking_token = models.CharField(max_length=48, unique=True, null=True, blank=True)
     # contact_name folded for the exact-name lookup (website.tracking.name_key).
     lookup_name = models.CharField(max_length=120, blank=True, db_index=True)
+    # phone's last 9 digits for the phone / WhatsApp lookup (tracking.phone_key).
+    lookup_phone = models.CharField(max_length=16, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -620,14 +622,17 @@ class PublicOrder(models.Model):
     def save(self, *args, **kwargs):
         # Both are columns of this row, not derived rows: a restore carries
         # its own token, and the name key is recomputed from the same name.
-        from website.tracking import name_key, new_tracking_token
+        from website.tracking import name_key, new_tracking_token, phone_key
 
         if not self.tracking_token:
             self.tracking_token = new_tracking_token()
         self.lookup_name = name_key(self.contact_name)
+        self.lookup_phone = phone_key(self.phone)
         update_fields = kwargs.get("update_fields")
         if update_fields is not None:
-            kwargs["update_fields"] = set(update_fields) | {"tracking_token", "lookup_name"}
+            kwargs["update_fields"] = set(update_fields) | {
+                "tracking_token", "lookup_name", "lookup_phone",
+            }
         super().save(*args, **kwargs)
 
 
