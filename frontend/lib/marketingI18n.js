@@ -270,9 +270,9 @@ export const registerAr = {
 // Landing page (public home). Screenshots are real captures of the demo
 // company; the copy must describe what is in the picture.
 export const homeEn = {
-  heroBadge: "For shop and grocery owners · Arabic & English",
-  heroTitle: "For your shop or grocery: sell, and track stock and debts — even when the network or power drops.",
-  heroSubtitle: "Vezano is a till, a stock book and a debt ledger in one system: sell by barcode or by name, see how much of every item is left, and what every customer owes and since when.",
+  heroBadge: "For stores and companies with one branch or many · Arabic & English",
+  heroTitle: "One system that runs your business across every branch: sales, inventory, purchasing, customers, people and finance — and keeps working when the network drops.",
+  heroSubtitle: "Point of sale, multi-warehouse inventory, purchasing, CRM, HR and payroll, financial management and reports, with access set by role and branch — start with one branch and add more as you grow.",
   heroOffline: "Without a connection, sales, customer payments, returns, stock counts and attendance carry on and sync when the network is back; signing in, fresh reports and settings need a connection.",
   heroPrimary: "Start free trial",
   heroSecondary: "See pricing",
@@ -283,8 +283,70 @@ export const homeEn = {
   showcaseDemo: "Demo company to explore the system",
   showcaseAll: "All companies and stores",
   heroCaption: "The owner's dashboard of a demo company — real screen, sample data.",
-  trust: ["Offline-first POS", "Arabic & English, RTL", "PostgreSQL, audited ledger", "Cloud or your own server"],
-  storiesTitle: "Built around how a trading business actually runs",
+  trust: ["Offline-first POS", "Arabic & English, RTL", "12 roles, branch-scoped access", "Cloud or your own server"],
+  // Each card links to its section of /product; say only what the code does.
+  modulesTitle: "Every department of your company in one system",
+  modulesSubtitle: "The modules share one set of data: a sale moves stock, lands on the customer's statement and shows up in the reports without anyone typing it twice.",
+  modulesMore: "Details",
+  modules: [
+    {
+      key: "sales", anchor: "pos", title: "Sales and point of sale",
+      body: "A fast barcode till that keeps selling offline, quotations and sales orders for larger customers, one bill paid in several tenders (cash and bank apps), and numbered receipts and invoices.",
+    },
+    {
+      key: "inventory", anchor: "inventory", title: "Inventory and warehouses",
+      body: "Several warehouses per branch, batches with expiry dates sold first-expiry-first, transfers between warehouses, periodic stock counts and printed barcode labels.",
+    },
+    {
+      key: "purchasing", anchor: "purchasing", title: "Purchasing and suppliers",
+      body: "Purchase orders and goods receipts, supplier bills, payments and balances, and purchase returns with numbered debit notes.",
+    },
+    {
+      key: "crm", anchor: "collections", title: "Customers and CRM",
+      body: "A leads pipeline from first contact to won or lost, follow-ups, and a ledger for every customer with statements, debt ageing and collections.",
+    },
+    {
+      key: "hr", anchor: "people", title: "HR and payroll",
+      body: "Employee files, attendance, leave and salary advances, and payroll runs that finance approves before they reach the expenses.",
+    },
+    {
+      key: "finance", anchor: "finance", title: "Financial management",
+      body: "Company bank accounts and bank-app statement matching, expenses by category with approval for large amounts, budgets against actuals, profit and loss, cash flow, receivables and payables ageing, and zakat.",
+    },
+    {
+      key: "reports", anchor: "reports", title: "Reports and dashboards",
+      body: "A dashboard with the month's revenue, low stock, near-expiry items and overdue debts, and reports on sales, margins, stock value, purchasing, returns and payroll, with CSV export.",
+    },
+    {
+      key: "branches", anchor: "people", title: "Branches and permissions",
+      body: "Twelve ready-made roles; each branch works with its own data while head office sees every branch, and every change is kept in an activity log.",
+    },
+  ],
+  multiTitle: "Built for companies with many branches and many roles",
+  multiSubtitle: "Growing from one branch to several changes your settings, not your system.",
+  multiBranchTitle: "Every branch sees its own data",
+  multiBranchBody: "A branch manager, cashier or stock keeper sees their branch only: its sales, stock, customers and reports. The owner, general manager, CFO and finance team see the whole company.",
+  multiRolesTitle: "Twelve roles, each with its own permissions",
+  multiRoles: [
+    "Business Owner", "General Manager", "Chief Financial Officer", "Finance Department",
+    "Branch Manager", "Sales Officer", "Inventory Officer", "Purchasing Officer",
+    "HR Officer", "CRM Officer", "Website Manager", "Viewer",
+  ],
+  multiApprovalsTitle: "Approvals and a trail for every change",
+  multiApprovals: [
+    "A discount limit and a price floor: going past them needs an approver, and flagged prices are reviewed.",
+    "Cash shifts close with a counted drawer, and a manager signs off the difference.",
+    "Large payments, refunds and expenses need the owner, general manager or CFO.",
+    "An activity log of who changed what, and when.",
+  ],
+  sudanTitle: "Made for working conditions in Sudan",
+  sudan: [
+    ["Keeps selling offline", "Sales, payments, returns and counts are saved on the device during an outage and sync once the network is back."],
+    ["Bankak and bank apps", "Transfers through Bankak, Fawry, O-Cash and other bank apps are recorded with the transaction number, then matched against the app's statement."],
+    ["Arabic and English", "Right-to-left screens, documents and receipts in Arabic, with English one switch away."],
+    ["Sudanese pound", "Prices, invoices and reports in SDG by default."],
+  ],
+  storiesTitle: "A closer look at the screens your team works in",
   stories: [
     {
       eyebrow: "Point of sale",
@@ -309,14 +371,15 @@ export const homeEn = {
   how: [
     ["Send the request", "Tell us about your company. We review it and activate your workspace the same day; the owner gets the activation link by email."],
     ["Set up in an afternoon", "Add branches, products and opening stock — or import them. Invite your team with the right roles."],
-    ["Sell from day one", "The till, the stock book and the debt ledger update each other. Upgrade your plan as you grow."],
+    ["Work from day one", "Sales, stock, purchasing, customer accounts and reports update each other. Add branches and upgrade your plan as you grow."],
   ],
   faqTitle: "Common questions",
   faq: [
     ["Does it work without internet?", "For the daily work, yes: sales at the till, customer payments, returns, goods receipts, stock counts and attendance are saved on the device and synced once when the connection returns. Signing in, opening or closing a cash shift, new products or customers, expenses and settings need a connection, and reports show the last copy loaded. The on-server edition runs on your local network with no internet at all."],
     ["Is it in Arabic?", "Fully — right-to-left layout, Arabic documents and receipts, with an English switch on every screen."],
     ["Who owns the data?", "You do. A backup of your core records is taken every night and you can download it from Settings; our team exports the whole company on request, or you can run the on-server edition with the database on your own machine."],
-    ["Can we start small?", "Yes. A single shop starts on the smallest plan and turns into a multi-branch business by changing a setting, not the product."],
+    ["Does it suit a company with several branches and warehouses?", "Yes, that is what it is built for. Each branch has its own warehouses, stock and points of sale; transfers between warehouses are tracked until they are received; and each user sees their own branch according to their role, while head office sees every branch in the reports. Your plan sets how many branches and users you have."],
+    ["Can we start with a single branch?", "Yes. Start with one branch on the smallest plan and turn on what you need; when you open a new branch or warehouse you add it in the settings and upgrade the plan if you go past its capacity, with all your data where it was."],
   ],
   backupTitle: "Backups and restore",
   backupPoints: [
@@ -336,9 +399,9 @@ export const homeEn = {
 };
 
 export const homeAr = {
-  heroBadge: "لأصحاب المحلات والبقالات · العربية والإنجليزية",
-  heroTitle: "لمحلك وبقالتك: بِع، وتابع المخزون والديون — حتى لو انقطعت الشبكة أو الكهرباء.",
-  heroSubtitle: "فيزانو كاشير ودفتر مخزون ودفتر ديون في نظام واحد: تبيع بالباركود أو بالاسم، وتعرف كم بقي من كل صنف، وكم على كل زبون ومنذ متى.",
+  heroBadge: "للمتاجر والشركات بفرع أو عدة فروع · العربية والإنجليزية",
+  heroTitle: "نظام واحد يدير متجرك بكل فروعه: المبيعات والمخزون والمشتريات والعملاء والموظفون والمالية — ويستمر حتى مع انقطاع الشبكة.",
+  heroSubtitle: "نقطة بيع، ومخزون بمستودعات متعددة، ومشتريات، وإدارة علاقات العملاء، وموارد بشرية ورواتب، وإدارة مالية وتقارير، بصلاحيات لكل دور وفرع — ابدأ بفرع واحد وأضف الفروع حين تكبر.",
   heroOffline: "بلا اتصال يستمر البيع وتحصيل الدفعات والمرتجعات والجرد وتسجيل الحضور، وتُزامَن عند عودة الشبكة؛ أما تسجيل الدخول والتقارير المحدّثة والإعدادات فتحتاج اتصالًا.",
   heroPrimary: "ابدأ التجربة المجانية",
   heroSecondary: "شاهد الأسعار",
@@ -349,8 +412,69 @@ export const homeAr = {
   showcaseDemo: "شركة تجريبية لاستكشاف النظام",
   showcaseAll: "كل الشركات والمتاجر",
   heroCaption: "لوحة المالك لشركة تجريبية — شاشة حقيقية ببيانات نموذجية.",
-  trust: ["نقطة بيع تعمل بلا اتصال", "عربي وإنجليزي من اليمين لليسار", "PostgreSQL ودفتر حركات مُدقَّق", "على السحابة أو خادمك"],
-  storiesTitle: "مبني على الطريقة التي يعمل بها التاجر فعلًا",
+  trust: ["نقطة بيع تعمل بلا اتصال", "عربي وإنجليزي من اليمين لليسار", "12 دورًا وصلاحيات حسب الفرع", "على السحابة أو خادمك"],
+  modulesTitle: "كل أقسام شركتك في نظام واحد",
+  modulesSubtitle: "الوحدات تتشارك بيانات واحدة: البيع يحرّك المخزون، ويظهر في كشف حساب العميل وفي التقارير، دون أن يعيد أحد إدخاله.",
+  modulesMore: "التفاصيل",
+  modules: [
+    {
+      key: "sales", anchor: "pos", title: "المبيعات ونقطة البيع",
+      body: "كاشير سريع بالباركود يواصل البيع بلا اتصال، وعروض أسعار وأوامر بيع للعملاء الكبار، وسداد الفاتورة الواحدة بأكثر من وسيلة (نقد وتطبيقات البنوك)، وإيصالات وفواتير مرقّمة.",
+    },
+    {
+      key: "inventory", anchor: "inventory", title: "المخزون والمستودعات",
+      body: "مستودعات متعددة لكل فرع، ودفعات بتواريخ صلاحية يُباع الأقرب انتهاءً منها أولًا، وتحويلات بين المستودعات، وجرد دوري، وطباعة ملصقات الباركود.",
+    },
+    {
+      key: "purchasing", anchor: "purchasing", title: "المشتريات والموردون",
+      body: "أوامر شراء واستلام بضاعة، وفواتير الموردين ودفعاتهم وأرصدتهم، ومرتجعات شراء بإشعارات مدين مرقّمة.",
+    },
+    {
+      key: "crm", anchor: "collections", title: "العملاء وإدارة العلاقات",
+      body: "مسار للعملاء المحتملين من أول تواصل حتى الفوز بالصفقة أو خسارتها، ومتابعات، ودفتر حساب لكل عميل بكشوف حساب وأعمار ديون وتحصيل.",
+    },
+    {
+      key: "hr", anchor: "people", title: "الموارد البشرية والرواتب",
+      body: "ملفات الموظفين والحضور والإجازات والسُّلف، ومسيّرات رواتب تعتمدها الإدارة المالية قبل أن تُسجَّل في المصروفات.",
+    },
+    {
+      key: "finance", anchor: "finance", title: "الإدارة المالية",
+      body: "حسابات الشركة البنكية ومطابقة كشوف تطبيقات البنوك، ومصروفات بفئات واعتماد للمبالغ الكبيرة، وموازنات مقابل الفعلي، والأرباح والخسائر، والتدفق النقدي، وأعمار الذمم المدينة والدائنة، والزكاة.",
+    },
+    {
+      key: "reports", anchor: "reports", title: "التقارير ولوحات المتابعة",
+      body: "لوحة تعرض إيراد الشهر والنواقص وما قرب انتهاء صلاحيته والديون المتأخرة، وتقارير المبيعات والهامش وقيمة المخزون والمشتريات والمرتجعات والرواتب، مع تصدير CSV.",
+    },
+    {
+      key: "branches", anchor: "people", title: "الفروع والصلاحيات",
+      body: "اثنا عشر دورًا جاهزًا؛ كل فرع يعمل على بياناته والإدارة العامة ترى كل الفروع، وكل تغيير محفوظ في سجل النشاط.",
+    },
+  ],
+  multiTitle: "مصمم للشركات متعددة الفروع والأدوار",
+  multiSubtitle: "الانتقال من فرع واحد إلى عدة فروع يغيّر إعداداتك، لا نظامك.",
+  multiBranchTitle: "كل فرع يرى بياناته",
+  multiBranchBody: "مدير الفرع والكاشير وموظف المخزون يرون فرعهم فقط: مبيعاته ومخزونه وعملاءه وتقاريره. أما المالك والمدير العام والمدير المالي والإدارة المالية فيرون الشركة كلها.",
+  multiRolesTitle: "اثنا عشر دورًا، لكل دور صلاحياته",
+  multiRoles: [
+    "مالك الأعمال", "المدير العام", "المدير المالي", "الإدارة المالية",
+    "مدير الفرع", "مدير المبيعات", "مدير المخزون", "مدير المشتريات",
+    "مدير الموارد البشرية", "مدير علاقات العملاء", "مدير الموقع", "مستعرض",
+  ],
+  multiApprovalsTitle: "اعتمادات وأثر لكل تغيير",
+  multiApprovals: [
+    "حدّ للخصم وحدّ أدنى للسعر: تجاوزهما يحتاج معتمِدًا، والأسعار المعلَّمة تُراجَع.",
+    "وردية الصندوق تُغلق بجرد فعلي، ومدير يعتمد الفرق.",
+    "الدفعات والمرتجعات والمصروفات الكبيرة تحتاج المالك أو المدير العام أو المدير المالي.",
+    "سجل نشاط: من غيّر ماذا، ومتى.",
+  ],
+  sudanTitle: "يعمل في ظروف السودان",
+  sudan: [
+    ["يواصل البيع بلا اتصال", "المبيعات والدفعات والمرتجعات والجرد تُحفظ على الجهاز أثناء الانقطاع وتُزامَن عند عودة الشبكة."],
+    ["بنكك وتطبيقات البنوك", "تحويلات بنكك وفوري وأوكاش وغيرها تُسجَّل برقم العملية، ثم تُطابَق مع كشف التطبيق."],
+    ["العربية والإنجليزية", "شاشات من اليمين لليسار ومستندات وإيصالات عربية، والإنجليزية بنقرة."],
+    ["الجنيه السوداني", "الأسعار والفواتير والتقارير بالجنيه السوداني افتراضيًا."],
+  ],
+  storiesTitle: "نظرة أقرب على الشاشات التي يعمل عليها فريقك",
   stories: [
     {
       eyebrow: "نقطة البيع",
@@ -375,14 +499,15 @@ export const homeAr = {
   how: [
     ["أرسل الطلب", "أخبرنا عن شركتك. نراجعه ونفعّل مساحة العمل في نفس اليوم، ويصل رابط التفعيل إلى بريد المالك."],
     ["جهّز في ظهيرة واحدة", "أضف الفروع والمنتجات والرصيد الافتتاحي — أو استوردها. ادعُ فريقك بالأدوار المناسبة."],
-    ["بِع من اليوم الأول", "الكاشير ودفتر المخزون ودفتر الديون يحدّث بعضها بعضًا. ارفع باقتك كلما كبرت."],
+    ["اعمل من اليوم الأول", "المبيعات والمخزون والمشتريات وحسابات العملاء والتقارير يحدّث بعضها بعضًا. أضف الفروع وارفع باقتك كلما كبرت."],
   ],
   faqTitle: "أسئلة شائعة",
   faq: [
     ["هل يعمل بدون إنترنت؟", "في العمل اليومي نعم: البيع على الكاشير، ودفعات العملاء، والمرتجعات، واستلام البضاعة، والجرد، وتسجيل الحضور تُحفظ على الجهاز وتُزامَن مرة واحدة عند عودة الاتصال. تسجيل الدخول، وفتح وردية الصندوق وإغلاقها، وإضافة منتج أو عميل جديد، والمصروفات، والإعدادات تحتاج اتصالًا، والتقارير تعرض آخر نسخة حُمِّلت. نسخة الخادم الخاص تعمل على شبكتك المحلية دون إنترنت أصلًا."],
     ["هل هو بالعربية؟", "بالكامل — تخطيط من اليمين لليسار، مستندات وإيصالات عربية، مع مبدّل إنجليزي في كل شاشة."],
     ["من يملك البيانات؟", "أنت. تُؤخذ نسخة احتياطية لسجلاتك الأساسية كل ليلة ويمكنك تنزيلها من الإعدادات؛ وفريقنا يصدّر الشركة كاملة عند الطلب، أو شغّل نسخة الخادم الخاص حيث قاعدة البيانات على جهازك."],
-    ["هل نستطيع البدء صغارًا؟", "نعم. المحل الواحد يبدأ بأصغر باقة ويتحول إلى أعمال متعددة الفروع بتغيير إعداد، لا بتغيير المنتج."],
+    ["هل يناسب شركة بعدة فروع ومخازن؟", "نعم، هذا ما صُمم له: لكل فرع مستودعاته ومخزونه ونقاط بيعه، والتحويلات بين المستودعات تُتابَع حتى استلامها، وكل مستخدم يرى فرعه بحسب دوره بينما ترى الإدارة العامة كل الفروع في التقارير. عدد الفروع والمستخدمين تحدده الباقة."],
+    ["هل نستطيع البدء بفرع واحد؟", "نعم. ابدأ بفرع واحد على أصغر باقة وفعّل ما تحتاجه؛ وحين تفتح فرعًا أو مستودعًا جديدًا تضيفه من الإعدادات وترفع الباقة إن تجاوزت سعتها، وتبقى بياناتك كما هي."],
   ],
   backupTitle: "النسخ الاحتياطي والاستعادة",
   backupPoints: [
@@ -453,18 +578,30 @@ export const productEn = {
       id: "people", title: "Team, roles and HR", shot: "users",
       intro: "Each person sees exactly their branch and their job. Nothing more.",
       points: [
-        "Fixed role set — owner, general manager, branch manager, inventory, sales, purchasing, HR, CRM, finance, viewer",
-        "Branch-scoped access: a cashier in one branch never sees another's stock or sales",
-        "Employees, positions, attendance, leave and performance records",
+        "Twelve fixed roles — business owner, general manager, CFO, finance department, branch manager, sales, inventory, purchasing, HR, CRM, website manager, viewer",
+        "Branch-scoped access: a cashier in one branch never sees another's stock or sales; head office sees every branch",
+        "Employees, positions, attendance, leave, salary advances and performance records",
+        "Payroll runs approved by finance, which then post to expenses",
         "Audit log of who changed what, when, from where",
       ],
     },
     {
-      id: "reports", title: "Finance and reports", shot: "dashboard",
-      intro: "The owner's view: revenue, cost of goods, expenses and what is due — for any period, any branch.",
+      id: "finance", title: "Financial management", shot: "dashboard",
+      intro: "Where the money is, where it went and what is still due — without a separate accounting package for the daily figures.",
+      points: [
+        "Company bank accounts; bank-app statements matched against the transfers recorded at the till",
+        "Expenses by category; large amounts need an owner, general manager or CFO",
+        "Budgets by category, approved and compared with actual spending",
+        "Profit and loss, cash flow and a cash-flow forecast",
+        "Receivables and payables ageing, and a zakat report",
+      ],
+    },
+    {
+      id: "reports", title: "Reports and dashboards", shot: "dashboard",
+      intro: "The owner's view: revenue, cost of goods, expenses and what is due — for any period, scoped to what each role may see.",
       points: [
         "Sales, margin and product performance; costing method selectable",
-        "Expenses and company funds with segregation of duties",
+        "Stock valuation, purchasing, returns, CRM and payroll reports",
         "CSV export of products, invoices, customer and supplier statements and reports; documents print in Arabic or English",
         "Public website module for a simple company page with featured products",
       ],
@@ -542,18 +679,30 @@ export const productAr = {
       id: "people", title: "الفريق والصلاحيات والموارد البشرية", shot: "users",
       intro: "كل شخص يرى فرعه ووظيفته بالضبط. لا أكثر.",
       points: [
-        "مجموعة أدوار ثابتة — مالك، مدير عام، مدير فرع، مخزون، مبيعات، مشتريات، موارد بشرية، عملاء، مالية، مشاهد",
-        "صلاحيات على مستوى الفرع: كاشير فرع لا يرى مخزون أو مبيعات فرع آخر",
-        "موظفون، مناصب، حضور، إجازات وسجلات أداء",
+        "اثنا عشر دورًا ثابتًا — مالك الأعمال، مدير عام، مدير مالي، إدارة مالية، مدير فرع، مبيعات، مخزون، مشتريات، موارد بشرية، علاقات عملاء، مدير الموقع، مستعرض",
+        "صلاحيات على مستوى الفرع: كاشير فرع لا يرى مخزون أو مبيعات فرع آخر، والإدارة العامة ترى كل الفروع",
+        "موظفون، مناصب، حضور، إجازات، سُلف وسجلات أداء",
+        "مسيّرات رواتب تعتمدها الإدارة المالية ثم تُسجَّل في المصروفات",
         "سجل تدقيق: من غيّر ماذا، متى، ومن أين",
       ],
     },
     {
-      id: "reports", title: "المالية والتقارير", shot: "dashboard",
-      intro: "نظرة المالك: الإيراد، تكلفة البضاعة، المصروفات وما هو مستحق — لأي فترة وأي فرع.",
+      id: "finance", title: "الإدارة المالية", shot: "dashboard",
+      intro: "أين المال، وأين صُرف، وما الذي ما زال مستحقًا — أرقام يومك المالية دون برنامج منفصل.",
+      points: [
+        "حسابات الشركة البنكية؛ ومطابقة كشوف تطبيقات البنوك مع التحويلات المسجلة على الكاشير",
+        "مصروفات بفئات؛ المبالغ الكبيرة تحتاج المالك أو المدير العام أو المدير المالي",
+        "موازنات بالفئات تُعتمد وتُقارَن بالصرف الفعلي",
+        "الأرباح والخسائر، والتدفق النقدي وتوقعه",
+        "أعمار الذمم المدينة والدائنة، وتقرير الزكاة",
+      ],
+    },
+    {
+      id: "reports", title: "التقارير ولوحات المتابعة", shot: "dashboard",
+      intro: "نظرة المالك: الإيراد، تكلفة البضاعة، المصروفات وما هو مستحق — لأي فترة، وبحدود ما يراه كل دور.",
       points: [
         "المبيعات والهامش وأداء المنتجات؛ طريقة التكلفة قابلة للاختيار",
-        "المصروفات وصناديق الشركة مع فصل المهام",
+        "تقارير تقييم المخزون والمشتريات والمرتجعات وعلاقات العملاء والرواتب",
         "تصدير CSV للمنتجات والفواتير وكشوف العملاء والموردين والتقارير؛ المستندات تُطبع بالعربية أو الإنجليزية",
         "وحدة موقع عام لصفحة شركة بسيطة بمنتجات مميزة",
       ],

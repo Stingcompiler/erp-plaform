@@ -9,19 +9,19 @@ import { OG_IMAGE, SITE_NAME, SITE_NAME_LATIN } from "./site";
 const COPY = {
   ar: {
     "/": {
-      title: `${SITE_NAME} | نظام كاشير ومخزون وديون للمحلات والبقالات يعمل بلا إنترنت`,
+      title: `${SITE_NAME} | نظام إدارة متكامل للمتاجر والشركات بفرع أو عدة فروع — يعمل بلا إنترنت`,
       description:
-        "فيزانو لأصحاب المحلات والبقالات: بِع بالباركود، وتابع المخزون وديون الزبائن، والبيع يستمر حين تنقطع الشبكة أو الكهرباء ويُزامَن عند عودتها. بالعربية والإنجليزية. تجربة مجانية 14 يومًا بلا بطاقة، وتفعيل في نفس اليوم بعد المراجعة.",
+        "فيزانو نظام واحد يدير متجرك أو شركتك بكل فروعها: نقطة البيع والمخزون والمشتريات والعملاء والموظفون والرواتب والإدارة المالية والتقارير، بصلاحيات لكل دور وفرع، والبيع يستمر حين تنقطع الشبكة. بالعربية والإنجليزية. تجربة مجانية 14 يومًا بلا بطاقة، وتفعيل في نفس اليوم بعد المراجعة.",
     },
     "/product": {
-      title: "المنتج — نقطة البيع والمخزون والمشتريات والديون والفروع في نظام واحد",
+      title: "المنتج — المبيعات والمخزون والمشتريات والعملاء والموظفون والمالية والفروع في نظام واحد",
       description:
-        "كل ما يفعله فيزانو وحدة بوحدة: كاشير يعمل بلا إنترنت، مخزون بالدفعات والصلاحية، مشتريات ومرتجعات، دفتر ديون العملاء، تقارير، فروع ومستودعات متعددة، موارد بشرية وعملاء.",
+        "كل ما يفعله فيزانو وحدة بوحدة: كاشير يعمل بلا إنترنت، مخزون بالدفعات والصلاحية، مشتريات ومرتجعات، العملاء والتحصيل، موارد بشرية ورواتب، إدارة مالية وتقارير، فروع ومستودعات متعددة بصلاحيات لكل دور.",
     },
     "/pricing": {
       title: "الأسعار والباقات — تجربة مجانية 14 يومًا أو رخصة دائمة لخادمك",
       description:
-        "باقات فيزانو للمحلات والموزعين: أسعار واضحة بلا رسوم على كل عملية. كل باقة تشمل العربية والإنجليزية ونقطة بيع تعمل بلا اتصال وصلاحيات حسب الدور، أو رخصة دائمة على خادمك الخاص.",
+        "باقات فيزانو للمتاجر والشركات والموزعين: أسعار واضحة بلا رسوم على كل عملية. كل باقة تشمل العربية والإنجليزية ونقطة بيع تعمل بلا اتصال وصلاحيات حسب الدور، أو رخصة دائمة على خادمك الخاص.",
     },
     "/register": {
       title: "ابدأ تجربة شركتك المجانية",
@@ -36,19 +36,19 @@ const COPY = {
   },
   en: {
     "/": {
-      title: `${SITE_NAME_LATIN} | Till, Stock and Debt Ledger for Shops and Groceries — Works Offline`,
+      title: `${SITE_NAME_LATIN} | Integrated Management for Stores and Companies, One Branch or Many — Works Offline`,
       description:
-        "Vezano for shop and grocery owners: sell by barcode, track stock and customer debts, and keep selling when the network or power drops — it syncs when it is back. Arabic and English. 14-day free trial, no card, activated the same day after review.",
+        "Vezano runs your store or company across every branch in one system: POS, inventory, purchasing, CRM, HR and payroll, financial management and reports, with access by role and branch — and selling continues when the network drops. Arabic and English. 14-day free trial, no card, activated the same day after review.",
     },
     "/product": {
-      title: "Product — POS, Inventory, Purchasing, Receivables and Branches in One System",
+      title: "Product — Sales, Inventory, Purchasing, CRM, HR, Finance and Branches in One System",
       description:
-        "Everything Vezano does, module by module: an offline-capable cashier, batch and expiry inventory, purchasing and returns, a customer debt ledger, reports, multiple branches and warehouses, HR and CRM.",
+        "Everything Vezano does, module by module: an offline-capable cashier, batch and expiry inventory, purchasing and returns, customers and collections, HR and payroll, financial management and reports, multiple branches and warehouses with role-based access.",
     },
     "/pricing": {
       title: "Pricing — 14-Day Free Trial or a Perpetual Licence for Your Own Server",
       description:
-        "Vezano plans for shops and distributors: clear prices, no per-transaction fees. Every plan includes Arabic and English, an offline POS and role-based access, or a perpetual licence on your own server.",
+        "Vezano plans for stores, companies and distributors: clear prices, no per-transaction fees. Every plan includes Arabic and English, an offline POS and role-based access, or a perpetual licence on your own server.",
     },
     "/register": {
       title: "Start Your Company's Free Trial",
