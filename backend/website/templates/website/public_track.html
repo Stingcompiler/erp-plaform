@@ -109,11 +109,11 @@ footer{margin-top:28px;color:var(--muted);font-size:.88rem;text-align:center}
 
     <h3>{% if language == 'ar' %}المنتجات{% else %}Items{% endif %}</h3>
     <ul class="lines">{% for line in o.lines %}<li><span>{{ line.name }}</span><span>× {{ line.quantity }}</span></li>{% endfor %}</ul>
-    {% if o.total is not None %}<div class="total">{% if o.tax_amount %}{% if language == 'ar' %}الإجمالي شامل الضريبة{% else %}Total including tax{% endif %}{% else %}{% if language == 'ar' %}الإجمالي{% else %}Total{% endif %}{% endif %}: {{ o.total }} {{ o.currency }}</div>{% endif %}
+    {% if o.total is not None %}<div class="total">{% if o.tax_amount %}{% if language == 'ar' %}الإجمالي شامل الضريبة{% else %}Total including tax{% endif %}{% else %}{% if language == 'ar' %}الإجمالي{% else %}Total{% endif %}{% endif %}: <span dir="ltr">{{ o.total_display }}</span></div>{% endif %}
     {% if o.payment %}<div class="pay {{ o.payment }}">{% if o.payment == 'verified' %}{% if language == 'ar' %}✅ تم التحقق من التحويل{% else %}✅ Transfer verified{% endif %}{% elif o.payment == 'pending' %}{% if language == 'ar' %}⏳ التحويل قيد التحقق{% else %}⏳ Transfer being checked{% endif %}{% else %}{% if language == 'ar' %}لم يتأكد التحويل المسجّل — راجع المحل{% else %}The declared transfer was not verified — contact the shop{% endif %}{% endif %}</div>{% endif %}
 
     {% if o.branch_name or o.branch_phone %}
-    <p class="muted small" style="margin:12px 0 0">{% if language == 'ar' %}لأي سؤال عن الطلب:{% else %}Questions about this order:{% endif %} {% if o.branch_name %}<b>{{ o.branch_name }}</b>{% endif %}{% if o.branch_phone %} · <a href="tel:{{ o.branch_phone }}" dir="ltr">{{ o.branch_phone }}</a>{% endif %}</p>
+    <p class="muted small" style="margin:12px 0 0">{% if language == 'ar' %}لأي سؤال عن الطلب:{% else %}Questions about this order:{% endif %} {% if o.branch_name %}<b>{{ o.branch_name }}</b>{% endif %}{% if o.branch_phone %}{% if o.branch_name %} · {% endif %}<a href="tel:{{ o.branch_phone }}" dir="ltr">{{ o.branch_phone }}</a>{% endif %}</p>
     {% endif %}
     {% if o.pay_path %}
     <div class="actions"><a class="btn" href="{{ o.pay_path }}">{% if language == 'ar' %}حوّلت؟ سجّل التحويل{% else %}Transferred? Declare it{% endif %}</a></div>

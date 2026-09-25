@@ -30,6 +30,7 @@ import logging
 import re
 import secrets
 from datetime import timedelta
+from decimal import Decimal
 
 from django.core.cache import cache
 from django.db import transaction
@@ -299,6 +300,16 @@ def closing_reason(order, events):
     return order.decision_note
 
 
+_POUND = {"SDG", "SD", "SDD"}
+
+
+def money_display(amount, currency, language):
+    code = (currency or "").upper()
+    if code in _POUND:
+        code = "ج.س" if language == "ar" else "SDG"
+    return f"{Decimal(str(amount)):,.2f} {code}".strip()
+
+
 def public_view(order, language, *, who, full=False):
     """What the tracking page shows for one order. ``who`` is "initials"
     (email/name search) or "first" (reference search, private link)."""
@@ -324,6 +335,10 @@ def public_view(order, language, *, who, full=False):
         "total": str(order.total) if order.total is not None else None,
         "tax_amount": str(order.tax_amount) if order.tax_amount else "",
         "currency": order.currency,
+        # The app's money rule (frontend lib/money.js): grouped, 2 decimals,
+        # Latin digits, the pound as "ج.س" in Arabic and "SDG" in English.
+        "total_display": money_display(order.total, order.currency, language)
+        if order.total is not None else "",
         "payment": payment_state(order),
         "branch_name": branch.name if branch else "",
         "branch_phone": (branch.phone if branch and branch.phone else "")
