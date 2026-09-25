@@ -539,12 +539,25 @@ class PublicOrder(models.Model):
 
     NEW = "new"
     CONFIRMED = "confirmed"
+    # Fulfilment stages after confirmation (they never touch stock or money):
+    # preparing, then ready-for-pickup or out-for-delivery by delivery mode,
+    # then completed (picked up / delivered).
+    PREPARING = "preparing"
+    READY = "ready"
+    DELIVERING = "delivering"
+    COMPLETED = "completed"
     REJECTED = "rejected"
     CANCELLED = "cancelled"
     STATES = [
         (NEW, "New"), (CONFIRMED, "Confirmed"), (REJECTED, "Rejected"),
-        (CANCELLED, "Cancelled"),
+        (CANCELLED, "Cancelled"), (PREPARING, "Preparing"), (READY, "Ready for pickup"),
+        (DELIVERING, "Out for delivery"), (COMPLETED, "Completed"),
     ]
+    # Confirmed or any later stage: the order has its customer and sales order.
+    CONFIRMED_ONWARD = (CONFIRMED, PREPARING, READY, DELIVERING, COMPLETED)
+    # Still open to the customer paying for it.
+    PAYABLE = (NEW, CONFIRMED, PREPARING, READY, DELIVERING)
+    CLOSED = (COMPLETED, REJECTED, CANCELLED)
     PICKUP = "pickup"
     DELIVERY = "delivery"
     DELIVERY_CHOICES = [(PICKUP, "Pickup"), (DELIVERY, "Delivery")]
@@ -590,6 +603,13 @@ class PublicOrder(models.Model):
     decided_at = models.DateTimeField(null=True, blank=True)
     decision_note = models.TextField(blank=True)
     visitor_hash = models.CharField(max_length=32, blank=True)
+    # The customer's private link to this one order (/s/<slug>/track/<token>/).
+    # Unguessable; null only on rows written before it existed (backfilled).
+    tracking_token = models.CharField(max_length=48, unique=True, null=True, blank=True)
+    # contact_name folded for the exact-name lookup (website.tracking.name_key).
+    lookup_name = models.CharField(max_length=120, blank=True, db_index=True)
+    # phone's last 9 digits for the phone / WhatsApp lookup (tracking.phone_key).
+    lookup_phone = models.CharField(max_length=16, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -598,6 +618,46 @@ class PublicOrder(models.Model):
 
     def __str__(self):
         return self.reference
+
+    def save(self, *args, **kwargs):
+        # Both are columns of this row, not derived rows: a restore carries
+        # its own token, and the name key is recomputed from the same name.
+        from website.tracking import name_key, new_tracking_token, phone_key
+
+        if not self.tracking_token:
+            self.tracking_token = new_tracking_token()
+        self.lookup_name = name_key(self.contact_name)
+        self.lookup_phone = phone_key(self.phone)
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            kwargs["update_fields"] = set(update_fields) | {
+                "tracking_token", "lookup_name", "lookup_phone",
+            }
+        super().save(*args, **kwargs)
+
+
+class PublicOrderEvent(models.Model):
+    """One step in a web order's life: who moved it, when, from which stage
+    to which, and why. The customer's timeline and the staff history both
+    read it; rejections and cancellations carry their (required) reason."""
+
+    company = models.ForeignKey(
+        "org.Company", on_delete=models.CASCADE, related_name="public_order_events"
+    )
+    order = models.ForeignKey(PublicOrder, on_delete=models.CASCADE, related_name="events")
+    from_status = models.CharField(max_length=12, blank=True)
+    to_status = models.CharField(max_length=12, choices=PublicOrder.STATES)
+    note = models.TextField(blank=True)
+    actor = models.ForeignKey(
+        "accounts.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+    def __str__(self):
+        return f"{self.order_id}: {self.from_status or '-'} -> {self.to_status}"
 
 
 class PublicOrderLine(models.Model):

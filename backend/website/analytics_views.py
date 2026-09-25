@@ -288,6 +288,6 @@ class CompanyVisitsView(APIView):
             "series": series,
             # The page's job, in one number: how many visits became an order.
             "orders": orders_total,
-            "orders_confirmed": orders.filter(status=PublicOrder.CONFIRMED).count(),
+            "orders_confirmed": orders.filter(status__in=PublicOrder.CONFIRMED_ONWARD).count(),
             "order_rate": round(orders_total * 100 / visits_total, 1) if visits_total else 0,
         })

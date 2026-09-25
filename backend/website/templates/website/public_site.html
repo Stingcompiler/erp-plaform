@@ -125,6 +125,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       {% if about_text %}<a href="#about">{% if language == 'ar' %}من نحن{% else %}About{% endif %}</a>{% endif %}
       {% if gallery %}<a href="#gallery">{% if language == 'ar' %}الصور{% else %}Gallery{% endif %}</a>{% endif %}
       <a href="#contact">{% if language == 'ar' %}تواصل{% else %}Contact{% endif %}</a>
+      {% if track_path %}<a href="{{ track_path }}">{% if language == 'ar' %}تتبّع طلبك{% else %}Track your order{% endif %}</a>{% endif %}
     </nav>
     {% if whatsapp %}<a class="btn small" href="https://wa.me/{{ whatsapp }}" rel="noopener">{% if language == 'ar' %}واتساب{% else %}WhatsApp{% endif %}</a>{% elif data.contact_phone %}<a class="btn small" href="tel:{{ data.contact_phone }}">{% if language == 'ar' %}اتصل{% else %}Call{% endif %}</a>{% endif %}
   </div>
@@ -206,6 +207,8 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     <div class="done" id="order-done" hidden>
       <h3>{% if language == 'ar' %}وصل طلبك ✅{% else %}Order received ✅{% endif %}</h3>
       <p>{% if language == 'ar' %}رقم الطلب{% else %}Reference{% endif %}: <strong id="order-ref"></strong> — {% if language == 'ar' %}احتفظ به{% else %}keep it{% endif %}</p>
+      <p><a class="btn small" id="order-track" hidden>📦 {% if language == 'ar' %}تتبّع طلبك{% else %}Track your order{% endif %}</a></p>
+      <p class="sub" id="order-track-hint" hidden>{% if language == 'ar' %}احفظ هذا الرابط لمتابعة مراحل طلبك حتى الاستلام.{% else %}Save this link to follow your order until it reaches you.{% endif %}</p>
       <ul class="cart" id="done-lines"></ul>
       <div class="total" id="done-total"></div>
       <div id="done-accounts" hidden>
@@ -273,7 +276,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
 <footer class="site">
   <div class="wrap">
-    <span>© {% now "Y" %} {{ name }}</span>
+    <span>© {% now "Y" %} {{ name }}{% if track_path %} · <a href="{{ track_path }}">{% if language == 'ar' %}تتبّع طلبك{% else %}Track your order{% endif %}</a>{% endif %}</span>
     <span>{% if language == 'ar' %}مدعوم من <a href="{{ platform_url }}">فيزانو</a>{% else %}Powered by <a href="{{ platform_url }}">Vezano</a>{% endif %}</span>
   </div>
 </footer>
@@ -333,6 +336,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
         form.hidden = true; list.hidden = true; totalEl.hidden = true; done.hidden = false;
         var o = res.j;
         document.getElementById("order-ref").textContent = o.reference;
+        if (o.track_url) { var tr = document.getElementById("order-track"); tr.href = o.track_url; tr.hidden = false; document.getElementById("order-track-hint").hidden = false; }
         var dl = document.getElementById("done-lines"); dl.innerHTML = "";
         (o.lines || []).forEach(function (l) { var li = document.createElement("li"); li.innerHTML = '<span class="n"></span><span class="p"></span>'; li.querySelector(".n").textContent = l.name + " × " + Number(l.quantity); li.querySelector(".p").textContent = l.unit_price == null ? (lang === "ar" ? "يؤكده المحل" : "confirmed by the shop") : money(Number(l.unit_price) * Number(l.quantity)); dl.appendChild(li); });
         var taxed = o.priced && Number(o.tax_amount) > 0;

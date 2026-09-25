@@ -775,9 +775,12 @@ class PublicOrderCreateView(APIView):
         from website.orders import pay_url
 
         payload = public_order_payload(order)
+        from website.tracking import tracking_url
+
         payload.update({
             "whatsapp": whatsapp_number(order),
             "pay_url": pay_url(order) if payload["bank_accounts"] else "",
+            "track_url": tracking_url(order),
         })
         return Response(payload, status=status.HTTP_201_CREATED)
 
@@ -829,8 +832,10 @@ class PublicOrderViewSet(
     see their branch's; owners and managers see all."""
 
     queryset = PublicOrder.objects.select_related(
-        "branch", "customer", "decided_by", "website"
-    ).prefetch_related("lines", "payments__bank_account", "payments__decided_by")
+        "branch", "customer", "decided_by", "website", "company", "sales_order"
+    ).prefetch_related(
+        "lines", "payments__bank_account", "payments__decided_by", "events__actor"
+    )
     serializer_class = PublicOrderSerializer
     rbac_module = "sales"
     branch_field = "branch"
@@ -844,7 +849,8 @@ class PublicOrderViewSet(
             qs = qs.filter(Q(branch_id=branch_id) | Q(branch__isnull=True))
         state = self.request.query_params.get("status")
         if state:
-            qs = qs.filter(status=state)
+            # One stage, or several comma-separated ("in progress" is four).
+            qs = qs.filter(status__in=[s for s in state.split(",") if s])
         ref = self.request.query_params.get("ref")
         if ref:
             qs = qs.filter(reference__iexact=ref)
@@ -869,6 +875,18 @@ class PublicOrderViewSet(
         from website.orders import reject
 
         return self._decide(request, reject, "public_order_rejected")
+
+    @action(detail=True, methods=["post"])
+    def stage(self, request, pk=None):
+        """Move the order along its fulfilment stages (or cancel it, with a
+        reason). The same sales permission as confirm/reject."""
+        from website.tracking import change_stage
+
+        order = change_stage(
+            self.get_object(), request.user, str(request.data.get("status") or ""),
+            str(request.data.get("note") or "")[:1000],
+        )
+        return Response(self.get_serializer(self.get_queryset().get(pk=order.pk)).data)
 
     def _claim(self, pk, claim_pk):
         order = self.get_object()

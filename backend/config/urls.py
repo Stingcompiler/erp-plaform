@@ -44,6 +44,8 @@ from website.public_pages import (  # noqa: E402
     public_pay_page,
     public_site_page,
     public_sites_sitemap,
+    public_track_order_page,
+    public_track_page,
 )
 
 from core.public_media import serve_public_media  # noqa: E402
@@ -54,6 +56,11 @@ urlpatterns += [
     path("s/", public_site_directory, name="public-site-directory"),
     path("s/<slug:slug>/", public_site_page, name="public-site-page"),
     path("s/<slug:slug>/pay/", public_pay_page, name="public-pay-page"),
+    path("s/<slug:slug>/track/", public_track_page, name="public-track-page"),
+    path(
+        "s/<slug:slug>/track/<str:token>/", public_track_order_page,
+        name="public-track-order-page",
+    ),
     path("sitemap-sites.xml", public_sites_sitemap, name="public-sites-sitemap"),
 ]
 

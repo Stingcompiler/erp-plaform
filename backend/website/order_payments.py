@@ -20,6 +20,7 @@ from rest_framework.exceptions import ValidationError
 
 from core.activity import log_activity
 from website.models import BlockedContact, PublicOrder, PublicOrderPayment
+from website.tracking import first_name, record_stage
 
 
 def public_bank_accounts(company):
@@ -79,7 +80,7 @@ def public_order_payload(order):
     return {
         "reference": order.reference,
         "status": order.status,
-        "contact_name": order.contact_name,
+        "contact_name": first_name(order.contact_name),
         "currency": order.currency,
         # Tax included: what the confirmation invoices and what to transfer.
         "total": str(order.total) if order.total is not None else None,
@@ -97,7 +98,7 @@ def public_order_payload(order):
             for a in accounts
         ],
         "can_pay": (
-            order.status in (PublicOrder.NEW, PublicOrder.CONFIRMED)
+            order.status in PublicOrder.PAYABLE
             and order.total is not None and bool(accounts)
             and paid_so_far(order) < order.total
         ),
@@ -108,7 +109,7 @@ def public_order_payload(order):
 
 @transaction.atomic
 def declare_payment(order, payload, files=None, request=None):
-    if order.status not in (PublicOrder.NEW, PublicOrder.CONFIRMED):
+    if order.status not in PublicOrder.PAYABLE:
         raise ValidationError({"detail": _("This order is closed.")})
     if order.total is None:
         raise ValidationError({"detail": _("The shop has not confirmed the amount yet.")})
@@ -240,7 +241,7 @@ def confirm_payment(claim, actor, request, warehouse=None, note="", surplus_retu
     order = claim.order
     if order.status == PublicOrder.NEW:
         order = confirm_order(order, actor, note)
-    if order.status != PublicOrder.CONFIRMED or order.sales_order is None:
+    if order.status not in PublicOrder.CONFIRMED_ONWARD or order.sales_order is None:
         raise ValidationError({"detail": _("Only a confirmed order can be paid.")})
     threshold = getattr(order.company, "payment_approval_threshold", 0) or 0
     if threshold and claim.amount >= threshold and not can_approve_high_value(actor):
@@ -355,6 +356,8 @@ def flag_fraud(claim, actor, request, note=""):
         order.decided_at = timezone.now()
         order.decision_note = note or "fraud"
         order.save()
+        # No email to the customer: the claim was a deliberate lie.
+        record_stage(order, PublicOrder.NEW, actor, order.decision_note, notify=False)
     log_activity(
         action="public_payment_fraud", request=request, entity_type="PublicOrderPayment",
         entity_id=claim.pk, metadata={"reference": order.reference, "phone": order.phone},

@@ -158,6 +158,9 @@ def place_order(site, payload, request=None):
                         unit_price=price)
         for product, qty, price in lines
     ])
+    from website.tracking import record_stage
+
+    record_stage(order, "", None)
     log_activity(
         action="public_order_received", company=company, entity_type="PublicOrder",
         entity_id=order.pk,
@@ -206,10 +209,15 @@ def email_customer(order):
             f"{a.bank_name} — {a.account_name} {a.account_number}".strip() for a in accounts) + ".")
         ar.append("بعد التحويل سجّله من الرابط أدناه (البنك وآخر 4 أرقام من رقم العملية).")
         en.append("After transferring, declare it with the link below (bank and last 4 digits).")
+    from website.tracking import tracking_url
+
+    ar.append(f"تابع حالة طلبك: {tracking_url(order)}")
+    en.append(f"Follow your order: {tracking_url(order)}")
     mailer.send_bilingual(
         subject_ar=f"طلبك {order.reference} — {order.company.name}",
         subject_en=f"Your order {order.reference} — {order.company.name}",
-        ar=ar, en=en, link=pay_url(order) if accounts else None, recipient=order.email,
+        ar=ar, en=en, recipient=order.email,
+        link=pay_url(order) if accounts else tracking_url(order),
         primary="ar" if (order.language or "ar").startswith("ar") else "en",
     )
 
@@ -355,6 +363,9 @@ def confirm(order, actor, note=""):
     order.decided_at = timezone.now()
     order.decision_note = note
     order.save()
+    from website.tracking import record_stage
+
+    record_stage(order, PublicOrder.NEW, actor, note)
     return order
 
 
@@ -363,9 +374,15 @@ def reject(order, actor, note=""):
     order = PublicOrder.objects.select_for_update().get(pk=order.pk)
     if order.status != PublicOrder.NEW:
         raise ValidationError({"detail": _("This order was already answered.")})
+    note = str(note or "").strip()
+    if not note:
+        raise ValidationError({"note": _("Give the reason for rejecting; the customer sees it.")})
     order.status = PublicOrder.REJECTED
     order.decided_by = actor
     order.decided_at = timezone.now()
     order.decision_note = note
     order.save()
+    from website.tracking import record_stage
+
+    record_stage(order, PublicOrder.NEW, actor, note)
     return order
