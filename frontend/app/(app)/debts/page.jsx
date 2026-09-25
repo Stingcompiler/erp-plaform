@@ -11,14 +11,14 @@ import PhoneLink from "@/components/ui/PhoneLink";
 import CollectPaymentDrawer from "@/components/sales/CollectPaymentDrawer";
 import CustomerDrawer from "@/components/sales/CustomerDrawer";
 import ImportPartiesDrawer from "@/components/records/ImportPartiesDrawer";
+import { formatAmount } from "@/lib/money";
+import { useMoney } from "@/lib/useMoney";
 
 const STATUS_TONE = { overdue: "danger", owing: "warn", credit: "accent", settled: "ok" };
 
-function amount(value, language) {
-  return Number(value || 0).toLocaleString(language === "ar" ? "ar" : "en", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+// Row figures: two decimals, Latin digits (lib/money.js).
+function amount(value) {
+  return formatAmount(value);
 }
 
 function date(value, language) {
@@ -28,6 +28,7 @@ function date(value, language) {
 export default function DebtsPage() {
   const { canRead, canWrite } = useAuth();
   const { t, language } = useI18n();
+  const { money: withCurrency } = useMoney();
   const allowed = canRead("sales");
   const canCollect = canWrite("sales");
   const [collecting, setCollecting] = useState(false);
@@ -119,14 +120,14 @@ export default function DebtsPage() {
               <span>{t(label)}</span><Icon size={18} className={tone} />
             </div>
             <div className={`mt-2 tabular text-2xl font-semibold ${tone}`}>
-              {count ? (value ?? "—") : amount(value, language)}
+              {count ? (value ?? "—") : withCurrency(value)}
             </div>
           </Card>
         ))}
       </div>
 
       {Number(summary?.walk_in_outstanding || 0) > 0 && (
-        <p className="mb-4 text-sm text-muted">{t("debts.walkIn", { amount: amount(summary.walk_in_outstanding, language) })}</p>
+        <p className="mb-4 text-sm text-muted">{t("debts.walkIn", { amount: withCurrency(summary.walk_in_outstanding) })}</p>
       )}
 
       {error && <p className="mb-4 rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
@@ -170,7 +171,7 @@ export default function DebtsPage() {
                 className={`w-full rounded-control px-3 py-3 text-start transition-colors ${selected?.id === customer.id ? "bg-accent text-white" : "hover:bg-paper"}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0"><div className="flex items-center gap-1.5"><span className="truncate font-medium">{customer.name}</span>{customer.is_active === false && <Badge tone="muted">{t("debts.archived")}</Badge>}</div><div className={`mt-0.5 truncate text-xs ${selected?.id === customer.id ? "text-white/75" : "text-muted"}`}>{customer.phone || "—"}</div></div>
-                  <div className="text-end"><Badge tone={selected?.id === customer.id ? "muted" : STATUS_TONE[customer.status]}>{t(`debts.${customer.status}`)}</Badge><div className="mt-1 tabular text-sm font-semibold">{amount(customer.outstanding || customer.credit_balance, language)}</div></div>
+                  <div className="text-end"><Badge tone={selected?.id === customer.id ? "muted" : STATUS_TONE[customer.status]}>{t(`debts.${customer.status}`)}</Badge><div className="mt-1 tabular text-sm font-semibold">{amount(customer.outstanding || customer.credit_balance)}</div></div>
                 </div>
               </button>
             ))}
@@ -185,7 +186,7 @@ export default function DebtsPage() {
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div><h2 className="font-display text-xl font-semibold">{selected.name}</h2><p className="mt-1 text-sm text-muted"><PhoneLink phone={selected.phone} /></p></div>
                   <div className="flex items-center gap-4">
-                    <div className="text-end"><div className="text-xs text-muted">{t("debts.closingBalance")}</div><div className="tabular text-xl font-semibold">{amount(statement?.closing_balance, language)}</div></div>
+                    <div className="text-end"><div className="text-xs text-muted">{t("debts.closingBalance")}</div><div className="tabular text-xl font-semibold">{withCurrency(statement?.closing_balance)}</div></div>
                     {canCollect && (
                       <Button variant="outline" onClick={() => setEditing(selected)} aria-label={t("customers.edit")}>
                         <Pencil size={15} />{t("customers.edit")}
@@ -205,8 +206,8 @@ export default function DebtsPage() {
               />
               <Card className="p-4">
                 <div className="mb-4 flex flex-wrap items-end justify-between gap-3"><h2 className="font-display text-lg font-semibold">{t("debts.statement")}</h2><div className="flex flex-wrap items-end gap-2"><Field label={t("debts.from")}><Input type="date" value={dates.start} onChange={(event) => setDates((current) => ({ ...current, start: event.target.value }))} /></Field><Field label={t("debts.to")}><Input type="date" value={dates.end} onChange={(event) => setDates((current) => ({ ...current, end: event.target.value }))} /></Field><Button onClick={loadStatement}>{t("debts.apply")}</Button><Button variant="ghost" onClick={() => setDates({ start: "", end: "" })}>{t("debts.clear")}</Button></div></div>
-                <div className="mb-3 grid grid-cols-2 gap-3"><div className="rounded-control bg-paper p-3"><div className="text-xs text-muted">{t("debts.openingBalance")}</div><div className="mt-1 tabular font-semibold">{amount(statement?.opening_balance, language)}</div></div><div className="rounded-control bg-paper p-3"><div className="text-xs text-muted">{t("debts.closingBalance")}</div><div className="mt-1 tabular font-semibold">{amount(statement?.closing_balance, language)}</div></div></div>
-                {(statement?.events || []).length === 0 ? <p className="py-8 text-center text-sm text-muted">{t("debts.noEvents")}</p> : <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-sm"><thead className="border-b border-line text-start text-xs text-muted"><tr><th className="px-2 py-2 font-medium">{t("common.date")}</th><th className="px-2 py-2 font-medium">{t("common.reference")}</th><th className="px-2 py-2 font-medium">{t("debts.debit")}</th><th className="px-2 py-2 font-medium">{t("debts.creditColumn")}</th><th className="px-2 py-2 font-medium">{t("debts.balance")}</th></tr></thead><tbody>{statement.events.map((event, index) => <tr key={`${event.type}-${event.reference}-${index}`} className="border-b border-line/70"><td className="px-2 py-3 text-muted">{date(event.date, language)}</td><td className="px-2 py-3"><div className="font-medium">{t(`debts.${event.type}`)}</div><div className="text-xs text-muted">{event.reference}</div></td><td className="px-2 py-3 tabular">{event.debit === "0.00" ? "—" : amount(event.debit, language)}</td><td className="px-2 py-3 tabular">{event.credit === "0.00" ? "—" : amount(event.credit, language)}</td><td className="px-2 py-3 tabular font-semibold">{amount(event.balance, language)}</td></tr>)}</tbody></table></div>}
+                <div className="mb-3 grid grid-cols-2 gap-3"><div className="rounded-control bg-paper p-3"><div className="text-xs text-muted">{t("debts.openingBalance")}</div><div className="mt-1 tabular font-semibold">{amount(statement?.opening_balance)}</div></div><div className="rounded-control bg-paper p-3"><div className="text-xs text-muted">{t("debts.closingBalance")}</div><div className="mt-1 tabular font-semibold">{amount(statement?.closing_balance)}</div></div></div>
+                {(statement?.events || []).length === 0 ? <p className="py-8 text-center text-sm text-muted">{t("debts.noEvents")}</p> : <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-sm"><thead className="border-b border-line text-start text-xs text-muted"><tr><th className="px-2 py-2 font-medium">{t("common.date")}</th><th className="px-2 py-2 font-medium">{t("common.reference")}</th><th className="px-2 py-2 font-medium">{t("debts.debit")}</th><th className="px-2 py-2 font-medium">{t("debts.creditColumn")}</th><th className="px-2 py-2 font-medium">{t("debts.balance")}</th></tr></thead><tbody>{statement.events.map((event, index) => <tr key={`${event.type}-${event.reference}-${index}`} className="border-b border-line/70"><td className="px-2 py-3 text-muted">{date(event.date, language)}</td><td className="px-2 py-3"><div className="font-medium">{t(`debts.${event.type}`)}</div><div className="text-xs text-muted">{event.reference}</div></td><td className="px-2 py-3 tabular">{event.debit === "0.00" ? "—" : amount(event.debit)}</td><td className="px-2 py-3 tabular">{event.credit === "0.00" ? "—" : amount(event.credit)}</td><td className="px-2 py-3 tabular font-semibold">{amount(event.balance)}</td></tr>)}</tbody></table></div>}
               </Card>
             </>
           )}

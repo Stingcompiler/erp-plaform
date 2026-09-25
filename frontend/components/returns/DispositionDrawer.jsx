@@ -7,6 +7,7 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
+import { enumLabel } from "@/lib/labels";
 
 export default function DispositionDrawer({ salesReturn, open, onClose, onDone }) {
   const { t } = useI18n();
@@ -147,7 +148,7 @@ export default function DispositionDrawer({ salesReturn, open, onClose, onDone }
                 <div key={line.id} className="flex items-center justify-between text-sm">
                   <span className="text-muted">{t("returns.productN", { id: line.product })} · {t("returns.qtyN", { qty: line.quantity })}</span>
                   <Badge tone={line.disposition === "restocked" ? "ok" : "muted"}>
-                    {line.disposition}
+                    {enumLabel(t, "reports.ops.disposition", line.disposition)}
                   </Badge>
                 </div>
               ))}

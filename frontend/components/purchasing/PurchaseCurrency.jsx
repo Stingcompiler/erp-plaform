@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { purchasing } from "@/lib/api";
-import { round2 } from "@/lib/money";
+import { formatAmount, round2 } from "@/lib/money";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { Field, Input, Select } from "@/components/ui/kit";
 
@@ -12,7 +12,7 @@ import { Field, Input, Select } from "@/components/ui/kit";
 // screen could set them, so importing in USD was API-only.
 
 const money = (v) =>
-  Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatAmount(v);
 
 /** The company currency, its reference currency and today's rate. Empty
  *  until loaded (or offline): the screens then just use the company currency. */

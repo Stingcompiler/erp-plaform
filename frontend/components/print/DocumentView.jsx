@@ -1,6 +1,8 @@
 "use client";
 
 import { useI18n } from "../../app/providers/I18nProvider";
+import { currencyLabel, formatAmount } from "@/lib/money";
+import { paymentMethodLabel } from "@/lib/labels";
 
 /**
  * Renders a document payload from the API into a printable page.
@@ -16,10 +18,7 @@ import { useI18n } from "../../app/providers/I18nProvider";
  */
 
 const money = (v) =>
-  Number(v ?? 0).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  formatAmount(v);
 
 const TITLE_KEY = {
   invoice: "doc.titleInvoice",
@@ -102,7 +101,8 @@ export default function DocumentView({ doc, paper = "a4" }) {
   }
 
   const type = doc.doc_type || "invoice";
-  const currency = doc.currency || "";
+  // One money rule on paper too: "ج.س" in Arabic, "SDG" in English.
+  const currency = currencyLabel(doc.currency, language);
   const issuer = doc.issuer || {};
   const isInvoice = type === "invoice";
   const isPayment = type === "payment_receipt" || type === "payment_voucher";
@@ -205,7 +205,7 @@ export default function DocumentView({ doc, paper = "a4" }) {
             label={t("doc.against")}
             value={doc.against_invoice || doc.against_bill}
           />
-          <Line label={t("doc.method")} value={doc.method} />
+          <Line label={t("doc.method")} value={paymentMethodLabel(t, doc.method)} />
           <Line label={t("doc.bankAccount")} value={doc.bank?.account} />
           <Line label={t("doc.senderBank")} value={doc.bank?.sender_bank} />
           <Line label={t("doc.reference")} value={doc.bank?.reference_last4} />

@@ -297,7 +297,27 @@ class MeSerializer(serializers.ModelSerializer):
     capabilities = serializers.SerializerMethodField()
 
     def get_report_areas(self, obj):
-        return report_areas_for(obj)
+        areas = report_areas_for(obj)
+        # Every report endpoint sits in the `reports` module: a plan without
+        # it refuses them all (module_not_in_plan), so the role's areas are
+        # empty here — the reports screen and the HR payroll tab used to ask
+        # anyway and showed four "failed" reports to an owner on such a plan.
+        if areas and not self._plan_allows(obj, "reports"):
+            return []
+        return areas
+
+    def _plan_allows(self, obj, module):
+        if not obj.company_id:
+            return True
+        from core.entitlements import resolve_entitlements
+
+        return resolve_entitlements(obj.company).allows_module(module)
+
+    currency = serializers.SerializerMethodField()
+
+    def get_currency(self, obj):
+        """The company's own currency, so every screen labels money alike."""
+        return obj.company.currency if obj.company_id else None
 
     def get_role_name(self, obj):
         return obj.role.name if obj.role_id else None
@@ -372,6 +392,9 @@ class MeSerializer(serializers.ModelSerializer):
             "allow_writes": decision.allow_writes,
             "valid_until": decision.valid_until.isoformat() if decision.valid_until else None,
             "reason": decision.reason,
+            # What the plan includes ("*" = everything), so a screen can say
+            # "not in your plan" instead of failing request by request.
+            "modules": sorted(decision.modules),
         }
 
     def get_capabilities(self, obj):
@@ -415,6 +438,7 @@ class MeSerializer(serializers.ModelSerializer):
             "role_scope",
             "tax_rate",
             "max_discount_percent",
+            "currency",
             "entitlements",
             "deployment_mode",
             "is_platform_admin",

@@ -10,9 +10,10 @@ import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Field, Input } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { localToday } from "@/lib/dates";
+import { formatAmount } from "@/lib/money";
 
 const money = (v) =>
-  Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatAmount(v);
 const today = () => localToday();
 
 /**

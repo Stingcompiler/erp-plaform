@@ -12,6 +12,9 @@ import DeviceList from "@/components/subscription/DeviceList";
 import PlanChangePanel from "@/components/subscription/PlanChangePanel";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { SkeletonCard } from "@/components/ui/Skeleton";
+import { currencyLabel, formatAmount, formatMoney } from "@/lib/money";
+import { subscriptionStateLabel } from "@/lib/labels";
+import { moduleLabel } from "@/lib/planModules";
 
 // Digits in day/month/year order, Latin numerals: an Arabic-locale date
 // inside an LTR span was bidi-reordered to "202026/9/".
@@ -159,7 +162,7 @@ export default function SubscriptionPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="p-5"><div className="flex items-center gap-2 text-muted">{standalone ? <KeyRound size={18}/> : <CreditCard size={18}/>} {t("subscription.deployment")}</div><div className="mt-3 font-display text-xl font-semibold">{t(standalone ? "subscription.standalone" : "subscription.saas")}</div></Card>
         <Card className="p-5"><div className="text-sm text-muted">{t("subscription.plan")}</div><div className="mt-3 font-display text-xl font-semibold">{planName || t("subscription.legacy")}</div></Card>
-        <Card className="p-5"><div className="text-sm text-muted">{t("subscription.state")}</div><div className="mt-3"><Badge tone={entitlements.allow_writes ? "ok" : "warn"}>{entitlements.state}</Badge></div></Card>
+        <Card className="p-5"><div className="text-sm text-muted">{t("subscription.state")}</div><div className="mt-3"><Badge tone={entitlements.allow_writes ? "ok" : "warn"}>{subscriptionStateLabel(t, entitlements.state)}</Badge></div></Card>
       </div>
       {standalone && <Card className="mt-5 p-5">
         <h2 className="font-display font-semibold">{t("subscription.licenceDetails")}</h2>
@@ -186,7 +189,7 @@ export default function SubscriptionPage() {
       </Card>}
       {!standalone && record && <Card className="mt-5 p-5"><div className="grid gap-4 sm:grid-cols-3">{[["periodEnd", record.period_ends_at], ["trialEnd", record.trial_ends_at], ["graceEnd", record.grace_ends_at]].map(([key, value]) => <div key={key}><div className="text-xs text-muted">{t(`subscription.${key}`)}</div><div className="mt-1">{showDate(value)}</div></div>)}</div></Card>}
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        <Card className="p-5"><h2 className="font-display font-semibold">{t("subscription.modules")}</h2><div className="mt-3 flex flex-wrap gap-2">{(entitlements.modules || []).map((item) => <Badge key={item} tone="accent">{item}</Badge>)}</div></Card>
+        <Card className="p-5"><h2 className="font-display font-semibold">{t("subscription.modules")}</h2><div className="mt-3 flex flex-wrap gap-2">{(entitlements.modules || []).map((item) => <Badge key={item} tone="accent">{moduleLabel(item, t)}</Badge>)}</div></Card>
         <Card className="p-5"><h2 className="font-display font-semibold">{t("subscription.limits")}</h2><p className="mt-1 text-sm text-muted">{t("usage.hint")}</p><div className="mt-4"><UsageMeter usage={data.usage} /></div></Card>
       </div>
       {!standalone && <PlanChangePanel onChanged={load} />}
@@ -226,9 +229,9 @@ export default function SubscriptionPage() {
                 <div className="text-xs text-muted">{t("subscription.invoicePeriod", { start: showDate(row.period_start), end: showDate(row.period_end) })}</div>
               </div>
               <div className="text-end">
-                <div className="tabular">{row.amount} {row.currency}</div>
+                <div className="tabular">{formatMoney(row.amount, { currency: row.currency, language })}</div>
                 {row.status === "issued" && Number(row.allocated_amount) > 0 && (
-                  <div className="text-xs text-warn">{t("subscription.invoicePaidOf", { paid: row.allocated_amount, amount: row.amount, currency: row.currency })}</div>
+                  <div className="text-xs text-warn">{t("subscription.invoicePaidOf", { paid: formatAmount(row.allocated_amount), amount: formatAmount(row.amount), currency: currencyLabel(row.currency, language) })}</div>
                 )}
               </div>
               <Badge tone={row.status === "paid" ? "ok" : row.status === "issued" ? "warn" : "muted"}>{t(`subscription.invoiceStatus.${row.status}`)}</Badge>
@@ -249,7 +252,7 @@ export default function SubscriptionPage() {
           {data.payments?.length > 0 && <div className="mt-4 divide-y divide-line">{data.payments.map((row) => (
             <div key={row.id} className="py-2 text-sm">
               <div className="flex justify-between gap-3">
-                <span className="tabular">{row.amount} {row.currency} · {showDate(row.created_at)}</span>
+                <span className="tabular">{formatMoney(row.amount, { currency: row.currency, language })} · {showDate(row.created_at)}</span>
                 <Badge tone={row.status === "verified" ? "ok" : row.status === "rejected" ? "danger" : "warn"}>{t(`subscription.paymentStatus.${row.status}`)}</Badge>
               </div>
               {row.status === "rejected" && row.rejection_reason && <div className="mt-1 text-xs text-danger">{row.rejection_reason}</div>}

@@ -12,9 +12,10 @@ import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { SkeletonLines, SkeletonRows } from "@/components/ui/Skeleton";
 import { expenseCategory } from "@/lib/expenseCategories";
+import { formatAmount } from "@/lib/money";
 
 const money = (v) =>
-  Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatAmount(v);
 const TONE = { draft: "muted", approved: "ok", archived: "muted" };
 
 function NewBudgetDrawer({ open, onClose, categories, onSaved }) {

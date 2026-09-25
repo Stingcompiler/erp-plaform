@@ -6,6 +6,9 @@ import { Download, Moon } from "lucide-react";
 import { API_BASE, reports } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { Button, Card, Field, Input, Select } from "@/components/ui/kit";
+import { formatAmount } from "@/lib/money";
+import { ReportFailed } from "@/components/reports/ReportState";
+import { slotFromError } from "@/lib/reportSlots";
 
 const HIJRI_MONTHS_AR = ["محرم", "صفر", "ربيع الأول", "ربيع الآخر", "جمادى الأولى", "جمادى الآخرة", "رجب", "شعبان", "رمضان", "شوال", "ذو القعدة", "ذو الحجة"];
 const HIJRI_MONTHS_EN = ["Muharram", "Safar", "Rabi' I", "Rabi' II", "Jumada I", "Jumada II", "Rajab", "Sha'ban", "Ramadan", "Shawwal", "Dhu al-Qa'dah", "Dhu al-Hijjah"];
@@ -43,7 +46,7 @@ export default function ZakatCard() {
     ...(cash !== "" ? { cash_on_hand: cash } : {}),
   };
   const load = useCallback(() => {
-    reports.zakat(params).then((r) => { setData(r.data); setError(false); }).catch(() => setError(true));
+    reports.zakat(params).then((r) => { setData(r.data); setError(false); }).catch((err) => setError(slotFromError(err)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [valuation, excludeDoubtful, hawl.month, hawl.day, cash]);
   useEffect(() => { load(); }, [load]);
@@ -51,7 +54,7 @@ export default function ZakatCard() {
     try { localStorage.setItem("zakat.hawl", JSON.stringify(hawl)); } catch { /* per-viewer convenience only */ }
   }, [hawl]);
 
-  const money = (v) => Number(v ?? 0).toLocaleString(language === "ar" ? "ar" : "en", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const money = (v) => formatAmount(v);
   const months = language === "ar" ? HIJRI_MONTHS_AR : HIJRI_MONTHS_EN;
   const csvUrl = `${API_BASE}/reports/zakat/?${new URLSearchParams({ ...params, format: "csv" })}`;
 
@@ -124,8 +127,8 @@ export default function ZakatCard() {
         </div>
       </div>
 
-      {error && <p className="text-sm text-danger">{t("common.loadError")}</p>}
-      {data && (
+      {error && <ReportFailed status={error} onRetry={load} />}
+      {data && !error && (
         <>
           {data.next_hawl && (
             <p className="mb-3 text-sm text-muted">{t("reports.zakatNextHawl", { date: data.next_hawl })}</p>

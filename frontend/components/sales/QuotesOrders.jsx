@@ -12,9 +12,10 @@ import Drawer from "@/components/ui/Drawer";
 import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { SkeletonRows } from "@/components/ui/Skeleton";
+import { formatAmount } from "@/lib/money";
 
 const money = (v) =>
-  Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatAmount(v);
 const QTONE = { draft: "muted", sent: "accent", accepted: "ok", expired: "danger", converted: "ok" };
 const OTONE = { draft: "muted", confirmed: "accent", fulfilled: "ok", cancelled: "danger" };
 

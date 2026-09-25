@@ -12,6 +12,7 @@ import PlanChangeRequests from "@/components/subscription/PlanChangeRequests";
 import { errorText } from "@/lib/errors";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { localToday } from "@/lib/dates";
+import { billingCycleLabel, subscriptionStateLabel } from "@/lib/labels";
 
 const STATES = ["trialing", "active", "grace", "read_only", "suspended", "cancelled"];
 
@@ -344,7 +345,7 @@ export default function PlatformSubscriptionsPage() {
                   <div className="font-display text-lg font-semibold">{row.company_name}</div>
                   {row.company_phone && <PhoneLink phone={row.company_phone} className="text-sm text-muted" />}
                   <div className="mt-1 text-sm text-muted">
-                    {row.plan?.plan_name} · {row.plan?.billing_cycle}
+                    {row.plan?.plan_name} · {billingCycleLabel(t, row.plan?.billing_cycle)}
                   </div>
                   {row.next_renewal && (
                     <div className="text-xs text-muted">
@@ -352,7 +353,7 @@ export default function PlatformSubscriptionsPage() {
                     </div>
                   )}
                   <Badge tone={row.status === "active" || row.status === "legacy" ? "ok" : "warn"}>
-                    {row.status}
+                    {subscriptionStateLabel(t, row.status)}
                   </Badge>
                   <label className="mt-3 flex items-start gap-2 text-sm">
                     <input

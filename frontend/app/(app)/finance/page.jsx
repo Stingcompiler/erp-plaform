@@ -20,13 +20,16 @@ import { expenseCategory } from "@/lib/expenseCategories";
 import { localToday } from "@/lib/dates";
 import { bankAccounts as bankAccountsApi } from "@/lib/api";
 import BankAccounts from "@/components/sales/BankAccounts";
+import { formatAmount } from "@/lib/money";
+import { useMoney } from "@/lib/useMoney";
+import { paymentMethodLabel } from "@/lib/labels";
 
 function StatTile({ label, value, tone = "ink", icon: Icon }) {
   const toneClass = tone === "ok" ? "text-ok" : tone === "danger" ? "text-danger" : "text-ink";
   return (
     <Card className={`relative overflow-hidden p-4 sm:p-5 ${tone === "ok" ? "border-accent/30 bg-accent/5" : ""}`}>
       <div className="mb-3 flex items-center justify-between gap-2"><span className="text-sm font-medium text-muted">{label}</span><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-paper text-accent"><Icon size={17} /></span></div>
-      <div className={`tabular mt-1 break-words text-2xl font-semibold sm:text-3xl ${toneClass}`}>{value}</div>
+      <div className={`tabular mt-1 break-words text-xl font-semibold sm:text-3xl ${toneClass}`}>{value}</div>
     </Card>
   );
 }
@@ -122,7 +125,7 @@ function ExpenseDrawer({ open, writable, onClose, onSaved, categories = [] }) {
           <Field label={t("finance.correctsExpense")} hint={t("finance.correctsExpenseHint")}>
             <Select value={form.reverses} onChange={(e) => set("reverses", e.target.value)}>
               <option value="">{t("common.choose")}</option>
-              {recent.map((e) => <option key={e.id} value={e.id}>{e.date} · {expenseCategory(e.category, t)} · {e.amount}</option>)}
+              {recent.map((e) => <option key={e.id} value={e.id}>{e.date} · {expenseCategory(e.category, t)} · {formatAmount(e.amount)}</option>)}
             </Select>
           </Field>
         )}
@@ -133,7 +136,7 @@ function ExpenseDrawer({ open, writable, onClose, onSaved, categories = [] }) {
 
 export default function FinancePage() {
   const { canRead, canWrite } = useAuth();
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const writable = canWrite("finance");
   const [categories, setCategories] = useState([]);
   const loadCategories = useCallback(() => {
@@ -153,9 +156,9 @@ export default function FinancePage() {
   const [filters, setFilters] = useState({ start: "", end: "", search: "", ordering: "-date", method: "standard" });
   const generation = useRef(0);
   const invalidDates = filters.start && filters.end && filters.start > filters.end;
-  const money = (v) => v == null ? "—" : Number(v).toLocaleString(language === "ar" ? "ar" : "en", {
-    minimumFractionDigits: 2, maximumFractionDigits: 2,
-  });
+  const { money: withCurrency } = useMoney();
+  // Tiles: the figure with its currency, or a dash while it has not loaded.
+  const money = (v) => withCurrency(v, { empty: "—" });
   // allSettled, not all: the totals and the expense list are two independent
   // requests, and one of them failing used to blank the other as well.
   const load = useCallback(async () => {
@@ -195,8 +198,6 @@ export default function FinancePage() {
       <Button variant="outline" onClick={() => { setPage(1); setFilters((f) => ({ ...f,start:"",end:"" })); }}>{t("improvements.allTime")}</Button>
     </Card>
     {invalidDates && <p role="alert" className="mb-4 text-danger">{t("improvements.invalidDates")}</p>}
-    {writable && <PaymentVerificationPanel refreshKey={reconcileKey} />}
-    {writable && <StatementReconcilePanel onApplied={() => setReconcileKey((k) => k + 1)} />}
     {error && <Card className="mb-4 p-4"><p role="alert" className="mb-3 text-danger">{error}</p><Button onClick={load}>{t("improvements.retry")}</Button></Card>}
     <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-busy={loading}>
       <StatTile label={t("finance.revenue")} value={money(summary?.revenue)} icon={ArrowUpRight} />
@@ -204,7 +205,11 @@ export default function FinancePage() {
       <StatTile icon={Wallet} label={t("finance.expenses")} value={money(summary?.expenses)} />
       <StatTile icon={Scale} label={t("improvements.netProfit")} value={money(summary?.net)} tone={Number(summary?.net) < 0 ? "danger" : "ok"} />
     </div>
-    <p className="mt-3 text-xs text-muted">{t("improvements.revenueHint")} · {t("improvements.accountingNote")}</p>
+    <p className="mb-5 mt-3 text-xs text-muted">{t("improvements.revenueHint")} · {t("improvements.accountingNote")}</p>
+    {/* The summary comes first; the verification worklist sits under it,
+        folded to a count until someone opens it. */}
+    {writable && <PaymentVerificationPanel refreshKey={reconcileKey} />}
+    {writable && <StatementReconcilePanel onApplied={() => setReconcileKey((k) => k + 1)} />}
     <h2 className="mb-3 mt-6 font-display text-lg font-semibold">{t("finance.expensesTab")}</h2>
     <div className="mb-3 flex flex-wrap gap-3">
       <Field label={t("improvements.searchExpenses")}><Input type="search" value={filters.search} onChange={(e) => change("search",e.target.value)} /></Field>
@@ -229,8 +234,8 @@ export default function FinancePage() {
           {expenseCategory(e.category, t)}
           {(e.payroll_run || e.salary_advance) && <Badge tone="accent">{t("finance.fromHr")}</Badge>}
         </span></td><td className="px-4 py-3">{e.description || "—"}</td>
-        <td className="px-4 py-3"><Badge>{t(e.method === "cash" ? "finance.cash" : "finance.bankTransfer")}</Badge></td>
-        <td className="tabular whitespace-nowrap px-4 py-3">{e.date}</td><td className="tabular px-4 py-3">{money(e.amount)}</td>
+        <td className="px-4 py-3"><Badge>{paymentMethodLabel(t, e.method)}</Badge></td>
+        <td className="tabular whitespace-nowrap px-4 py-3">{e.date}</td><td className="tabular px-4 py-3">{formatAmount(e.amount)}</td>
       </tr>)}</tbody></table></div>}
       <div className="flex items-center justify-between gap-3 border-t border-line p-3">
         <Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p-1)}>{t("improvements.previous")}</Button>

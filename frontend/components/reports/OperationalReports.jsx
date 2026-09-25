@@ -5,7 +5,7 @@
 // (recorded vs verified) and the CRM pipeline. Each loads only for a role
 // whose report areas include it — the server enforces the same map.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Download } from "lucide-react";
 
 import { API_BASE, reports } from "@/lib/api";
@@ -14,6 +14,9 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import { Badge, Card } from "@/components/ui/kit";
 import BarList from "@/components/reports/BarList";
 import { SkeletonLines } from "@/components/ui/Skeleton";
+import { ReportFailed } from "@/components/reports/ReportState";
+import { slotFromError } from "@/lib/reportSlots";
+import { formatAmount } from "@/lib/money";
 
 function Section({ title, hint, csvHref, children }) {
   const { t } = useI18n();
@@ -46,12 +49,11 @@ function Stat({ label, value, tone = "ink" }) {
 }
 
 export default function OperationalReports({ range, areas }) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const { canRead } = useAuth();
-  const locale = language === "ar" ? "ar" : "en";
-  const money = (v) => Number(v ?? 0).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const count = (v) => Number(v ?? 0).toLocaleString(locale, { maximumFractionDigits: 3 });
-  const pct = (v) => (v === null || v === undefined ? "—" : `${Number(v).toLocaleString(locale, { maximumFractionDigits: 1 })}%`);
+  const money = (v) => formatAmount(v);
+  const count = (v) => Number(v ?? 0).toLocaleString("en-US", { maximumFractionDigits: 3 });
+  const pct = (v) => (v === null || v === undefined ? "—" : `${Number(v).toLocaleString("en-US", { maximumFractionDigits: 1 })}%`);
   const sales = areas.includes("sales");
   const purchasing = areas.includes("purchasing");
   const finance = areas.includes("finance");
@@ -69,28 +71,42 @@ export default function OperationalReports({ range, areas }) {
   if (range.end) params.end = range.end;
   const csv = (path) => `${API_BASE}${path}?${new URLSearchParams({ ...params, format: "csv" })}`;
 
-  useEffect(() => {
+  // Each card loads (and retries) on its own: null = loading, a string =
+  // why it failed (lib/reportSlots), anything else = the answer.
+  const fetchers = useCallback(() => {
     const p = {};
     if (range.start) p.start = range.start;
     if (range.end) p.end = range.end;
-    const settle = (promise, setter) => promise.then((r) => setter(r.data)).catch(() => setter(false));
-    if (sales) settle(reports.salesReturns(p), setSalesReturns);
-    if (crmReport) settle(reports.crm(p), setCrm);
-    if (purchasing) settle(reports.purchaseReturns(p), setPurchaseReturns);
-    if (finance) settle(reports.paymentReconciliation(p), setReconciliation);
+    return {
+      salesReturns: [sales, () => reports.salesReturns(p), setSalesReturns],
+      crm: [crmReport, () => reports.crm(p), setCrm],
+      purchaseReturns: [purchasing, () => reports.purchaseReturns(p), setPurchaseReturns],
+      reconciliation: [finance, () => reports.paymentReconciliation(p), setReconciliation],
+    };
   }, [range.start, range.end, sales, crmReport, purchasing, finance]);
 
+  const fetchOne = useCallback(([wanted, fetch, setter]) => {
+    if (!wanted) return;
+    setter(null);
+    fetch().then((r) => setter(r.data)).catch((err) => setter(slotFromError(err)));
+  }, []);
+
+  useEffect(() => {
+    Object.values(fetchers()).forEach(fetchOne);
+  }, [fetchers, fetchOne]);
+
   if (!sales && !purchasing && !finance) return null;
-  const failed = <p className="text-sm text-danger">{t("reports.ops.loadError")}</p>;
-  const loading = <SkeletonLines />;
-  const body = (data, render) => (data === null ? loading : data === false ? failed : render(data));
+  const body = (key, data, render) =>
+    data === null ? <SkeletonLines />
+      : typeof data === "string" ? <ReportFailed status={data} onRetry={() => fetchOne(fetchers()[key])} />
+        : render(data);
 
   return (
     <div className="mt-6 grid gap-4 lg:grid-cols-2">
       {finance && (
         <div className="lg:col-span-2">
           <Section title={t("reports.ops.reconciliation")} hint={t("reports.ops.reconciliationHint")} csvHref={csv("/reports/payment-reconciliation/")}>
-            {body(reconciliation, (d) => (
+            {body("reconciliation", reconciliation, (d) => (
               <>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <Stat label={t("reports.ops.recorded")} value={`${count(d.recorded.count)} · ${money(d.recorded.amount)}`} />
@@ -133,7 +149,7 @@ export default function OperationalReports({ range, areas }) {
 
       {sales && (
         <Section title={t("reports.ops.salesReturns")} hint={t("reports.ops.salesReturnsHint")} csvHref={csv("/reports/sales-returns/")}>
-          {body(salesReturns, (d) => (
+          {body("salesReturns", salesReturns, (d) => (
             <>
               <div className="grid grid-cols-2 gap-2">
                 <Stat label={t("reports.ops.returns")} value={count(d.return_count)} />
@@ -160,7 +176,7 @@ export default function OperationalReports({ range, areas }) {
 
       {purchasing && (
         <Section title={t("reports.ops.purchaseReturns")} hint={t("reports.ops.purchaseReturnsHint")} csvHref={csv("/reports/purchase-returns/")}>
-          {body(purchaseReturns, (d) => (
+          {body("purchaseReturns", purchaseReturns, (d) => (
             <>
               <div className="grid grid-cols-2 gap-2">
                 <Stat label={t("reports.ops.returns")} value={count(d.return_count)} />
@@ -175,7 +191,7 @@ export default function OperationalReports({ range, areas }) {
 
       {crmReport && (
         <Section title={t("reports.ops.crm")} hint={t("reports.ops.crmHint")} csvHref={csv("/reports/crm/")}>
-          {body(crm, (d) => (
+          {body("crm", crm, (d) => (
             <>
               <div className="grid grid-cols-2 gap-2">
                 <Stat label={t("reports.ops.newLeads")} value={count(d.new_leads)} />

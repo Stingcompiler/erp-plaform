@@ -9,9 +9,10 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, Field, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
+import { formatAmount } from "@/lib/money";
 
 const money = (v) =>
-  Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatAmount(v);
 
 /**
  * Match a bank-app statement export (Bankak, Fawri, O-Cash…) against the

@@ -18,6 +18,7 @@ import { errorText } from "@/lib/errors";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { SkeletonTableRows } from "@/components/ui/Skeleton";
 import { EmptyTableRow } from "@/components/ui/EmptyState";
+import { formatMoney } from "@/lib/money";
 
 const TABS = ["new", "confirmed", "rejected", "all"];
 const TONE = { new: "warn", confirmed: "ok", rejected: "danger", cancelled: "muted" };
@@ -27,8 +28,8 @@ const payState = (r) => (r.payments || []).reduce((best, p) => {
   return best == null || rank[p.status] > rank[best] ? p.status : best;
 }, null);
 
-function money(v, c) {
-  return `${Number(v || 0).toLocaleString("en", { maximumFractionDigits: 2 })} ${c}`;
+function money(v, c, language) {
+  return formatMoney(v, { currency: c, language });
 }
 
 function WebOrders() {
@@ -81,7 +82,7 @@ function WebOrders() {
   };
   const decidePayment = async (claim, kind) => {
     const labels = { confirm: "webOrders.pay.confirmAsk", reject: "webOrders.pay.rejectAsk", fraud: "webOrders.pay.fraudAsk" };
-    if (!(await confirm(t(labels[kind], { amount: money(claim.amount, open.currency), last4: claim.reference_last4 })))) return;
+    if (!(await confirm(t(labels[kind], { amount: money(claim.amount, open.currency, language), last4: claim.reference_last4 })))) return;
     setBusy(true); setError("");
     const body = { note: payNote, warehouse: warehouse || undefined };
     try {
@@ -96,7 +97,7 @@ function WebOrders() {
         const d = err?.response?.data;
         if (kind !== "confirm" || d?.code !== "overpayment") throw err;
         const ok = await confirm(t("webOrders.pay.overpaymentAsk", {
-          amount: money(d.amount, open.currency), due: money(d.due, open.currency), surplus: money(d.surplus, open.currency),
+          amount: money(d.amount, open.currency, language), due: money(d.due, open.currency, language), surplus: money(d.surplus, open.currency, language),
         }));
         if (!ok) return;
         res = await api.confirmPayment(open.id, claim.id, { ...body, surplus_returned: true });
@@ -157,7 +158,7 @@ function WebOrders() {
                 <td className="px-3 py-3"><div>{r.contact_name}</div><div className="text-xs text-muted" dir="ltr">{r.phone}</div></td>
                 <td className="px-3 py-3">{r.branch_name || "—"}</td>
                 <td className="px-3 py-3 text-muted">{r.lines.map((l) => `${l.name} ×${Number(l.quantity)}`).join("، ")}</td>
-                <td className="px-3 py-3 text-end tabular">{r.total == null ? <span className="text-muted">{t("webOrders.askPrice")}</span> : money(r.total, r.currency)}</td>
+                <td className="px-3 py-3 text-end tabular">{r.total == null ? <span className="text-muted">{t("webOrders.askPrice")}</span> : money(r.total, r.currency, language)}</td>
                 <td className="px-3 py-3 text-muted">{fmt(r.created_at)}</td>
                 <td className="px-3 py-3"><Badge tone={TONE[r.status]}>{t(`webOrders.status.${r.status}`)}</Badge> {payState(r) && <Badge tone={PAY_TONE[payState(r)]}>{t(`webOrders.pay.status.${payState(r)}`)}</Badge>} {r.delivery_mode === "delivery" ? <Truck size={14} className="inline text-muted" /> : <Store size={14} className="inline text-muted" />}</td>
               </tr>
@@ -177,9 +178,9 @@ function WebOrders() {
               {open.note && <div className="mt-2 rounded-control bg-paper p-2">«{open.note}»</div>}
             </div>
             <ul className="divide-y divide-line rounded-control border border-line">
-              {open.lines.map((l) => <li key={l.id} className="flex justify-between gap-3 px-3 py-2"><span>{l.name} <span className="text-muted">×{Number(l.quantity)}</span></span><span className="tabular">{l.unit_price == null ? <span className="text-muted">{t("webOrders.askPrice")}</span> : money(Number(l.unit_price) * Number(l.quantity), open.currency)}</span></li>)}
-              {Number(open.tax_amount) > 0 && <li className="flex justify-between px-3 py-2 text-muted"><span>{t("webOrders.tax")}</span><span className="tabular">{money(open.tax_amount, open.currency)}</span></li>}
-              <li className="flex justify-between px-3 py-2 font-semibold"><span>{Number(open.tax_amount) > 0 ? t("webOrders.totalWithTax") : t("webOrders.total")}</span><span className="tabular">{open.total == null ? t("webOrders.confirmPrices") : money(open.total, open.currency)}</span></li>
+              {open.lines.map((l) => <li key={l.id} className="flex justify-between gap-3 px-3 py-2"><span>{l.name} <span className="text-muted">×{Number(l.quantity)}</span></span><span className="tabular">{l.unit_price == null ? <span className="text-muted">{t("webOrders.askPrice")}</span> : money(Number(l.unit_price) * Number(l.quantity), open.currency, language)}</span></li>)}
+              {Number(open.tax_amount) > 0 && <li className="flex justify-between px-3 py-2 text-muted"><span>{t("webOrders.tax")}</span><span className="tabular">{money(open.tax_amount, open.currency, language)}</span></li>}
+              <li className="flex justify-between px-3 py-2 font-semibold"><span>{Number(open.tax_amount) > 0 ? t("webOrders.totalWithTax") : t("webOrders.total")}</span><span className="tabular">{open.total == null ? t("webOrders.confirmPrices") : money(open.total, open.currency, language)}</span></li>
             </ul>
             {open.payments?.length > 0 && (
               <div className="space-y-3">
@@ -188,7 +189,7 @@ function WebOrders() {
                   <div key={c.id} className="rounded-control border border-line p-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge tone={PAY_TONE[c.status]}>{t(`webOrders.pay.status.${c.status}`)}</Badge>
-                      <span className="font-semibold tabular">{money(c.amount, open.currency)}</span>
+                      <span className="font-semibold tabular">{money(c.amount, open.currency, language)}</span>
                       <span className="text-muted">{c.sender_bank_name} → {c.bank_name || "—"} · ****{c.reference_last4}</span>
                       <span className="text-xs text-muted">{fmt(c.created_at)}</span>
                     </div>

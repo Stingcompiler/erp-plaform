@@ -12,9 +12,10 @@ import TabBar from "@/components/ui/TabBar";
 import { Badge, Button, Card, Select } from "@/components/ui/kit";
 import { errorText } from "@/lib/errors";
 import { SkeletonRows } from "@/components/ui/Skeleton";
+import { formatAmount } from "@/lib/money";
 
 const money = (v) =>
-  Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatAmount(v);
 
 const SOURCES = {
   payments: { list: (p) => sales.payments(p), doc: sales.paymentDocument, out: false },

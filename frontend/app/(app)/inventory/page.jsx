@@ -16,6 +16,9 @@ import StockCountPanel from "@/components/inventory/StockCountPanel";
 import { errorText } from "@/lib/errors";
 import { SkeletonTableRows } from "@/components/ui/Skeleton";
 import { EmptyTableRow } from "@/components/ui/EmptyState";
+import TabBar from "@/components/ui/TabBar";
+import { useHashTab } from "@/lib/useHashTab";
+import { formatAmount } from "@/lib/money";
 
 const PAGE_SIZE = 50;
 
@@ -24,6 +27,9 @@ export default function InventoryPage() {
   const { t } = useI18n();
   const writable = canWrite("inventory");
   const canReprice = writable && can("finance.approve");
+  // Products first: the stock-count block used to fill the top of the page
+  // before a single product showed. Counts are a periodic job — their own tab.
+  const [tab, setTab] = useHashTab(["products", "counts"]);
 
   const [rows, setRows] = useState([]);
   const [count, setCount] = useState(0);
@@ -177,6 +183,18 @@ export default function InventoryPage() {
         }
       />
 
+      <TabBar
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { id: "products", label: t("states.inventoryProductsTab") },
+          { id: "counts", label: t("count.title") },
+        ]}
+      />
+
+      {tab === "counts" && <StockCountPanel warehouses={warehouses} canWrite={writable} />}
+
+      {tab === "products" && <>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[220px]">
           <Search
@@ -230,8 +248,6 @@ export default function InventoryPage() {
         </label>
       </div>
 
-      <StockCountPanel warehouses={warehouses} canWrite={writable} />
-
       {expiring.length > 0 && (
         <Card className="mb-4 border-warn/40 p-4">
           <div className="mb-2 flex items-center gap-2 font-medium text-ink">
@@ -274,7 +290,8 @@ export default function InventoryPage() {
               {error && !loading && (
                 <tr>
                   <td colSpan={writable ? 7 : 6} className="px-4 py-8 text-center text-muted">
-                    {t("inventory.loadError")}
+                    <p role="alert">{t("inventory.loadError")}</p>
+                    <Button variant="outline" className="mt-3" onClick={load}>{t("improvements.retry")}</Button>
                   </td>
                 </tr>
               )}
@@ -312,7 +329,7 @@ export default function InventoryPage() {
                     <td className="tabular px-4 py-3 text-end text-ink">{p.on_hand}</td>
                     <td className="tabular px-4 py-3 text-end text-muted">{p.reorder_level}</td>
                     <td className="tabular px-4 py-3 text-end text-ink">
-                      {p.sale_price}
+                      {formatAmount(p.sale_price)}
                       {p.suggested_price != null && Number(p.suggested_price) !== Number(p.sale_price) && (
                         <div className="text-xs text-warn">{t("inventory.suggested", { price: p.suggested_price })}</div>
                       )}
@@ -384,6 +401,7 @@ export default function InventoryPage() {
           </div>
         </div>
       )}
+      </>}
 
       <ProductForm
         open={formOpen}

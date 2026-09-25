@@ -10,10 +10,11 @@ import { Badge, Button, Card, Input } from "@/components/ui/kit";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { errorText } from "@/lib/errors";
 import { SkeletonRows } from "@/components/ui/Skeleton";
+import { formatAmount } from "@/lib/money";
 
 const money = (v) =>
   v == null || v === "" ? "—"
-    : Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    : formatAmount(v);
 
 /**
  * Sales an offline till kept although the price would have been refused at
