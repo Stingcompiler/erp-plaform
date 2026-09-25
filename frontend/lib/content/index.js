@@ -14,29 +14,29 @@ export const INDEX_COPY = {
   [SOLUTIONS_INDEX_PATH]: {
     ar: {
       title: "الحلول — ما يحلّه فيزانو لكل نوع من الأعمال",
-      metaTitle: "حلول فيزانو — نقطة بيع بلا إنترنت، مخزون بالصلاحية، ديون العملاء، فروع متعددة",
+      metaTitle: "حلول فيزانو — إدارة الشركات متعددة الفروع، نقطة بيع بلا إنترنت، مخزون بالصلاحية، ديون العملاء",
       description:
-        "صفحة لكل مشكلة يواجهها التاجر: البيع أثناء انقطاع الإنترنت، المخزون بالدفعات وتواريخ الصلاحية، ديون العملاء وكشوف الحساب، وإدارة الفروع المتعددة.",
+        "صفحة لكل مشكلة تواجهها المتاجر والشركات بفرع أو عدة فروع: إدارة الفروع والمستودعات والأدوار، البيع أثناء انقطاع الإنترنت، المخزون بالدفعات وتواريخ الصلاحية، ديون العملاء وكشوف الحساب، وصفحة عامة للشركة.",
     },
     en: {
       title: "Solutions — what Vezano solves for each kind of business",
-      metaTitle: "Vezano solutions — offline POS, expiry-tracked inventory, customer debts, multiple branches",
+      metaTitle: "Vezano solutions — multi-branch company management, offline POS, expiry-tracked inventory, customer debts",
       description:
-        "A page for each problem merchants face: selling through internet outages, batch and expiry inventory, customer debts and statements, and running multiple branches.",
+        "A page for each problem stores and companies with one branch or many face: running branches, warehouses and roles, selling through internet outages, batch and expiry inventory, customer debts and statements, and a public company page.",
     },
   },
   [GUIDES_INDEX_PATH]: {
     ar: {
-      title: "أدلة عملية للتاجر",
-      metaTitle: "أدلة عملية للمحلات وتجار الجملة — البيع بلا إنترنت، جرد المخزون، تحصيل الديون",
+      title: "أدلة عملية لإدارة المتاجر والشركات",
+      metaTitle: "أدلة عملية للمتاجر والشركات بفرع أو عدة فروع — البيع بلا إنترنت، جرد المخزون، تحصيل الديون",
       description:
-        "مقالات قصيرة وعملية عن مشاكل التجارة اليومية: كيف تبيع أثناء الانقطاع، كيف تجرد دون إغلاق، وكيف تحصّل الديون دون خسارة العملاء.",
+        "مقالات قصيرة وعملية لأصحاب المتاجر والشركات ومديري الفروع: كيف يستمر البيع أثناء الانقطاع، كيف تجرد المتجر أو المستودع دون إغلاق، وكيف تحصّل الديون دون خسارة العملاء.",
     },
     en: {
-      title: "Practical guides for merchants",
-      metaTitle: "Practical guides for shops and wholesalers — selling offline, stock counts, collecting debts",
+      title: "Practical guides for running stores and companies",
+      metaTitle: "Practical guides for stores and companies with one branch or many — selling offline, stock counts, collecting debts",
       description:
-        "Short, practical articles on everyday trade problems: how to sell through outages, how to count stock without closing, and how to collect debts without losing customers.",
+        "Short, practical articles for store and company owners and branch managers: how to keep selling through outages, how to count a store or warehouse without closing, and how to collect debts without losing customers.",
     },
   },
 };
