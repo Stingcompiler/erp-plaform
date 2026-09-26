@@ -7,11 +7,31 @@ domain stays `vezano.app`.
 
 "Blend C": two **branches** (the nodes at the top) converge into a **hub of
 four module tiles** — sales, inventory, people, finance in one system — and a
-**sync arc** with an arrowhead runs around the hub: every branch, one system,
-kept in step even when the network drops.
+**sync arrow** (a refresh arrow) climbs the hub's right side: every branch, one
+system, kept in step even when the network drops.
+
+The arrow sits on one side on purpose. The first version (v1) centred the arc
+under the hub, and with the two nodes above it the whole mark read as a
+smiling face. v2 keeps the same concept but makes the arc a one-sided refresh
+arrow: it starts below the hub, a little left of centre, and sweeps ~137° up
+the right side to an arrowhead at the upper right. Three directions were
+tried (`concepts/arc-variants/`, each at 512, 48 and 32 px, plus
+`contact-sheet.png`):
+
+- **a — ring** (`a-ring`, `a2-ring-filled`): a ~300° ring around the hub. The
+  ring crosses both branches and the arrowhead hides behind the right one;
+  with the nodes on top it read as a head with antennae.
+- **b — right-side refresh** (`b-right-refresh`, chosen; `b2` filled head,
+  `b3` a longer half circle that still hinted at a smile, `b4` a shorter arc
+  that read as a trend arrow): the clearest "sync / refresh" and no face; it
+  stays legible at 48 px.
+- **c — opposing pair** (`c-pair`, `c2-pair-filled`): two short arrows either
+  side of the hub. Reads as sync at 512 px but turns into brackets (another
+  face) and mush at 48 and 32 px.
 
 The geometry lives in one place, `frontend/lib/brandMark.js`, on a 64×64 grid,
-symmetric about the vertical axis, with the sync arc concentric with the hub.
+with the branches and tiles symmetric about the vertical axis and the sync arrow
+concentric with the hub, on its right.
 The in-app component (`frontend/components/brand/LogoMark.jsx`), these masters
 and every app icon are drawn from it.
 
@@ -19,7 +39,7 @@ and every app icon are drawn from it.
 
 | Tier   | Rendered size | What it keeps                                   | Master            |
 |--------|---------------|-------------------------------------------------|-------------------|
-| Full   | 48 px and up  | branches, nodes, 4 tiles, sync arc              | `mark-full.svg`   |
+| Full   | 48 px and up  | branches, nodes, 4 tiles, sync arrow            | `mark-full.svg`   |
 | Medium | 24–47 px      | branches, nodes, 4 tiles (no arc)               | `mark-medium.svg` |
 | Small  | under 24 px   | two thick branches and one solid hub square     | `mark-small.svg`  |
 
@@ -39,6 +59,9 @@ Other masters:
 - `concepts/` — the explored marks, for the record: 1 branches converge,
   2 modules, 3 V with sync arrows, 4 Arabic ف, blend A branches + modules,
   blend B branches + sync. Blend C (branches + modules + sync) was chosen.
+  `blend-c-v1-smile-arc.svg` is blend C as first approved (the centred arc
+  that read as a smile), kept for the record; `arc-variants/` holds the arc
+  studies that replaced it.
 
 ### Clear space
 
@@ -51,7 +74,7 @@ units (for a 64 px tile, 20 px).
 | Role                                   | Hex       |
 |----------------------------------------|-----------|
 | Brand teal — tile, light-theme accent  | `#0e7c86` |
-| Pale teal — branch nodes, 2 tiles, arc | `#a3e3e6` |
+| Pale teal — nodes, 2 tiles, sync arrow | `#a3e3e6` |
 | White — branches, 2 tiles              | `#ffffff` |
 | Dark-theme accent («برو» on dark)      | `#37b0b8` |
 | Ink (wordmark on light)                | `#12253b` |

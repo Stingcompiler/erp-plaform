@@ -1,17 +1,19 @@
 // The Vezano Pro logo mark ("blend C"): two branches converge into a hub of
-// four module tiles, with a sync arc and arrowhead around the hub — many
-// branches, one system, kept in sync. design/brand/README.md explains it.
+// four module tiles, with a refresh-style sync arrow climbing the hub's right
+// side — many branches, one system, kept in sync. design/brand/README.md explains it.
 //
 // One geometry for everything that draws it: components/brand/LogoMark.jsx
 // (the UI), scripts/brand-icons.mjs (design/brand masters, then the favicon,
 // PWA and Apple icons rasterised from them) and the Django directory page.
 //
-// Drawn on a 64×64 grid, symmetric about x = 32. The sync arc is concentric
-// with the hub. Each tier is placed so its visual bounding box is centred
-// (the thin arc carries little weight, so the full mark sits a touch low).
+// Drawn on a 64×64 grid; branches and tiles are symmetric about x = 32. The
+// sync arrow is concentric with the hub and sits on its right (a refresh
+// arrow), not centred under it: centred, it read as a smile. Each tier is
+// placed so its visual bounding box is centred (the thin arc carries little
+// weight, so the full mark sits a touch low).
 //
 // Tiers, by rendered size:
-//   full    ≥ 48px  branches, nodes, 4 tiles, sync arc
+//   full    ≥ 48px  branches, nodes, 4 tiles, sync arrow
 //   medium  24–47   branches, nodes, 4 tiles (the arc would blur)
 //   small   < 24    two thick branches and one solid hub square
 
@@ -58,10 +60,13 @@ function branches(cx, top, nodeX, nodeY, stroke, reach) {
   };
 }
 
-function syncArc(cx, cy, radius, stroke, from = 160, to = 20, head = 4) {
-  // Clockwise screen angles (y down): 90° is straight below the hub. The arc
-  // runs from the lower left, under the hub, to the lower right, where the
-  // arrowhead points along the arc's direction of travel.
+function syncArc(cx, cy, radius, stroke, from = 115, to = -22, head = 4.2) {
+  // Screen angles, clockwise with y down: 0° is right of the hub, 90° below
+  // it, -90° above. The arc is a refresh arrow on the right of the hub: it
+  // starts below the hub, a little left of centre, climbs the right side
+  // (angle decreasing) and ends at the upper right, where the arrowhead
+  // points along the direction of travel. One-sided on purpose: an arc
+  // centred under the hub read as a smile (v1, design/brand/concepts).
   const pt = (deg) => [cx + radius * Math.cos((deg * Math.PI) / 180), cy + radius * Math.sin((deg * Math.PI) / 180)];
   const [sx, sy] = pt(from);
   const [ex, ey] = pt(to);
@@ -74,8 +79,9 @@ function syncArc(cx, cy, radius, stroke, from = 160, to = 20, head = 4) {
   const a1 = rot(back, spread);
   const a2 = rot(back, -spread);
   const common = { fill: "none", strokeWidth: stroke, strokeLinecap: "round", strokeLinejoin: "round" };
+  const large = from - to > 180 ? 1 : 0;
   return [
-    { tag: "path", stroke: "node", attrs: { d: `M${r2(sx)} ${r2(sy)} A${radius} ${radius} 0 0 0 ${r2(ex)} ${r2(ey)}`, ...common } },
+    { tag: "path", stroke: "node", attrs: { d: `M${r2(sx)} ${r2(sy)} A${radius} ${radius} 0 ${large} 0 ${r2(ex)} ${r2(ey)}`, ...common } },
     {
       tag: "path",
       stroke: "node",
@@ -96,7 +102,7 @@ const TIERS = {
       { tag: "circle", fill: "node", attrs: { cx: nodeX, cy: nodeY, r: 4.3 } },
       { tag: "circle", fill: "node", attrs: { cx: 64 - nodeX, cy: nodeY, r: 4.3 } },
       ...hubTiles(cx, cy, tile, gap, 1.6),
-      ...syncArc(cx, cy, 14.5, 2.6),
+      ...syncArc(cx, cy, 14.5, 2.6, 115, -22, 4.2),
     ];
   },
   medium: () => {
