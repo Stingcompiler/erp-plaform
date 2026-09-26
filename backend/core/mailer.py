@@ -21,7 +21,7 @@ from django.utils import translation
 
 logger = logging.getLogger(__name__)
 
-BRAND = "Vezano · فيزانو"
+BRAND = "Vezano Pro · فيزانو برو"
 
 
 def email_is_enabled():

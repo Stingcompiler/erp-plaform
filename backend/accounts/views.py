@@ -142,7 +142,7 @@ class LoginView(APIView):
                     "This device was removed by the company. Ask the owner to allow it again."
                 ),
                 "device_required": _(
-                    "Sign in from the Vezano app or website so this device can be "
+                    "Sign in from the Vezano Pro app or website so this device can be "
                     "identified; company accounts cannot sign in without a device id."
                 ),
             }[refused.code]
@@ -365,16 +365,16 @@ class UserViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         when = timezone.localtime().strftime("%Y-%m-%d %H:%M")
         mailer.send_bilingual(
             subject_ar="تم تغيير كلمة مرور حسابك",
-            subject_en="Your Vezano password was changed",
+            subject_en="Your Vezano Pro password was changed",
             ar=[
                 f"مرحباً {target.full_name or target.email}،",
-                f"قام {actor_name} بتعيين كلمة مرور جديدة لحسابك في فيزانو بتاريخ {when}.",
+                f"قام {actor_name} بتعيين كلمة مرور جديدة لحسابك في فيزانو برو بتاريخ {when}.",
                 "عند تسجيل دخولك التالي سيُطلب منك اختيار كلمة مرور خاصة بك قبل متابعة العمل.",
                 "إن لم تكن على علم بهذا التغيير فتواصل مع مالك الشركة فورًا.",
             ],
             en=[
                 f"Hello {target.full_name or target.email},",
-                f"{actor_name} set a new password for your Vezano account on {when}.",
+                f"{actor_name} set a new password for your Vezano Pro account on {when}.",
                 "At your next sign-in you will be asked to choose your own password "
                 "before continuing.",
                 "If you were not expecting this, contact your business owner right away.",

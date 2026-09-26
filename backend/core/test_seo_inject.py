@@ -14,15 +14,15 @@ from core.seo_inject import (
 # The shape Next's export produces: self-closing metas, attributes in this order.
 PAGE = (
     '<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/>'
-    "<title>فيزانو | نظام إدارة المبيعات</title>"
+    "<title>فيزانو برو | نظام إدارة المبيعات</title>"
     '<meta name="description" content="الوصف الأصلي"/>'
     '<meta name="robots" content="index, follow"/>'
     '<link rel="canonical" href="https://vezano.app/pricing/"/>'
-    '<meta property="og:title" content="فيزانو | نظام إدارة المبيعات"/>'
+    '<meta property="og:title" content="فيزانو برو | نظام إدارة المبيعات"/>'
     '<meta property="og:description" content="الوصف الأصلي"/>'
     '<meta property="og:url" content="https://vezano.app/pricing/"/>'
     '<meta property="og:image" content="https://vezano.app/marketing/og.png"/>'
-    '<meta name="twitter:title" content="فيزانو | نظام إدارة المبيعات"/>'
+    '<meta name="twitter:title" content="فيزانو برو | نظام إدارة المبيعات"/>'
     '<meta name="twitter:description" content="الوصف الأصلي"/>'
     '<script src="/_next/static/chunks/main.js" async=""></script>'
     "</head><body><h1>Body <title>not a title</title></h1></body></html>"
@@ -49,7 +49,7 @@ class InjectSeoTests(SimpleTestCase):
         self.assertIn('<meta property="og:description" content="وصف جديد"/>', out)
         self.assertIn('<meta name="twitter:description" content="وصف جديد"/>', out)
         self.assertNotIn("الوصف الأصلي", out)
-        self.assertNotIn("فيزانو | نظام", out)
+        self.assertNotIn("فيزانو برو | نظام", out)
         # The body is never touched, even where it contains a <title>.
         self.assertIn("<h1>Body <title>not a title</title></h1>", out)
         # Nothing else in the head moved.

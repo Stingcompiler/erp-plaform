@@ -3,7 +3,7 @@
 
 export const pricingEn = {
   title: "Plans that grow with your company",
-  subtitle: "Start hosted with a free trial, or run Vezano on your own server with a perpetual licence. Same product, same data model.",
+  subtitle: "Start hosted with a free trial, or run Vezano Pro on your own server with a perpetual licence. Same product, same data model.",
   seeAll: "Compare all plans",
   pageTitle: "Pricing",
   pageSubtitle: "Clear prices, no per-transaction fees. Every plan includes Arabic and English, offline POS, and role-based access.",
@@ -29,7 +29,7 @@ export const pricingEn = {
   standalonePrice: "Perpetual licence",
   standalonePriceHint: "One-time fee + annual maintenance",
   standaloneFeatures: [
-    "Runs entirely inside your network — no connection to Vezano",
+    "Runs entirely inside your network — no connection to Vezano Pro",
     "All modules, capacity set in the licence",
     "Signed releases, upgrade and rollback scripts",
     "Your data stays yours; never sent anywhere",
@@ -46,7 +46,7 @@ export const pricingEn = {
     ["Arabic and English, right-to-left layout", true, true],
     ["Nightly backup of core records", "Automatic; download it from Settings", "Your backup.sh, your storage"],
     ["Upgrades", "Automatic", "Signed releases within maintenance"],
-    ["Where the data lives", "Vezano cloud", "Your PostgreSQL"],
+    ["Where the data lives", "Vezano Pro cloud", "Your PostgreSQL"],
     ["Internet required", "Yes", "No"],
   ],
   faqTitle: "Questions we get asked",
@@ -62,7 +62,7 @@ export const pricingEn = {
 
 export const pricingAr = {
   title: "باقات تنمو مع شركتك",
-  subtitle: "ابدأ على السحابة بتجربة مجانية، أو شغّل فيزانو على خادمك برخصة دائمة. المنتج نفسه ونموذج البيانات نفسه.",
+  subtitle: "ابدأ على السحابة بتجربة مجانية، أو شغّل فيزانو برو على خادمك برخصة دائمة. المنتج نفسه ونموذج البيانات نفسه.",
   seeAll: "قارن كل الباقات",
   pageTitle: "الأسعار",
   pageSubtitle: "أسعار واضحة بلا رسوم على كل عملية. كل باقة تشمل العربية والإنجليزية، ونقطة بيع تعمل بلا اتصال، وصلاحيات حسب الدور.",
@@ -88,7 +88,7 @@ export const pricingAr = {
   standalonePrice: "رخصة دائمة",
   standalonePriceHint: "رسوم لمرة واحدة + صيانة سنوية",
   standaloneFeatures: [
-    "يعمل بالكامل داخل شبكتك — لا اتصال بفيزانو",
+    "يعمل بالكامل داخل شبكتك — لا اتصال بفيزانو برو",
     "كل الوحدات، والسعة تُحدد في الرخصة",
     "إصدارات موقّعة وسكربتات ترقية وتراجع",
     "بياناتك تبقى عندك ولا تُرسل لأي جهة",
@@ -105,7 +105,7 @@ export const pricingAr = {
     ["العربية والإنجليزية وتخطيط من اليمين لليسار", true, true],
     ["نسخة احتياطية ليلية للسجلات الأساسية", "تلقائية، وتُنزَّل من الإعدادات", "سكربتك وتخزينك"],
     ["الترقيات", "تلقائية", "إصدارات موقّعة ضمن الصيانة"],
-    ["أين تعيش البيانات", "سحابة فيزانو", "PostgreSQL عندك"],
+    ["أين تعيش البيانات", "سحابة فيزانو برو", "PostgreSQL عندك"],
     ["يحتاج إنترنت", "نعم", "لا"],
   ],
   faqTitle: "أسئلة تصلنا كثيرًا",
@@ -130,12 +130,12 @@ export const registerEn = {
   hosted: "Hosted (cloud)",
   hostedHint: "We run it for you: nothing to install, works from any device, updates and a nightly backup are on us. Start with a 14-day free trial.",
   standalone: "On your own server",
-  standaloneHint: "Vezano is installed on a server your company owns; your data stays with you and it keeps running without our platform. Perpetual licence, quoted per request.",
-  deliveryLabel: "How do you want to run Vezano?",
+  standaloneHint: "Vezano Pro is installed on a server your company owns; your data stays with you and it keeps running without our platform. Perpetual licence, quoted per request.",
+  deliveryLabel: "How do you want to run Vezano Pro?",
   compareOptions: "Which one is right for me? Read the full comparison",
   hosting: {
     title: "Cloud or your own server?",
-    subtitle: "Both run the same Vezano. The difference is where it lives, who looks after it, and how you pay.",
+    subtitle: "Both run the same Vezano Pro. The difference is where it lives, who looks after it, and how you pay.",
     back: "Back to the registration form",
     cta: "Start your free trial",
     ctaStandalone: "Request a server quote",
@@ -156,7 +156,7 @@ export const registerEn = {
       {
         key: "standalone",
         title: "On your own server",
-        tagline: "Vezano installed on a server your company owns, in your shop, warehouse or data centre.",
+        tagline: "Vezano Pro installed on a server your company owns, in your shop, warehouse or data centre.",
         points: [
           "Your data never leaves your premises; it runs even if your internet or our platform is down.",
           "One perpetual licence instead of a subscription, quoted for your size.",
@@ -184,7 +184,7 @@ export const registerEn = {
   standaloneFlow: [
     ["Send the request", "A few details about your company and your server."],
     ["We reply with a proposal", "A licence quote for your size and the installation guide."],
-    ["Install and start selling", "Vezano runs on your server; we help with the installation."],
+    ["Install and start selling", "Vezano Pro runs on your server; we help with the installation."],
   ],
   requiredNote: "Every field is required unless it says optional.",
   countryLabel: "Country",
@@ -204,12 +204,12 @@ export const registerAr = {
   hosted: "على السحابة",
   hostedHint: "نشغّله لك: لا تركيب، يعمل من أي جهاز، والتحديثات والنسخ الاحتياطي الليلي علينا. ابدأ بتجربة مجانية 14 يومًا.",
   standalone: "على خادمك الخاص",
-  standaloneHint: "يُركَّب فيزانو على خادم تملكه شركتك؛ بياناتك تبقى عندك ويعمل دون منصتنا. رخصة دائمة بعرض سعر حسب الطلب.",
-  deliveryLabel: "كيف تريد تشغيل فيزانو؟",
+  standaloneHint: "يُركَّب فيزانو برو على خادم تملكه شركتك؛ بياناتك تبقى عندك ويعمل دون منصتنا. رخصة دائمة بعرض سعر حسب الطلب.",
+  deliveryLabel: "كيف تريد تشغيل فيزانو برو؟",
   compareOptions: "أيهما يناسبني؟ اقرأ المقارنة الكاملة",
   hosting: {
     title: "السحابة أم خادمك الخاص؟",
-    subtitle: "الخياران يشغّلان فيزانو نفسه. الفرق في مكان تشغيله، ومن يعتني به، وطريقة الدفع.",
+    subtitle: "الخياران يشغّلان فيزانو برو نفسه. الفرق في مكان تشغيله، ومن يعتني به، وطريقة الدفع.",
     back: "العودة إلى نموذج التسجيل",
     cta: "ابدأ تجربتك المجانية",
     ctaStandalone: "اطلب عرض سعر للخادم",
@@ -230,7 +230,7 @@ export const registerAr = {
       {
         key: "standalone",
         title: "على خادمك الخاص",
-        tagline: "فيزانو مُركَّب على خادم تملكه شركتك، في محلك أو مخزنك أو مركز بياناتك.",
+        tagline: "فيزانو برو مُركَّب على خادم تملكه شركتك، في محلك أو مخزنك أو مركز بياناتك.",
         points: [
           "بياناتك لا تغادر مقرك؛ يعمل حتى لو انقطع الإنترنت أو توقفت منصتنا.",
           "رخصة دائمة واحدة بدل الاشتراك، بعرض سعر حسب حجمك.",
@@ -258,7 +258,7 @@ export const registerAr = {
   standaloneFlow: [
     ["أرسل الطلب", "بيانات قليلة عن شركتك وخادمك."],
     ["نرد بعرض", "عرض سعر رخصة يناسب حجمك ودليل التركيب."],
-    ["ركّب وابدأ البيع", "يعمل فيزانو على خادمك، ونساعدك في التركيب."],
+    ["ركّب وابدأ البيع", "يعمل فيزانو برو على خادمك، ونساعدك في التركيب."],
   ],
   requiredNote: "كل الحقول مطلوبة ما لم يُكتب بجانبها «اختياري».",
   countryLabel: "الدولة",
@@ -277,8 +277,8 @@ export const homeEn = {
   heroPrimary: "Start free trial",
   heroSecondary: "See pricing",
   heroNote: "14-day trial · no card · activated the same day after review",
-  showcaseEyebrow: "Companies on Vezano",
-  showcaseTitle: "Companies and stores that run on Vezano",
+  showcaseEyebrow: "Companies on Vezano Pro",
+  showcaseTitle: "Companies and stores that run on Vezano Pro",
   showcaseBody: "Every subscription includes a public page for the business: cover, logo, products with photos, contact channels and a map, ready for Google. A selection of published pages; the ones marked as demo are sample companies for exploring the system.",
   showcaseDemo: "Demo company to explore the system",
   showcaseAll: "All companies and stores",
@@ -406,8 +406,8 @@ export const homeAr = {
   heroPrimary: "ابدأ التجربة المجانية",
   heroSecondary: "شاهد الأسعار",
   heroNote: "تجربة 14 يومًا · بلا بطاقة · تفعيل في نفس اليوم بعد المراجعة",
-  showcaseEyebrow: "شركات تعمل بفيزانو",
-  showcaseTitle: "شركات ومتاجر تدير أعمالها على فيزانو",
+  showcaseEyebrow: "شركات تعمل بفيزانو برو",
+  showcaseTitle: "شركات ومتاجر تدير أعمالها على فيزانو برو",
   showcaseBody: "كل اشتراك يشمل صفحة عامة للنشاط: غلاف وشعار ومنتجات بالصور وقنوات التواصل وخريطة، جاهزة لـ Google. مختارات من الصفحات المنشورة؛ ما يحمل وسم «تجريبية» شركات نموذجية لاستكشاف النظام.",
   showcaseDemo: "شركة تجريبية لاستكشاف النظام",
   showcaseAll: "كل الشركات والمتاجر",
@@ -528,7 +528,7 @@ export const homeAr = {
 
 // Product details page (/product).
 export const productEn = {
-  pageTitle: "Everything Vezano does, in one place",
+  pageTitle: "Everything Vezano Pro does, in one place",
   pageSubtitle: "One data model shared by every module: a sale moves stock, posts to the customer's ledger and shows up in the report — without anyone re-entering it.",
   jump: "Jump to",
   modules: [
@@ -620,7 +620,7 @@ export const productEn = {
   deployTitle: "Cloud, or your own server",
   deploy: [
     ["Hosted", "We run it. Monthly plan, automatic upgrades, nightly backups, sign in from anywhere.", "/pricing", "See plans"],
-    ["On your server", "You run it. Perpetual licence, signed releases, no connection to Vezano, works with no internet at all.", "/register?mode=standalone", "Request a quote"],
+    ["On your server", "You run it. Perpetual licence, signed releases, no connection to Vezano Pro, works with no internet at all.", "/register?mode=standalone", "Request a quote"],
   ],
   techTitle: "Under the hood",
   tech: ["PostgreSQL", "Django REST", "Next.js", "Service worker + IndexedDB offline store", "Ed25519-signed licences", "Ubuntu / systemd for on-server installs"],
@@ -629,7 +629,7 @@ export const productEn = {
 };
 
 export const productAr = {
-  pageTitle: "كل ما يفعله فيزانو، في صفحة واحدة",
+  pageTitle: "كل ما يفعله فيزانو برو، في صفحة واحدة",
   pageSubtitle: "نموذج بيانات واحد تتشاركه كل الوحدات: البيع يحرّك المخزون، ويُقيَّد في دفتر العميل، ويظهر في التقرير — دون أن يعيد أحد إدخاله.",
   jump: "انتقل إلى",
   modules: [
@@ -721,7 +721,7 @@ export const productAr = {
   deployTitle: "على السحابة، أو على خادمك",
   deploy: [
     ["السحابة", "نحن نشغّله. باقة شهرية، ترقيات تلقائية، نسخ احتياطي ليلي، دخول من أي مكان.", "/pricing", "شاهد الباقات"],
-    ["على خادمك", "أنت تشغّله. رخصة دائمة، إصدارات موقّعة، لا اتصال بفيزانو، ويعمل بلا إنترنت إطلاقًا.", "/register?mode=standalone", "اطلب عرض سعر"],
+    ["على خادمك", "أنت تشغّله. رخصة دائمة، إصدارات موقّعة، لا اتصال بفيزانو برو، ويعمل بلا إنترنت إطلاقًا.", "/register?mode=standalone", "اطلب عرض سعر"],
   ],
   techTitle: "تحت الغطاء",
   tech: ["PostgreSQL", "Django REST", "Next.js", "Service worker + IndexedDB للعمل بلا اتصال", "رخص موقّعة بـ Ed25519", "Ubuntu / systemd للتثبيت على الخادم"],
@@ -734,7 +734,7 @@ export const productAr = {
 export const trackEn = {
   nav: "Track",
   title: "Track an order or a request",
-  subtitle: "Orders from any store on Vezano, and your registration and demo requests and subscription payments with us — in one place.",
+  subtitle: "Orders from any store on Vezano Pro, and your registration and demo requests and subscription payments with us — in one place.",
   label: "Reference, phone/WhatsApp, email or name",
   placeholder: "e.g. W7K3MQ2, R4P9XT2 or 09xxxxxxxx",
   hint: "Enter the order or request reference, the phone or WhatsApp number you used, your email, or the name exactly as you wrote it. Results from the last {days} days are shown.",
@@ -775,7 +775,7 @@ export const trackEn = {
 export const trackAr = {
   nav: "تتبّع",
   title: "تتبّع طلبك",
-  subtitle: "طلباتك من أي متجر على فيزانو، وطلبات التسجيل والعروض التجريبية ومدفوعات الاشتراك معنا — في مكان واحد.",
+  subtitle: "طلباتك من أي متجر على فيزانو برو، وطلبات التسجيل والعروض التجريبية ومدفوعات الاشتراك معنا — في مكان واحد.",
   label: "رقم الطلب أو الهاتف/واتساب أو البريد أو الاسم",
   placeholder: "مثال: W7K3MQ2 أو R4P9XT2 أو 09xxxxxxxx",
   hint: "اكتب رقم الطلب، أو رقم الهاتف أو واتساب الذي استخدمته، أو بريدك الإلكتروني، أو الاسم كما كتبته تماماً. نعرض نتائج آخر {days} يوماً.",

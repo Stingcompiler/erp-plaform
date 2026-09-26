@@ -6,7 +6,7 @@ from licensing.models import Installation
 
 
 class Command(BaseCommand):
-    help = "Create or show the stable identity of a standalone Vezano installation."
+    help = "Create or show the stable identity of a standalone Vezano Pro installation."
 
     def add_arguments(self, parser):
         parser.add_argument("--organisation", default="")

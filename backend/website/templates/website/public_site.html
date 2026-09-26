@@ -22,6 +22,7 @@
 <meta name="theme-color" content="{{ colour }}">
 {% if language == 'ar' %}<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap">{% endif %}
+{% include "website/_wordmark_head.html" %}
 {% for block in json_ld %}<script type="application/ld+json">{{ block|safe }}</script>
 {% endfor %}<style>
 :root{--accent:{{ colour }};--ink:#14202c;--muted:#5f6d78;--paper:#f6f8f7;--surface:#fff;--line:#e2e8e8;--shadow:0 10px 30px rgba(20,32,44,.08);--ok-bg:#f0fdf4;--ok-line:#bbf7d0;--ok-ink:#15803d;--err-ink:#b91c1c;--demo-bg:#fef3c7;--demo-line:#f59e0b;--demo-ink:#78350f}
@@ -277,7 +278,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 <footer class="site">
   <div class="wrap">
     <span>© {% now "Y" %} {{ name }}{% if track_path %} · <a href="{{ track_path }}">{% if language == 'ar' %}تتبّع طلبك{% else %}Track your order{% endif %}</a>{% endif %}</span>
-    <span>{% if language == 'ar' %}مدعوم من <a href="{{ platform_url }}">فيزانو</a>{% else %}Powered by <a href="{{ platform_url }}">Vezano</a>{% endif %}</span>
+    <span>{% if language == 'ar' %}مدعوم من <a class="vz-wm" href="{{ platform_url }}">فيزانو <span class="pro">برو</span></a>{% else %}Powered by <a class="vz-wm" href="{{ platform_url }}">Vezano <span class="pro">Pro</span></a>{% endif %}</span>
   </div>
 </footer>
 {% if whatsapp %}<a class="fab" href="https://wa.me/{{ whatsapp }}" rel="noopener">💬 {% if language == 'ar' %}واتساب{% else %}WhatsApp{% endif %}</a>{% endif %}

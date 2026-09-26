@@ -198,16 +198,16 @@ class PlatformTeamViewSet(
             return False
         name = user.full_name or user.email
         return mailer.send_bilingual(
-            subject_ar="دعوة فريق منصة فيزانو",
-            subject_en="Vezano platform team invitation",
+            subject_ar="دعوة فريق منصة فيزانو برو",
+            subject_en="Vezano Pro platform team invitation",
             ar=[
                 f"مرحباً {name}،",
-                "تمت دعوتك للانضمام إلى فريق منصة فيزانو.",
+                "تمت دعوتك للانضمام إلى فريق منصة فيزانو برو.",
                 "فعّل حسابك من الرابط أدناه (صالح لمرة واحدة).",
             ],
             en=[
                 f"Hello {name},",
-                "You have been invited to the Vezano platform team.",
+                "You have been invited to the Vezano Pro platform team.",
                 "Activate your account with the one-time link below.",
             ],
             link=link,

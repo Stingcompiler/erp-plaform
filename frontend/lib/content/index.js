@@ -13,14 +13,14 @@ export const GUIDES_INDEX_PATH = "/guides";
 export const INDEX_COPY = {
   [SOLUTIONS_INDEX_PATH]: {
     ar: {
-      title: "الحلول — ما يحلّه فيزانو لكل نوع من الأعمال",
-      metaTitle: "حلول فيزانو — إدارة الشركات متعددة الفروع، نقطة بيع بلا إنترنت، مخزون بالصلاحية، ديون العملاء",
+      title: "الحلول — ما يحلّه فيزانو برو لكل نوع من الأعمال",
+      metaTitle: "حلول فيزانو برو — إدارة الشركات متعددة الفروع، نقطة بيع بلا إنترنت، مخزون بالصلاحية، ديون العملاء",
       description:
         "صفحة لكل مشكلة تواجهها المتاجر والشركات بفرع أو عدة فروع: إدارة الفروع والمستودعات والأدوار، البيع أثناء انقطاع الإنترنت، المخزون بالدفعات وتواريخ الصلاحية، ديون العملاء وكشوف الحساب، وصفحة عامة للشركة.",
     },
     en: {
-      title: "Solutions — what Vezano solves for each kind of business",
-      metaTitle: "Vezano solutions — multi-branch company management, offline POS, expiry-tracked inventory, customer debts",
+      title: "Solutions — what Vezano Pro solves for each kind of business",
+      metaTitle: "Vezano Pro solutions — multi-branch company management, offline POS, expiry-tracked inventory, customer debts",
       description:
         "A page for each problem stores and companies with one branch or many face: running branches, warehouses and roles, selling through internet outages, batch and expiry inventory, customer debts and statements, and a public company page.",
     },

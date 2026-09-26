@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ChartColumn, CreditCard, FileCheck2, Inbox, Languages, LayoutDashboard, LogOut, MoonStar, ScrollText, SearchCheck, ShieldAlert, SlidersHorizontal, Sun, SunMoon, UsersRound, Building2, Banknote, Menu, X } from "lucide-react";
 
-import VezanoMark from "@/components/brand/VezanoMark";
+import LogoMark from "@/components/brand/LogoMark";
+import Wordmark from "@/components/brand/Wordmark";
 import AttentionBadge, { badgeFor } from "@/components/attention/AttentionBadge";
 import { useAttention } from "@/components/attention/AttentionProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
@@ -146,8 +147,8 @@ function PlatformSidebar({ onNavigate }) {
   return (
     <>
       <Link href="/platform" onClick={onNavigate} className="flex items-center gap-2.5 px-5 pt-6 font-display text-xl font-bold tracking-tight text-sidebarText">
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-white"><VezanoMark size={20} /></span>
-        <span>{t("common.appName")}</span>
+        <LogoMark size={32} decorative />
+        <Wordmark tone="dark" />
       </Link>
       <div className="mx-3 mb-5 mt-4 rounded-xl border border-white/10 bg-white/5 px-3 py-3">
         <div className="truncate font-display text-sm font-semibold text-sidebarText">{t("shell.platformWorkspace")}</div>

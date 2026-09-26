@@ -1,4 +1,4 @@
-import { IBM_Plex_Mono, Inter, Sora, Tajawal } from "next/font/google";
+import { IBM_Plex_Mono, Inter, Readex_Pro, Sora, Tajawal } from "next/font/google";
 
 import "./globals.css";
 import { AuthProvider } from "./providers/AuthProvider";
@@ -30,6 +30,14 @@ const tajawal = Tajawal({
   weight: ["400", "500", "700"],
   display: "swap",
 });
+// Readex Pro is the wordmark's face (components/brand/Wordmark.jsx) and
+// nothing else: it is exposed as a variable only, never set on body text.
+const readex = Readex_Pro({
+  subsets: ["arabic", "latin"],
+  variable: "--font-readex",
+  weight: ["500", "700"],
+  display: "swap",
+});
 
 // Site-wide defaults, reached by the routes that have no metadata of their
 // own (sign-in, activation, the app — all noindex). The public pages set
@@ -43,7 +51,7 @@ export const metadata = {
     template: `%s | ${SITE_NAME}`,
   },
   description:
-    "فيزانو نظام واحد يدير متجرك أو شركتك بكل فروعها: نقطة البيع والمخزون والمشتريات والعملاء والموظفون والرواتب والإدارة المالية والتقارير، بصلاحيات لكل دور وفرع، والبيع يستمر حين تنقطع الشبكة. بالعربية والإنجليزية. تجربة مجانية 14 يومًا بلا بطاقة، وتفعيل في نفس اليوم بعد المراجعة.",
+    "فيزانو برو نظام واحد يدير متجرك أو شركتك بكل فروعها: نقطة البيع والمخزون والمشتريات والعملاء والموظفون والرواتب والإدارة المالية والتقارير، بصلاحيات لكل دور وفرع، والبيع يستمر حين تنقطع الشبكة. بالعربية والإنجليزية. تجربة مجانية 14 يومًا بلا بطاقة، وتفعيل في نفس اليوم بعد المراجعة.",
   keywords: [
     "نظام إدارة المبيعات",
     "نظام مخزون",
@@ -54,6 +62,8 @@ export const metadata = {
     "نظام إدارة الفروع",
     "نظام موارد بشرية ورواتب",
     "إدارة مالية وموازنات",
+    "Vezano Pro",
+    "فيزانو برو",
     "Vezano",
     "ERP",
     "POS",
@@ -74,10 +84,13 @@ export const metadata = {
   // and an installed app is what gets durable storage for queued sales
   // (see lib/installPrompt.js).
   manifest: "/manifest.webmanifest",
-  applicationName: "Vezano",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Vezano" },
+  applicationName: SITE_NAME_LATIN,
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: SITE_NAME_LATIN },
   icons: {
+    // Tab-sized icons use the small variant of the mark (scripts/brand-icons.mjs).
     icon: [
+      { url: "/favicon.ico", sizes: "16x16 32x32" },
+      { url: "/icons/favicon.svg", type: "image/svg+xml" },
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
@@ -93,7 +106,7 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <HtmlShell className={`${inter.variable} ${sora.variable} ${mono.variable} ${tajawal.variable}`}>
+    <HtmlShell className={`${inter.variable} ${sora.variable} ${mono.variable} ${tajawal.variable} ${readex.variable}`}>
       <JsonLd data={[organizationJsonLd(), softwareApplicationJsonLd()]} />
       <AuthProvider>{children}</AuthProvider>
     </HtmlShell>

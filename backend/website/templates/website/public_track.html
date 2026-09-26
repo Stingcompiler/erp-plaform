@@ -10,6 +10,7 @@
 <meta name="theme-color" content="{{ colour }}">
 {% if language == 'ar' %}<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap">{% endif %}
+{% include "website/_wordmark_head.html" %}
 <style>
 :root{--accent:{{ colour }};--ink:#14202c;--muted:#5f6d78;--paper:#f6f8f7;--surface:#fff;--line:#e2e8e8;--ok-bg:#f0fdf4;--ok-line:#bbf7d0;--ok-ink:#15803d;--warn-bg:#fef3c7;--warn-ink:#92400e;--err-bg:#fee2e2;--err-ink:#b91c1c;--info-bg:#e0f2fe;--info-ink:#075985;--demo-bg:#fef3c7;--demo-line:#f59e0b;--demo-ink:#78350f}
 @media (prefers-color-scheme: dark){:root{--ink:#eef2f3;--muted:#9aa8b1;--paper:#0f1a22;--surface:#16232c;--line:#25343f;--ok-bg:#0f2a1c;--ok-line:#1f5134;--ok-ink:#4ade80;--warn-bg:#3a2a0a;--warn-ink:#fcd34d;--err-bg:#3b1414;--err-ink:#f87171;--info-bg:#0c2a3a;--info-ink:#7dd3fc;--demo-bg:#3a2a0a;--demo-line:#b45309;--demo-ink:#fcd34d}}
@@ -122,7 +123,7 @@ footer{margin-top:28px;color:var(--muted);font-size:.88rem;text-align:center}
   {% endfor %}
 
   {% if single %}<p class="small" style="text-align:center"><a href="{{ track_path }}">{% if language == 'ar' %}تتبّع طلباً آخر{% else %}Track another order{% endif %}</a></p>{% endif %}
-  <footer>{% if language == 'ar' %}احتفظ برابط طلبك أو رقمه لمتابعته.{% else %}Keep your order link or reference to follow it.{% endif %}<br>{% if language == 'ar' %}طلبات من متاجر أخرى على فيزانو؟ تابعها كلها من <a href="{{ platform_track_url }}">vezano.app/track</a>{% else %}Orders from other stores on Vezano? Track them all at <a href="{{ platform_track_url }}">vezano.app/track</a>{% endif %}</footer>
+  <footer>{% if language == 'ar' %}احتفظ برابط طلبك أو رقمه لمتابعته.{% else %}Keep your order link or reference to follow it.{% endif %}<br>{% if language == 'ar' %}طلبات من متاجر أخرى على <span class="vz-wm">فيزانو <span class="pro">برو</span></span>؟ تابعها كلها من <a href="{{ platform_track_url }}">vezano.app/track</a>{% else %}Orders from other stores on <span class="vz-wm">Vezano <span class="pro">Pro</span></span>? Track them all at <a href="{{ platform_track_url }}">vezano.app/track</a>{% endif %}</footer>
 </div>
 </body>
 </html>

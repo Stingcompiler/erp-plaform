@@ -9,8 +9,12 @@
 // the duplicates into one entry instead of splitting ranking between them.
 
 export const SITE_URL = "https://vezano.app";
-export const SITE_NAME = "فيزانو";
-export const SITE_NAME_LATIN = "Vezano";
+export const SITE_NAME = "فيزانو برو";
+export const SITE_NAME_LATIN = "Vezano Pro";
+// The name before the product became "Vezano Pro" (2026-09). Kept as
+// schema.org alternateName so search engines tie the old brand query to
+// the new name; not shown anywhere on the page.
+export const LEGACY_NAMES = ["Vezano", "فيزانو"];
 
 // The public pages themselves are listed in lib/locale.js (MARKETING_PATHS);
 // each exists in Arabic at the root and in English under /en/.
@@ -58,7 +62,7 @@ export const OG_IMAGE = {
   url: "/marketing/og.png",
   width: 1200,
   height: 630,
-  alt: "فيزانو — منصة إدارة الأعمال: مبيعات ومخزون وتحصيل في مكان واحد",
+  alt: "فيزانو برو — منصة إدارة الأعمال: مبيعات ومخزون وتحصيل في مكان واحد",
 };
 
 // Used by the noindex layouts (login, activation, the whole signed-in app).

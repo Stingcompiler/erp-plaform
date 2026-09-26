@@ -28,8 +28,8 @@ class Command(BaseCommand):
             raise CommandError("EMAIL_HOST is not set; nothing can be sent.")
         stamp = timezone.now().strftime("%Y-%m-%d %H:%M %Z")
         sent = mailer.send_bilingual(
-            subject_ar="رسالة تجريبية من فيزانو",
-            subject_en="Vezano test email",
+            subject_ar="رسالة تجريبية من فيزانو برو",
+            subject_en="Vezano Pro test email",
             ar=[
                 "مرحباً،",
                 f"هذه رسالة تجريبية أُرسلت في {stamp} للتأكد من إعدادات البريد.",

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { KeyRound } from "lucide-react";
 
-import VezanoMark from "@/components/brand/VezanoMark";
+import LogoMark from "@/components/brand/LogoMark";
+import Wordmark from "@/components/brand/Wordmark";
 import PasswordInput from "@/components/ui/PasswordInput";
 import { Button, Field, controlClass as INPUT_CLASS } from "@/components/ui/kit";
 import { auth } from "@/lib/api";
@@ -44,8 +45,8 @@ export default function ForcedPasswordChange() {
     <main className="grid min-h-screen place-items-center bg-paper p-6">
       <section className="w-full max-w-md rounded-card border border-line bg-surface p-6 shadow-card sm:p-8">
         <div className="mb-7 inline-flex items-center gap-2 font-display text-lg font-bold">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent text-white"><VezanoMark size={21} /></span>
-          {t("common.appName")}
+          <LogoMark size={36} decorative />
+          <Wordmark />
         </div>
         <form onSubmit={submit}>
           <KeyRound className="mb-4 text-accent" size={32} />

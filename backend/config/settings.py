@@ -385,7 +385,9 @@ EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = str(env("EMAIL_USE_TLS", default="true")).strip().lower() == "true"
 EMAIL_USE_SSL = str(env("EMAIL_USE_SSL", default="false")).strip().lower() == "true"
 EMAIL_TIMEOUT = int(env("EMAIL_TIMEOUT", default="10"))
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default=f"Vezano <no-reply@{VEZANO_CANONICAL_HOST}>")
+DEFAULT_FROM_EMAIL = env(
+    "DEFAULT_FROM_EMAIL", default=f"Vezano Pro <no-reply@{VEZANO_CANONICAL_HOST}>"
+)
 # Absolute origin used in links inside emails. The hosted SaaS default is the
 # canonical host; a standalone install sets its own.
 PUBLIC_APP_ORIGIN = env(

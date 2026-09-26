@@ -283,8 +283,8 @@ def _email_request_received(registration):
     from core import mailer
 
     return mailer.send_bilingual(
-        subject_ar="استلمنا طلبك في فيزانو",
-        subject_en="We received your Vezano request",
+        subject_ar="استلمنا طلبك في فيزانو برو",
+        subject_en="We received your Vezano Pro request",
         ar=[
             f"مرحباً {registration.contact_name}،",
             f"استلمنا طلب «{registration.company_name}» وسنراجعه قريبًا.",
@@ -318,17 +318,17 @@ def _email_owner_invitation(registration, token):
     if not link:
         return False
     return mailer.send_bilingual(
-        subject_ar="تفعيل حساب مالك فيزانو",
-        subject_en="Activate your Vezano owner account",
+        subject_ar="تفعيل حساب مالك فيزانو برو",
+        subject_en="Activate your Vezano Pro owner account",
         ar=[
             f"مرحباً {registration.contact_name}،",
-            f"تمت الموافقة على تسجيل «{registration.company_name}» في فيزانو.",
+            f"تمت الموافقة على تسجيل «{registration.company_name}» في فيزانو برو.",
             "فعّل حساب المالك من الرابط أدناه (صالح لمرة واحدة).",
             "إن لم تكن طلبت هذا التسجيل فتجاهل الرسالة.",
         ],
         en=[
             f"Hello {registration.contact_name},",
-            f"Your Vezano workspace for “{registration.company_name}” is ready.",
+            f"Your Vezano Pro workspace for “{registration.company_name}” is ready.",
             "Activate the owner account with the one-time link below.",
             "If you did not request this, ignore this email.",
         ],

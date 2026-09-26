@@ -232,7 +232,7 @@ class ServedExportTests(SeoAdminBase):
         )
         self.client.post(
             reverse("platform-seo-override-list"),
-            {"path": "/pricing", "language": "ar", "title": "أسعار فيزانو",
+            {"path": "/pricing", "language": "ar", "title": "أسعار فيزانو برو",
              "description": "وصف الأسعار", "noindex": True,
              "canonical": "https://vezano.app/pricing/"},
             format="json",
@@ -246,7 +246,7 @@ class ServedExportTests(SeoAdminBase):
         self.assertFalse(response.streaming)
         self.assertEqual(response["Content-Type"], "text/html")
         self.assertEqual(response["Cache-Control"], "no-cache, must-revalidate")
-        self.assertIn("<title>أسعار فيزانو</title>", pricing)
+        self.assertIn("<title>أسعار فيزانو برو</title>", pricing)
         self.assertIn('<meta name="description" content="وصف الأسعار"/>', pricing)
         self.assertIn('<meta name="robots" content="noindex, nofollow"/>', pricing)
         self.assertIn('<meta name="google-site-verification" content="goog-1"/>', pricing)
@@ -254,7 +254,7 @@ class ServedExportTests(SeoAdminBase):
         self.assertIn("gtag/js?id=G-ABC123", pricing)
         # The Arabic override does not touch the English edition; site tags do.
         _, english = self._get("en/pricing")
-        self.assertNotIn("أسعار فيزانو", english)
+        self.assertNotIn("أسعار فيزانو برو", english)
         self.assertIn('<meta name="google-site-verification" content="goog-1"/>', english)
         # "both" applies to either edition.
         _, home_ar = self._get("")

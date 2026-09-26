@@ -19,6 +19,12 @@ module.exports = {
           DEFAULT: withAlpha("--accent"),
           strong: withAlpha("--accent-strong"),
         },
+        // «برو» / "Pro" in the wordmark (components/brand/Wordmark.jsx).
+        pro: {
+          DEFAULT: withAlpha("--pro"),
+          inverse: withAlpha("--pro-inverse"),
+          "on-dark": withAlpha("--pro-on-dark"),
+        },
         ok: withAlpha("--ok"),
         warn: withAlpha("--warn"),
         danger: withAlpha("--danger"),
@@ -30,6 +36,8 @@ module.exports = {
         display: ["var(--font-display)", "system-ui", "sans-serif"],
         sans: ["var(--font-body)", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+        // Readex Pro, for the product wordmark only; body text stays Tajawal.
+        wordmark: ["var(--font-readex)", "var(--font-display)", "system-ui", "sans-serif"],
       },
       borderRadius: { card: "18px", control: "10px" },
       boxShadow: {
