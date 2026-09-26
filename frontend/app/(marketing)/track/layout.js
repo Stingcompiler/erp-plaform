@@ -5,7 +5,7 @@ import { NOINDEX } from "@/lib/site";
 // in lib/marketingMeta's COPY, which feeds app/sitemap.js).
 export const metadata = {
   title: "تتبّع طلبك",
-  description: "تابع طلبك من أي متجر على فيزانو، أو طلب التسجيل أو العرض التجريبي أو دفعة الاشتراك، برقم الطلب أو الهاتف أو البريد أو الاسم.",
+  description: "تابع طلبك من أي متجر على فيزانو برو، أو طلب التسجيل أو العرض التجريبي أو دفعة الاشتراك، برقم الطلب أو الهاتف أو البريد أو الاسم.",
   robots: NOINDEX,
 };
 

@@ -17,12 +17,12 @@ export const SOLUTIONS = [
       description:
         "نظام واحد لمتاجر التجزئة وشركات الجملة والتوزيع بفرع أو عدة فروع ومستودعات: نقطة البيع والمخزون والمشتريات والعملاء والموظفون والإدارة المالية، بصلاحيات لكل دور وفرع، واعتمادات تفصل من يسجّل عمّن يعتمد، والبيع يستمر حين تنقطع الشبكة.",
       lead:
-        "الفرع الثاني يضاعف المشكلات لا الأرباح إن كان النظام مبنيًا لكاونتر واحد: كاشير فرع يرى مخزون فرع آخر، وتحويل بضاعة يُسجَّل في طرف ولا يُسجَّل في الآخر، وخصم يُمنح بلا حد، والمالك يجمع الأرقام يدويًا آخر الشهر. فيزانو صُمم لشركة بفروع ومستودعات وأدوار من اليوم الأول، ويبدأ معك بفرع واحد إن كنت في أول الطريق.",
+        "الفرع الثاني يضاعف المشكلات لا الأرباح إن كان النظام مبنيًا لكاونتر واحد: كاشير فرع يرى مخزون فرع آخر، وتحويل بضاعة يُسجَّل في طرف ولا يُسجَّل في الآخر، وخصم يُمنح بلا حد، والمالك يجمع الأرقام يدويًا آخر الشهر. فيزانو برو صُمم لشركة بفروع ومستودعات وأدوار من اليوم الأول، ويبدأ معك بفرع واحد إن كنت في أول الطريق.",
       sections: [
         {
           heading: "كل شخص يرى فرعه ووظيفته",
           body:
-            "الصلاحيات في فيزانو بالدور وبالفرع معًا. أدوار الفرع — مدير الفرع والمبيعات والمخزون والمشتريات والموارد البشرية وعلاقات العملاء — ترى فرعها فقط: كاشير الفرع الأول لا يرى مبيعات ولا مخزون الفرع الثاني. مدير الفرع يدير فرعه: المستخدمين والمخزون والمبيعات والمشتريات والعملاء، ويطّلع على موظفيه وحضورهم دون رواتبهم. المالك والمدير العام والمدير المالي والإدارة المالية يرون الشركة كلها.",
+            "الصلاحيات في فيزانو برو بالدور وبالفرع معًا. أدوار الفرع — مدير الفرع والمبيعات والمخزون والمشتريات والموارد البشرية وعلاقات العملاء — ترى فرعها فقط: كاشير الفرع الأول لا يرى مبيعات ولا مخزون الفرع الثاني. مدير الفرع يدير فرعه: المستخدمين والمخزون والمبيعات والمشتريات والعملاء، ويطّلع على موظفيه وحضورهم دون رواتبهم. المالك والمدير العام والمدير المالي والإدارة المالية يرون الشركة كلها.",
           bullets: [
             "اثنا عشر دورًا ثابتًا: مالك الأعمال، مدير عام، مدير مالي، إدارة مالية، مدير فرع، مبيعات، مخزون، مشتريات، موارد بشرية، علاقات عملاء، مدير الموقع، مستعرض",
             "نطاق الفرع يُطبَّق على الشاشات والتقارير والتصدير والمزامنة معًا",
@@ -76,10 +76,10 @@ export const SOLUTIONS = [
         ["هل يمكن أن يكون للفرع أكثر من مستودع؟", "نعم. لكل فرع مستودعات متعددة، والتحويلات ممكنة بين مستودعات الفرع الواحد أو بين الفروع."],
         ["هل يناسب شركة جملة أو توزيع بلا كاونتر؟", "نعم. البيع يتم بعروض الأسعار وأوامر البيع والفواتير الآجلة بحد ائتمان وشروط سداد، والمخزون بمستودعات متعددة، والتحصيل بكشوف الحساب وأعمار الديون. نقطة البيع تُستخدم حيث يوجد كاونتر."],
         ["كيف يعمل الفرع أثناء انقطاع الإنترنت؟", "كل جهاز يحتفظ ببيانات فرعه ويواصل البيع وتحصيل الدفعات والمرتجعات والاستلام والجرد بلا اتصال، ثم يزامن طابوره مستقلًا عن الفروع الأخرى عند عودة الشبكة."],
-        ["هل الإدارة المالية برنامج محاسبة كامل؟", "الإدارة المالية في فيزانو تعطيك أرقام يومك من المستندات نفسها: الحسابات البنكية، والمصروفات والموازنات، والأرباح والخسائر، والتدفق النقدي، وأعمار الذمم، والزكاة. وهي ليست دفتر أستاذ بقيود يومية؛ إن كان لديك محاسب يأخذ التقارير بصيغة CSV."],
+        ["هل الإدارة المالية برنامج محاسبة كامل؟", "الإدارة المالية في فيزانو برو تعطيك أرقام يومك من المستندات نفسها: الحسابات البنكية، والمصروفات والموازنات، والأرباح والخسائر، والتدفق النقدي، وأعمار الذمم، والزكاة. وهي ليست دفتر أستاذ بقيود يومية؛ إن كان لديك محاسب يأخذ التقارير بصيغة CSV."],
         ["هل تُحسب الباقة بعدد الفروع؟", "لكل باقة سعة مستخدمين وفروع ومستودعات، ولا رسوم على كل عملية. الترقية تسري فور سداد فاتورتها النسبية."],
       ],
-      cta: "جرّب فيزانو على فروعك وأدوار فريقك",
+      cta: "جرّب فيزانو برو على فروعك وأدوار فريقك",
     },
     en: {
       title: "Integrated management for multi-branch companies",
@@ -87,12 +87,12 @@ export const SOLUTIONS = [
       description:
         "One system for retail chains, wholesalers and distributors with one branch or many and several warehouses: point of sale, inventory, purchasing, customers, HR and financial management, with access by role and branch, approvals that separate who records from who approves, and selling that continues when the network drops.",
       lead:
-        "A second branch doubles the problems, not the profit, if the system was built for a single counter: a cashier sees another branch's stock, a transfer is recorded at one end and not the other, discounts are given without a limit, and the owner assembles the figures by hand at month end. Vezano was designed for a company with branches, warehouses and roles from day one, and starts with you on one branch if that is where you are.",
+        "A second branch doubles the problems, not the profit, if the system was built for a single counter: a cashier sees another branch's stock, a transfer is recorded at one end and not the other, discounts are given without a limit, and the owner assembles the figures by hand at month end. Vezano Pro was designed for a company with branches, warehouses and roles from day one, and starts with you on one branch if that is where you are.",
       sections: [
         {
           heading: "Everyone sees their branch and their job",
           body:
-            "Access in Vezano is set by role and by branch together. Branch roles — branch manager, sales, inventory, purchasing, HR and CRM — see their own branch only: branch one's cashier sees neither the sales nor the stock of branch two. A branch manager runs their branch: users, stock, sales, purchasing and customers, and sees their staff and attendance but not salaries. The owner, general manager, CFO and finance team see the whole company.",
+            "Access in Vezano Pro is set by role and by branch together. Branch roles — branch manager, sales, inventory, purchasing, HR and CRM — see their own branch only: branch one's cashier sees neither the sales nor the stock of branch two. A branch manager runs their branch: users, stock, sales, purchasing and customers, and sees their staff and attendance but not salaries. The owner, general manager, CFO and finance team see the whole company.",
           bullets: [
             "Twelve fixed roles: business owner, general manager, CFO, finance department, branch manager, sales, inventory, purchasing, HR, CRM, website manager, viewer",
             "Branch scope applies to screens, reports, exports and sync alike",
@@ -146,10 +146,10 @@ export const SOLUTIONS = [
         ["Can a branch have more than one warehouse?", "Yes. Each branch can have several warehouses, and transfers work between a branch's own warehouses or between branches."],
         ["Does it suit a wholesaler or distributor with no counter?", "Yes. Selling runs on quotations, sales orders and credit invoices with a credit limit and payment terms, stock across several warehouses, and collection through statements and ageing. The point of sale is there wherever you do have a counter."],
         ["How does a branch work during an internet outage?", "Each device keeps its branch's data and carries on with sales, customer payments, returns, goods receipts and counts offline, then syncs its queue independently of the other branches when the network returns."],
-        ["Is financial management a full accounting package?", "Financial management in Vezano gives you the day's figures from the documents themselves: bank accounts, expenses and budgets, profit and loss, cash flow, receivables and payables ageing, and zakat. It is not a general ledger with journal entries; if you work with an accountant, they take the reports as CSV."],
+        ["Is financial management a full accounting package?", "Financial management in Vezano Pro gives you the day's figures from the documents themselves: bank accounts, expenses and budgets, profit and loss, cash flow, receivables and payables ageing, and zakat. It is not a general ledger with journal entries; if you work with an accountant, they take the reports as CSV."],
         ["Is the plan priced per branch?", "Each plan includes a number of users, branches and warehouses, with no per-transaction fees. An upgrade takes effect once its prorated invoice is paid."],
       ],
-      cta: "Try Vezano on your branches and your team's roles",
+      cta: "Try Vezano Pro on your branches and your team's roles",
     },
   },
   {
@@ -161,7 +161,7 @@ export const SOLUTIONS = [
       description:
         "برنامج كاشير يواصل البيع حين ينقطع الإنترنت أو الكهرباء: المنتجات والأسعار محفوظة على الجهاز، والمبيعات تُحفظ محليًا وتُزامَن مرة واحدة عند عودة الاتصال، دون تكرار ودون فقد.",
       lead:
-        "في السودان والخليج ينقطع الإنترنت والكهرباء في أسوأ الأوقات: ساعة الذروة، أو عشية العيد. الكاشير الذي يتوقف مع الشبكة يعطّل الطابور ويخسر البيع. فيزانو مبني على افتراض أن الاتصال سينقطع، لا على أمل ألا ينقطع.",
+        "في السودان والخليج ينقطع الإنترنت والكهرباء في أسوأ الأوقات: ساعة الذروة، أو عشية العيد. الكاشير الذي يتوقف مع الشبكة يعطّل الطابور ويخسر البيع. فيزانو برو مبني على افتراض أن الاتصال سينقطع، لا على أمل ألا ينقطع.",
       sections: [
         {
           heading: "ماذا يحدث لحظة الانقطاع",
@@ -191,13 +191,13 @@ export const SOLUTIONS = [
         {
           heading: "إن كان الإنترنت غير موجود أصلًا",
           body:
-            "لبعض الأعمال الإنترنت ليس متقطعًا بل غائبًا. نسخة الخادم الخاص من فيزانو تعمل داخل شبكتك المحلية بلا أي اتصال خارجي: قاعدة البيانات على جهازك، والأجهزة تتصل به عبر الشبكة الداخلية، ورخصة دائمة موقّعة تُتحقق دون إنترنت.",
+            "لبعض الأعمال الإنترنت ليس متقطعًا بل غائبًا. نسخة الخادم الخاص من فيزانو برو تعمل داخل شبكتك المحلية بلا أي اتصال خارجي: قاعدة البيانات على جهازك، والأجهزة تتصل به عبر الشبكة الداخلية، ورخصة دائمة موقّعة تُتحقق دون إنترنت.",
         },
       ],
       faq: [
         ["كم من الوقت يستطيع الكاشير العمل بلا اتصال؟", "بلا حد زمني. المبيعات تُحفظ على الجهاز حتى تعود الشبكة، سواء بعد دقيقة أو بعد يوم كامل. الحد الوحيد هو مساحة تخزين المتصفح، وهي تكفي لآلاف الفواتير."],
         ["هل يمكن أن تُسجَّل الفاتورة مرتين بعد المزامنة؟", "لا. كل عملية تحمل معرّفًا فريدًا يُولَّد على الجهاز، والخادم يرفض تسجيل المعرّف نفسه مرتين. إعادة المحاولة آمنة دائمًا."],
-        ["هل يحتاج الجهاز تطبيقًا خاصًا؟", "لا. فيزانو تطبيق ويب قابل للتثبيت من المتصفح على ويندوز وأندرويد وآيفون وماك. التثبيت يمنحه تخزينًا دائمًا على الجهاز، وهذا ما يجعل الطابور محفوظًا حتى لو أُغلق المتصفح."],
+        ["هل يحتاج الجهاز تطبيقًا خاصًا؟", "لا. فيزانو برو تطبيق ويب قابل للتثبيت من المتصفح على ويندوز وأندرويد وآيفون وماك. التثبيت يمنحه تخزينًا دائمًا على الجهاز، وهذا ما يجعل الطابور محفوظًا حتى لو أُغلق المتصفح."],
         ["ماذا عن انقطاع الكهرباء؟", "إن كان جهاز الكاشير محمولًا أو على بطارية احتياطية، يواصل العمل كما لو انقطع الإنترنت فقط. الطابور محفوظ على القرص فلا يضيع بإغلاق الجهاز."],
       ],
       cta: "جرّب الكاشير بلا اتصال على منتجاتك",
@@ -208,7 +208,7 @@ export const SOLUTIONS = [
       description:
         "Cashier software that keeps selling when the internet or the power goes: products and prices live on the device, sales are saved locally and synced exactly once when the connection returns. No duplicates, nothing lost.",
       lead:
-        "Across Sudan and the Gulf, the internet and the power fail at the worst moments: the evening rush, the night before Eid. A till that stops with the network stalls the queue and loses the sale. Vezano is built on the assumption that the connection will drop, not on the hope that it won't.",
+        "Across Sudan and the Gulf, the internet and the power fail at the worst moments: the evening rush, the night before Eid. A till that stops with the network stalls the queue and loses the sale. Vezano Pro is built on the assumption that the connection will drop, not on the hope that it won't.",
       sections: [
         {
           heading: "The moment the connection drops",
@@ -238,13 +238,13 @@ export const SOLUTIONS = [
         {
           heading: "If there is no internet at all",
           body:
-            "For some businesses the internet is not intermittent but absent. The self-hosted edition of Vezano runs inside your local network with no outside connection: the database on your machine, devices reaching it over the LAN, and a signed perpetual licence that verifies without the internet.",
+            "For some businesses the internet is not intermittent but absent. The self-hosted edition of Vezano Pro runs inside your local network with no outside connection: the database on your machine, devices reaching it over the LAN, and a signed perpetual licence that verifies without the internet.",
         },
       ],
       faq: [
         ["How long can the cashier work offline?", "There is no time limit. Sales are kept on the device until the network returns, whether that is a minute or a full day. The only limit is the browser's storage, which holds thousands of receipts."],
         ["Can a receipt be recorded twice after syncing?", "No. Every operation carries a unique id generated on the device, and the server refuses to record the same id twice. Retrying is always safe."],
-        ["Does the device need a special app?", "No. Vezano is a web app you install from the browser on Windows, Android, iPhone and Mac. Installing grants it durable storage on the device, which is what keeps the queue safe even if the browser is closed."],
+        ["Does the device need a special app?", "No. Vezano Pro is a web app you install from the browser on Windows, Android, iPhone and Mac. Installing grants it durable storage on the device, which is what keeps the queue safe even if the browser is closed."],
         ["What about power cuts?", "If the cashier device is a laptop or on a battery backup, it carries on exactly as it would with the internet down. The queue is on disk, so shutting the device down does not lose it."],
       ],
       cta: "Try the offline cashier with your own products",
@@ -264,7 +264,7 @@ export const SOLUTIONS = [
         {
           heading: "دفتر حركات، لا عمود كمية",
           body:
-            "في فيزانو الرصيد ليس رقمًا يُعدَّل يدويًا، بل نتيجة كل حركة مسجّلة: استلام، بيع، تحويل، تسوية، مرتجع، إتلاف. لكل حركة سبب وصاحب ووقت. حين يختلف الرصيد عن الرف، تعرف بالضبط أين حدث الفرق.",
+            "في فيزانو برو الرصيد ليس رقمًا يُعدَّل يدويًا، بل نتيجة كل حركة مسجّلة: استلام، بيع، تحويل، تسوية، مرتجع، إتلاف. لكل حركة سبب وصاحب ووقت. حين يختلف الرصيد عن الرف، تعرف بالضبط أين حدث الفرق.",
           bullets: [
             "مستودعات متعددة لكل فرع، وتحويلات تُسجَّل خروجًا من مستودع ودخولًا إلى آخر في اللحظة نفسها",
             "لقطة تكلفة مع كل بيع لتقارير FIFO أو المتوسط أو التكلفة القياسية",
@@ -311,7 +311,7 @@ export const SOLUTIONS = [
         {
           heading: "A movement ledger, not a quantity column",
           body:
-            "In Vezano the balance is not a number someone edits; it is the result of every recorded movement: receipt, sale, transfer, adjustment, return, write-off. Each movement has a reason, an author and a time. When the balance disagrees with the shelf, you know exactly where the difference happened.",
+            "In Vezano Pro the balance is not a number someone edits; it is the result of every recorded movement: receipt, sale, transfer, adjustment, return, write-off. Each movement has a reason, an author and a time. When the balance disagrees with the shelf, you know exactly where the difference happened.",
           bullets: [
             "Multiple warehouses per branch, and transfers recorded out of one warehouse and into another at the same moment",
             "A cost snapshot with every sale for FIFO, weighted-average or standard-cost reports",
@@ -357,7 +357,7 @@ export const SOLUTIONS = [
       description:
         "دفتر ديون رقمي يشتق رصيد كل عميل من فواتيره ودفعاته وإشعاراته الدائنة، لا من رقم يُكتب باليد: كشف حساب لأي فترة برصيد افتتاحي وختامي، أعمار الديون بعد تاريخ الاستحقاق، سداد نقدي أو بتحويل بنكي موثّق، وتنبيه على اللوحة بمن تأخر.",
       lead:
-        "البيع الآجل جزء من التجارة في أسواقنا، والمشكلة ليست في أن تبيع بالدين بل في ألا تعرف من يدين لك بكم ومنذ متى، وألا تملك ورقة تحسم الخلاف حين يقول العميل «دفعتها». دفتر الديون في فيزانو يجيب عن الأسئلة الثلاثة من المستندات نفسها.",
+        "البيع الآجل جزء من التجارة في أسواقنا، والمشكلة ليست في أن تبيع بالدين بل في ألا تعرف من يدين لك بكم ومنذ متى، وألا تملك ورقة تحسم الخلاف حين يقول العميل «دفعتها». دفتر الديون في فيزانو برو يجيب عن الأسئلة الثلاثة من المستندات نفسها.",
       sections: [
         {
           heading: "كيف يولد الدين",
@@ -417,7 +417,7 @@ export const SOLUTIONS = [
         ["هل يمكن إلغاء فاتورة آجلة بعد تسجيلها؟", "لا شيء يُلغى في صمت. المرتجع أو التصحيح يصدر إشعار دائن مرقّمًا يُخصم من حساب العميل، ويبقى الأثر كاملًا في الكشف وسجل التدقيق."],
         ["هل للموردين دفتر مماثل؟", "نعم. لكل مورد رصيد وأعمار مستحقات، ودفعات الموردين تخضع لقواعد الاعتماد نفسها التي تخضع لها دفعات العملاء الكبيرة."],
       ],
-      cta: "انقل دفتر ديونك إلى فيزانو",
+      cta: "انقل دفتر ديونك إلى فيزانو برو",
     },
     en: {
       title: "Customer debt ledger",
@@ -425,7 +425,7 @@ export const SOLUTIONS = [
       description:
         "A digital debt ledger that derives every customer's balance from their invoices, payments and credit notes, not from a hand-written number: a statement for any period with opening and closing balances, ageing past the due date, cash or documented bank-transfer payments, and a dashboard alert for who is late.",
       lead:
-        "Selling on credit is part of trade in our markets. The problem is not selling on credit; it is not knowing who owes you how much and since when, and having no document to settle it when the customer says \"I paid that\". The debt ledger in Vezano answers all three from the documents themselves.",
+        "Selling on credit is part of trade in our markets. The problem is not selling on credit; it is not knowing who owes you how much and since when, and having no document to settle it when the customer says \"I paid that\". The debt ledger in Vezano Pro answers all three from the documents themselves.",
       sections: [
         {
           heading: "How a debt is born",
@@ -485,7 +485,7 @@ export const SOLUTIONS = [
         ["Can a credit invoice be cancelled after it is recorded?", "Nothing is cancelled silently. A return or correction issues a numbered credit note that reduces the customer's account, and the full trail stays in the statement and the audit log."],
         ["Is there the same ledger for suppliers?", "Yes. Every supplier has a balance and an ageing of what is owed, and supplier payments follow the same approval rules as large customer payments."],
       ],
-      cta: "Move your debt ledger into Vezano",
+      cta: "Move your debt ledger into Vezano Pro",
     },
   },
   {
@@ -495,9 +495,9 @@ export const SOLUTIONS = [
       title: "صفحة عامة لشركتك أو متجرك على الإنترنت",
       metaTitle: "صفحة عامة لشركتك — واجهة إلكترونية بغلاف ومنتجات وقنوات تواصل وخريطة، جاهزة لـ Google",
       description:
-        "كل اشتراك في فيزانو يشمل صفحة عامة لنشاطك: غلاف وشعار، منتجات بالصور والأسعار، زر واتساب، ساعات العمل والموقع على الخريطة، جاهزة لتفهرسها محركات البحث مثل Google، دون مصمم ولا استضافة.",
+        "كل اشتراك في فيزانو برو يشمل صفحة عامة لنشاطك: غلاف وشعار، منتجات بالصور والأسعار، زر واتساب، ساعات العمل والموقع على الخريطة، جاهزة لتفهرسها محركات البحث مثل Google، دون مصمم ولا استضافة.",
       lead:
-        "العميل اليوم يبحث عن الشركة في Google قبل أن يتصل بها، ويريد قناة تواصل مباشرة لا صفحة على شبكة اجتماعية. صفحة شركتك على فيزانو تُنشأ من بياناتك الموجودة أصلًا في النظام، وتصبح على الإنترنت بضغطة، وعنوانها vezano.app/s/اسم-الشركة.",
+        "العميل اليوم يبحث عن الشركة في Google قبل أن يتصل بها، ويريد قناة تواصل مباشرة لا صفحة على شبكة اجتماعية. صفحة شركتك على فيزانو برو تُنشأ من بياناتك الموجودة أصلًا في النظام، وتصبح على الإنترنت بضغطة، وعنوانها vezano.app/s/اسم-الشركة.",
       sections: [
         {
           heading: "ما الذي تحصل عليه",
@@ -515,7 +515,7 @@ export const SOLUTIONS = [
             "الصفحة تُبنى من الخادم كـ HTML حقيقي، بعنوان ووصف وبيانات منظمة من نوع LocalBusiness: الاسم والهاتف والعنوان وساعات العمل والصور والمنتجات بأسعارها. هذه هي البيانات التي تجعل محلك يظهر حين يبحث أحدهم عن نشاطك في مدينتك.",
           bullets: [
             "خريطة موقع خاصة بالمتاجر (sitemap) تقرؤها محركات البحث، وتُضاف إليها صفحتك عند النشر",
-            "دليل المتاجر على فيزانو يربط صفحتك من صفحة مفهرسة",
+            "دليل المتاجر على فيزانو برو يربط صفحتك من صفحة مفهرسة",
             "بطاقة معاينة عند مشاركة الرابط في واتساب وفيسبوك",
           ],
         },
@@ -527,7 +527,7 @@ export const SOLUTIONS = [
         {
           heading: "أنت تتحكم في الظهور",
           body:
-            "الصفحة عامة حين تنشرها وتختفي حين توقفها. يمكنك إبقاءها متاحة برابطها فقط دون أن تظهر في دليل فيزانو أو خريطة الموقع، وحذف أي صورة أو منتج منها في أي وقت.",
+            "الصفحة عامة حين تنشرها وتختفي حين توقفها. يمكنك إبقاءها متاحة برابطها فقط دون أن تظهر في دليل فيزانو برو أو خريطة الموقع، وحذف أي صورة أو منتج منها في أي وقت.",
         },
       ],
       faq: [
@@ -542,9 +542,9 @@ export const SOLUTIONS = [
       title: "A public web page for your company or store",
       metaTitle: "A public page for your company — an online presence with cover, products, contact channels and a map, ready for Google",
       description:
-        "Every Vezano subscription includes a public page for the business: cover and logo, products with photos and prices, a WhatsApp button, opening hours and a map link, ready for search engines such as Google to index, with no designer and no hosting.",
+        "Every Vezano Pro subscription includes a public page for the business: cover and logo, products with photos and prices, a WhatsApp button, opening hours and a map link, ready for search engines such as Google to index, with no designer and no hosting.",
       lead:
-        "Customers look a shop up on Google before they visit, and they want a WhatsApp number, not a Facebook page. Your store page on Vezano is built from the data already in the system, goes live with one click, and lives at vezano.app/s/your-store.",
+        "Customers look a shop up on Google before they visit, and they want a WhatsApp number, not a Facebook page. Your store page on Vezano Pro is built from the data already in the system, goes live with one click, and lives at vezano.app/s/your-store.",
       sections: [
         {
           heading: "What you get",
@@ -562,7 +562,7 @@ export const SOLUTIONS = [
             "The page is served as real HTML with a title, a description and LocalBusiness structured data: name, phone, address, opening hours, photos and products with prices. That is the data that makes a shop appear when someone searches for your trade in your city.",
           bullets: [
             "A stores sitemap that search engines read; your page joins it when you publish",
-            "The Vezano store directory links to your page from an indexed page",
+            "The Vezano Pro store directory links to your page from an indexed page",
             "A preview card when the link is shared on WhatsApp or Facebook",
           ],
         },
@@ -574,7 +574,7 @@ export const SOLUTIONS = [
         {
           heading: "You control the exposure",
           body:
-            "The page is public when you publish it and gone when you unpublish. You can keep it reachable by link only, without listing it in the Vezano directory or the sitemap, and remove any photo or product at any time.",
+            "The page is public when you publish it and gone when you unpublish. You can keep it reachable by link only, without listing it in the Vezano Pro directory or the sitemap, and remove any photo or product at any time.",
         },
       ],
       faq: [

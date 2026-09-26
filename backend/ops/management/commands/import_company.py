@@ -8,7 +8,7 @@ from org.models import Company
 
 
 class Command(BaseCommand):
-    help = "Import a Vezano company archive into a newly created tenant."
+    help = "Import a Vezano Pro company archive into a newly created tenant."
 
     def add_arguments(self, parser):
         parser.add_argument("--archive", required=True)

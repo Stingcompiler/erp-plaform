@@ -5,7 +5,7 @@ from org.models import Company
 
 
 class Command(BaseCommand):
-    help = "Export one tenant and its media to a portable Vezano archive."
+    help = "Export one tenant and its media to a portable Vezano Pro archive."
 
     def add_arguments(self, parser):
         parser.add_argument("--company", type=int, required=True)

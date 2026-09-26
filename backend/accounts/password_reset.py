@@ -46,16 +46,16 @@ def _send_reset_email(user, link):
     name = user.full_name or ""
     return mailer.send_bilingual(
         subject_ar="إعادة تعيين كلمة المرور",
-        subject_en="Reset your Vezano password",
+        subject_en="Reset your Vezano Pro password",
         ar=[
             f"مرحباً {name}،".replace(" ،", "،"),
-            "طُلبت إعادة تعيين كلمة مرور حسابك في فيزانو. "
+            "طُلبت إعادة تعيين كلمة مرور حسابك في فيزانو برو. "
             "اختر كلمة مرور جديدة من الرابط أدناه (صالح لمرة واحدة).",
             "إن لم تكن أنت من طلب ذلك فتجاهل هذه الرسالة؛ كلمة مرورك لم تتغير.",
         ],
         en=[
             f"Hello {name},".replace(" ,", ","),
-            "A password reset was requested for your Vezano account. "
+            "A password reset was requested for your Vezano Pro account. "
             "Choose a new password with the one-time link below.",
             "If you did not ask for this, ignore this email; nothing has changed.",
         ],

@@ -12,8 +12,19 @@
   --surface: 255 255 255;
   --line: 224 231 238;
   --muted: 91 107 127;
-  --accent: 14 124 134;
+  /* The brand teal: the logo tile (the same in both themes), the light
+     theme's accent, and the static icons (lib/brandMark.js BRAND_TEAL). */
+  --brand: 14 124 134;
+  --brand-node: 163 227 230;
+  --brand-ink: 255 255 255;
+  --accent: var(--brand);
   --accent-strong: 11 90 97;
+  /* The wordmark's «برو» / "Pro": the accent on the page's own surface, the
+     opposite theme's accent on a bg-ink panel, the light accent on the
+     sidebar (dark in both themes). */
+  --pro: var(--brand);
+  --pro-inverse: 55 176 184;
+  --pro-on-dark: 55 176 184;
   --ok: 21 128 61;
   --warn: 180 83 9;
   --danger: 185 28 28;
@@ -41,6 +52,8 @@
   --muted: 166 181 199;
   --accent: 55 176 184;
   --accent-strong: 90 198 205;
+  --pro: 55 176 184;
+  --pro-inverse: var(--brand);
 }
 
 html,

@@ -63,12 +63,12 @@ self.addEventListener("message", (event) => {
 // payload is small and self-contained; tapping opens the order.
 self.addEventListener("push", (event) => {
   let data = {};
-  try { data = event.data ? event.data.json() : {}; } catch { data = { title: "Vezano", body: event.data?.text() || "" }; }
+  try { data = event.data ? event.data.json() : {}; } catch { data = { title: "Vezano Pro", body: event.data?.text() || "" }; }
   event.waitUntil(
-    self.registration.showNotification(data.title || "Vezano", {
+    self.registration.showNotification(data.title || "Vezano Pro", {
       body: data.body || "",
       icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
+      badge: "/icons/badge-96.png",
       tag: data.tag || undefined,
       renotify: Boolean(data.tag),
       data: { url: data.url || "/web-orders/" },
@@ -143,7 +143,7 @@ async function networkFirst(request) {
       if (hit) return hit;
     }
     return new Response(
-      "<!doctype html><meta charset=utf-8><title>Vezano</title>" +
+      "<!doctype html><meta charset=utf-8><title>Vezano Pro</title>" +
       "<p style='font-family:system-ui;padding:2rem'>لا يوجد اتصال ولم تُحفظ هذه الصفحة بعد. افتح التطبيق مرة واحدة أثناء الاتصال.</p>",
       { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } },
     );

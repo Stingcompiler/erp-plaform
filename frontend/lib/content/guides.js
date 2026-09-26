@@ -67,7 +67,7 @@ export const GUIDES = [
       ],
       takeaway:
         "الانقطاع ليس عذرًا لتوقف البيع إن كان الكاشير على بطارية، والبرنامج لا يحتاج الشبكة لحظة البيع، والفريق يعرف ماذا يفعل.",
-      cta: "شاهد كيف يعمل كاشير فيزانو بلا اتصال",
+      cta: "شاهد كيف يعمل كاشير فيزانو برو بلا اتصال",
     },
     en: {
       title: "How to keep selling through internet and power outages",
@@ -121,7 +121,7 @@ export const GUIDES = [
       ],
       takeaway:
         "An outage is no excuse for sales to stop, provided the till is on a battery, the software does not need the network at the moment of sale, and the team knows what to do.",
-      cta: "See how the Vezano cashier works offline",
+      cta: "See how the Vezano Pro cashier works offline",
     },
   },
   {
@@ -185,7 +185,7 @@ export const GUIDES = [
       ],
       takeaway:
         "لا تُغلق المتجر أو المستودع لتعرف ما فيه. عدّ جزءًا كل يوم، عدّه دون النظر إلى النظام، واعتمد الفرق بسبب مكتوب.",
-      cta: "الجرد الدوري بفروقات معتمدة في فيزانو",
+      cta: "الجرد الدوري بفروقات معتمدة في فيزانو برو",
     },
     en: {
       title: "How to count your stock without closing the store or warehouse",
@@ -242,7 +242,7 @@ export const GUIDES = [
       ],
       takeaway:
         "Do not close the store or warehouse to learn what is in it. Count a part every day, count it without looking at the system, and approve the difference with a written reason.",
-      cta: "Periodic counts with approved variances in Vezano",
+      cta: "Periodic counts with approved variances in Vezano Pro",
     },
   },
   {
@@ -300,7 +300,7 @@ export const GUIDES = [
       ],
       takeaway:
         "حد ائتمان واضح، كشف حساب شهري في موعده، وتقسيم بالعمر يخبرك بمن تتصل هذا الأسبوع. التحصيل انتظام لا مواجهة.",
-      cta: "دفتر الديون وكشوف الحساب وأعمار الديون في فيزانو",
+      cta: "دفتر الديون وكشوف الحساب وأعمار الديون في فيزانو برو",
     },
     en: {
       title: "How to collect customer debts without losing the customers",
@@ -351,7 +351,7 @@ export const GUIDES = [
       ],
       takeaway:
         "A clear credit limit, a monthly statement on time, and age bands that tell you who to call this week. Collection is regularity, not confrontation.",
-      cta: "Debt ledger, statements and ageing in Vezano",
+      cta: "Debt ledger, statements and ageing in Vezano Pro",
     },
   },
 ];

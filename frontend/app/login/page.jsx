@@ -7,7 +7,8 @@ import { Languages } from "lucide-react";
 
 import { useAuth } from "../providers/AuthProvider";
 import { useI18n } from "../providers/I18nProvider";
-import VezanoMark from "@/components/brand/VezanoMark";
+import LogoMark from "@/components/brand/LogoMark";
+import Wordmark from "@/components/brand/Wordmark";
 import PasswordInput from "@/components/ui/PasswordInput";
 import InstallCard from "@/components/sync/InstallCard";
 import { applyUpdate, updateAvailable } from "@/lib/registerServiceWorker";
@@ -67,8 +68,8 @@ export default function LoginPage() {
     <main className="grid min-h-screen lg:grid-cols-2">
       <section className="hidden flex-col justify-between bg-ink p-12 text-paper lg:flex">
         <Link href="/" className="flex items-center gap-2 font-display text-lg font-semibold tracking-tight">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent"><VezanoMark size={20} /></span>
-          {t("common.appName")}
+          <LogoMark size={32} decorative />
+          <Wordmark tone="inverse" />
         </Link>
         <div>
           <h1 className="font-display text-4xl font-bold leading-tight">
@@ -93,8 +94,8 @@ export default function LoginPage() {
             href="/"
             className="mb-6 inline-flex items-center gap-2 font-display text-lg font-bold tracking-tight lg:hidden"
           >
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-white"><VezanoMark size={20} /></span>
-            {t("common.appName")}
+            <LogoMark size={32} decorative />
+            <Wordmark />
           </Link>
           <InstallCard className="mb-6" />
           <h2 className="font-display text-2xl font-semibold">{t("auth.signInHeading")}</h2>

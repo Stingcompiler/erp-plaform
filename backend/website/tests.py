@@ -185,6 +185,9 @@ class PublicCompanyPageTests(PublicSiteTests):
         self.assertNotIn("شركة تجريبية لاستكشاف النظام", html)
         self.assertIn("مدعوم من <a", html)
         self.assertEqual(html.count("فيزانو"), 1)
+        # The platform wordmark «فيزانو برو», in Readex Pro for that line only.
+        self.assertIn('فيزانو <span class="pro">برو</span></a>', html)
+        self.assertIn("family=Readex+Pro", html)
         self.assertIn("family=Tajawal", html)
         self.assertNotIn("Cairo", html)
         self.company_a.is_demo = True
@@ -193,6 +196,10 @@ class PublicCompanyPageTests(PublicSiteTests):
         self.assertIn('<p class="demo-note" role="note">شركة تجريبية لاستكشاف النظام</p>', html)
         directory = anon.get(reverse("public-site-directory")).content.decode()
         self.assertIn('<p class="demo">شركة تجريبية لاستكشاف النظام</p>', directory)
+        # The directory header carries the platform logo mark and wordmark.
+        self.assertIn('<svg class="vz-mark" aria-hidden="true"', directory)
+        self.assertNotIn('<span class="mark">V</span>', directory)
+        self.assertIn('فيزانو <span class="pro">برو</span>', directory)
 
     def test_english_content_renders_ltr(self):
         self._build_and_publish()

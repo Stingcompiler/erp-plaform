@@ -66,7 +66,7 @@ services:
       - key: EMAIL_HOST_PASSWORD
         sync: false
       - key: DEFAULT_FROM_EMAIL
-        value: "Vezano <no-reply@vezano.app>"
+        value: "Vezano Pro <no-reply@vezano.app>"
       # The paid persistent disk is attached to erp-api at this path in Render.
       # All FileField uploads (medical reports and subscription proofs) land
       # beneath it and therefore survive deploys and restarts.

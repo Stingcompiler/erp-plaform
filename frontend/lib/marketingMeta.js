@@ -11,54 +11,54 @@ const COPY = {
     "/": {
       title: `${SITE_NAME} | نظام إدارة متكامل للمتاجر والشركات بفرع أو عدة فروع — يعمل بلا إنترنت`,
       description:
-        "فيزانو نظام واحد يدير متجرك أو شركتك بكل فروعها: نقطة البيع والمخزون والمشتريات والعملاء والموظفون والرواتب والإدارة المالية والتقارير، بصلاحيات لكل دور وفرع، والبيع يستمر حين تنقطع الشبكة. بالعربية والإنجليزية. تجربة مجانية 14 يومًا بلا بطاقة، وتفعيل في نفس اليوم بعد المراجعة.",
+        "فيزانو برو نظام واحد يدير متجرك أو شركتك بكل فروعها: نقطة البيع والمخزون والمشتريات والعملاء والموظفون والرواتب والإدارة المالية والتقارير، بصلاحيات لكل دور وفرع، والبيع يستمر حين تنقطع الشبكة. بالعربية والإنجليزية. تجربة مجانية 14 يومًا بلا بطاقة، وتفعيل في نفس اليوم بعد المراجعة.",
     },
     "/product": {
       title: "المنتج — المبيعات والمخزون والمشتريات والعملاء والموظفون والمالية والفروع في نظام واحد",
       description:
-        "كل ما يفعله فيزانو وحدة بوحدة: كاشير يعمل بلا إنترنت، مخزون بالدفعات والصلاحية، مشتريات ومرتجعات، العملاء والتحصيل، موارد بشرية ورواتب، إدارة مالية وتقارير، فروع ومستودعات متعددة بصلاحيات لكل دور.",
+        "كل ما يفعله فيزانو برو وحدة بوحدة: كاشير يعمل بلا إنترنت، مخزون بالدفعات والصلاحية، مشتريات ومرتجعات، العملاء والتحصيل، موارد بشرية ورواتب، إدارة مالية وتقارير، فروع ومستودعات متعددة بصلاحيات لكل دور.",
     },
     "/pricing": {
       title: "الأسعار والباقات — تجربة مجانية 14 يومًا أو رخصة دائمة لخادمك",
       description:
-        "باقات فيزانو للمتاجر والشركات والموزعين: أسعار واضحة بلا رسوم على كل عملية. كل باقة تشمل العربية والإنجليزية ونقطة بيع تعمل بلا اتصال وصلاحيات حسب الدور، أو رخصة دائمة على خادمك الخاص.",
+        "باقات فيزانو برو للمتاجر والشركات والموزعين: أسعار واضحة بلا رسوم على كل عملية. كل باقة تشمل العربية والإنجليزية ونقطة بيع تعمل بلا اتصال وصلاحيات حسب الدور، أو رخصة دائمة على خادمك الخاص.",
     },
     "/register": {
       title: "ابدأ تجربة شركتك المجانية",
       description:
-        "سجّل شركتك في فيزانو: تجربة 14 يومًا بلا بطاقة على السحابة، أو اطلب عرض رخصة دائمة لخادمك الخاص. نراجع الطلب ونفعّل مساحة العمل في نفس اليوم ونرسل للمالك رابط التفعيل.",
+        "سجّل شركتك في فيزانو برو: تجربة 14 يومًا بلا بطاقة على السحابة، أو اطلب عرض رخصة دائمة لخادمك الخاص. نراجع الطلب ونفعّل مساحة العمل في نفس اليوم ونرسل للمالك رابط التفعيل.",
     },
     "/register/hosting": {
-      title: "السحابة أم خادمك الخاص؟ — الفرق بين خياري تشغيل فيزانو",
+      title: "السحابة أم خادمك الخاص؟ — الفرق بين خياري تشغيل فيزانو برو",
       description:
-        "فيزانو على السحابة: لا تركيب، تحديثات ونسخ احتياطي ليلي علينا، اشتراك بالباقة. أو على خادمك الخاص: بياناتك عندك، رخصة دائمة، يعمل دون إنترنت. اعرف أيهما يناسب شركتك.",
+        "فيزانو برو على السحابة: لا تركيب، تحديثات ونسخ احتياطي ليلي علينا، اشتراك بالباقة. أو على خادمك الخاص: بياناتك عندك، رخصة دائمة، يعمل دون إنترنت. اعرف أيهما يناسب شركتك.",
     },
   },
   en: {
     "/": {
       title: `${SITE_NAME_LATIN} | Integrated Management for Stores and Companies, One Branch or Many — Works Offline`,
       description:
-        "Vezano runs your store or company across every branch in one system: POS, inventory, purchasing, CRM, HR and payroll, financial management and reports, with access by role and branch — and selling continues when the network drops. Arabic and English. 14-day free trial, no card, activated the same day after review.",
+        "Vezano Pro runs your store or company across every branch in one system: POS, inventory, purchasing, CRM, HR and payroll, financial management and reports, with access by role and branch — and selling continues when the network drops. Arabic and English. 14-day free trial, no card, activated the same day after review.",
     },
     "/product": {
       title: "Product — Sales, Inventory, Purchasing, CRM, HR, Finance and Branches in One System",
       description:
-        "Everything Vezano does, module by module: an offline-capable cashier, batch and expiry inventory, purchasing and returns, customers and collections, HR and payroll, financial management and reports, multiple branches and warehouses with role-based access.",
+        "Everything Vezano Pro does, module by module: an offline-capable cashier, batch and expiry inventory, purchasing and returns, customers and collections, HR and payroll, financial management and reports, multiple branches and warehouses with role-based access.",
     },
     "/pricing": {
       title: "Pricing — 14-Day Free Trial or a Perpetual Licence for Your Own Server",
       description:
-        "Vezano plans for stores, companies and distributors: clear prices, no per-transaction fees. Every plan includes Arabic and English, an offline POS and role-based access, or a perpetual licence on your own server.",
+        "Vezano Pro plans for stores, companies and distributors: clear prices, no per-transaction fees. Every plan includes Arabic and English, an offline POS and role-based access, or a perpetual licence on your own server.",
     },
     "/register": {
       title: "Start Your Company's Free Trial",
       description:
-        "Register your company on Vezano: a 14-day cloud trial with no card, or request a perpetual-licence quote for your own server. We review the request, activate the workspace the same day and send the owner an activation link.",
+        "Register your company on Vezano Pro: a 14-day cloud trial with no card, or request a perpetual-licence quote for your own server. We review the request, activate the workspace the same day and send the owner an activation link.",
     },
     "/register/hosting": {
-      title: "Cloud or Your Own Server? — Vezano's Two Ways to Run",
+      title: "Cloud or Your Own Server? — Vezano Pro's Two Ways to Run",
       description:
-        "Vezano in the cloud: nothing to install, updates and nightly backups on us, a plan subscription. Or on your own server: data stays with you, a perpetual licence, runs without internet. Find out which fits your company.",
+        "Vezano Pro in the cloud: nothing to install, updates and nightly backups on us, a plan subscription. Or on your own server: data stays with you, a perpetual licence, runs without internet. Find out which fits your company.",
     },
   },
 };

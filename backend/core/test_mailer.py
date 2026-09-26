@@ -134,6 +134,12 @@ class BilingualEmailTests(SimpleTestCase):
         self.assertEqual(arabic_first.subject, "عنوان | Subject")
         self.assertLess(arabic_first.body.index("مرحباً"), arabic_first.body.index("Hello"))
 
+    def test_signed_with_the_product_name(self):
+        self._send()
+        message = mail.outbox[0]
+        self.assertIn("— Vezano Pro · فيزانو برو", message.body)
+        self.assertIn("Vezano Pro · فيزانو برو</div>", message.alternatives[0][0])
+
     def test_explicit_primary_wins(self):
         self._send(primary="en")
         self.assertTrue(mail.outbox[0].subject.startswith("Subject"))

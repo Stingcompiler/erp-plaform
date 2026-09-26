@@ -375,7 +375,7 @@ def read_export(source):
     archive = zipfile.ZipFile(source, "r")
     if ARCHIVE_NAME not in archive.namelist():
         archive.close()
-        raise TransferError(f"{source} is not a Vezano company transfer archive.")
+        raise TransferError(f"{source} is not a Vezano Pro company transfer archive.")
     payload = json.loads(archive.read(ARCHIVE_NAME).decode("utf-8"))
     if payload.get("format_version") != FORMAT_VERSION:
         archive.close()

@@ -16,7 +16,8 @@ import { publicSite } from "@/lib/api";
 import { GUIDES } from "@/lib/content/guides";
 import { SOLUTIONS } from "@/lib/content/solutions";
 import { cachedDeploymentMode, fetchDeploymentMode } from "@/lib/deploymentMode";
-import VezanoMark from "@/components/brand/VezanoMark";
+import LogoMark from "@/components/brand/LogoMark";
+import Wordmark from "@/components/brand/Wordmark";
 import { SiteContactLines, SiteContactProvider, WhatsAppFloat } from "@/components/marketing/SiteContact";
 
 function ThemeToggle() {
@@ -132,8 +133,8 @@ export function MarketingHeader() {
     <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/80 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-4 sm:px-6">
         <Link href={href("/")} className="flex shrink-0 items-center gap-2 font-display text-lg font-bold tracking-tight">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-white"><VezanoMark size={20} /></span>
-          {t("common.appName")}
+          <LogoMark size={32} decorative />
+          <Wordmark />
         </Link>
         <nav className="hidden items-center gap-6 text-sm text-muted md:flex">
           {navLinks.map(([path, key, visibility]) => (
@@ -198,8 +199,8 @@ export function MarketingFooter() {
         <div className="flex flex-col gap-8 sm:flex-row sm:justify-between">
           <div className="max-w-xs">
             <div className="flex items-center gap-2 font-display text-lg font-bold tracking-tight">
-              <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-white"><VezanoMark size={20} /></span>
-              {t("common.appName")}
+              <LogoMark size={32} decorative />
+              <Wordmark tone="inverse" />
             </div>
             <p className="mt-2 text-sm text-paper/60">{t("landing.footerTagline")}</p>
           </div>

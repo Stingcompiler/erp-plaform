@@ -31,7 +31,8 @@ import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useAuth } from "../app/providers/AuthProvider";
 import { useI18n } from "../app/providers/I18nProvider";
 import { translateRole } from "@/lib/i18n";
-import VezanoMark from "@/components/brand/VezanoMark";
+import LogoMark from "@/components/brand/LogoMark";
+import Wordmark from "@/components/brand/Wordmark";
 
 const OPEN_GROUPS_KEY = "erp.nav.openGroups";
 
@@ -225,8 +226,8 @@ function SidebarContent({ onNavigate }) {
   return (
     <>
       <div className="flex items-center gap-2.5 px-5 pt-6 font-display text-xl font-bold tracking-tight text-sidebarText">
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-white"><VezanoMark size={20} /></span>
-        <span>{t("common.appName")}</span>
+        <LogoMark size={32} decorative />
+        <Wordmark tone="dark" />
       </div>
       <WorkspaceBadge user={user} />
       <div className="mt-1 flex min-h-0 flex-1 flex-col">

@@ -14,6 +14,7 @@
 {% include "website/_seo_site.html" %}
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap">
+{% include "website/_wordmark_head.html" %}
 <style>
 :root{--accent:#0e7c86;--ink:#14202c;--muted:#5f6d78;--paper:#f6f8f7;--surface:#fff;--line:#e2e8e8;--shadow:0 10px 30px rgba(20,32,44,.08);--cta-bg:#14202c;--demo-bg:#fef3c7;--demo-line:#f59e0b;--demo-ink:#78350f}
 @media (prefers-color-scheme: dark){:root{--ink:#eef2f3;--muted:#9aa8b1;--paper:#0f1a22;--surface:#16232c;--line:#25343f;--shadow:0 10px 30px rgba(0,0,0,.35);--cta-bg:#0b4f56;--demo-bg:#3a2a0a;--demo-line:#b45309;--demo-ink:#fcd34d}}
@@ -25,7 +26,7 @@ img{max-width:100%;display:block}
 .bar{border-bottom:1px solid var(--line);background:var(--surface)}
 .bar .wrap{display:flex;align-items:center;justify-content:space-between;min-height:64px;gap:12px}
 .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-weight:800}
-.brand .mark{width:36px;height:36px;border-radius:10px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:800}
+.brand .vz-mark{width:36px;height:36px;flex:none}
 .btn{display:inline-flex;align-items:center;background:var(--accent);color:#fff;text-decoration:none;padding:9px 16px;border-radius:10px;font-weight:700;font-size:.95rem}
 header.top{padding-block:40px 20px}
 h1{font-size:clamp(1.7rem,4vw,2.4rem);margin:0 0 8px;font-weight:800}
@@ -68,13 +69,13 @@ footer a{color:var(--muted)}
 </head>
 <body>
 <div class="bar"><div class="wrap">
-  <a class="brand" href="{{ platform_url }}"><span class="mark">V</span>فيزانو</a>
+  <a class="brand" href="{{ platform_url }}">{% include "website/_logo_mark.html" %}<span class="vz-wm">فيزانو <span class="pro">برو</span></span></a>
   <a class="btn" href="{{ platform_url }}register/">صفحة عامة لشركتك</a>
 </div></div>
 <main class="wrap">
   <header class="top">
-    <h1>الشركات والمتاجر التي تعمل بفيزانو</h1>
-    <p class="lead">شركات تجارية وموزعون وسلاسل متاجر تدير مبيعاتها ومخزونها وفروعها على فيزانو، ولكل منها صفحة عامة يصل إليها عملاؤها من البحث ومن الخريطة ومن قنوات التواصل.</p>
+    <h1>الشركات والمتاجر التي تعمل بفيزانو برو</h1>
+    <p class="lead">شركات تجارية وموزعون وسلاسل متاجر تدير مبيعاتها ومخزونها وفروعها على فيزانو برو، ولكل منها صفحة عامة يصل إليها عملاؤها من البحث ومن الخريطة ومن قنوات التواصل.</p>
     {% if categories %}
     <nav class="chips" aria-label="التصنيف">
       <a href="{{ url }}" class="{% if not category %}on{% endif %}">الكل</a>
@@ -109,10 +110,10 @@ footer a{color:var(--muted)}
 
   <section class="cta">
     <h2>شركتك تستحق صفحة مثل هذه</h2>
-    <p>كل اشتراك في فيزانو يشمل صفحة عامة للشركة: غلاف وشعار ومنتجات بالصور وقنوات التواصل وخريطة، تُفهرس في Google تلقائيًا.</p>
+    <p>كل اشتراك في فيزانو برو يشمل صفحة عامة للشركة: غلاف وشعار ومنتجات بالصور وقنوات التواصل وخريطة، تُفهرس في Google تلقائيًا.</p>
     <a class="btn" href="{{ platform_url }}register/">ابدأ التجربة المجانية</a>
   </section>
 </main>
-<footer class="wrap">يعمل بنظام <a href="{{ platform_url }}">Vezano</a></footer>
+<footer class="wrap">يعمل بنظام <a class="vz-wm" href="{{ platform_url }}">فيزانو <span class="pro">برو</span></a></footer>
 </body>
 </html>

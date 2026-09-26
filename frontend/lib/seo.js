@@ -5,7 +5,7 @@
 // language. Keep them in step with lib/marketingI18n.js.
 import { homeAr, homeEn, pricingAr, pricingEn } from "./marketingI18n";
 import { marketingCopy, marketingUrl } from "./marketingMeta";
-import { OG_IMAGE, SITE_NAME, SITE_NAME_LATIN, SITE_URL } from "./site";
+import { LEGACY_NAMES, OG_IMAGE, SITE_NAME, SITE_NAME_LATIN, SITE_URL } from "./site";
 
 const ORGANIZATION_ID = `${SITE_URL}/#organization`;
 const APPLICATION_ID = `${SITE_URL}/#software`;
@@ -16,7 +16,7 @@ export function organizationJsonLd() {
     "@type": "Organization",
     "@id": ORGANIZATION_ID,
     name: SITE_NAME_LATIN,
-    alternateName: SITE_NAME,
+    alternateName: [SITE_NAME, ...LEGACY_NAMES],
     url: `${SITE_URL}/`,
     logo: `${SITE_URL}/icons/icon-512.png`,
     image: `${SITE_URL}${OG_IMAGE.url}`,
@@ -31,7 +31,7 @@ export function softwareApplicationJsonLd() {
     "@type": "SoftwareApplication",
     "@id": APPLICATION_ID,
     name: SITE_NAME_LATIN,
-    alternateName: SITE_NAME,
+    alternateName: [SITE_NAME, ...LEGACY_NAMES],
     url: `${SITE_URL}/`,
     applicationCategory: "BusinessApplication",
     applicationSubCategory: "ERP, POS, Inventory",
