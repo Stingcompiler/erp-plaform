@@ -2,7 +2,7 @@
 <html lang="{{ language }}" dir="{{ dir }}">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{% if language == 'ar' %}تتبّع طلبك — {{ name }}{% else %}Track your order — {{ name }}{% endif %}</title>
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
@@ -56,7 +56,10 @@ ul.lines{list-style:none;padding:0;margin:0}ul.lines li{display:flex;justify-con
 .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
 .demo-note{background:var(--demo-bg);color:var(--demo-ink);border:1px solid var(--demo-line);border-radius:10px;text-align:center;padding:6px 12px;font-size:.92rem;font-weight:700;margin-bottom:14px}
 footer{margin-top:28px;color:var(--muted);font-size:.88rem;text-align:center}
+/* Phones: the tab bar's home tab leads back to the shop. */
+@media (max-width:767.98px){.back{display:none}.wrap{padding-bottom:28px}}
 </style>
+{% include "website/_tabbar_head.html" %}
 </head>
 <body>
 <div class="wrap">
@@ -125,5 +128,6 @@ footer{margin-top:28px;color:var(--muted);font-size:.88rem;text-align:center}
   {% if single %}<p class="small" style="text-align:center"><a href="{{ track_path }}">{% if language == 'ar' %}تتبّع طلباً آخر{% else %}Track another order{% endif %}</a></p>{% endif %}
   <footer>{% if language == 'ar' %}احتفظ برابط طلبك أو رقمه لمتابعته.{% else %}Keep your order link or reference to follow it.{% endif %}<br>{% if language == 'ar' %}طلبات من متاجر أخرى على <span class="vz-wm">فيزانو <span class="pro">برو</span></span>؟ تابعها كلها من <a href="{{ platform_track_url }}">vezano.app/track</a>{% else %}Orders from other stores on <span class="vz-wm">Vezano <span class="pro">Pro</span></span>? Track them all at <a href="{{ platform_track_url }}">vezano.app/track</a>{% endif %}</footer>
 </div>
+{% include "website/_tabbar.html" %}
 </body>
 </html>
