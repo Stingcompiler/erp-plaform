@@ -176,15 +176,18 @@ class PublicCompanyPageTests(PublicSiteTests):
         self.assertNotIn("cost_price", html)
         self.assertNotIn("reorder_level", html)
 
-    def test_demo_company_is_labelled_and_vezano_only_in_the_footer(self):
+    def test_demo_company_is_labelled_and_vezano_in_the_top_strip_and_footer(self):
         self._publish_with_content()
         anon = self.client_class()
         url = reverse("public-site-page", args=[self.company_a.slug])
         html = anon.get(url).content.decode()
-        # A real customer: no demo label; Vezano appears once, in the footer.
+        # A real customer: no demo label. Vezano appears twice: the slim
+        # "back to Vezano Pro" strip at the top (owner, 2026-09-26) and the
+        # "powered by" line in the footer — nowhere in the company's content.
         self.assertNotIn("شركة تجريبية لاستكشاف النظام", html)
         self.assertIn("مدعوم من <a", html)
-        self.assertEqual(html.count("فيزانو"), 1)
+        self.assertIn('<div class="vz-strip"', html)
+        self.assertEqual(html.count("فيزانو"), 2)
         # The platform wordmark «فيزانو برو», in Readex Pro for that line only.
         self.assertIn('فيزانو <span class="pro">برو</span></a>', html)
         self.assertIn("family=Readex+Pro", html)
