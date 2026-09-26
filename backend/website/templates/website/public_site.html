@@ -118,6 +118,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 {% include "website/_tabbar_head.html" %}
 </head>
 <body>
+{% include "website/_platform_strip.html" %}
 {% if preview %}<div style="background:#a8690f;color:#fff;text-align:center;padding:8px 12px;font-size:.9rem">{% if language == 'ar' %}معاينة — هكذا يراها الزوار{% if not data.published_at %}، ولم تُنشر بعد{% endif %}{% else %}Preview — this is how visitors see it{% if not data.published_at %}; not published yet{% endif %}{% endif %}</div>{% endif %}
 {% if is_demo %}<p class="demo-note" role="note">{% if language == 'ar' %}شركة تجريبية لاستكشاف النظام{% else %}Demo company to explore the system{% endif %}</p>{% endif %}
 <div class="bar">

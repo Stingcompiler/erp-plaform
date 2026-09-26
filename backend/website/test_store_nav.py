@@ -137,3 +137,18 @@ class MobileNavTests(SimpleTestCase):
         self.assertEqual([t["key"] for t in nav["tabs"]], ["home", "services", "contact"])
         self.assertEqual(nav["tabs"][1]["href"], "#services")
         self.assertEqual(nav["tabs"][2]["href"], "tel:0912")
+
+
+class PlatformStripTests(TestCase):
+    """Every public page of a company starts with a way back to Vezano Pro."""
+
+    setUp = PublicPagesTabBarTests.setUp
+
+    def test_site_track_and_pay_pages_link_back_to_the_platform(self):
+        for path in ("/s/bakery/", "/s/bakery/track/", "/s/bakery/pay/?ref=W000000"):
+            html = self.client.get(path).content.decode()
+            strip = re.search(r'<div class="vz-strip"[^>]*>(.*?)</div>', html, re.S)
+            self.assertIsNotNone(strip, path)
+            self.assertIn('href="https://', strip.group(1), path)
+            self.assertIn("العودة إلى", strip.group(1), path)
+            self.assertIn("برو", strip.group(1), path)
