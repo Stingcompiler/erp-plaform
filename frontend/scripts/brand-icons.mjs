@@ -161,31 +161,35 @@ if (process.argv.includes("--lockups")) {
 }
 
 // ---- 4. The Open Graph card (optional, also a browser) ---------------------
-// public/marketing/og.png, 1200×630: the lockup, the product line and the
-// dashboard screenshot (its main area; the sidebar is cropped off).
+// public/marketing/og.png, 1200×630: the Arabic lockup and the homepage
+// message (with one English line), and the dashboard screenshot.
 if (process.argv.includes("--og")) {
   const { chromium } = await import("playwright");
   const browser = await chromium.launch({ channel: "chromium" });
   const page = await browser.newPage({ viewport: { width: 1200, height: 630 } });
   const shot = readFileSync(pub("marketing/dashboard.png")).toString("base64");
-  await page.setContent(`<!doctype html><html><head>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@500;700&family=Inter:wght@400;500&display=swap">
+  // Arabic first (the main market and the site's default language), with
+  // one English line: the same message as the homepage hero.
+  await page.setContent(`<!doctype html><html lang="ar" dir="rtl"><head>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@500;700&family=Tajawal:wght@500;700&family=Inter:wght@400;500&display=swap">
 <style>
-body{margin:0;width:1200px;height:630px;overflow:hidden;position:relative;font-family:Inter,sans-serif;
-background:radial-gradient(ellipse at 100% 100%,#123a45 0,transparent 55%),linear-gradient(160deg,#13253a,#0c1826)}
-.lock{position:absolute;left:72px;top:60px;display:flex;align-items:center;gap:22px}
-.lock b{font-family:'Readex Pro';font-weight:700;font-size:60px;color:#f5f7fa;letter-spacing:0}.lock b i{font-style:normal;font-weight:500;color:#37b0b8}
-.lock em{font-family:'Readex Pro';font-style:normal;font-weight:700;font-size:30px;color:rgba(245,247,250,.55);margin-inline-start:6px}
-h1{position:absolute;left:72px;top:170px;margin:0;font-weight:500;font-size:32px;color:#e8edf3}
-p{position:absolute;left:72px;top:222px;margin:0;font-size:24px;color:#8fa3b8}
-.url{position:absolute;left:72px;bottom:40px;font-size:24px;color:#37b0b8}
-.shot{position:absolute;left:380px;top:290px;width:820px;height:340px;border-radius:14px 0 0 0;overflow:hidden;
+body{margin:0;width:1200px;height:630px;overflow:hidden;position:relative;font-family:Tajawal,sans-serif;
+background:radial-gradient(ellipse at 0% 100%,#123a45 0,transparent 55%),linear-gradient(200deg,#13253a,#0c1826)}
+.lock{position:absolute;right:72px;top:54px;display:flex;align-items:center;gap:20px}
+.lock b{font-family:'Readex Pro';font-weight:700;font-size:58px;color:#f5f7fa}.lock b i{font-style:normal;color:#37b0b8}
+.lock em{font-family:'Readex Pro';font-style:normal;font-weight:500;font-size:28px;color:rgba(245,247,250,.55);direction:ltr}
+h1{position:absolute;right:72px;top:168px;margin:0;font-family:'Readex Pro';font-weight:700;font-size:44px;color:#f5f7fa}
+p.ar{position:absolute;right:72px;top:236px;width:1056px;margin:0;font-weight:500;font-size:25px;line-height:1.5;color:#a9bccd}
+p.en{position:absolute;right:72px;top:316px;margin:0;font-family:Inter,sans-serif;font-size:20px;color:#7f93a8;direction:ltr}
+.url{position:absolute;right:72px;bottom:40px;font-family:Inter,sans-serif;font-size:24px;color:#37b0b8;direction:ltr}
+.shot{position:absolute;left:0;top:372px;width:740px;height:258px;border-radius:0 14px 0 0;overflow:hidden;
 box-shadow:0 20px 60px rgba(0,0,0,.45);background:#fff}
-.shot img{width:1000px;display:block}
+.shot img{width:1000px;display:block;margin-left:-260px}
 </style></head><body>
-<div class="lock">${markSvg({ size: 88 })}<b>Vezano <i>Pro</i></b><em>فيزانو برو</em></div>
-<h1>Sales, inventory and receivables in one clear system.</h1>
-<p>Offline POS · Batches &amp; expiry · Multi-branch · Arabic &amp; English</p>
+<div class="lock">${markSvg({ size: 84 })}<b>فيزانو <i>برو</i></b><em>Vezano Pro</em></div>
+<h1>نظام واحد يدير متجرك بكل فروعه</h1>
+<p class="ar">المبيعات · المخزون · المشتريات · العملاء · الموظفون · الإدارة المالية — ويستمر حتى مع انقطاع الشبكة</p>
+<p class="en">One system for every branch: sales, stock, purchasing, customers, staff and finance.</p>
 <div class="url">vezano.app</div>
 <div class="shot"><img src="data:image/png;base64,${shot}"></div>
 </body></html>`);

@@ -62,7 +62,7 @@ export const OG_IMAGE = {
   url: "/marketing/og.png",
   width: 1200,
   height: 630,
-  alt: "فيزانو برو — منصة إدارة الأعمال: مبيعات ومخزون وتحصيل في مكان واحد",
+  alt: "فيزانو برو — نظام واحد يدير متجرك بكل فروعه: المبيعات والمخزون والمشتريات والعملاء والموظفون والإدارة المالية",
 };
 
 // Used by the noindex layouts (login, activation, the whole signed-in app).
