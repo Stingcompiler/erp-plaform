@@ -76,6 +76,32 @@ body {
   letter-spacing: -0.01em;
 }
 
+/* A stat card's headline figure (<Figure> in components/ui/kit.jsx): one
+   line, number and currency together, and a font size that shrinks with the
+   figure's width in cells (--figure-chars, set by lib/figureFit.js) to fit
+   the card: card width / (cells × 0.6em), clamped to the tier.
+   Browsers without container units keep the tier's maximum size. A money
+   figure is two nowrap pieces (number, currency) so that on a card too
+   narrow even at the minimum size the label drops whole under the number. */
+.figure-fit { container-type: inline-size; min-width: 0; }
+.figure-fit__value {
+  --figure-min: 0.6875rem;
+  --figure-max: 1.5rem;
+  display: block;
+  white-space: nowrap;
+  line-height: 1.25;
+  font-size: var(--figure-max);
+  font-size: clamp(var(--figure-min), calc(100cqi / (var(--figure-chars, 8) * 0.6)), var(--figure-max));
+}
+.figure-fit__value--money { white-space: normal; }
+.figure-fit__value--money > span { white-space: nowrap; }
+.figure-md { --figure-max: 1.25rem; }
+.figure-lg { --figure-max: 1.5rem; }
+.figure-xl { --figure-max: 1.25rem; }
+@media (min-width: 640px) {
+  .figure-xl { --figure-max: 1.875rem; }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -119,6 +145,10 @@ body { line-height: 1.6; }
 a:hover .dashboard-stat { border-color: rgb(var(--accent) / .5); }
 .dashboard-section { padding: 20px; border: 1px solid rgb(var(--line)); border-radius: 20px; background: rgb(var(--surface)); }
 .dashboard-section .dashboard-stat { background: rgb(var(--paper) / .65); box-shadow: none; border-color: transparent; }
+/* Phones: two stat cards share ~340px, so every pixel of padding is figure. */
+@media (max-width: 639px) {
+  .dashboard-section { padding: 14px; }
+}
 .dashboard-hero { background: linear-gradient(115deg, rgb(var(--surface)), rgb(var(--accent) / .08)); }
 @media (min-width: 1280px) {
   .dashboard-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }

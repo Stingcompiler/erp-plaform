@@ -14,16 +14,24 @@ real thing.
     python manage.py seed_demo --owner owner@example.com --yes
     python manage.py seed_demo --owner … --sales 60 --days 30 --yes
     python manage.py seed_demo --platform --yes     # demo leads + registrations
+    python manage.py seed_demo --owner … --scale 2500 --yes   # prices in SDG
+
+The catalogue's prices are written in US dollars. A company that works in
+another currency passes `--scale` (units of its currency per dollar): every
+cost, price and CRM deal value is multiplied by it and rounded to a figure a
+shop would print — for the Sudanese pound, 2500 turns a 1.20 kilo of sugar
+into 3,000 ج.س and a 0.40 bottle of water into 1,000 ج.س.
 
 Master data is idempotent (SKUs DEMO-001…, names looked up by company);
 sales are added on every run (`--sales 0` to skip). Pictures are simple
 generated tiles (no fonts needed) so the page counts as complete; replace
 them from the site editor whenever real photos exist.
 """
+import argparse
 import io
 import random
 from datetime import timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from uuid import uuid4
 
 from django.core.files.base import ContentFile
@@ -39,7 +47,8 @@ DEMO_PREFIX = "DEMO-"
 CATEGORIES = ["مواد غذائية", "مشروبات", "منظفات", "أدوات منزلية", "عناية شخصية"]
 UNITS = [("قطعة", "pc"), ("كرتون", "ctn"), ("كيلو", "kg")]
 
-# (name, category, unit, cost, price, opening stock, reorder level)
+# (name, category, unit, cost, price, opening stock, reorder level) — cost and
+# price in US dollars; `--scale` converts them (see _scaled).
 PRODUCTS = [
     ("سكر 1 كجم", 0, "kg", "0.90", "1.20", 180, 40),
     ("أرز بسمتي 5 كجم", 0, "pc", "6.50", "8.90", 60, 15),
@@ -110,6 +119,33 @@ PLATFORM_REGISTRATIONS = [
 ]
 
 
+def _scaled(value, scale):
+    """A dollar figure in the company's currency: `value` × `scale`, rounded
+    the way a shop prices things — to 50 from a thousand up, to 5 from a
+    hundred, else to the cent. `scale` 1 leaves the figure exactly as is."""
+    amount = Decimal(value)
+    if scale == 1:
+        return amount
+    amount *= scale
+    if amount >= 1000:
+        step = Decimal(50)
+    elif amount >= 100:
+        step = Decimal(5)
+    else:
+        return amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return (amount / step).quantize(Decimal(1), rounding=ROUND_HALF_UP) * step
+
+
+def _positive_decimal(text):
+    try:
+        value = Decimal(text)
+    except InvalidOperation:
+        raise argparse.ArgumentTypeError(f"not a number: {text}") from None
+    if not value.is_finite() or value <= 0:
+        raise argparse.ArgumentTypeError("must be a positive number")
+    return value
+
+
 def _tile(width, height, colour, accent):
     """A PNG tile: flat colour with a lighter diagonal band — enough to make
     a page look designed without shipping any picture we do not own."""
@@ -140,6 +176,11 @@ class Command(BaseCommand):
                             help="Spread sales over the past N days.")
         parser.add_argument("--platform", action="store_true",
                             help="Also add demo leads and registration requests to the inbox.")
+        parser.add_argument("--scale", type=_positive_decimal, default=Decimal(1),
+                            help="Units of the company's currency per US dollar: multiplies "
+                                 "the catalogue's prices and costs and CRM deal values "
+                                 "(default 1; e.g. 2500 for the Sudanese pound). Applies to "
+                                 "products and leads created by this run.")
         parser.add_argument("--seed", type=int, default=7,
                             help="Random seed for repeatable data.")
         parser.add_argument("--yes", action="store_true",
@@ -155,14 +196,15 @@ class Command(BaseCommand):
         random.seed(options["seed"])
         summary = []
         if options["owner"]:
-            summary += self.seed_company(options["owner"], options["sales"], options["days"])
+            summary += self.seed_company(options["owner"], options["sales"], options["days"],
+                                         Decimal(options["scale"]))
         if options["platform"]:
             summary += self.seed_platform()
         for line in summary:
             self.stdout.write(self.style.SUCCESS(line))
 
     # ------------------------------------------------------------ company
-    def seed_company(self, email, sales, days):
+    def seed_company(self, email, sales, days, scale=Decimal(1)):
         from inventory.models import Category, Product, StockMovement, Unit, Warehouse
         from org.models import Branch
 
@@ -209,8 +251,8 @@ class Command(BaseCommand):
                     company=company, sku=f"{DEMO_PREFIX}{index:03d}",
                     defaults={
                         "name": name, "category": categories[cat], "unit": units[unit],
-                        "barcode": f"629{index:010d}", "cost_price": Decimal(cost),
-                        "sale_price": Decimal(price), "reorder_level": Decimal(reorder),
+                        "barcode": f"629{index:010d}", "cost_price": _scaled(cost, scale),
+                        "sale_price": _scaled(price, scale), "reorder_level": Decimal(reorder),
                     },
                 )
                 if created:
@@ -232,7 +274,7 @@ class Command(BaseCommand):
             out.append(f"Products: {len(products)} ({created_products} new, with opening stock)")
 
             out += self._customers_and_suppliers(company)
-            out += self._crm(company, branch, user)
+            out += self._crm(company, branch, user, scale)
             out += self._website(company, products)
 
         if sales:
@@ -272,7 +314,7 @@ class Command(BaseCommand):
         )
         return [f"Customers: {customers} new", f"Suppliers: {suppliers} new"]
 
-    def _crm(self, company, branch, user):
+    def _crm(self, company, branch, user, scale=Decimal(1)):
         from crm.models import FollowUp, Lead, Note
 
         created = 0
@@ -282,7 +324,8 @@ class Command(BaseCommand):
                 company=company, name=name,
                 defaults={
                     "branch": branch, "contact_name": contact, "phone": phone,
-                    "source": source, "stage": stage, "estimated_value": Decimal(value),
+                    "source": source, "stage": stage,
+                    "estimated_value": _scaled(value, scale),
                     "assigned_to": user, "created_by": user,
                 },
             )

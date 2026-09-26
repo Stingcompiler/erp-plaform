@@ -6,7 +6,7 @@ import { Banknote, Download, Lock, TrendingUp } from "lucide-react";
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { platformFinance as api } from "@/lib/api";
-import { Badge, Button, Card, PageHeader } from "@/components/ui/kit";
+import { Badge, Button, Card, Figure, PageHeader } from "@/components/ui/kit";
 import { formatMoney } from "@/lib/money";
 
 const STATUS_TONE = { active: "ok", trialing: "accent", grace: "warn", read_only: "warn", suspended: "danger", cancelled: "muted", legacy: "muted" };
@@ -59,11 +59,16 @@ function MonthlyBars({ rows, currency }) {
   );
 }
 
-function Kpi({ label, value, hint, tone }) {
+// `text`: a phrase ("3 active · 1 trial") rather than one figure — it wraps
+// like prose instead of shrinking to fit.
+function Kpi({ label, value, hint, tone, text = false }) {
+  const toneClass = tone === "danger" ? "text-danger" : "";
   return (
     <Card className="p-4">
       <div className="text-xs text-muted">{label}</div>
-      <div className={`mt-1 font-display text-xl font-semibold tabular ${tone === "danger" ? "text-danger" : ""}`}>{value}</div>
+      {text
+        ? <div className={`mt-1 font-display text-xl font-semibold tabular ${toneClass}`}>{value}</div>
+        : <Figure value={value} size="md" className="mt-1" valueClassName={`font-semibold ${toneClass}`} />}
       {hint && <div className="mt-0.5 text-xs text-muted">{hint}</div>}
     </Card>
   );
@@ -121,7 +126,7 @@ export default function PlatformFinancePage() {
             <Kpi label={t("platformFinance.outstanding")} value={fmtMoney(block.outstanding, block.currency, language)} hint={t("platformFinance.overdue", { amount: fmtMoney(block.overdue, block.currency, language) })} tone={Number(block.overdue) > 0 ? "danger" : undefined} />
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <Kpi label={t("platformFinance.statusMix")} value={Object.entries(data.statuses).map(([k, v]) => `${v} ${t(`platformCompanies.status.${k}`)}`).join(" · ") || "—"} />
+            <Kpi text label={t("platformFinance.statusMix")} value={Object.entries(data.statuses).map(([k, v]) => `${v} ${t(`platformCompanies.status.${k}`)}`).join(" · ") || "—"} />
             <Kpi label={t("platformFinance.trialConversion")} value={conv?.rate == null ? "—" : `${Math.round(conv.rate * 100)}%`} hint={t("platformFinance.trialConversionHint", { converted: conv?.converted ?? 0, total: conv?.ever_trialing ?? 0 })} />
             <Kpi label={t("platformFinance.subsMovement")} value={`+${data.monthly_subscriptions.reduce((n, r) => n + r.new, 0)} / −${data.monthly_subscriptions.reduce((n, r) => n + r.cancelled, 0)}`} hint={t("platformFinance.subsMovementHint", { n: months })} />
           </div>

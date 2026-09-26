@@ -6,7 +6,7 @@ import { AlertTriangle, HandCoins, Lock, Pencil, Search, UserPlus, UsersRound, W
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { sales } from "@/lib/api";
-import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
+import { Badge, Button, Card, Field, Figure, Input, PageHeader, Select } from "@/components/ui/kit";
 import PhoneLink from "@/components/ui/PhoneLink";
 import CollectPaymentDrawer from "@/components/sales/CollectPaymentDrawer";
 import CustomerDrawer from "@/components/sales/CustomerDrawer";
@@ -119,9 +119,11 @@ export default function DebtsPage() {
             <div className="flex items-center justify-between text-sm text-muted">
               <span>{t(label)}</span><Icon size={18} className={tone} />
             </div>
-            <div className={`mt-2 tabular text-2xl font-semibold ${tone}`}>
-              {count ? (value ?? "—") : withCurrency(value)}
-            </div>
+            <Figure
+              value={count ? (value ?? "—") : withCurrency(value)}
+              className="mt-2"
+              valueClassName={`font-semibold ${tone}`}
+            />
           </Card>
         ))}
       </div>
@@ -186,7 +188,7 @@ export default function DebtsPage() {
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div><h2 className="font-display text-xl font-semibold">{selected.name}</h2><p className="mt-1 text-sm text-muted"><PhoneLink phone={selected.phone} /></p></div>
                   <div className="flex items-center gap-4">
-                    <div className="text-end"><div className="text-xs text-muted">{t("debts.closingBalance")}</div><div className="tabular text-xl font-semibold">{withCurrency(statement?.closing_balance)}</div></div>
+                    <div className="text-end"><div className="text-xs text-muted">{t("debts.closingBalance")}</div><div className="tabular whitespace-nowrap text-xl font-semibold">{withCurrency(statement?.closing_balance)}</div></div>
                     {canCollect && (
                       <Button variant="outline" onClick={() => setEditing(selected)} aria-label={t("customers.edit")}>
                         <Pencil size={15} />{t("customers.edit")}
