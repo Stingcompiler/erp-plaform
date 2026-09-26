@@ -1,0 +1,13 @@
+{# A slim strip above a company's public pages: the way back to Vezano Pro itself. Needs `platform_url` and `language` in the context. #}
+<div class="vz-strip" dir="{% if language == 'ar' %}rtl{% else %}ltr{% endif %}">
+  <a href="{{ platform_url }}">{% if language == 'ar' %}<span aria-hidden="true">→</span> العودة إلى <span class="vz-strip-wm">فيزانو <span class="pro">برو</span></span>{% else %}<span aria-hidden="true">←</span> Back to <span class="vz-strip-wm">Vezano <span class="pro">Pro</span></span>{% endif %}</a>
+</div>
+<style>
+.vz-strip{background:#0f1d2c;color:#cfd8e3;font-size:.85rem;line-height:1.2;padding:7px 16px;text-align:start}
+.vz-strip a{color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:6px;min-height:28px}
+.vz-strip a:hover,.vz-strip a:focus-visible{color:#fff;text-decoration:underline}
+.vz-strip a:focus-visible{outline:2px solid #37b0b8;outline-offset:2px}
+.vz-strip-wm{font-family:"Readex Pro","Tajawal",system-ui,sans-serif;font-weight:700}
+.vz-strip-wm .pro{color:#37b0b8}
+@media print{.vz-strip{display:none}}
+</style>

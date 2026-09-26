@@ -62,6 +62,7 @@ footer{margin-top:28px;color:var(--muted);font-size:.88rem;text-align:center}
 {% include "website/_tabbar_head.html" %}
 </head>
 <body>
+{% include "website/_platform_strip.html" %}
 <div class="wrap">
   <div class="top">
     <a class="brand" href="{{ site_path }}">{% if logo %}<img src="{{ logo }}" alt="">{% else %}<span class="ph">{{ name|slice:":1" }}</span>{% endif %}<span class="n">{{ name }}</span></a>
