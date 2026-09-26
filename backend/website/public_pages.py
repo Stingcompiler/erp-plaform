@@ -36,6 +36,7 @@ from core.public_media import stored_public_url
 from core.seo_inject import analytics_snippet
 from website.seo import page_seo, site_seo
 from website.serializers import PublicSiteSerializer
+from website.store_nav import mobile_nav
 
 HEX_COLOUR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 ARABIC = re.compile(r"[؀-ۿ]")
@@ -341,6 +342,13 @@ def render_site(request, site, *, preview=False):
         # A platform sample tenant: the page says so, above the fold.
         "is_demo": site.company.is_demo,
     }
+    context["mobile_nav"] = mobile_nav(
+        language, page="site", site_path=public_site_path(slug),
+        track_path=context["track_path"], products=bool(context["products"]),
+        services=bool(context["services"]), accept_orders=context["accept_orders"],
+        whatsapp=context["whatsapp"], phone=data["contact_phone"] or "",
+        about=bool(context["about_text"]), gallery=bool(context["gallery"]),
+    )
     if not preview:
         from website.analytics import record
 
@@ -481,24 +489,14 @@ def public_pay_page(request, slug):
     """/s/<slug>/pay/?ref=… — where a visitor declares a bank transfer for
     an order. Never cached, never indexed: it is one person's order."""
     site = _site_or_404(slug)
-    data = PublicSiteSerializer(site).data
-    language = _language(site, data)
-    colour = data["primary_color"] if HEX_COLOUR.match(data["primary_color"] or "") else "#111827"
-    logo = absolute(data["logo_image_url"], request) or (
-        data["logo_url"] if (data["logo_url"] or "").startswith(("http://", "https://")) else ""
-    )
-    response = render(request, "website/public_pay.html", {
-        "name": _display_name(site), "language": language,
-        "dir": "rtl" if language == "ar" else "ltr", "colour": colour, "logo": logo,
-        "site_path": public_site_path(slug),
-        "api_base": f"/api/public/site/{slug}/orders/",
-    })
-    return _private(response)
+    context = _order_page_context(request, site, page="pay")
+    context["api_base"] = f"/api/public/site/{slug}/orders/"
+    return _private(render(request, "website/public_pay.html", context))
 
 
-def _order_page_context(request, site):
-    """What every per-order public page (tracking) shows of the shop: name,
-    logo, colour and language."""
+def _order_page_context(request, site, page="track"):
+    """What every per-order public page (tracking, paying) shows of the
+    shop: name, logo, colour, language and the phone tab bar."""
     slug = site.company.slug
     data = PublicSiteSerializer(site).data
     language = _language(site, data)
@@ -506,6 +504,7 @@ def _order_page_context(request, site):
     logo = absolute(data["logo_image_url"], request) or (
         data["logo_url"] if (data["logo_url"] or "").startswith(("http://", "https://")) else ""
     )
+    whatsapp = re.sub(r"\D", "", data["contact_phone"] or "")
     return {
         "name": _display_name(site), "language": language,
         "dir": "rtl" if language == "ar" else "ltr", "colour": colour, "logo": logo,
@@ -513,6 +512,12 @@ def _order_page_context(request, site):
         "track_path": f"/s/{slug}/track/",
         "platform_track_url": site_url("/track/"),
         "is_demo": site.company.is_demo,
+        "mobile_nav": mobile_nav(
+            language, page=page, site_path=public_site_path(slug),
+            track_path=f"/s/{slug}/track/", products=bool(data["featured_products"]),
+            services=bool(data["services"]),
+            whatsapp=whatsapp if len(whatsapp) >= 8 else "", phone=data["contact_phone"] or "",
+        ),
     }
 
 

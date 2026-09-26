@@ -1,0 +1,27 @@
+{# Styles of the phone tab bar (_tabbar.html). Include after the page's own <style>: it uses the page's --accent/--surface/--line/--muted/--ink and gives the body its bottom padding. #}
+<style>
+:root{--tb-h:60px;--tb-on:color-mix(in srgb,var(--accent) 88%,#000)}
+@media (prefers-color-scheme: dark){:root{--tb-on:color-mix(in srgb,var(--accent) 55%,#fff)}}
+.tabbar,.tb-sheet,.tb-scrim{display:none}
+@media (max-width:767.98px){
+body{padding-bottom:calc(var(--tb-h) + env(safe-area-inset-bottom))}
+.tabbar{display:block;position:fixed;left:0;right:0;bottom:0;z-index:30;background:color-mix(in srgb,var(--surface) 94%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.tabbar ul{display:flex;margin:0;padding:0;list-style:none}
+.tabbar li{flex:1 1 0;min-width:0}
+.tabbar a,.tabbar button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:100%;min-height:var(--tb-h);padding:6px 2px 5px;margin:0;color:var(--muted);background:none;border:0;border-radius:0;text-decoration:none;font:inherit;font-size:.72rem;font-weight:600;line-height:1.2;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.tabbar .ic{position:relative;display:grid;place-items:center;width:52px;height:30px;border-radius:999px;transition:background-color .15s}
+.tabbar svg{width:23px;height:23px}
+.tabbar .lb{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tabbar [aria-current],.tabbar .on,.tabbar [aria-expanded="true"]{color:var(--tb-on)}
+.tabbar [aria-current] .ic,.tabbar .on .ic,.tabbar [aria-expanded="true"] .ic{background:color-mix(in srgb,var(--tb-on) 15%,transparent)}
+.tabbar a:focus-visible,.tabbar button:focus-visible{outline:2px solid var(--tb-on);outline-offset:-4px}
+.tb-badge{position:absolute;top:-4px;inset-inline-end:3px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--tb-on);color:var(--surface);font-size:.68rem;font-weight:800;line-height:18px;text-align:center;box-shadow:0 0 0 2px var(--surface)}
+.tb-scrim{display:block;position:fixed;inset:0;z-index:28;background:rgba(0,0,0,.35)}
+.tb-sheet{display:block;position:fixed;left:calc(8px + env(safe-area-inset-left));right:calc(8px + env(safe-area-inset-right));bottom:calc(var(--tb-h) + env(safe-area-inset-bottom) + 8px);z-index:29;max-height:70vh;overflow:auto;padding:8px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,.28)}
+.tb-sheet ul{margin:0;padding:0;list-style:none}
+.tb-sheet a{display:flex;align-items:center;gap:12px;min-height:48px;padding:8px 12px;border-radius:12px;color:var(--ink);text-decoration:none;font-weight:600}
+.tb-sheet a:hover,.tb-sheet a[aria-current]{background:color-mix(in srgb,var(--tb-on) 12%,transparent)}
+.tb-sheet svg{width:22px;height:22px;flex:none;color:var(--tb-on)}
+}
+@media print{.tabbar,.tb-sheet,.tb-scrim{display:none!important}body{padding-bottom:0!important}}
+</style>

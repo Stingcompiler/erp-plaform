@@ -1,0 +1,65 @@
+{# The phone tab bar of a company's public pages (website.store_nav.mobile_nav builds `mobile_nav`). Styles in _tabbar_head.html; shown below 768px only. #}{% with nav=mobile_nav %}
+<nav class="tabbar" aria-label="{{ nav.label }}">
+  <ul>
+    {% for tab in nav.tabs %}<li><a href="{{ tab.href }}" data-tab="{{ tab.key }}"{% if tab.section %} data-section="{{ tab.section }}"{% endif %}{% if tab.current %} aria-current="{{ tab.current }}"{% endif %}{% if tab.external %} rel="noopener"{% endif %}><span class="ic">{% include "website/_tab_icon.html" with icon=tab.icon %}{% if tab.badge %}<span class="tb-badge" id="tb-cart-count" hidden>0</span>{% endif %}</span><span class="lb">{{ tab.label }}</span></a></li>
+    {% endfor %}{% if nav.more %}<li><button type="button" id="tb-more-btn" data-tab="more" aria-expanded="false" aria-controls="tb-more"><span class="ic">{% include "website/_tab_icon.html" with icon="more" %}</span><span class="lb">{{ nav.more_label }}</span></button></li>{% endif %}
+  </ul>
+</nav>
+{% if nav.more %}<div class="tb-scrim" id="tb-scrim" hidden></div>
+<div class="tb-sheet" id="tb-more" role="dialog" aria-label="{{ nav.more_label }}" hidden>
+  <ul>
+    {% for item in nav.more %}<li><a href="{{ item.href }}" data-tab="{{ item.key }}"{% if item.section %} data-section="{{ item.section }}"{% endif %}{% if item.external %} rel="noopener"{% endif %}>{% include "website/_tab_icon.html" with icon=item.icon %}<span>{{ item.label }}</span></a></li>
+    {% endfor %}
+  </ul>
+</div>{% endif %}
+<script>
+(function () {
+  var bar = document.querySelector(".tabbar");
+  if (!bar) return;
+  var btn = document.getElementById("tb-more-btn"), sheet = document.getElementById("tb-more"),
+      scrim = document.getElementById("tb-scrim");
+  function setOpen(open, refocus) {
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+    sheet.hidden = !open; scrim.hidden = !open;
+    if (open) { var first = sheet.querySelector("a"); if (first) first.focus(); }
+    else if (refocus) btn.focus();
+  }
+  if (btn) {
+    btn.addEventListener("click", function () { setOpen(btn.getAttribute("aria-expanded") !== "true"); });
+    scrim.addEventListener("click", function () { setOpen(false); });
+    sheet.addEventListener("click", function (e) { if (e.target.closest("a")) setOpen(false); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !sheet.hidden) setOpen(false, true); });
+  }
+  // On the company page the tab of the section in view is the current one.
+  var links = [].slice.call(document.querySelectorAll(".tabbar a[data-section], .tb-sheet a[data-section]"))
+    .filter(function (a) { return a.getAttribute("href").charAt(0) === "#"; });
+  var targets = [];
+  links.forEach(function (a) {
+    var el = document.getElementById(a.getAttribute("data-section"));
+    if (el && targets.indexOf(el) < 0) targets.push(el);
+  });
+  if (!targets.length) return;
+  targets.sort(function (a, b) { return a.compareDocumentPosition(b) & 4 ? -1 : 1; });
+  function mark(id) {
+    var inBar = false;
+    links.forEach(function (a) {
+      var on = a.getAttribute("data-section") === id;
+      if (on) a.setAttribute("aria-current", "location"); else a.removeAttribute("aria-current");
+      if (on && bar.contains(a)) inBar = true;
+    });
+    if (btn) btn.classList.toggle("on", !inBar && !!sheet.querySelector('[data-section="' + id + '"]'));
+  }
+  var ticking = false;
+  function update() {
+    ticking = false;
+    var line = window.innerHeight * 0.35, id = targets[0].id, shown = targets.filter(function (el) { return el.getClientRects().length; });
+    shown.forEach(function (el) { if (el.getBoundingClientRect().top <= line) id = el.id; });
+    if (shown.length && window.scrollY > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) id = shown[shown.length - 1].id;
+    mark(id);
+  }
+  window.addEventListener("scroll", function () { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
+  bar.addEventListener("click", function (e) { var a = e.target.closest("a[data-section]"); if (a && a.getAttribute("href").charAt(0) === "#") mark(a.getAttribute("data-section")); });
+  update();
+})();
+</script>
+{% endwith %}
