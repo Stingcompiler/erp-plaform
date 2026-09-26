@@ -10,7 +10,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useSync } from "@/components/sync/SyncProvider";
 import { useAuth } from "../../app/providers/AuthProvider";
 import DocumentDrawer from "@/components/print/DocumentDrawer";
-import { Badge, Button, Card, Field, Input, Select } from "@/components/ui/kit";
+import { Badge, Button, Card, Field, Figure, Input, Select } from "@/components/ui/kit";
 import { accountLabel } from "@/lib/bankChannels";
 import BarcodeScanInput from "@/components/inventory/BarcodeScanInput";
 import { heldCarts } from "@/lib/syncQueue";
@@ -591,7 +591,7 @@ export default function PosTerminal({
           <span className="tabular block break-all text-ink">{receipt.queued ? receipt.local_reference : (receipt.number_display || receipt.number)}</span>
           {receipt.queued && <span className="mt-1 block font-mono text-[11px] text-muted">{receipt.reference}</span>}
         </p>
-        <div className="tabular mt-4 text-3xl font-medium text-ink">{moneyTotal(receipt.total)}</div>
+        <Figure value={moneyTotal(receipt.total)} size="xl" className="mt-4" valueClassName="font-medium text-ink" />
         {!receipt.queued && <div className="mt-1 text-sm text-muted">
           {t("sales.tax")} {money(receipt.tax_amount)} · {t("sales.subtotal")} {money(receipt.subtotal)}
         </div>}
@@ -928,7 +928,7 @@ export default function PosTerminal({
             )}
             <div className="mt-2 flex items-center justify-between gap-3 border-t border-line pt-2">
               <span className="text-sm text-muted">{t("common.total")}</span>
-              <span className="tabular text-2xl font-semibold text-ink">{moneyTotal(grandTotal)}</span>
+              <span className="tabular whitespace-nowrap text-2xl font-semibold text-ink">{moneyTotal(grandTotal)}</span>
             </div>
           </div>
 

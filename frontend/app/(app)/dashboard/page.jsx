@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 import Link from "next/link";
-import { Button, PageHeader } from "@/components/ui/kit";
+import { Button, Figure, PageHeader } from "@/components/ui/kit";
 
 import { dashboard } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
@@ -33,12 +33,12 @@ function Stat({ icon: Icon, label, value, tone = "ink", sub }) {
   const toneClass =
     tone === "warn" ? "text-warn" : tone === "ok" ? "text-ok" : tone === "accent" ? "text-accent" : "text-ink";
   return (
-    <div className="dashboard-stat rounded-card border border-line bg-surface p-4 shadow-card sm:p-5">
+    <div className="dashboard-stat rounded-card border border-line bg-surface p-3 shadow-card sm:p-5">
       <div className="flex items-center gap-2 text-muted">
         <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-paper ${toneClass}`}><Icon size={17} strokeWidth={1.8} /></span>
         <span className="text-sm">{label}</span>
       </div>
-      <div className={`tabular mt-3 break-words text-xl font-semibold sm:text-3xl ${toneClass}`}>{value}</div>
+      <Figure value={value} size="xl" className="mt-3" valueClassName={`font-semibold ${toneClass}`} />
       {sub && <div className="mt-1 text-xs text-muted">{sub}</div>}
     </div>
   );

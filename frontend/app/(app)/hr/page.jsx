@@ -9,7 +9,7 @@ import { localToday } from "@/lib/dates";
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
-import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
+import { Badge, Button, Card, Field, Figure, Input, PageHeader, Select } from "@/components/ui/kit";
 import Drawer from "@/components/ui/Drawer";
 import EmployeeDrawer from "@/components/hr/EmployeeDrawer";
 import AttendanceRegister from "@/components/hr/AttendanceRegister";
@@ -46,7 +46,7 @@ function StatTile({ label, value }) {
   return (
     <Card className="p-4">
       <div className="text-sm text-muted">{label}</div>
-      <div className="tabular mt-1 text-2xl font-semibold text-ink">{value}</div>
+      <Figure value={value} className="mt-1" valueClassName="font-semibold text-ink" />
     </Card>
   );
 }

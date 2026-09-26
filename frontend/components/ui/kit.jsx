@@ -2,6 +2,8 @@
 
 import { cloneElement, forwardRef, isValidElement, useId } from "react";
 
+import { figureFitStyle, splitFigure } from "../../lib/figureFit";
+
 export function Button({ variant = "primary", className = "", ...props }) {
   const base =
     "tap inline-flex items-center justify-center gap-2 min-h-10 rounded-control px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 disabled:pointer-events-none";
@@ -86,6 +88,26 @@ export function Badge({ tone = "muted", children }) {
     >
       {children}
     </span>
+  );
+}
+
+// A stat card's headline figure ("615,480.00 ج.س", "12"). It shrinks with
+// its length to fit the card on one line (lib/figureFit.js + .figure-fit in
+// globals.css). `size`: "xl" (20px phone → 30px wider), "lg" (24px), "md"
+// (20px) is the largest it gets; long figures go down to 11px. The number
+// itself never breaks; only on a card too narrow even at 11px does the
+// currency label move, whole, under the number.
+export function Figure({ value, size = "lg", className = "", valueClassName = "" }) {
+  const parts = splitFigure(value);
+  return (
+    <div className={`figure-fit ${className}`}>
+      <span
+        className={`figure-fit__value figure-${size} tabular ${parts ? "figure-fit__value--money" : ""} ${valueClassName}`}
+        style={figureFitStyle(value)}
+      >
+        {parts ? <><span>{parts[0]}</span> <span>{parts[1]}</span></> : value}
+      </span>
+    </div>
   );
 }
 

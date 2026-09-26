@@ -7,7 +7,7 @@ import { crm } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
-import { Badge, Button, Card, PageHeader } from "@/components/ui/kit";
+import { Badge, Button, Card, Figure, PageHeader } from "@/components/ui/kit";
 import LeadDrawer from "@/components/crm/LeadDrawer";
 import { errorText } from "@/lib/errors";
 import { SkeletonRows } from "@/components/ui/Skeleton";
@@ -36,7 +36,7 @@ function StatTile({ label, value }) {
   return (
     <Card className="p-4">
       <div className="text-sm text-muted">{label}</div>
-      <div className="tabular mt-1 text-2xl font-semibold text-ink">{value}</div>
+      <Figure value={value} className="mt-1" valueClassName="font-semibold text-ink" />
     </Card>
   );
 }

@@ -8,7 +8,7 @@ import { errorText } from "@/lib/errors";
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
-import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
+import { Badge, Button, Card, Field, Figure, Input, PageHeader, Select } from "@/components/ui/kit";
 import Drawer from "@/components/ui/Drawer";
 import PaymentVerificationPanel from "@/components/finance/PaymentVerificationPanel";
 import StatementReconcilePanel from "@/components/finance/StatementReconcilePanel";
@@ -29,7 +29,7 @@ function StatTile({ label, value, tone = "ink", icon: Icon }) {
   return (
     <Card className={`relative overflow-hidden p-4 sm:p-5 ${tone === "ok" ? "border-accent/30 bg-accent/5" : ""}`}>
       <div className="mb-3 flex items-center justify-between gap-2"><span className="text-sm font-medium text-muted">{label}</span><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-paper text-accent"><Icon size={17} /></span></div>
-      <div className={`tabular mt-1 break-words text-xl font-semibold sm:text-3xl ${toneClass}`}>{value}</div>
+      <Figure value={value} size="xl" className="mt-1" valueClassName={`font-semibold ${toneClass}`} />
     </Card>
   );
 }

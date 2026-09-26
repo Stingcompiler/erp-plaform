@@ -7,7 +7,7 @@ import { BarChart3, Download, Lock } from "lucide-react";
 import { API_BASE, reports } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
-import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
+import { Badge, Button, Card, Field, Figure, Input, PageHeader, Select } from "@/components/ui/kit";
 import BarList from "@/components/reports/BarList";
 import ZakatCard from "@/components/reports/ZakatCard";
 import OperationalReports from "@/components/reports/OperationalReports";
@@ -44,7 +44,7 @@ function Kpi({ label, value, tone = "ink", slot, onRetry }) {
       ) : status !== "ok" ? (
         <div className="mt-2"><ReportFailed status={status} onRetry={onRetry} compact /></div>
       ) : (
-        <div className={`tabular mt-2 break-words text-2xl font-medium ${toneClass}`}>{value}</div>
+        <Figure value={value} className="mt-2" valueClassName={`font-medium ${toneClass}`} />
       )}
     </Card>
   );
@@ -521,9 +521,9 @@ export default function ReportsPage() {
             <ReportState slot={slot("purchases")} onRetry={() => retry("purchases")} isEmpty={() => false}>
               {(purchases) => (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  <div className="rounded-control bg-paper p-3"><div className="text-xs text-muted">{t("reports.purchasesTotal")}</div><div className="mt-1 tabular break-words text-xl font-semibold">{money(purchases.purchases_total)}</div></div>
-                  <div className="rounded-control bg-paper p-3"><div className="text-xs text-muted">{t("reports.billCount")}</div><div className="mt-1 tabular text-xl font-semibold">{purchases.bill_count}</div></div>
-                  <div className="rounded-control bg-paper p-3"><div className="text-xs text-muted">{t("reports.receiptCount")}</div><div className="mt-1 tabular text-xl font-semibold">{purchases.receipt_count}</div></div>
+                  <div className="rounded-control bg-paper p-3"><div className="text-xs text-muted">{t("reports.purchasesTotal")}</div><Figure value={money(purchases.purchases_total)} size="md" className="mt-1" valueClassName="font-semibold" /></div>
+                  <div className="rounded-control bg-paper p-3"><div className="text-xs text-muted">{t("reports.billCount")}</div><Figure value={purchases.bill_count} size="md" className="mt-1" valueClassName="font-semibold" /></div>
+                  <div className="rounded-control bg-paper p-3"><div className="text-xs text-muted">{t("reports.receiptCount")}</div><Figure value={purchases.receipt_count} size="md" className="mt-1" valueClassName="font-semibold" /></div>
                 </div>
               )}
             </ReportState>
