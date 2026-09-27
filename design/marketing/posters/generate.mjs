@@ -10,7 +10,7 @@
 // --og. Needs frontend/node_modules (playwright + chromium, sharp) and a network
 // connection: Readex Pro / Tajawal / Inter come from Google Fonts, the QR
 // encoder (qrcode-generator) and decoder (jsQR) from cdn.jsdelivr.net.
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
@@ -21,11 +21,19 @@ const { chromium } = require("playwright");
 const sharp = require("sharp");
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
-const shotPath = (name) => here(`../../../frontend/public/marketing/${name}.png`);
-const SHOTS = Object.fromEntries(
-  ["dashboard", "dashboard-dark", "pos", "pos-dark", "debts", "users"].map((n) => [
-    n,
-    `data:image/png;base64,${readFileSync(shotPath(n)).toString("base64")}`,
+// Each language shows its own app: the Arabic set the site's Arabic captures
+// (frontend/public/marketing/), the English set English captures of the same
+// views (assets/en/, from an English demo company — see README).
+const SHOT_DIRS = { ar: "../../../frontend/public/marketing/", en: "assets/en/" };
+const SHOT_SETS = Object.fromEntries(
+  Object.entries(SHOT_DIRS).map(([lang, dir]) => [
+    lang,
+    Object.fromEntries(
+      ["dashboard", "dashboard-dark", "pos", "pos-dark", "debts", "users"].map((n) => [
+        n,
+        `data:image/png;base64,${readFileSync(here(`${dir}${n}.png`)).toString("base64")}`,
+      ]),
+    ),
   ]),
 );
 
@@ -101,11 +109,22 @@ const chips = (list) => `<div class="chips">${list.map((t) => `<span>${t}</span>
 
 // A browser window with a screenshot. The screenshot fills the window (cover),
 // `pos` picks the crop, `zoom` (>1) magnifies it.
+const SHOTS = new Proxy({}, { get: (_, name) => SHOT_SETS[L][name] });
+
+// A crop written for the Arabic (RTL) screen, whose sidebar is on the right;
+// the English screen is its mirror image, so the x position flips.
+function mpos(pos) {
+  if (pos.startsWith("=")) return pos.slice(1); // "=" keeps a crop as is
+  if (L !== "en") return pos;
+  const [x, ...rest] = pos.split(" ");
+  return [`${100 - parseFloat(x)}%`, ...rest].join(" ");
+}
+
 function browser(shot, { style, pos = "100% 0%", zoom = 0 } = {}) {
   const size = zoom ? `${zoom * 100}% auto` : "cover";
   return `<div class="browser" style="${m(style)}">
   <div class="bar"><i></i><i></i><i></i><span dir="ltr">vezano.app</span></div>
-  <div class="shot" style="background-image:url(${SHOTS[shot]});background-size:${size};background-position:${pos}"></div>
+  <div class="shot" style="background-image:url(${SHOTS[shot]});background-size:${size};background-position:${mpos(pos)}"></div>
 </div>`;
 }
 
@@ -180,18 +199,16 @@ const POSTERS = {
     },
     body(fmt) {
       const offline = `<p class="note">${ICON.wifiOff}<span>${tx("ويستمر حتى مع انقطاع الشبكة", "Keeps selling when the network drops")}</span></p>`;
-      // The one English line of the Arabic set (the English set needs none).
-      const en = tx(`<p class="en" dir="ltr">Vezano Pro — one system for every branch: ERP + POS, Arabic first.</p>`, "");
       const line = `<p class="sub">${modules().join("\u00a0· ")}</p>`;
       if (fmt === "square" || fmt === "landscape") return `${line}${offline}`;
-      return `${chips(modules())}${offline}${en}`;
+      return `${chips(modules())}${offline}`;
     },
     visual(fmt, theme) {
       const dash = theme === "light" ? "dashboard" : "dashboard-dark";
       const pos = theme === "light" ? "pos" : "pos-dark";
       if (fmt === "story")
-        return browser(dash, { style: "inset:0 0 12% 0" }) + phone(pos, "=left:-2%;bottom:0;height:62%");
-      if (fmt === "square") return browser(dash, { style: "inset:0", zoom: 1.45, pos: "100% 86%" });
+        return browser(dash, { style: "inset:0 0 12% 0" }) + phone(pos, "left:-2%;bottom:0;height:62%");
+      if (fmt === "square") return browser(dash, { style: "inset:0", zoom: 1.45, pos: tx("100% 86%", "=57% 84%") });
       if (fmt === "landscape")
         return browser(dash, { style: "left:0;top:0;right:0;bottom:0" }) + phone(pos, "left:4%;bottom:-8%;height:70%");
       return browser(dash, { style: "inset:0 0 8% 8%" }) + phone(pos, "left:0;bottom:0;height:66%");
@@ -237,7 +254,7 @@ const POSTERS = {
     visual(fmt) {
       if (fmt === "story")
         return syncMotif("top:0;left:0;right:0") + browser("pos-dark", { style: "left:0;right:0;bottom:0;top:15%" });
-      if (fmt === "square") return syncMotif("top:0;left:0;right:0") + browser("pos-dark", { style: "left:0;right:0;bottom:0;top:34%", zoom: 1.3, pos: "0% 62%" });
+      if (fmt === "square") return syncMotif("top:0;left:0;right:0") + browser("pos-dark", { style: "left:0;right:0;bottom:0;top:34%", zoom: 1.3, pos: tx("0% 62%", "=87% 62%") });
       if (fmt === "landscape")
         return browser("pos-dark", { style: "inset:0" }) + syncMotif("left:-4%;bottom:5%;font-size:19px", true);
       return browser("pos-dark", { style: "top:0;bottom:6%;left:10%;right:0" }) + syncMotif("left:0;bottom:0;font-size:30px", true);
@@ -259,7 +276,7 @@ const POSTERS = {
     },
     visual(fmt) {
       if (fmt === "story") return browser("debts", { style: "inset:0 0 10% 0" }) + transferCard("left:0;bottom:0;width:62%");
-      if (fmt === "square") return browser("debts", { style: "top:0;bottom:0;right:0;left:30%", zoom: 1.9, pos: "88% 7%" }) + transferCard("left:0;top:50%;transform:translateY(-50%);width:52%");
+      if (fmt === "square") return browser("debts", { style: "top:0;bottom:0;right:0;left:30%", zoom: 1.9, pos: tx("88% 7%", "=37% 7%") }) + transferCard("left:0;top:50%;transform:translateY(-50%);width:52%");
       if (fmt === "landscape") return browser("debts", { style: "inset:0" }) + transferCard("left:-3%;bottom:6%;width:72%");
       return browser("debts", { style: "inset:0 0 10% 6%" }) + transferCard("left:0;bottom:0;width:52%");
     },
@@ -284,10 +301,10 @@ const THEME = {
 
 // Per-format sizes: u scales the frames/cards; the rest are type sizes.
 const SIZES = {
-  story: { u: 1, pad: "96px 80px 88px", mark: 88, word: 58, h1: 88, h1two: 76, sub: 38, pt: 38, note: 36, en: 26 },
-  square: { u: 0.8, pad: "68px 72px 64px", mark: 64, word: 44, h1: 64, h1two: 58, sub: 34, pt: 34, note: 34, en: 22 },
-  landscape: { u: 0.62, pad: "48px 56px 44px", mark: 52, word: 34, h1: 42, h1two: 40, sub: 23, pt: 23, note: 22, en: 17 },
-  a4: { u: 1.1, pad: "104px 104px 96px", mark: 92, word: 60, h1: 84, h1two: 76, sub: 34, pt: 36, note: 34, en: 24 },
+  story: { u: 1, pad: "96px 80px 88px", mark: 88, word: 58, h1: 88, h1two: 76, sub: 38, pt: 38, note: 36 },
+  square: { u: 0.8, pad: "68px 72px 64px", mark: 64, word: 44, h1: 64, h1two: 58, sub: 34, pt: 34, note: 34 },
+  landscape: { u: 0.62, pad: "48px 56px 44px", mark: 52, word: 34, h1: 42, h1two: 40, sub: 23, pt: 23, note: 22 },
+  a4: { u: 1.1, pad: "104px 104px 96px", mark: 92, word: 60, h1: 84, h1two: 76, sub: 34, pt: 36, note: 34 },
 };
 
 function css(fmt, theme) {
@@ -314,7 +331,6 @@ h1.two{font-size:${s.h1two || s.h1}px}
 .chips span{font-size:${s.sub}px;font-weight:700;line-height:1;padding:${s.sub * 0.42}px ${s.sub * 0.62}px ${s.sub * 0.36}px;border-radius:999px;background:${t.chip};border:1.5px solid ${t.chipLine};color:${t.ink}}
 .note{display:flex;align-items:center;gap:${s.note * 0.4}px;font-size:${s.note}px;font-weight:700;color:${t.acc}}
 .note svg{width:${s.note * 1.1}px;height:${s.note * 1.1}px;flex:none}
-.en{font-family:Inter,sans-serif;font-size:${s.en}px;color:${t.muted};opacity:.85;text-align:right}
 .points{list-style:none;display:flex;flex-direction:column;gap:${s.pt * 0.42}px}
 .points li{display:flex;align-items:flex-start;gap:${s.pt * 0.42}px;font-size:${s.pt}px;font-weight:500;line-height:1.4;color:${t.ink}}
 .points .tick{flex:none;width:${s.pt * 1.05}px;height:${s.pt * 1.05}px;margin-top:${s.pt * 0.12}px;border-radius:50%;background:${t.ctaBg};color:${t.ctaInk};display:grid;place-items:center}
@@ -330,7 +346,7 @@ h1.two{font-size:${s.h1two || s.h1}px}
 .phead{flex:none;height:12%;display:flex;align-items:flex-end;justify-content:space-between;padding:0 13cqw 3cqw;font:700 9cqw Tajawal,sans-serif;color:${t.ink}}
 .phead em{width:5cqw;height:5cqw;border-radius:50%;background:#37b0b8;box-shadow:0 0 0 2cqw rgba(55,176,184,.25)}
 .pshot{flex:1;position:relative;overflow:hidden}
-.pshot img{position:absolute;left:0;top:0;width:378.9%;transform:translate(-1.53%,-32.8%)}
+.pshot img{position:absolute;left:0;top:0;width:378.9%;transform:translate(${L === "en" ? "-72.15%" : "-1.53%"},-32.8%)}
 .diagram{position:absolute;display:flex;justify-content:center}
 .diagram svg{height:100%;width:100%;overflow:visible}
 .diagram text{font:700 30px Tajawal,sans-serif;fill:${t.ink}}
@@ -423,7 +439,7 @@ function layout(fmt, key, theme) {
     <div style="flex:1;display:flex;flex-direction:column;gap:16px">
       <span style="font-family:'Readex Pro';font-weight:700;font-size:44px;line-height:1.3;white-space:nowrap">${C().cta}</span>
       <span class="muted" style="font-size:32px;font-weight:700">${C().sameDay}</span>
-      ${url("vezano.app/register").replace("class=\"url\"", 'class="url" style="font-size:40px;text-align:${tx("right", "left")}"')}
+      ${url("vezano.app/register").replace("class=\"url\"", `class="url" style="font-size:40px;text-align:${tx("right", "left")}"`)}
     </div>
     <div style="display:flex;flex-direction:column;align-items:center;gap:12px">
       <div id="qr" style="width:252px;height:252px;background:#fff;border-radius:18px;padding:14px"></div>
@@ -451,6 +467,7 @@ ${fmt === "a4" ? `<script>
 const langArg = process.argv.find((a) => a.startsWith("--lang="));
 const LANGS = langArg ? [langArg.slice(7)] : ["ar", "en"];
 const filters = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+const SHEETS_ONLY = process.argv.includes("--sheets");
 const wanted = (fmt, key) => filters.length === 0 || filters.every((f) => fmt.includes(f) || key.includes(f));
 const out = (p) => here(`out/${p}`);
 
@@ -478,7 +495,7 @@ const qrChecks = [];
 for (const [fmt, f] of Object.entries(FORMATS)) {
   for (const [key, p] of Object.entries(POSTERS)) {
     for (const theme of p.themes) {
-      if (!wanted(fmt, key)) continue;
+      if (SHEETS_ONLY || !wanted(fmt, key)) continue;
       const page = await browserApp.newPage({ viewport: { width: f.w, height: f.h }, deviceScaleFactor: f.scale });
       await page.setContent(html(fmt, key, theme), { waitUntil: "networkidle" });
       await settle(page);
@@ -545,13 +562,20 @@ if (qrChecks.length) {
     lines.push(`${name}: ${ok ? "OK" : "FAIL"} → ${text}`);
     if (!ok) process.exitCode = 1;
   }
-  writeFileSync(out(`qr-check${suffix()}.txt`), `QR decode check (jsQR on the rendered A4 PNGs), expecting ${REGISTER_URL}\n${lines.join("\n")}\n`);
+  const file = out(`qr-check${suffix()}.txt`);
+  const kept = existsSync(file)
+    ? readFileSync(file, "utf8").split("\n").filter((l) => /^\S+: (OK|FAIL)/.test(l))
+    : [];
+  const byName = new Map(kept.map((l) => [l.split(":")[0], l]));
+  for (const l of lines) byName.set(l.split(":")[0], l);
+  const all = [...byName.keys()].sort().map((k) => byName.get(k));
+  writeFileSync(file, `QR decode check (jsQR on the rendered A4 PNGs), expecting ${REGISTER_URL}\n${all.join("\n")}\n`);
   console.log(lines.join("\n"));
   await page.close();
 }
 
 // ---- contact sheet (only after a full run) -----------------------------------------
-if (filters.length === 0) {
+if (filters.length === 0 || SHEETS_ONLY) {
   const ROW_H = 330;
   const rows = Object.entries(POSTERS).flatMap(([key, p]) => p.themes.map((theme) => ({ key, theme })));
   const cells = await Promise.all(

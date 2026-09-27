@@ -15,12 +15,19 @@ real thing.
     python manage.py seed_demo --owner … --sales 60 --days 30 --yes
     python manage.py seed_demo --platform --yes     # demo leads + registrations
     python manage.py seed_demo --owner … --scale 2500 --yes   # prices in SDG
+    python manage.py seed_demo --owner … --lang en --yes      # English names
 
 The catalogue's prices are written in US dollars. A company that works in
 another currency passes `--scale` (units of its currency per dollar): every
 cost, price and CRM deal value is multiplied by it and rounded to a figure a
 shop would print — for the Sudanese pound, 2500 turns a 1.20 kilo of sugar
 into 3,000 ج.س and a 0.40 bottle of water into 1,000 ج.س.
+
+`--lang en` writes the company's demo records in English instead of Arabic
+(catalogue, customers, suppliers, leads, branch/warehouse, public page
+texts) — for English screenshots and English-speaking demos. Prices, stock
+and SKUs are the same in both languages. The platform inbox (`--platform`)
+stays Arabic.
 
 Master data is idempotent (SKUs DEMO-001…, names looked up by company);
 sales are added on every run (`--sales 0` to skip). Pictures are simple
@@ -105,6 +112,85 @@ LEADS = [
 SERVICES = ["توصيل للمنازل", "بيع بالجملة", "تقسيط مريح", "طلبات عبر واتساب"]
 SENDER_BANKS = ["بنك فيصل", "بنك أم درمان", "بنكك"]
 
+# --lang en: the same records in English, row for row (prices, stock and the
+# order of every list match the Arabic ones above).
+PRODUCT_NAMES_EN = [
+    "Sugar 1 kg", "Basmati rice 5 kg", "Cooking oil 1.8 L", "Flour 2 kg", "Red lentils 1 kg",
+    "Black tea 250 g", "Pasta 500 g", "Canned tomatoes 400 g", "Mineral water 1.5 L",
+    "Orange juice 1 L", "Soft drink 330 ml", "Long-life milk 1 L", "Washing powder 3 kg",
+    "Dish soap 1 L", "Floor cleaner 2 L", "Tissues (200 sheets)", "Glass cup set (6 pcs)",
+    "Non-stick frying pan 26 cm", "Plastic laundry basket", "LED bulb 12 W", "Shampoo 400 ml",
+    "Soap 125 g (3 bars)", "Toothpaste 100 ml", "Baby diapers size 4",
+]
+CUSTOMERS_EN = [
+    ("Al Noor Grocery", "0912 100 200", "Al Riyadh"),
+    ("Al Amana Supermarket", "0912 300 400", "Khartoum 2"),
+    ("Al Diyafa Restaurant", "0911 555 666", "Al Amarat"),
+    ("Mohamed Osman", "0999 777 888", ""),
+    ("University Cafeteria", "0918 222 333", "University Street"),
+    ("Neighbourhood Grocery", "0910 444 555", "Burri, Khartoum"),
+    ("Fatima Eltahir", "0996 123 456", ""),
+    ("Al Fajr Bakery", "0915 987 654", "Al Kalakla"),
+]
+SUPPLIERS_EN = [
+    ("Nile Distribution Co.", "0183 000 111", "sales@nile-dist.example"),
+    ("Al Amal Detergents", "0183 222 333", "orders@amal.example"),
+    ("United Importers", "0912 888 999", ""),
+    ("Gezira Farms", "0918 111 222", ""),
+]
+LEADS_EN = [
+    ("Al Waha Stores", "Ahmed Elfatih", "0912 654 321", "Exhibition", "qualified", "45000"),
+    ("Al Baraka Restaurants", "Sara Abdalla", "0911 321 654", "Referral", "contacted", "12000"),
+    ("Al Shifa Pharmacy", "Dr. Khalid", "0999 111 000", "Website", "new", "8000"),
+    ("Eastern Distributor", "Omar Hassan", "0918 000 999", "Phone call", "proposal", "70000"),
+    ("Al Salam Grocery", "Layla", "0910 222 111", "Website", "new", "3000"),
+]
+
+DATA = {
+    "ar": {
+        "categories": CATEGORIES, "units": UNITS, "products": PRODUCTS, "customers": CUSTOMERS,
+        "suppliers": SUPPLIERS, "leads": LEADS, "services": SERVICES,
+        "sender_banks": SENDER_BANKS,
+        "branch": "الفرع الرئيسي", "warehouse": "المخزن الرئيسي", "bank": "بنك الخرطوم",
+        "note": "تم التواصل الأول؛ مهتم بعرض سعر للجملة.", "follow_up": "متابعة عرض السعر",
+        "tagline": "أسعار جملة، توصيل سريع، وحساب آجل لعملائنا الدائمين",
+        "about": (
+            "نخدم البقالات والمطاعم والأسر منذ سنوات بتشكيلة مواد غذائية ومنظفات "
+            "وأدوات منزلية بأسعار الجملة، مع توصيل في اليوم نفسه داخل المدينة."
+        ),
+        "address": "شارع السوق، مربع 5", "city": "الخرطوم",
+        "hours": "السبت - الخميس 8ص - 10م\nالجمعة 4م - 10م",
+        "best_sellers": ("الأكثر طلبًا", "أسعار الجملة تبدأ من كرتون واحد."),
+        "contact": "زورونا في السوق أو راسلونا على واتساب.",
+        "caption": "سعر الجملة لكل وحدة",
+    },
+    "en": {
+        "categories": ["Groceries", "Beverages", "Cleaning", "Household", "Personal care"],
+        "units": [("Piece", "pc"), ("Carton", "ctn"), ("Kilo", "kg")],
+        "products": [(name, *row[1:]) for name, row in zip(PRODUCT_NAMES_EN, PRODUCTS)],
+        "customers": CUSTOMERS_EN, "suppliers": SUPPLIERS_EN, "leads": LEADS_EN,
+        "services": ["Home delivery", "Wholesale", "Easy instalments", "Orders by phone"],
+        "sender_banks": ["Faisal Islamic Bank", "Omdurman National Bank", "Bankak"],
+        "branch": "Main branch", "warehouse": "Main warehouse", "bank": "Bank of Khartoum",
+        "note": "First contact made; interested in a wholesale quote.",
+        "follow_up": "Follow up on the quote",
+        "tagline": "Wholesale prices, fast delivery and credit for regular customers",
+        "about": (
+            "For years we have served groceries, restaurants and families with food, "
+            "cleaning and household goods at wholesale prices, delivered the same day "
+            "anywhere in the city."
+        ),
+        "address": "Market Street, Block 5", "city": "Khartoum",
+        "hours": "Sat - Thu 8am - 10pm\nFri 4pm - 10pm",
+        "best_sellers": ("Best sellers", "Wholesale prices start from a single carton."),
+        "contact": "Visit us at the market or give us a call.",
+        "caption": "Wholesale price per unit",
+    },
+}
+assert len(PRODUCT_NAMES_EN) == len(PRODUCTS)
+assert all(len(DATA["en"][k]) == len(DATA["ar"][k])
+           for k in ("categories", "units", "customers", "suppliers", "leads", "services"))
+
 PLATFORM_LEADS = [
     ("متجر الفردوس (تجريبي)", "0912 010 010", "", "whatsapp", "أريد عرضًا لمحلين"),
     ("شركة الهدى للتوزيع (تجريبي)", "0999 020 020", "huda@example.com", "call",
@@ -181,6 +267,8 @@ class Command(BaseCommand):
                                  "the catalogue's prices and costs and CRM deal values "
                                  "(default 1; e.g. 2500 for the Sudanese pound). Applies to "
                                  "products and leads created by this run.")
+        parser.add_argument("--lang", choices=sorted(DATA), default="ar",
+                            help="Language of the company's demo records (default ar).")
         parser.add_argument("--seed", type=int, default=7,
                             help="Random seed for repeatable data.")
         parser.add_argument("--yes", action="store_true",
@@ -197,14 +285,14 @@ class Command(BaseCommand):
         summary = []
         if options["owner"]:
             summary += self.seed_company(options["owner"], options["sales"], options["days"],
-                                         Decimal(options["scale"]))
+                                         Decimal(options["scale"]), options["lang"])
         if options["platform"]:
             summary += self.seed_platform()
         for line in summary:
             self.stdout.write(self.style.SUCCESS(line))
 
     # ------------------------------------------------------------ company
-    def seed_company(self, email, sales, days, scale=Decimal(1)):
+    def seed_company(self, email, sales, days, scale=Decimal(1), lang="ar"):
         from inventory.models import Category, Product, StockMovement, Unit, Warehouse
         from org.models import Branch
 
@@ -214,6 +302,7 @@ class Command(BaseCommand):
         if user is None or user.company_id is None:
             raise CommandError(f"No company user with email {email}.")
         company = user.company
+        self.data = data = DATA[lang]
         out = [f"Company: {company.name} (#{company.pk}) via {user.email}"]
 
         with transaction.atomic():
@@ -226,26 +315,26 @@ class Command(BaseCommand):
             branch = user.branch or Branch.objects.filter(company=company).order_by("pk").first()
             if branch is None:
                 branch = Branch.objects.create(
-                    company=company, code="MAIN", name="الفرع الرئيسي"
+                    company=company, code="MAIN", name=data["branch"]
                 )
             warehouse = Warehouse.objects.filter(company=company).order_by("pk").first()
             if warehouse is None:
                 warehouse = Warehouse.objects.create(
-                    company=company, branch=branch, name="المخزن الرئيسي"
+                    company=company, branch=branch, name=data["warehouse"]
                 )
 
             categories = [
                 Category.objects.get_or_create(company=company, name=name)[0]
-                for name in CATEGORIES
+                for name in data["categories"]
             ]
             units = {
                 symbol: Unit.objects.get_or_create(
                     company=company, name=name, defaults={"symbol": symbol}
                 )[0]
-                for name, symbol in UNITS
+                for name, symbol in data["units"]
             }
             products, created_products = [], 0
-            for index, row in enumerate(PRODUCTS, start=1):
+            for index, row in enumerate(data["products"], start=1):
                 name, cat, unit, cost, price, stock, reorder = row
                 product, created = Product.objects.get_or_create(
                     company=company, sku=f"{DEMO_PREFIX}{index:03d}",
@@ -297,19 +386,19 @@ class Command(BaseCommand):
         from sales.models import CompanyBankAccount, Customer
 
         customers = 0
-        for name, phone, address in CUSTOMERS:
+        for name, phone, address in self.data["customers"]:
             _, created = Customer.objects.get_or_create(
                 company=company, name=name, defaults={"phone": phone, "address": address}
             )
             customers += int(created)
         suppliers = 0
-        for name, phone, email in SUPPLIERS:
+        for name, phone, email in self.data["suppliers"]:
             _, created = Supplier.objects.get_or_create(
                 company=company, name=name, defaults={"phone": phone, "email": email}
             )
             suppliers += int(created)
         CompanyBankAccount.objects.get_or_create(
-            company=company, bank_name="بنك الخرطوم", account_name=company.name,
+            company=company, bank_name=self.data["bank"], account_name=company.name,
             defaults={"account_number": "0123456789"},
         )
         return [f"Customers: {customers} new", f"Suppliers: {suppliers} new"]
@@ -319,7 +408,7 @@ class Command(BaseCommand):
 
         created = 0
         today = timezone.localdate()
-        for name, contact, phone, source, stage, value in LEADS:
+        for name, contact, phone, source, stage, value in self.data["leads"]:
             lead, was_created = Lead.objects.get_or_create(
                 company=company, name=name,
                 defaults={
@@ -332,33 +421,31 @@ class Command(BaseCommand):
             if was_created:
                 created += 1
                 Note.objects.create(company=company, lead=lead, created_by=user,
-                                    body="تم التواصل الأول؛ مهتم بعرض سعر للجملة.")
+                                    body=self.data["note"])
                 FollowUp.objects.create(
                     company=company, lead=lead, created_by=user,
                     due_date=today + timedelta(days=random.randint(-3, 7)),
-                    summary="متابعة عرض السعر",
+                    summary=self.data["follow_up"],
                 )
         return [f"CRM leads: {created} new"]
 
     def _website(self, company, products):
         from website.models import FeaturedProduct, Section, Website
 
+        data = self.data
         site, _ = Website.objects.get_or_create(company=company)
         changed = []
         defaults = {
             "business_name": site.business_name or company.name,
-            "tagline": "أسعار جملة، توصيل سريع، وحساب آجل لعملائنا الدائمين",
-            "about_text": (
-                "نخدم البقالات والمطاعم والأسر منذ سنوات بتشكيلة مواد غذائية ومنظفات "
-                "وأدوات منزلية بأسعار الجملة، مع توصيل في اليوم نفسه داخل المدينة."
-            ),
+            "tagline": data["tagline"],
+            "about_text": data["about"],
             "contact_phone": site.contact_phone or "+249 91 234 5678",
             "contact_email": site.contact_email or company.email or "",
-            "address": site.address or "شارع السوق، مربع 5",
-            "city": site.city or "الخرطوم",
+            "address": site.address or data["address"],
+            "city": site.city or data["city"],
             "category": site.category or "grocery",
-            "opening_hours": "السبت - الخميس 8ص - 10م\nالجمعة 4م - 10م",
-            "services": "\n".join(SERVICES),
+            "opening_hours": data["hours"],
+            "services": "\n".join(data["services"]),
             "primary_color": "#0e7c86",
         }
         for field, value in defaults.items():
@@ -381,9 +468,9 @@ class Command(BaseCommand):
         if not Section.objects.filter(company=company, website=site).exists():
             for order, (kind, title, text) in enumerate([
                 (Section.HERO, "", ""),
-                (Section.PRODUCTS, "الأكثر طلبًا", "أسعار الجملة تبدأ من كرتون واحد."),
+                (Section.PRODUCTS, *data["best_sellers"]),
                 (Section.ABOUT, "", ""),
-                (Section.CONTACT, "", "زورونا في السوق أو راسلونا على واتساب."),
+                (Section.CONTACT, "", data["contact"]),
             ]):
                 Section.objects.create(company=company, website=site, type=kind, title=title,
                                        order=order, content={"text": text} if text else {})
@@ -391,7 +478,7 @@ class Command(BaseCommand):
         for order, product in enumerate(products[:6]):
             _, created = FeaturedProduct.objects.get_or_create(
                 company=company, website=site, product=product,
-                defaults={"order": order, "caption": "سعر الجملة لكل وحدة"},
+                defaults={"order": order, "caption": data["caption"]},
             )
             featured += int(created)
         return [f"Website: published, fields filled: {', '.join(changed) or 'none'}, "
@@ -432,7 +519,7 @@ class Command(BaseCommand):
                 payment = {"method": method, "amount": str(total)}
                 if payment["method"] == "bank_transfer":
                     payment["company_bank_account"] = bank.pk
-                    payment["sender_bank_name"] = random.choice(SENDER_BANKS)
+                    payment["sender_bank_name"] = random.choice(self.data["sender_banks"])
                     payment["reference_last4"] = f"{random.randint(0, 9999):04d}"
                 body["payment"] = payment
                 if random.random() < 0.5 and customers:

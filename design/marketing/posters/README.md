@@ -16,16 +16,30 @@ trial: «ابدأ تجربتك المجانية — 14 يومًا», activated t
 programs, and who deal every day with network and power cuts and with
 payments through Bankak and other bank apps.
 
-Arabic first (RTL); the Arabic main poster alone carries one small English
-line. The English set (LTR) is for English-speaking decision makers, partners,
-investors and LinkedIn; it keeps the Arabic app screenshots on purpose (they
-show an Arabic-first product).
+Arabic first. The English set is for English-speaking decision makers,
+partners, investors and LinkedIn.
+
+## Each language has its own identity
+
+Each set is purely one language, from the words to the app on screen:
+
+| | Arabic set | English set |
+|---|---|---|
+| Name and lockup | «فيزانو برو» (mark on the right) | "Vezano Pro" (mark on the left) |
+| Type | Readex Pro 700 headlines, Tajawal text | Readex Pro 700 headlines, Inter text |
+| Direction | RTL: text on the right, screen and overlays on the left | LTR: the mirror image |
+| App screenshots | the Arabic app, «شركة النور للتجارة», amounts in ج.س (`frontend/public/marketing/`) | the English app, "Al Noor Trading", amounts in SDG (`assets/en/`) |
+| Small visuals | «نقطة البيع»، الخرطوم / أم درمان / بحري، «تحويل بنكي مسجّل» | "Point of sale", Khartoum / Omdurman / Bahri, "Transfer recorded" |
+
+No English line appears on the Arabic posters (the main poster's small
+English line was removed) and no Arabic on the English ones; `vezano.app`
+is the only shared text.
 
 ## English set
 
-Same layouts mirrored to LTR (text on the left, overlays on the other side;
-the story phone stays on the left), Readex Pro 700 for headlines and the
-"Vezano Pro" wordmark ("Pro" in teal), Inter for everything else.
+Same layouts mirrored to LTR (text on the left, overlays on the other side),
+Readex Pro 700 for headlines and the "Vezano Pro" wordmark ("Pro" in teal),
+Inter for everything else, and the English app on every screen.
 
 | # | Headline | Supporting points |
 |---|---|---|
@@ -39,6 +53,30 @@ the A4 QR says «Scan to sign up». The same honesty rules apply (below). In
 the visuals: "Point of sale", branches Khartoum / Omdurman / Bahri with
 "Head office sees all", "Offline: still selling → Back online: synced", and a
 "Transfer recorded · Matched to statement" card (amounts in SDG).
+
+### English screenshots (`assets/en/`)
+
+dashboard, dashboard-dark, pos, pos-dark, inventory, debts and users at
+1440×900, the same views and crops as the Arabic site captures, taken from a
+throwaway local copy of the app — never production:
+
+1. A scratch SQLite database (`DATABASE_URL=sqlite:///…`, `DEBUG=True`,
+   `VEZANO_ENV_FILE=/dev/null` so no real `.env` is read), `migrate`,
+   `seed_roles`, then a company "Al Noor Trading" (currency SDG, branches
+   "Main branch – Khartoum" and "Omdurman branch") with fictional staff on
+   `@alnoor.example`: Ahmed Elnour (Business Owner), Huda Saleh (Finance
+   Department), Khalid Ibrahim (Branch Manager, Omdurman), Mona Eltayeb (Sales
+   Officer), Sara Osman (General Manager), Yousif Hassan (Inventory Officer).
+2. `manage.py seed_demo --owner demo-owner@alnoor.example --scale 2500
+   --sales 60 --lang en --yes` — `--lang en` writes the catalogue, customers,
+   suppliers, leads and public page in English (same prices and SKUs as the
+   Arabic run).
+3. Quiet screens: the company's layout set to multi-branch (no first-run
+   question), items under their reorder level restocked, a till shift open.
+4. Django on :8010, `next dev` on :3010, signed in as the owner with the
+   `erp_language=en` cookie and `erp.language=en` in local storage; light and
+   dark via `erp.theme`; the POS cart holds basmati rice, cooking oil, black
+   tea, sugar and long-life milk (44,000.00 SDG), like the Arabic capture.
 
 ## Messages, one per poster
 
@@ -99,6 +137,7 @@ and sharp, and a network connection for Google Fonts and cdn.jsdelivr.net):
 ```sh
 node design/marketing/posters/generate.mjs                 # both sets: 40 PNGs, 10 PDFs, QR checks, 2 contact sheets
 node design/marketing/posters/generate.mjs --lang=en       # one set only (ar | en)
+node design/marketing/posters/generate.mjs --sheets        # only rebuild the two contact sheets
 node design/marketing/posters/generate.mjs square offline  # only matching format/poster names
 ```
 
@@ -107,7 +146,9 @@ shared strings (`COPY`), the LTR mirroring of overlays (`m()`), colours
 (`THEME`), type sizes per format (`SIZES`), one layout per format
 (`layout()`), and the visuals (browser frame, phone, branch diagram, sync
 motif, transfer card). The logo comes from `frontend/lib/brandMark.js`, the
-screenshots from `frontend/public/marketing/`. It stops if a font fails to
+screenshots from `frontend/public/marketing/` (Arabic) and `assets/en/`
+(English); a crop written for the Arabic screen is mirrored for the English
+one (`mpos()`), and a leading `=` keeps a style or crop as written. It stops if a font fails to
 load and warns if text spills out of the safe area.
 
 Re-rendering changes PNG bytes slightly (anti-aliasing) even when nothing

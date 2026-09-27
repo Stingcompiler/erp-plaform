@@ -96,6 +96,34 @@ class SeedDemoTests(TestCase):
         self.assertEqual(invoices.count(), 5)
         self.assertTrue(all(inv.total >= 1000 for inv in invoices))
 
+    def test_lang_en_writes_english_records_at_the_same_prices(self):
+        """--lang en: the same catalogue, customers, leads and public page in
+        English; prices and SKUs match the Arabic run; the default stays Arabic."""
+        with tempfile.TemporaryDirectory() as media:
+            with override_settings(MEDIA_ROOT=media):
+                call_command("seed_demo", "--lang", "en", "--scale", "2500",
+                             owner="owner@demo.test", sales=3, yes=True, verbosity=0)
+                site = Website.objects.get(company=self.company)
+                self.assertEqual(completeness(site), [])
+        rice = self._product("DEMO-002")
+        self.assertEqual(rice.name, "Basmati rice 5 kg")
+        self.assertEqual(rice.sale_price, Decimal(22250))
+        self.assertEqual(rice.category.name, "Groceries")
+        self.assertEqual(Product.objects.filter(company=self.company).count(), 24)
+        self.assertTrue(Customer.objects.filter(company=self.company,
+                                                name="Al Amana Supermarket").exists())
+        self.assertEqual(Lead.objects.get(company=self.company, name="Eastern Distributor")
+                         .estimated_value, Decimal(175_000_000))
+        self.assertEqual(site.city, "Khartoum")
+        self.assertEqual(Invoice.objects.filter(company=self.company).count(), 3)
+        # Nothing Arabic in the company's names.
+        arabic = [p.name for p in Product.objects.filter(company=self.company)
+                  if any("؀" <= ch <= "ۿ" for ch in p.name)]
+        self.assertEqual(arabic, [])
+        with self.assertRaises(CommandError):
+            call_command("seed_demo", "--lang", "fr", owner="owner@demo.test", yes=True,
+                         verbosity=0)
+
     def test_scale_rounding_and_validation(self):
         self.assertEqual(_scaled("0.55", Decimal(2500)), Decimal(1400))   # 1375 → 1400
         self.assertEqual(_scaled("0.25", Decimal(600)), Decimal(150))
