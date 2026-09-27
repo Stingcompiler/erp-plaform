@@ -283,6 +283,9 @@ PLATFORM_ENTITY_TYPES = (
     "RegistrationRequest", "RegistrationProvision", "OwnerInvitation",
     "Subscription", "SubscriptionInvoice", "SubscriptionPayment",
     "Plan", "PlanVersion", "SeoSettings", "SeoPageOverride",
+    # Suspensions, deletions, restores and purges of a whole company; the
+    # nightly purge has no user, so the type is what brings it here.
+    "CompanyLifecycle",
 )
 
 

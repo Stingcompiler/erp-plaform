@@ -46,8 +46,10 @@ def read(record):
 
 def prune(days=None):
     """Drop in-database payloads older than the retention window, keeping
-    every company's newest successful snapshot regardless of age. The
-    audit rows stay; only the bytes go."""
+    every company's newest successful snapshot regardless of age, and any
+    payload whose ``keep_until`` is still ahead (a deleted company's backup
+    is kept for the retention window after its purge). The audit rows stay;
+    only the bytes go."""
     days = getattr(settings, "BACKUP_RETENTION_DAYS", 30) if days is None else days
     cutoff = timezone.now() - timezone.timedelta(days=max(int(days), 1))
     keep = set(
@@ -58,7 +60,7 @@ def prune(days=None):
     ) if _supports_distinct_on() else _newest_per_company()
     stale = BackupRecord.objects.filter(
         payload_gz__isnull=False, created_at__lt=cutoff
-    ).exclude(pk__in=keep)
+    ).exclude(pk__in=keep).exclude(keep_until__gt=timezone.now())
     return stale.update(payload_gz=None)
 
 

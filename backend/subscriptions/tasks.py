@@ -43,3 +43,15 @@ def scan_subscription_expiries():
     if any(payload.values()):
         log_activity(action="scan", entity_type="SubscriptionExpiries", metadata=payload)
     return payload
+
+
+@shared_task
+def purge_deleted_companies():
+    """Permanently delete companies whose 30-day deletion window is over
+    (subscriptions.company_deletion). Runs with the daily scans."""
+    from subscriptions.company_deletion import purge_due
+
+    result = purge_due()
+    if result["failed"]:
+        log_activity(action="purge_failed", entity_type="CompanyLifecycle", metadata=result)
+    return result

@@ -153,6 +153,8 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             "grace_ends_at",
             "cancel_at_period_end",
             "suspended_reason",
+            "suspension_kind",
+            "suspended_at",
             "extra_limits",
             "addon_lines",
             "recurring_amount",
@@ -163,7 +165,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "revision", "created_at", "updated_at", "addon_lines", "recurring_amount",
-            "next_renewal",
+            "next_renewal", "suspension_kind", "suspended_at",
         ]
 
     def get_addon_lines(self, obj):

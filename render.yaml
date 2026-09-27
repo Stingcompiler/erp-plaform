@@ -190,7 +190,9 @@ services:
           property: connectionString
 
   # ---------------------------------------------------------------------------
-  # erp-daily-scans : receivables, stock and subscription scans, once a day.
+  # erp-daily-scans : receivables, stock and subscription scans, once a day,
+  # plus the purge of companies deleted 30+ days ago (step purge_companies;
+  # no change to the command is needed — run_daily_scans includes it).
   # Runs the same task functions the Celery worker would, in-process, so no
   # worker or broker is needed for them. Deploy EITHER this cron OR the
   # worker+cache pair below, never both (the scans would run twice).

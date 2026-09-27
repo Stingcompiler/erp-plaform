@@ -221,6 +221,14 @@ def plan_renewal(payment, now=None):
             access_until = end
         if status_after in REACTIVATED_BY_PAYMENT and end > now:
             status_after = Subscription.ACTIVE
+    # Approving any payment ends a suspension-until-payment
+    # (subscriptions.tenant_controls.lift_on_payment).
+    lifts_suspension = subscription.is_suspended_unpaid
+    if lifts_suspension:
+        status_after = (
+            Subscription.ACTIVE if access_until is not None and access_until > now
+            else (subscription.status_before_suspension or Subscription.READ_ONLY)
+        )
     key = "|".join(
         f"{step['invoice_id'] or 'new'}:{step['period_start'].isoformat()}:{step['allocate']}"
         for step in steps
@@ -230,6 +238,7 @@ def plan_renewal(payment, now=None):
         "billing_cycle": version.billing_cycle, "steps": steps, "key": key,
         "access_until": access_until,
         "status_before": subscription.status, "status_after": status_after,
+        "lifts_suspension": lifts_suspension,
         "periods_granted": sum(1 for step in steps if step["completes"]),
         "other_pending": SubscriptionPayment.objects.filter(
             company_id=payment.company_id, status=SubscriptionPayment.PENDING,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Copy, FileCheck2, KeyRound, Lock } from "lucide-react";
+import { CheckCircle2, Copy, FileCheck2, KeyRound, Lock, Trash2 } from "lucide-react";
 
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
@@ -16,6 +16,11 @@ import { useConfirm } from "@/components/ui/ConfirmDialog";
 const ACTIVE = ["submitted", "under_review", "needs_information", "approved"];
 const REVIEW = ["under_review", "needs_information", "rejected"];
 const APPROVABLE = ["submitted", "under_review", "needs_information"];
+// A request that became (or is about to become) a company is the company's
+// history: the server refuses deleting it (website.views).
+const UNDELETABLE = ["approved", "provisioned"];
+// Bulk deletion clears the dead pile only.
+const BULK_DELETABLE = ["rejected", "withdrawn"];
 const TONES = { submitted: "accent", under_review: "warn", needs_information: "warn", approved: "ok", provisioned: "ok", rejected: "danger", withdrawn: "muted" };
 
 export default function PlatformRegistrationsPage() {
@@ -24,6 +29,7 @@ export default function PlatformRegistrationsPage() {
   const canReview = can("platform.registrations.review");
   const canProvision = can("platform.registrations.provision");
   const canReissue = can("platform.invitations.reissue");
+  const canDelete = can("platform.registrations.delete");
   const { t, language } = useI18n();
   const confirm = useConfirm();
   const [rows, setRows] = useState([]);
@@ -32,6 +38,7 @@ export default function PlatformRegistrationsPage() {
   const [saving, setSaving] = useState(null);
   const [error, setError] = useState("");
   const [invite, setInvite] = useState(null);
+  const [notice, setNotice] = useState("");
 
   const load = useCallback(async () => {
     if (!canView) return;
@@ -96,6 +103,35 @@ export default function PlatformRegistrationsPage() {
     }
   };
 
+  const remove = async (row) => {
+    if (!(await confirm(t("platformRegistration.deleteConfirm", { name: row.company_name }), { tone: "danger", confirmLabel: t("platformRegistration.delete") }))) return;
+    setSaving(`delete-${row.id}`); setError(""); setNotice("");
+    try {
+      await registration.remove(row.id);
+      setRows((current) => current.filter((item) => item.id !== row.id));
+      setNotice(t("platformRegistration.deleted", { n: 1 }));
+    } catch (requestError) {
+      setError(errorText(requestError, t, "platformRegistration.deleteError"));
+    } finally {
+      setSaving(null);
+    }
+  };
+  const dead = rows.filter((row) => BULK_DELETABLE.includes(row.status) && !row.company_id);
+  const removeDead = async () => {
+    if (!(await confirm(t("platformRegistration.bulkDeleteConfirm", { n: dead.length }), { tone: "danger", confirmLabel: t("platformRegistration.delete") }))) return;
+    setSaving("bulk-delete"); setError(""); setNotice("");
+    try {
+      const response = await registration.bulkRemove(dead.map((row) => row.id));
+      const gone = new Set(response.data.deleted || []);
+      setRows((current) => current.filter((item) => !gone.has(item.id)));
+      setNotice(t("platformRegistration.deleted", { n: gone.size }));
+    } catch (requestError) {
+      setError(errorText(requestError, t, "platformRegistration.deleteError"));
+    } finally {
+      setSaving(null);
+    }
+  };
+
   // Rejecting or asking for more: the applicant reads this note on
   // vezano.app/track/ (the internal note stays internal).
   const review = async (row, status) => {
@@ -115,8 +151,12 @@ export default function PlatformRegistrationsPage() {
 
   return (
     <div>
-      <PageHeader title={t("platformRegistration.title")} subtitle={t("platformRegistration.subtitle")} actions={<Badge tone="accent">{t("platformRegistration.count", { count: rows.length })}</Badge>} />
+      <PageHeader title={t("platformRegistration.title")} subtitle={t("platformRegistration.subtitle")} actions={<div className="flex flex-wrap items-center gap-2">
+        {canDelete && dead.length > 0 && <Button variant="outline" disabled={saving === "bulk-delete"} onClick={removeDead}><Trash2 size={15} />{t("platformRegistration.bulkDelete", { n: dead.length })}</Button>}
+        <Badge tone="accent">{t("platformRegistration.count", { count: rows.length })}</Badge>
+      </div>} />
       {error && <p role="alert" className="mb-4 rounded-control bg-danger/10 p-3 text-sm text-danger">{error}</p>}
+      {notice && <p role="status" className="mb-4 rounded-control bg-ok/10 p-3 text-sm text-ok">{notice}</p>}
       {invite && (
         <Card className="mb-5 border-accent/30 p-5">
           <div className="flex items-start gap-3">
@@ -182,6 +222,11 @@ export default function PlatformRegistrationsPage() {
                     {canReissue && row.status === "provisioned" && (
                       <Button variant="outline" disabled={saving === `reissue-${row.id}`} title={t("platformRegistration.reissueHint")} onClick={() => run(row, "reissue")}>
                         <KeyRound size={15} />{t("platformRegistration.reissueInvite")}
+                      </Button>
+                    )}
+                    {canDelete && !UNDELETABLE.includes(row.status) && !row.company_id && (
+                      <Button variant="ghost" className="text-danger" disabled={saving === `delete-${row.id}`} onClick={() => remove(row)}>
+                        <Trash2 size={15} />{t("platformRegistration.delete")}
                       </Button>
                     )}
                   </div>

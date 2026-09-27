@@ -11,7 +11,7 @@ import {
   writeSessionCache,
 } from "@/lib/sessionCache";
 
-import { auth, prefs, rbac } from "@/lib/api";
+import { COMPANY_ACCESS_EVENT, auth, prefs, rbac } from "@/lib/api";
 import { useI18n } from "./I18nProvider";
 
 const AuthContext = createContext(null);
@@ -68,6 +68,21 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     registerServiceWorker();
     loadSession();
+  }, [loadSession]);
+
+  // A request refused because the platform suspended the company: re-read
+  // the identity (it carries company_access) so the shell can react. At
+  // most once a minute — every screen's calls fail alike at that moment.
+  useEffect(() => {
+    let last = 0;
+    const onAccess = () => {
+      const now = Date.now();
+      if (now - last < 60000) return;
+      last = now;
+      loadSession();
+    };
+    window.addEventListener(COMPANY_ACCESS_EVENT, onAccess);
+    return () => window.removeEventListener(COMPANY_ACCESS_EVENT, onAccess);
   }, [loadSession]);
 
   const login = useCallback(

@@ -174,6 +174,9 @@ def transferable_models():
 # unusable password and asks the account to reset).
 EXCLUDED_EXPORT_FIELDS = {
     ("accounts", "User"): {"password", "last_login"},
+    # A stored backup's own bytes: binary (not JSON), and a copy of data the
+    # archive already carries row by row.
+    ("ops", "BackupRecord"): {"payload_gz"},
 }
 
 

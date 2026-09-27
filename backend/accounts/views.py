@@ -106,6 +106,15 @@ class LoginView(APIView):
                 {"code": scope_error, "detail": detail},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        from core.company_access import refusal_for_login
+
+        refusal = refusal_for_login(user)
+        if refusal:
+            code, detail = refusal
+            log_activity(
+                action="login_blocked", user=user, request=request, metadata={"reason": code},
+            )
+            return Response({"code": code, "detail": detail}, status=status.HTTP_403_FORBIDDEN)
         if not is_store_mode_allowed(user):
             owner = User.objects.filter(
                 company_id=user.company_id, role__name="Business Owner", is_active=True
@@ -224,6 +233,16 @@ class RefreshView(APIView):
             clear_auth_cookies(response)
             return response
 
+        from core.company_access import COMPANY_INACTIVE, company_state, inactive_message
+
+        state = company_state(user.company_id) if not user.is_platform_admin else None
+        if state is not None and state["state"] == COMPANY_INACTIVE:
+            response = Response(
+                {"code": COMPANY_INACTIVE, "detail": inactive_message()},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+            clear_auth_cookies(response)
+            return response
         device_id = refresh.get("device")
         if device_id and is_revoked(user.company_id, device_id):
             response = Response(

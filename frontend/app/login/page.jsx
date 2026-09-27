@@ -57,6 +57,12 @@ export default function LoginPage() {
       } else if (data?.code === "device_revoked") {
         setError(t("auth.deviceRevoked"));
         setOwnerContact(data.owner_contact || "");
+      } else if (data?.code === "company_suspended") {
+        // The platform suspended the company until it pays: only the owner
+        // may sign in (core.company_access).
+        setError(t("auth.companySuspended"));
+      } else if (data?.code === "company_inactive") {
+        setError(t("auth.companyInactive"));
       } else {
         setError(t("auth.invalid"));
       }

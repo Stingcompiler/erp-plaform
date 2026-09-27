@@ -11,7 +11,14 @@ class BackupRecord(models.Model):
     MANUAL = "manual"
     SCHEDULED = "scheduled"
     RESTORE = "restore"
-    KIND_CHOICES = [(MANUAL, "Manual"), (SCHEDULED, "Scheduled"), (RESTORE, "Restore")]
+    # The full export taken when the platform deletes a company: the whole
+    # company (every model the transfer archive carries), not a snapshot a
+    # tenant restores from — it is the platform's, never listed to the tenant.
+    DELETION = "deletion"
+    KIND_CHOICES = [
+        (MANUAL, "Manual"), (SCHEDULED, "Scheduled"), (RESTORE, "Restore"),
+        (DELETION, "Company deletion"),
+    ]
 
     SUCCESS = "success"
     FAILED = "failed"
@@ -35,6 +42,9 @@ class BackupRecord(models.Model):
     # these rows are for restoring or moving one company. Pruned by the
     # nightly job past BACKUP_RETENTION_DAYS; the latest one always stays.
     payload_gz = models.BinaryField(null=True, blank=True, editable=False)
+    # Pruning leaves the payload alone until this moment (a deleted
+    # company's backup must outlive the purge by the retention window).
+    keep_until = models.DateTimeField(null=True, blank=True)
 
     @property
     def is_downloadable(self):

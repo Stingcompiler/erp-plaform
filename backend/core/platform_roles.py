@@ -35,6 +35,13 @@ BILLING_REVIEW = "platform.billing.review"
 LEADS_MANAGE = "platform.leads.manage"
 INVITATIONS_REISSUE = "platform.invitations.reissue"
 SEO_MANAGE = "platform.seo.manage"
+# Owner controls over a tenant. Suspending until payment is a collections
+# decision (Subscription Manager); deleting a company and deleting a
+# registration request destroy data, so by default only the platform owner
+# (Super Administrator / Django superuser) holds them.
+COMPANIES_SUSPEND = "platform.companies.suspend"
+COMPANIES_DELETE = "platform.companies.delete"
+REGISTRATIONS_DELETE = "platform.registrations.delete"
 
 VIEW_OF = {
     TEAM_MANAGE: TEAM_VIEW,
@@ -46,6 +53,9 @@ VIEW_OF = {
     BILLING_REVIEW: BILLING_VIEW,
     LEADS_MANAGE: LEADS_VIEW,
     SEO_MANAGE: SEO_VIEW,
+    COMPANIES_SUSPEND: SUBSCRIPTIONS_VIEW,
+    COMPANIES_DELETE: SUBSCRIPTIONS_VIEW,
+    REGISTRATIONS_DELETE: REGISTRATIONS_VIEW,
 }
 
 VIEW_CAPABILITIES = frozenset(VIEW_OF.values())
@@ -67,12 +77,14 @@ PLATFORM_ROLES = {
     ),
     "Subscription Manager": (
         "Runs the commercial pipeline: registrations, provisioning, "
-        "subscriptions, invoices and payment review; reads the price list; "
-        "tunes the public site's search settings.",
+        "subscriptions, invoices and payment review, and suspends a company "
+        "until it pays; reads the price list; tunes the public site's search "
+        "settings. Deleting companies or requests stays with the owner.",
         _with_views(
             REGISTRATIONS_REVIEW,
             REGISTRATIONS_PROVISION,
             SUBSCRIPTIONS_MANAGE,
+            COMPANIES_SUSPEND,
             BILLING_REVIEW,
             LEADS_MANAGE,
             INVITATIONS_REISSUE,
