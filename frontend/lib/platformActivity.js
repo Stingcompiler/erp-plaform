@@ -46,6 +46,7 @@ export function describeActivity(row, t, roleLabel) {
     case "RegistrationRequest":
       if (row.action === "contact") return T("registrationContacted", { id: row.entity_id, channel: t(`landing.channels.${m.channel}`) });
       if (row.action === "approve") return T("registrationApproved", { id: row.entity_id });
+      if (row.action === "delete") return T("registrationDeleted", { name: m.company_name || label, ref: m.reference || row.entity_id });
       if (m.status) return T("registrationStatus", { id: row.entity_id, status: m.status });
       return T("registrationUpdated", { id: row.entity_id });
     case "RegistrationProvision":
@@ -66,6 +67,20 @@ export function describeActivity(row, t, roleLabel) {
       const kind = row.entity_type === "Plan" ? T("plan") : T("planVersion");
       const fields = Array.isArray(m.fields) && m.fields.length ? ` (${m.fields.join(", ")})` : "";
       return T(`catalogue_${row.action}`, { kind, label: m.label || label }) + (row.action === "update" ? fields : "");
+    }
+    case "CompanyLifecycle": {
+      // Suspensions, deletions, restores and purges of a whole company.
+      const key = {
+        company_suspended_unpaid: "companySuspended",
+        company_suspension_lifted: m.via === "payment" ? "companyLiftedByPayment" : "companyLifted",
+        company_deletion_scheduled: "companyDeletionScheduled",
+        company_deletion_cancelled: "companyRestored",
+        company_purged: m.scheduled ? "companyPurgedScheduled" : "companyPurged",
+        company_backup_downloaded: "companyBackupDownloaded",
+        purge_failed: "companyPurgeFailed",
+      }[row.action];
+      if (key) return T(key, { name: m.company || label, reason: m.reason || "" });
+      break;
     }
     case "SeoSettings":
       if (m.image) return T(m.removed ? "seoImageRemoved" : "seoImageSet");
@@ -96,6 +111,7 @@ export function activityKind(row, t) {
     Subscription: "subscriptions",
     SubscriptionInvoice: "billing",
     SubscriptionPayment: "billing",
+    CompanyLifecycle: "subscriptions",
     Plan: "plans",
     PlanVersion: "plans",
     SeoSettings: "seo",

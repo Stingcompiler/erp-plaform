@@ -37,7 +37,11 @@ export function waitingToSend(operations) {
 
 // A refusal from the commercial gate (subscription or licence) is not a
 // session problem: signing in again changes nothing, renewing does.
-const COMMERCIAL_CODES = new Set(["subscription_read_only", "license_read_only", "module_not_in_plan"]);
+const COMMERCIAL_CODES = new Set([
+  "subscription_read_only", "license_read_only", "module_not_in_plan",
+  // The platform suspended the company until it pays (core.company_access).
+  "suspended_unpaid", "company_suspended",
+]);
 // What a failed push (no per-item answer) means for the till.
 export function pushErrorKind(err) {
   const status = err?.response?.status;

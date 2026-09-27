@@ -8,6 +8,7 @@ means the next attempt is refused there.
 from datetime import timedelta
 
 from django.db.models import Count, Max
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.translation import gettext as _
@@ -25,11 +26,32 @@ from org.devices import reactivate_device, revoke_device
 from org.models import Company, Device
 from org.serializers import DeviceSerializer
 from sales.models import Invoice
-from subscriptions.models import Subscription
+from subscriptions import company_deletion, tenant_controls
+from subscriptions.models import CompanyDeletion, Subscription, SubscriptionPayment
 from subscriptions.services import usage_for
 
 
-def company_row(company, subscription, owner, invoices_30d, last_active_at):
+def _deletion_row(deletion):
+    if deletion is None:
+        return None
+    return {
+        "id": deletion.pk,
+        "requested_at": deletion.requested_at,
+        "purge_after": deletion.purge_after,
+        "reason": deletion.reason,
+        "requested_by": (
+            deletion.requested_by.full_name or deletion.requested_by.email
+            if deletion.requested_by_id else None
+        ),
+        "backup_id": deletion.backup_id,
+        "backup_rows": deletion.backup_rows,
+    }
+
+
+def company_row(
+    company, subscription, owner, invoices_30d, last_active_at, deletion=None,
+    pending_payments=0,
+):
     decision = resolve_entitlements(company, apply_policy=False)
     usage = usage_for(company, decision.limits)
     over = [
@@ -45,6 +67,14 @@ def company_row(company, subscription, owner, invoices_30d, last_active_at):
             "status": subscription.status,
             "period_ends_at": subscription.period_ends_at,
             "trial_ends_at": subscription.trial_ends_at,
+        }
+    suspension = None
+    if subscription is not None and subscription.status == Subscription.SUSPENDED:
+        suspension = {
+            # Blank on rows suspended before the kind existed: manual.
+            "kind": subscription.suspension_kind or Subscription.SUSPENSION_MANUAL,
+            "reason": subscription.suspended_reason,
+            "since": subscription.suspended_at,
         }
     return {
         "id": company.pk,
@@ -63,6 +93,12 @@ def company_row(company, subscription, owner, invoices_30d, last_active_at):
         "over_limit": over,
         "invoices_30d": invoices_30d,
         "last_active_at": last_active_at,
+        "is_active": company.is_active,
+        "suspension": suspension,
+        "deletion": _deletion_row(deletion),
+        # Shown as a warning next to "Delete": money the company recorded
+        # that nobody has reviewed yet.
+        "pending_payments": pending_payments,
     }
 
 
@@ -70,6 +106,13 @@ class PlatformCompanyViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
     platform_capability = platform_roles.SUBSCRIPTIONS_MANAGE
     platform_view_capability = platform_roles.SUBSCRIPTIONS_VIEW
+    platform_action_capabilities = {
+        "suspend": platform_roles.COMPANIES_SUSPEND,
+        "lift_suspension": platform_roles.COMPANIES_SUSPEND,
+        "delete_company": platform_roles.COMPANIES_DELETE,
+        "restore": platform_roles.COMPANIES_DELETE,
+        "purge": platform_roles.COMPANIES_DELETE,
+    }
     entitlement_exempt = True
 
     def _companies(self):
@@ -103,16 +146,39 @@ class PlatformCompanyViewSet(viewsets.ViewSet):
             .values_list("company_id").annotate(t=Max("last_seen_at"))
             .values_list("company_id", "t")
         )
+        deletions = {
+            d.company_id: d
+            for d in CompanyDeletion.objects.filter(
+                company_id__in=ids, status=CompanyDeletion.SCHEDULED
+            ).select_related("requested_by")
+        }
+        pending = dict(
+            SubscriptionPayment.objects.filter(
+                company_id__in=ids, status=SubscriptionPayment.PENDING
+            ).values_list("company_id").annotate(n=Count("id")).values_list("company_id", "n")
+        )
         rows = [
             company_row(
                 c, subscriptions.get(c.pk), owners.get(c.pk),
                 invoices.get(c.pk, 0), activity.get(c.pk),
+                deletion=deletions.get(c.pk), pending_payments=pending.get(c.pk, 0),
             )
             for c in companies
+        ]
+        purged = [
+            {
+                "id": d.company_ref, "name": d.name, "slug": d.slug,
+                "purged_at": d.purged_at, "backup_id": d.backup_id,
+            }
+            for d in CompanyDeletion.objects.filter(
+                status=CompanyDeletion.PURGED
+            ).order_by("-purged_at")[:50]
         ]
         return Response(
             {
                 "companies": rows,
+                # Tombstones of companies already purged, newest first.
+                "purged": purged,
                 "generated_at": timezone.now(),
                 # "disabled" or "observe" means every limit above is advisory:
                 # the page must say so, or the team reads room where there is none.
@@ -156,3 +222,83 @@ class PlatformCompanyViewSet(viewsets.ViewSet):
     def reactivate_device(self, request, pk=None, device_pk=None):
         device = reactivate_device(self._device(pk, device_pk), request.user, request)
         return Response(DeviceSerializer(device).data)
+
+    # ------------------------------------------------------------ owner controls
+
+    @action(detail=True, methods=["post"])
+    def suspend(self, request, pk=None):
+        """Suspend until payment: only the owner signs in, only to pay."""
+        company = get_object_or_404(Company, pk=pk)
+        tenant_controls.suspend_until_payment(
+            company, request.user, str(request.data.get("reason") or ""), request=request
+        )
+        return Response({"id": company.pk, "suspended": True})
+
+    @action(detail=True, methods=["post"], url_path="lift-suspension")
+    def lift_suspension(self, request, pk=None):
+        company = get_object_or_404(Company, pk=pk)
+        subscription = tenant_controls.lift_suspension(
+            company, request.user, request=request, note=str(request.data.get("note") or ""),
+        )
+        return Response({"id": company.pk, "suspended": False, "status": subscription.status})
+
+    @action(detail=True, methods=["post"], url_path="delete")
+    def delete_company(self, request, pk=None):
+        """Deactivate now, back up, purge after 30 days. ``confirm`` must be
+        the company's name or slug, typed."""
+        company = get_object_or_404(Company, pk=pk)
+        deletion = company_deletion.schedule_deletion(
+            company, request.user, request.data.get("confirm"),
+            reason=str(request.data.get("reason") or ""), request=request,
+        )
+        return Response(_deletion_row(deletion))
+
+    @action(detail=True, methods=["post"])
+    def restore(self, request, pk=None):
+        company = get_object_or_404(Company, pk=pk)
+        company_deletion.restore_company(company, request.user, request=request)
+        return Response({"id": company.pk, "is_active": True})
+
+    @action(detail=True, methods=["post"])
+    def purge(self, request, pk=None):
+        """Delete permanently now, without waiting for the 30 days."""
+        company = get_object_or_404(Company, pk=pk)
+        deletion = company_deletion.open_deletion(company)
+        if deletion is None:
+            raise serializers.ValidationError(
+                {"detail": _("Schedule the deletion first; it takes the backup.")}
+            )
+        company_deletion.require_confirmation(company, request.data.get("confirm"))
+        deletion = company_deletion.purge_company(deletion, request.user, request=request)
+        return Response({"id": deletion.company_ref, "purged_at": deletion.purged_at})
+
+    @action(detail=True, methods=["get"])
+    def backup(self, request, pk=None):
+        """The deletion backup of a company (scheduled or purged) as a
+        company transfer archive. Whole-company data: deleters only."""
+        if not platform_roles.user_has_platform_capability(
+            request.user, platform_roles.COMPANIES_DELETE
+        ):
+            return Response(
+                {"detail": _("Your platform role does not include this action.")}, status=403
+            )
+        deletion = (
+            CompanyDeletion.objects.select_related("backup")
+            .filter(company_ref=pk).exclude(status=CompanyDeletion.RESTORED)
+            .order_by("-requested_at").first()
+        )
+        archive = company_deletion.backup_archive(deletion) if deletion else None
+        if archive is None:
+            return Response({"detail": _("No backup is available for this company.")}, status=404)
+        log_activity(
+            action="company_backup_downloaded", request=request, user=request.user,
+            entity_type="CompanyLifecycle", entity_id=deletion.company_ref,
+            metadata={"company": deletion.name, "backup_id": deletion.backup_id},
+        )
+        stamp = deletion.requested_at.strftime("%Y-%m-%d")
+        response = HttpResponse(archive, content_type="application/zip")
+        response["Content-Disposition"] = (
+            f'attachment; filename="vezano-company-{deletion.slug}-{stamp}.zip"'
+        )
+        response["Cache-Control"] = "no-store"
+        return response

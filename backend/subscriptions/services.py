@@ -101,9 +101,22 @@ def transition_subscription(subscription_id, target, actor, reason=""):
     previous = subscription.status
     subscription.status = target
     subscription.suspended_reason = reason if target == Subscription.SUSPENDED else ""
+    # This is the administrative transition: a suspension set here is the
+    # manual kind, which a payment never lifts (see tenant_controls for the
+    # "until payment" one).
+    suspended = target == Subscription.SUSPENDED
+    subscription.suspension_kind = Subscription.SUSPENSION_MANUAL if suspended else ""
+    subscription.suspended_at = timezone.now() if suspended else None
+    subscription.status_before_suspension = (
+        (previous if previous != Subscription.SUSPENDED else subscription.status_before_suspension)
+        if suspended else ""
+    )
     subscription.revision += 1
     subscription.save(
-        update_fields=["status", "suspended_reason", "revision", "updated_at"]
+        update_fields=[
+            "status", "suspended_reason", "suspension_kind", "suspended_at",
+            "status_before_suspension", "revision", "updated_at",
+        ]
     )
     SubscriptionEvent.objects.create(
         subscription=subscription,
@@ -124,6 +137,14 @@ def configure_subscription(subscription_id, changes, actor, reason=""):
     previous_plan_id = subscription.plan_version_id
     for field, value in changes.items():
         setattr(subscription, field, value)
+    if subscription.status != Subscription.SUSPENDED:
+        subscription.suspension_kind = ""
+        subscription.suspended_at = None
+        subscription.status_before_suspension = ""
+    elif previous_status != Subscription.SUSPENDED:
+        subscription.suspension_kind = Subscription.SUSPENSION_MANUAL
+        subscription.suspended_at = timezone.now()
+        subscription.status_before_suspension = previous_status
     subscription.revision += 1
     subscription.save()
     SubscriptionEvent.objects.create(
@@ -318,4 +339,9 @@ def verify_and_allocate_payment(payment_id, actor, allocations):
             from subscriptions.plan_changes import apply_on_invoice_paid
 
             apply_on_invoice_paid(invoice, actor)
+    # "Suspended until payment" ends with an approved payment (a manual
+    # suspension does not: see subscriptions.tenant_controls).
+    from subscriptions.tenant_controls import lift_on_payment
+
+    lift_on_payment(payment.company_id, actor, payment.pk)
     return payment

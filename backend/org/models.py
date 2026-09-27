@@ -129,8 +129,16 @@ class Company(models.Model):
             base = slugify(self.name) or "company"
             slug = base
             i = 1
-            # Ensure uniqueness without assuming DB collation behavior.
-            while Company.objects.exclude(pk=self.pk).filter(slug=slug).exists():
+            # Ensure uniqueness without assuming DB collation behavior. A
+            # purged company's slug stays reserved by its tombstone: old
+            # links and search results must never land on another shop.
+            from subscriptions.models import CompanyDeletion
+
+            reserved = CompanyDeletion.objects.filter(status=CompanyDeletion.PURGED)
+            while (
+                Company.objects.exclude(pk=self.pk).filter(slug=slug).exists()
+                or reserved.filter(slug=slug).exists()
+            ):
                 i += 1
                 slug = f"{base}-{i}"
             self.slug = slug

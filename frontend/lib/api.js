@@ -19,8 +19,15 @@ const api = axios.create({
 // handling (AuthProvider) takes it from there. Auth endpoints are excluded so
 // a wrong password or an expired refresh can't loop.
 let refreshInFlight = null;
+// The platform suspended the company while this screen was open: tell the
+// auth layer, which re-reads the identity and swaps the workspace for the
+// "suspended until payment" screen (AuthProvider listens for this event).
+export const COMPANY_ACCESS_EVENT = "vezano:company-access";
 api.interceptors.response.use(null, async (error) => {
   const { config, response } = error;
+  if (response?.status === 403 && response.data?.code === "suspended_unpaid" && typeof window !== "undefined") {
+    window.dispatchEvent(new Event(COMPANY_ACCESS_EVENT));
+  }
   if (
     response?.status !== 401 ||
     !config ||
@@ -511,6 +518,8 @@ export const registration = {
   update: (id, body) => api.patch(`/platform/registration-requests/${id}/`, body),
   contact: (id, channel) =>
     api.post(`/platform/registration-requests/${id}/contact/`, { channel }),
+  remove: (id) => api.delete(`/platform/registration-requests/${id}/`),
+  bulkRemove: (ids) => api.post("/platform/registration-requests/bulk-delete/", { ids }),
   activateOwner: (token, password, kind = "owner") =>
     api.post(
       kind === "platform"
@@ -619,6 +628,15 @@ export const platformCompanies = {
   revokeDevice: (id, deviceId) => api.post(`/platform/companies/${id}/devices/${deviceId}/revoke/`),
   reactivateDevice: (id, deviceId) =>
     api.post(`/platform/companies/${id}/devices/${deviceId}/reactivate/`),
+  // Owner controls: suspend until payment, and the deferred deletion.
+  suspend: (id, reason) => api.post(`/platform/companies/${id}/suspend/`, { reason }),
+  liftSuspension: (id) => api.post(`/platform/companies/${id}/lift-suspension/`),
+  remove: (id, confirm, reason = "") =>
+    api.post(`/platform/companies/${id}/delete/`, { confirm, reason }),
+  restore: (id) => api.post(`/platform/companies/${id}/restore/`),
+  purge: (id, confirm) => api.post(`/platform/companies/${id}/purge/`, { confirm }),
+  // A plain link: the browser downloads the zip with the session cookie.
+  backupUrl: (id) => `${api.defaults.baseURL}/platform/companies/${id}/backup/`,
 };
 
 export const platformSubscriptions = {

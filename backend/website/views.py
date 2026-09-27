@@ -2,7 +2,7 @@ import uuid
 
 from datetime import timedelta
 
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.db.models import Q
@@ -337,10 +337,42 @@ def _email_owner_invitation(registration, token):
     )
 
 
+# A request in these states became (or is about to become) a company: it is
+# the company's history, removed only by deleting the company.
+UNDELETABLE_REGISTRATIONS = {RegistrationRequest.APPROVED, RegistrationRequest.PROVISIONED}
+
+
+def registration_delete_refusal(registration):
+    """Why ``registration`` may not be deleted, or None."""
+    if registration.company_id or registration.status == RegistrationRequest.PROVISIONED:
+        return _(
+            "This request was activated into a company. Delete the company from the "
+            "companies page instead."
+        )
+    if registration.status == RegistrationRequest.APPROVED:
+        return _("This request is approved. Reject it first if it should not go ahead.")
+    return None
+
+
+def delete_registration(registration, request):
+    """Delete one request, keeping only its reference and name in the log."""
+    log_activity(
+        action="delete", request=request, entity_type="RegistrationRequest",
+        entity_id=registration.pk,
+        metadata={
+            "reference": registration.public_reference or "",
+            "company_name": registration.company_name,
+            "status": registration.status,
+        },
+    )
+    registration.delete()
+
+
 class PlatformRegistrationRequestViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
     mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
     """Commercial inbox for tenant sign-up, deliberately separate from CRM."""
@@ -353,6 +385,9 @@ class PlatformRegistrationRequestViewSet(
         "reissue_invitation": platform_roles.INVITATIONS_REISSUE,
         # Noting that one reached out is open to whoever may see the request.
         "contact": platform_roles.REGISTRATIONS_VIEW,
+        # Spam and duplicates: the platform owner's call by default.
+        "destroy": platform_roles.REGISTRATIONS_DELETE,
+        "bulk_delete": platform_roles.REGISTRATIONS_DELETE,
     }
     entitlement_exempt = True
     serializer_class = PlatformRegistrationRequestSerializer
@@ -377,6 +412,43 @@ class PlatformRegistrationRequestViewSet(
     @action(detail=True, methods=["post"])
     def contact(self, request, pk=None):
         return _record_contact(self, request, "RegistrationRequest")
+
+    def destroy(self, request, *args, **kwargs):
+        registration = self.get_object()
+        refusal = registration_delete_refusal(registration)
+        if refusal:
+            return Response(
+                {"code": "registration_in_use", "detail": refusal},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        delete_registration(registration, request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["post"], url_path="bulk-delete")
+    def bulk_delete(self, request):
+        """Delete several requests at once (the rejected pile, spam). Only
+        rejected and withdrawn requests go this way; anything else is
+        reported back as skipped."""
+        ids = request.data.get("ids")
+        if not isinstance(ids, list) or not ids or len(ids) > 500:
+            return Response(
+                {"ids": _("Send the list of requests to delete (at most 500).")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        deleted, skipped = [], []
+        with transaction.atomic():
+            for registration in RegistrationRequest.objects.select_for_update().filter(
+                pk__in=[i for i in ids if isinstance(i, int)]
+            ):
+                if registration.status not in (
+                    RegistrationRequest.REJECTED, RegistrationRequest.WITHDRAWN,
+                ) or registration_delete_refusal(registration):
+                    skipped.append(registration.pk)
+                    continue
+                pk = registration.pk
+                delete_registration(registration, request)
+                deleted.append(pk)
+        return Response({"deleted": deleted, "skipped": skipped})
 
     def perform_update(self, serializer):
         registration = serializer.save()
@@ -747,7 +819,6 @@ class DemoRequestView(APIView):
         return [DemoThrottle()]
 
     def post(self, request):
-        from django.db import transaction
         from website.models import PlatformLead
         from website.serializers import DemoRequestSerializer
 

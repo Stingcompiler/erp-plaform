@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-26 08:11+0000\n"
+"POT-Creation-Date: 2026-09-27 12:52+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -151,8 +151,8 @@ msgid ""
 "Sign in from the Vezano Pro app or website so this device can be identified; "
 "company accounts cannot sign in without a device id."
 msgstr ""
-"سجّل الدخول من تطبيق فيزانو برو أو موقعه حتى يتم التعرف على هذا الجهاز؛ لا يمكن "
-"لحسابات الشركات تسجيل الدخول دون معرّف جهاز."
+"سجّل الدخول من تطبيق فيزانو برو أو موقعه حتى يتم التعرف على هذا الجهاز؛ لا "
+"يمكن لحسابات الشركات تسجيل الدخول دون معرّف جهاز."
 
 msgid "Logged out."
 msgstr "تم تسجيل الخروج."
@@ -171,6 +171,18 @@ msgstr "تم تجديد الجلسة."
 
 msgid "The company must retain at least one active owner."
 msgstr "يجب أن يبقى للشركة مالك نشط واحد على الأقل."
+
+msgid ""
+"The company account is suspended until payment. Record the payment on the "
+"subscription page; the account reopens once it is approved."
+msgstr "الحساب موقوف لحين السداد. سجّل الدفعة من صفحة الاشتراك، ويعود الحساب للعمل فور اعتمادها."
+
+msgid ""
+"The company account is temporarily suspended — contact the company owner."
+msgstr "حساب الشركة موقوف مؤقتًا — تواصل مع مالك الشركة."
+
+msgid "This company account has been closed."
+msgstr "أُغلق حساب هذه الشركة."
 
 msgid ""
 "Your role can edit this record but not delete it. Ask a manager to remove it "
@@ -1816,6 +1828,16 @@ msgid "This sale was not flagged for review."
 msgstr "هذا البيع غير معلَّم للمراجعة."
 
 #, python-format
+msgid "Type the company's name or its slug (%(slug)s) exactly to confirm."
+msgstr "اكتب اسم الشركة أو معرّفها (%(slug)s) كما هو تمامًا للتأكيد."
+
+msgid "This company is already scheduled for deletion."
+msgstr "هذه الشركة مجدولة للحذف بالفعل."
+
+msgid "This company is not scheduled for deletion."
+msgstr "هذه الشركة ليست مجدولة للحذف."
+
+#, python-format
 msgid "Unknown modules: %(modules)s"
 msgstr "وحدات غير معروفة: %(modules)s"
 
@@ -1891,6 +1913,12 @@ msgstr "لا يمكن رفض إلا طلب معلّق."
 
 msgid "Send true or false."
 msgstr "أرسل true أو false."
+
+msgid "Schedule the deletion first; it takes the backup."
+msgstr "جدوِل الحذف أولًا؛ فهو الذي يأخذ النسخة الاحتياطية."
+
+msgid "No backup is available for this company."
+msgstr "لا توجد نسخة احتياطية متاحة لهذه الشركة."
 
 msgid "Only a pending payment can be approved."
 msgstr "لا يمكن اعتماد إلا دفعة بانتظار المراجعة."
@@ -1993,6 +2021,26 @@ msgstr "الفاتورة %(number)s بعملة مختلفة."
 msgid "Allocation exceeds invoice %(number)s balance."
 msgstr "التوزيع يتجاوز رصيد الفاتورة %(number)s."
 
+msgid "Give the company a reason; its owner will read it."
+msgstr "اذكر السبب؛ سيقرؤه مالك الشركة."
+
+msgid "This company has no subscription to suspend."
+msgstr "لا يوجد لهذه الشركة اشتراك لإيقافه."
+
+msgid "This company is already suspended until payment."
+msgstr "هذه الشركة موقوفة لحين السداد بالفعل."
+
+msgid ""
+"This company is already suspended by an administrator. Lift that suspension "
+"first."
+msgstr "هذه الشركة موقوفة بالفعل بقرار إداري. ارفع ذلك الإيقاف أولًا."
+
+msgid "This company is scheduled for deletion."
+msgstr "هذه الشركة مجدولة للحذف."
+
+msgid "This company is not suspended until payment."
+msgstr "هذه الشركة ليست موقوفة لحين السداد."
+
 #, python-format
 msgid "Your subscription is billed in %(currency)s; pay in that currency."
 msgstr "اشتراكك مُفوتَر بعملة %(currency)s؛ ادفع بالعملة نفسها."
@@ -2056,6 +2104,13 @@ msgstr "بيانات دفعة المزامنة غير المكتملة لا تط
 
 msgid "This batch is already being processed."
 msgstr "دفعة المزامنة هذه قيد المعالجة بالفعل."
+
+#, python-format
+msgid ""
+"The company account is suspended until payment (%(reason)s) and this was "
+"recorded after the suspension. It stays on the device: send it again once "
+"the account is reopened."
+msgstr "حساب الشركة موقوف لحين السداد (%(reason)s)، وقد سُجّلت هذه العملية بعد الإيقاف. تبقى على الجهاز: أرسلها مجددًا بعد إعادة فتح الحساب."
 
 msgid ""
 "The subscription is read-only and this was recorded after it lapsed. It "
@@ -2294,6 +2349,17 @@ msgstr "لا يمكن نقل هذا الطلب إلى هذه المرحلة ال
 
 msgid "Give the reason for cancelling; the customer sees it."
 msgstr "اذكر سبب الإلغاء؛ سيراه العميل."
+
+msgid ""
+"This request was activated into a company. Delete the company from the "
+"companies page instead."
+msgstr "فُعّل هذا الطلب شركةً. احذف الشركة من صفحة الشركات بدلًا من ذلك."
+
+msgid "This request is approved. Reject it first if it should not go ahead."
+msgstr "هذا الطلب معتمد. ارفضه أولًا إن كان لا ينبغي أن يمضي."
+
+msgid "Send the list of requests to delete (at most 500)."
+msgstr "أرسل قائمة الطلبات المراد حذفها (500 طلب على الأكثر)."
 
 msgid "This status transition is not allowed."
 msgstr "لا يُسمح بتغيير الحالة بهذا الشكل."

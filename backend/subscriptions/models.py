@@ -182,6 +182,18 @@ class Subscription(models.Model):
     grace_ends_at = models.DateTimeField(null=True, blank=True)
     cancel_at_period_end = models.BooleanField(default=False)
     suspended_reason = models.TextField(blank=True)
+    # Why a SUSPENDED subscription is suspended. "unpaid" is the platform's
+    # "suspend until payment": only the owner may sign in, and only to pay;
+    # approving a payment lifts it. "manual" (and blank, for rows suspended
+    # before this field existed) is an administrative decision that a
+    # payment never lifts. Meaningless in any other status.
+    SUSPENSION_MANUAL = "manual"
+    SUSPENSION_UNPAID = "unpaid"
+    SUSPENSION_KINDS = [(SUSPENSION_MANUAL, "Manual"), (SUSPENSION_UNPAID, "Until payment")]
+    suspension_kind = models.CharField(max_length=16, choices=SUSPENSION_KINDS, blank=True)
+    suspended_at = models.DateTimeField(null=True, blank=True)
+    # The status to return to when an unpaid suspension is lifted.
+    status_before_suspension = models.CharField(max_length=16, blank=True)
     # Units bought on top of the plan's limits, e.g. {"devices": 2}; priced
     # by PlanVersion.addon_prices and billed with every renewal.
     extra_limits = models.JSONField(default=dict, blank=True)
@@ -191,6 +203,10 @@ class Subscription(models.Model):
 
     class Meta:
         ordering = ["company__name"]
+
+    @property
+    def is_suspended_unpaid(self):
+        return self.status == self.SUSPENDED and self.suspension_kind == self.SUSPENSION_UNPAID
 
 
 class SubscriptionEvent(models.Model):
@@ -437,3 +453,70 @@ class PlanChangeRequest(models.Model):
                 name="one_open_plan_change_per_company",
             )
         ]
+
+
+class CompanyDeletion(models.Model):
+    """A company the platform deleted: first scheduled (the company is
+    deactivated and a full backup taken), then purged after ``purge_after``
+    by the nightly job, or restored before that.
+
+    After the purge this row is the tombstone: the company row and all its
+    data are gone, but the original id, name and slug, who deleted it, when,
+    and which backup holds its data stay — so the audit trail still reads,
+    and the slug is never handed to another company. It lives in the
+    subscriptions app on purpose: that app is outside the company transfer
+    graph (ops.transfer.EXCLUDED_APPS), so neither an export nor the purge
+    itself ever touches it.
+    """
+
+    SCHEDULED = "scheduled"
+    RESTORED = "restored"
+    PURGED = "purged"
+    STATES = [(SCHEDULED, "Scheduled"), (RESTORED, "Restored"), (PURGED, "Purged")]
+
+    company = models.ForeignKey(
+        "org.Company", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="deletions",
+    )
+    company_ref = models.PositiveBigIntegerField(db_index=True)
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=255, db_index=True)
+    status = models.CharField(max_length=12, choices=STATES, default=SCHEDULED)
+    reason = models.TextField(blank=True)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    requested_at = models.DateTimeField(auto_now_add=True)
+    purge_after = models.DateTimeField()
+    # The subscription status before the deletion, restored on undo.
+    subscription_status = models.CharField(max_length=16, blank=True)
+    backup = models.ForeignKey(
+        "ops.BackupRecord", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    backup_rows = models.PositiveIntegerField(default=0)
+    restored_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    restored_at = models.DateTimeField(null=True, blank=True)
+    # Null purged_by with a purged_at: the nightly job did it.
+    purged_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    purged_at = models.DateTimeField(null=True, blank=True)
+    purged_rows = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-requested_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company"], condition=Q(status="scheduled"),
+                name="one_scheduled_deletion_per_company",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.status})"

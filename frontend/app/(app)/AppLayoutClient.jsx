@@ -11,6 +11,8 @@ import TableCardLabels from "@/components/ui/TableCardLabels";
 import { SyncProvider } from "@/components/sync/SyncProvider";
 import { AttentionProvider } from "@/components/attention/AttentionProvider";
 import ForcedPasswordChange from "@/components/auth/ForcedPasswordChange";
+import SuspendedScreen from "@/components/auth/SuspendedScreen";
+import SubscriptionPage from "./subscription/page";
 import { useAuth } from "../providers/AuthProvider";
 import { useI18n } from "../providers/I18nProvider";
 
@@ -47,6 +49,24 @@ export default function AppLayoutClient({ children }) {
   // the server enforces the same (accounts.authentication).
   if (user.must_change_password) {
     return <ForcedPasswordChange />;
+  }
+
+  // The platform suspended the company until it pays: the owner sees the
+  // notice and the subscription page, anyone else the refusal. The server
+  // refuses everything else (core.company_access); the sync provider stays
+  // so work captured before the suspension still uploads.
+  if (!platformOperator && user.company_access?.state === "suspended_unpaid") {
+    return (
+      <ToastProvider>
+        <ConfirmProvider>
+          <SyncProvider>
+            <SuspendedScreen access={user.company_access}>
+              <SubscriptionPage />
+            </SuspendedScreen>
+          </SyncProvider>
+        </ConfirmProvider>
+      </ToastProvider>
+    );
   }
 
   if (platformOperator) {

@@ -426,6 +426,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "website.tasks.rollup_page_visits",
         "schedule": 60 * 60 * 24,
     },
+    "purge-deleted-companies": {
+        "task": "subscriptions.tasks.purge_deleted_companies",
+        "schedule": 60 * 60 * 24,
+    },
 }
 
 # Audit rows older than this move from the hot ActivityLog table to

@@ -302,13 +302,28 @@ class SyncPushView(APIView):
         errored = batch.error_count
         recorded = dict(batch.operations.values_list("index", "status"))
         read_only = getattr(request, "entitlement_read_only", None)
+        # Suspended until payment: what the till captured before the
+        # suspension still goes through; anything after it stays on the
+        # device with the platform's reason (core.company_access keeps this
+        # endpoint open for exactly that).
+        from subscriptions.tenant_controls import unpaid_suspension
+
+        suspension = unpaid_suspension(request.user.company)
         for i, op in enumerate(operations):
             previous = recorded.get(i)
             if previous is not None and previous != RETRY:
                 continue
             when, moved = settled[i]
             blocked = None
-            if read_only and not writes_allowed_at(request.user.company, when):
+            if suspension and (
+                when is None or suspension["since"] is None or when >= suspension["since"]
+            ):
+                blocked = _(
+                    "The company account is suspended until payment (%(reason)s) and this "
+                    "was recorded after the suspension. It stays on the device: send it "
+                    "again once the account is reopened."
+                ) % {"reason": suspension["reason"]}
+            elif read_only and not writes_allowed_at(request.user.company, when):
                 blocked = _(
                     "The subscription is read-only and this was recorded after it "
                     "lapsed. It stays on the device: renew, then send it again."

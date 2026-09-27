@@ -397,6 +397,16 @@ class MeSerializer(serializers.ModelSerializer):
             "modules": sorted(decision.modules),
         }
 
+    # A platform decision that closes the company: the shell shows the
+    # "suspended until payment" screen (owner) or the refusal (staff)
+    # instead of the workspace. None while the company is open.
+    company_access = serializers.SerializerMethodField()
+
+    def get_company_access(self, obj):
+        from core.company_access import state_for_me
+
+        return state_for_me(obj)
+
     def get_capabilities(self, obj):
         role_name = obj.role.name if obj.role_id else None
         owner = role_name == "Business Owner"
@@ -445,6 +455,7 @@ class MeSerializer(serializers.ModelSerializer):
             "report_areas",
             "capabilities",
             "must_change_password",
+            "company_access",
         ]
 
 

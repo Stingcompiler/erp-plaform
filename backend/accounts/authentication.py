@@ -56,6 +56,11 @@ class CookieJWTAuthentication(JWTAuthentication):
                 _("The system is currently operating in shop mode."),
                 code="store_mode_restricted",
             )
+        # A deleted company ends every session; a company suspended until
+        # payment leaves its owner only the way to pay (core.company_access).
+        from core.company_access import check_request
+
+        check_request(user, request.path)
         if getattr(user, "must_change_password", False) and not request.path.startswith(
             PASSWORD_CHANGE_OPEN_PREFIXES
         ):

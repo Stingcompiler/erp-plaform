@@ -29,7 +29,9 @@ class BackupView(APIView):
 
     def get(self, request):
         company_id = getattr(request.user, "company_id", None)
-        records = BackupRecord.objects.filter(company_id=company_id).only(
+        records = BackupRecord.objects.filter(company_id=company_id).exclude(
+            kind=BackupRecord.DELETION
+        ).only(
             "id", "kind", "status", "record_count", "size_bytes",
             "storage_key", "created_at",
         ).defer("payload_gz")
@@ -103,7 +105,9 @@ class RestoreView(APIView):
         # and cost prices into its own company.
         if not isinstance(dump, dict) and (backup_id or storage_key):
             lookup = {"pk": backup_id} if backup_id else {"storage_key": storage_key}
-            record = BackupRecord.objects.filter(company_id=company_id, **lookup).first()
+            record = BackupRecord.objects.filter(company_id=company_id, **lookup).exclude(
+                kind=BackupRecord.DELETION
+            ).first()
             if record is None or not record.is_downloadable:
                 return Response(
                     {"detail": _("That backup does not belong to your company.")},
@@ -169,7 +173,9 @@ class BackupDownloadView(APIView):
 
     def get(self, request, pk):
         company_id = getattr(request.user, "company_id", None)
-        record = BackupRecord.objects.filter(company_id=company_id, pk=pk).first()
+        record = BackupRecord.objects.filter(company_id=company_id, pk=pk).exclude(
+            kind=BackupRecord.DELETION
+        ).first()
         payload = snapshots.read(record) if record is not None else None
         if not payload:
             return Response({"detail": _("Not found.")}, status=status.HTTP_404_NOT_FOUND)

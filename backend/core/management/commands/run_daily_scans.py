@@ -18,7 +18,10 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             "--only",
-            choices=["receivables", "stock", "subscriptions", "activity_archive", "analytics"],
+            choices=[
+                "receivables", "stock", "subscriptions", "activity_archive", "analytics",
+                "purge_companies",
+            ],
             help="Run a single scan instead of all three.",
         )
 
@@ -27,7 +30,7 @@ class Command(BaseCommand):
         from website.tasks import rollup_page_visits
         from inventory.tasks import scan_stock_alerts
         from sales.tasks import scan_due_receivables
-        from subscriptions.tasks import scan_subscription_expiries
+        from subscriptions.tasks import purge_deleted_companies, scan_subscription_expiries
 
         scans = {
             "receivables": scan_due_receivables,
@@ -37,6 +40,8 @@ class Command(BaseCommand):
             # this command is what the cron and the standalone timer run.
             "activity_archive": archive_activity_logs,
             "analytics": rollup_page_visits,
+            # Companies deleted 30+ days ago are purged (tombstone kept).
+            "purge_companies": purge_deleted_companies,
         }
         chosen = [options["only"]] if options.get("only") else list(scans)
         results = {}
