@@ -1,7 +1,9 @@
 // Vezano Pro («فيزانو برو») advertising poster series — 4 posters × 4 formats
-// (+ a light variant of the main poster). README.md in this folder has the plan.
+// (+ a light variant of the main poster), in Arabic (RTL, the primary set) and
+// English (LTR, files end in -en). README.md in this folder has the plan.
 //
-//   node design/marketing/posters/generate.mjs              all 20 PNGs + A4 PDFs + contact sheet
+//   node design/marketing/posters/generate.mjs              both languages: 40 PNGs + A4 PDFs + 2 contact sheets
+//   node design/marketing/posters/generate.mjs --lang=en    one language only (ar | en)
 //   node design/marketing/posters/generate.mjs story main   only formats/posters whose names match
 //
 // HTML → Playwright Chromium screenshot, like frontend/scripts/brand-icons.mjs
@@ -30,8 +32,11 @@ const SHOTS = Object.fromEntries(
 const REGISTER_URL = "https://vezano.app/register/";
 const QR_LIB = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js";
 const JSQR_LIB = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
-const FONTS =
-  "https://fonts.googleapis.com/css2?family=Readex+Pro:wght@500;700&family=Tajawal:wght@400;500;700;800&family=Inter:wght@400;500;600&display=block";
+// The English set needs heavier Inter weights (its body text is Inter).
+const FONTS = {
+  ar: "https://fonts.googleapis.com/css2?family=Readex+Pro:wght@500;700&family=Tajawal:wght@400;500;700;800&family=Inter:wght@400;500;600&display=block",
+  en: "https://fonts.googleapis.com/css2?family=Readex+Pro:wght@500;700&family=Inter:wght@400;500;600;700;800&display=block",
+};
 
 // ---- formats ----------------------------------------------------------------
 // A4 is laid out at 1240×1754 CSS px and captured at device scale 2 →
@@ -43,6 +48,35 @@ const FORMATS = {
   a4: { w: 1240, h: 1754, scale: 2 },
 };
 
+// ---- language ---------------------------------------------------------------
+// L is the language being rendered. Arabic is the primary set (RTL); English
+// mirrors the layout (LTR) and swaps the copy. tx(ar, en) picks one.
+let L = "ar";
+const tx = (ar, en) => (L === "en" ? en : ar);
+const COPY = {
+  ar: {
+    cta: "ابدأ تجربتك المجانية — 14 يومًا", sameDay: "تفعيل في نفس اليوم", scan: "امسح للتسجيل",
+    pos: "نقطة البيع", branches: ["الخرطوم", "أم درمان", "بحري"], hub: "الإدارة ترى الكل",
+    offline: "دون اتصال: البيع مستمر", online: "عاد الاتصال: تمت المزامنة",
+  },
+  en: {
+    cta: "Start your free trial — 14 days", sameDay: "Activated the same day", scan: "Scan to sign up",
+    pos: "Point of sale", branches: ["Khartoum", "Omdurman", "Bahri"], hub: "Head office sees all",
+    offline: "Offline: still selling", online: "Back online: synced",
+  },
+};
+const C = () => COPY[L];
+
+// Overlays sit on the side the text column is not: mirror left/right in the
+// English (LTR) layouts. Arabic styles pass through untouched.
+function m(style = "") {
+  if (L !== "en") return style.replace(/^=/, "");
+  if (style.startsWith("=")) return style.slice(1); // "=" keeps a style as is
+  return style
+    .replace(/inset:(\S+) (\S+) (\S+) ([^;]+)/, "inset:$1 $4 $3 $2")
+    .replace(/\bleft:/g, "@L@").replace(/\bright:/g, "left:").replace(/@L@/g, "right:");
+}
+
 // ---- small parts ------------------------------------------------------------
 const ICON = {
   check: '<svg viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -53,7 +87,7 @@ const ICON = {
 };
 
 const lockup = () =>
-  `<div class="lockup">${markSvg({ size: 64 })}<b>فيزانو <i>برو</i></b></div>`;
+  `<div class="lockup">${markSvg({ size: 64 })}<b>${tx("فيزانو <i>برو</i>", "Vezano <i>Pro</i>")}</b></div>`;
 
 const url = (text = "vezano.app") => `<span class="url" dir="ltr">${text}</span>`;
 
@@ -69,7 +103,7 @@ const chips = (list) => `<div class="chips">${list.map((t) => `<span>${t}</span>
 // `pos` picks the crop, `zoom` (>1) magnifies it.
 function browser(shot, { style, pos = "100% 0%", zoom = 0 } = {}) {
   const size = zoom ? `${zoom * 100}% auto` : "cover";
-  return `<div class="browser" style="${style}">
+  return `<div class="browser" style="${m(style)}">
   <div class="bar"><i></i><i></i><i></i><span dir="ltr">vezano.app</span></div>
   <div class="shot" style="background-image:url(${SHOTS[shot]});background-size:${size};background-position:${pos}"></div>
 </div>`;
@@ -77,23 +111,19 @@ function browser(shot, { style, pos = "100% 0%", zoom = 0 } = {}) {
 
 // A phone showing the POS payment panel (x 22–402 of the 1440-wide shot).
 function phone(shot, style) {
-  return `<div class="phone" style="${style}"><div class="scr">
-  <div class="phead"><span>نقطة البيع</span><em></em></div>
+  return `<div class="phone" style="${m(style)}"><div class="scr">
+  <div class="phead"><span>${C().pos}</span><em></em></div>
   <div class="pshot"><img src="${SHOTS[shot]}" alt=""></div>
 </div></div>`;
 }
 
 // Poster 2: branches converge into the hub — the logo's idea, as a diagram.
 function branchDiagram(style = "") {
-  const nodes = [
-    [110, "الخرطوم"],
-    [320, "أم درمان"],
-    [530, "بحري"],
-  ];
+  const nodes = [110, 320, 530].map((x, i) => [x, C().branches[i]]);
   const hub = { x: 320, y: 300, s: 150 };
   const top = hub.y - hub.s / 2;
   const tile = 58, gap = 12, t0 = hub.x - tile - gap / 2, t1 = hub.x + gap / 2, u0 = hub.y - tile - gap / 2, u1 = hub.y + gap / 2;
-  return `<div class="diagram" style="${style}"><svg viewBox="0 0 640 440">
+  return `<div class="diagram" style="${m(style)}"><svg viewBox="0 0 640 440">
   ${nodes.map(([x]) => `<path d="M${x} 130 L${hub.x + (x - hub.x) * 0.28} ${top + 4}" stroke="var(--ink)" stroke-width="9" stroke-linecap="round"/>`).join("")}
   ${nodes.map(([x, n]) => `<circle cx="${x}" cy="130" r="26" fill="#a3e3e6"/><text x="${x}" y="72" text-anchor="middle">${n}</text>`).join("")}
   <rect x="${hub.x - hub.s / 2}" y="${top}" width="${hub.s}" height="${hub.s}" rx="34" fill="#0e7c86"/>
@@ -101,21 +131,30 @@ function branchDiagram(style = "") {
   <rect x="${t1}" y="${u0}" width="${tile}" height="${tile}" rx="12" fill="#a3e3e6"/>
   <rect x="${t0}" y="${u1}" width="${tile}" height="${tile}" rx="12" fill="#a3e3e6"/>
   <rect x="${t1}" y="${u1}" width="${tile}" height="${tile}" rx="12" fill="#fff"/>
-  <text class="hub" x="${hub.x}" y="${hub.y + hub.s / 2 + 52}" text-anchor="middle">الإدارة ترى الكل</text>
+  <text class="hub" x="${hub.x}" y="${hub.y + hub.s / 2 + 52}" text-anchor="middle">${C().hub}</text>
 </svg></div>`;
 }
 
 // Poster 3: "offline → synced".
 function syncMotif(style = "", vertical = false) {
-  return `<div class="motif${vertical ? " vert" : ""}" style="${style}">
-  <span class="st off">${ICON.wifiOff}<span>دون اتصال: البيع مستمر</span></span>
+  return `<div class="motif${vertical ? " vert" : ""}" style="${m(style)}">
+  <span class="st off">${ICON.wifiOff}<span>${C().offline}</span></span>
   <span class="ar">${ICON.arrow}</span>
-  <span class="st on">${ICON.sync}<span>عاد الاتصال: تمت المزامنة</span></span>
+  <span class="st on">${ICON.sync}<span>${C().online}</span></span>
 </div>`;
 }
 
 // Poster 4: a bank-app transfer, recorded by hand and matched to the statement.
 function transferCard(style = "") {
+  if (L === "en")
+    return `<div class="transfer" style="${m(style)}">
+  <div class="th"><b>Transfer recorded</b><span class="ok">${ICON.check}Matched to statement</span></div>
+  <dl>
+    <div><dt>App</dt><dd>Bankak</dd></div>
+    <div><dt>Transaction no.</dt><dd dir="ltr">20931847</dd></div>
+    <div><dt>Amount</dt><dd><bdi dir="ltr">150,000.00</bdi> SDG</dd></div>
+  </dl>
+</div>`;
   return `<div class="transfer" style="${style}">
   <div class="th"><b>تحويل بنكي مسجّل</b><span class="ok">${ICON.check}مطابَق مع الكشف</span></div>
   <dl>
@@ -127,26 +166,31 @@ function transferCard(style = "") {
 }
 
 // ---- the four posters -------------------------------------------------------
-const CTA = "ابدأ تجربتك المجانية — 14 يومًا";
-const SAME_DAY = "تفعيل في نفس اليوم";
-const MODULES = ["المبيعات", "المخزون", "المشتريات", "العملاء", "الموظفون", "الإدارة المالية"];
+const modules = () =>
+  tx(
+    ["المبيعات", "المخزون", "المشتريات", "العملاء", "الموظفون", "الإدارة المالية"],
+    ["Sales", "Inventory", "Purchasing", "Customers", "Staff", "Financial management"],
+  );
 
 const POSTERS = {
   "01-main": {
     themes: ["dark", "light"],
-    headline: ["نظام واحد يدير متجرك بكل فروعه"],
+    get headline() {
+      return tx(["نظام واحد يدير متجرك بكل فروعه"], ["One system for your whole business\u00a0— every branch"]);
+    },
     body(fmt) {
-      const offline = `<p class="note">${ICON.wifiOff}<span>ويستمر حتى مع انقطاع الشبكة</span></p>`;
-      const en = `<p class="en" dir="ltr">Vezano Pro — one system for every branch: ERP + POS, Arabic first.</p>`;
-      const line = `<p class="sub">${MODULES.join("\u00a0· ")}</p>`;
+      const offline = `<p class="note">${ICON.wifiOff}<span>${tx("ويستمر حتى مع انقطاع الشبكة", "Keeps selling when the network drops")}</span></p>`;
+      // The one English line of the Arabic set (the English set needs none).
+      const en = tx(`<p class="en" dir="ltr">Vezano Pro — one system for every branch: ERP + POS, Arabic first.</p>`, "");
+      const line = `<p class="sub">${modules().join("\u00a0· ")}</p>`;
       if (fmt === "square" || fmt === "landscape") return `${line}${offline}`;
-      return `${chips(MODULES)}${offline}${en}`;
+      return `${chips(modules())}${offline}${en}`;
     },
     visual(fmt, theme) {
       const dash = theme === "light" ? "dashboard" : "dashboard-dark";
       const pos = theme === "light" ? "pos" : "pos-dark";
       if (fmt === "story")
-        return browser(dash, { style: "inset:0 0 12% 0" }) + phone(pos, "left:-2%;bottom:0;height:62%");
+        return browser(dash, { style: "inset:0 0 12% 0" }) + phone(pos, "=left:-2%;bottom:0;height:62%");
       if (fmt === "square") return browser(dash, { style: "inset:0", zoom: 1.45, pos: "100% 86%" });
       if (fmt === "landscape")
         return browser(dash, { style: "left:0;top:0;right:0;bottom:0" }) + phone(pos, "left:4%;bottom:-8%;height:70%");
@@ -155,8 +199,15 @@ const POSTERS = {
   },
   "02-branches": {
     themes: ["dark"],
-    headline: ["كل فروعك في مكان واحد", "وكل موظف يرى ما يخصّه"],
-    list: ["كل فرع يرى بياناته، والإدارة ترى الكل", "12 دورًا بصلاحيات واضحة", "موافقات للخصم واعتماد الورديات", "سجل لكل عملية"],
+    get headline() {
+      return tx(["كل فروعك في مكان واحد", "وكل موظف يرى ما يخصّه"], ["All your branches in one place", "each person sees what’s theirs"]);
+    },
+    get list() {
+      return tx(
+        ["كل فرع يرى بياناته، والإدارة ترى الكل", "12 دورًا بصلاحيات واضحة", "موافقات للخصم واعتماد الورديات", "سجل لكل عملية"],
+        ["Each branch sees its own data; head office sees everything", "12 roles with clear permissions", "Approvals for discounts and till shifts", "A log of every action"],
+      );
+    },
     body(fmt) {
       return points(fmt === "square" ? this.list.slice(0, 3) : this.list);
     },
@@ -171,8 +222,15 @@ const POSTERS = {
   },
   "03-offline": {
     themes: ["dark"],
-    headline: ["البيع ما بيقف", "حتى لو قطعت الشبكة أو الكهرباء"],
-    list: ["الكاشير يبيع ويحصّل دون إنترنت", "كل العمليات تُحفظ وتُزامَن مرة واحدة عند عودة الاتصال", "بلا تكرار ولا ضياع"],
+    get headline() {
+      return tx(["البيع ما بيقف", "حتى لو قطعت الشبكة أو الكهرباء"], ["Selling never stops", "even when the network or power goes out"]);
+    },
+    get list() {
+      return tx(
+        ["الكاشير يبيع ويحصّل دون إنترنت", "كل العمليات تُحفظ وتُزامَن مرة واحدة عند عودة الاتصال", "بلا تكرار ولا ضياع"],
+        ["The till sells and collects payments offline", "Everything is saved and synced once when you’re back online", "No duplicates, nothing lost"],
+      );
+    },
     body() {
       return points(this.list);
     },
@@ -187,8 +245,15 @@ const POSTERS = {
   },
   "04-bankak": {
     themes: ["dark"],
-    headline: ["بنكك والتطبيقات البنكية…", "مسجّلة ومطابَقة"],
-    list: ["سجّل التحويل برقم العملية", "طابِق كشف الحساب بضغطة", "دفتر ديون يعرف من يدين لك ومنذ متى"],
+    get headline() {
+      return tx(["بنكك والتطبيقات البنكية…", "مسجّلة ومطابَقة"], ["Bankak and <b style=\"font-weight:inherit;white-space:nowrap\">bank-app</b> payments", "recorded and matched"]);
+    },
+    get list() {
+      return tx(
+        ["سجّل التحويل برقم العملية", "طابِق كشف الحساب بضغطة", "دفتر ديون يعرف من يدين لك ومنذ متى"],
+        ["Record each transfer with its transaction number", "Match your bank statement in one click", "A debt ledger that knows who owes you and since when"],
+      );
+    },
     body() {
       return points(this.list);
     },
@@ -289,6 +354,18 @@ h1.two{font-size:${s.h1two || s.h1}px}
 .transfer dd[dir=ltr],.transfer bdi{font-family:Inter,sans-serif;font-weight:600}
 .cta{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;background:${t.ctaBg};color:${t.ctaInk};font-weight:800;white-space:nowrap}
 .muted{color:${t.muted}}
+${L === "en" ? `
+body{font-family:Inter,sans-serif}
+h1{line-height:1.14;letter-spacing:-.018em}
+.lockup b{letter-spacing:-.01em}
+.sub{line-height:1.45}
+.points li>span:last-child{text-wrap:pretty}
+.phead{font-family:Inter,sans-serif;font-size:8cqw}
+.diagram text{font-family:Inter,sans-serif;font-size:27px}.diagram text.hub{font-size:26px}
+.motif .ar svg{transform:scaleX(-1)}
+.motif.vert .ar{transform:rotate(90deg)}
+.cta{font-weight:700}
+.transfer .th b{font-weight:700}` : ""}
 `;
 }
 
@@ -304,9 +381,9 @@ function layout(fmt, key, theme) {
   <div style="margin-top:44px;display:flex;flex-direction:column;gap:30px">${body}</div>
   <div style="margin-top:64px;flex:1;min-height:0;display:flex;flex-direction:column">${vis}</div>
   <footer style="margin-top:72px;display:flex;flex-direction:column;align-items:stretch;gap:26px">
-    <span class="cta" style="height:124px;font-size:44px">${CTA}</span>
+    <span class="cta" style="height:124px;font-size:44px">${C().cta}</span>
     <div style="display:flex;justify-content:space-between;align-items:center;font-size:36px;font-weight:700">
-      <span class="muted">${SAME_DAY}</span>${url().replace("class=\"url\"", 'class="url" style="font-size:40px"')}
+      <span class="muted">${C().sameDay}</span>${url().replace("class=\"url\"", 'class="url" style="font-size:40px"')}
     </div>
   </footer>
 </div>`;
@@ -317,8 +394,8 @@ function layout(fmt, key, theme) {
   <div style="margin-top:28px;display:flex;flex-direction:column;gap:18px">${body}</div>
   <div style="margin-top:40px;flex:1;min-height:0;display:flex;flex-direction:column">${vis}</div>
   <footer style="margin-top:44px;display:flex;justify-content:space-between;align-items:center;gap:24px">
-    <span class="cta" style="height:92px;padding:0 44px;font-size:36px">${CTA}</span>
-    <span class="muted" style="font-size:34px;font-weight:700;white-space:nowrap">${SAME_DAY}</span>
+    <span class="cta" style="height:92px;padding:0 ${tx(44, 36)}px;font-size:${tx(36, 34)}px">${C().cta}</span>
+    <span class="muted" style="font-size:34px;font-weight:700;${tx("white-space:nowrap", "line-height:1.2;text-align:right;text-wrap:balance")}">${C().sameDay}</span>
   </footer>
 </div>`;
   if (fmt === "landscape")
@@ -329,8 +406,8 @@ function layout(fmt, key, theme) {
     <div style="margin-top:18px;display:flex;flex-direction:column;gap:12px">${body}</div>
     <div style="flex:1"></div>
     <footer style="display:flex;align-items:center;gap:22px">
-      <span class="cta" style="height:60px;padding:0 28px;font-size:23px">${CTA}</span>
-      <span style="display:flex;flex-direction:column;gap:4px;font-size:19px;font-weight:700;white-space:nowrap"><span class="muted">${SAME_DAY}</span>${url().replace("class=\"url\"", 'class="url" style="font-size:21px"')}</span>
+      <span class="cta" style="height:60px;padding:0 28px;font-size:23px">${C().cta}</span>
+      <span style="display:flex;flex-direction:column;gap:4px;font-size:19px;font-weight:700;white-space:nowrap"><span class="muted">${C().sameDay}</span>${url().replace("class=\"url\"", 'class="url" style="font-size:21px"')}</span>
     </footer>
   </div>
   <div style="flex:1;display:flex;flex-direction:column;padding:10px 0 4px">${vis}</div>
@@ -344,21 +421,21 @@ function layout(fmt, key, theme) {
   <div style="margin-top:64px;flex:1;min-height:0;display:flex;flex-direction:column">${vis}</div>
   <footer class="band" style="margin-top:64px;display:flex;align-items:center;gap:48px;padding:40px 44px;border-radius:36px;background:${THEME[theme].card};border:1px solid ${THEME[theme].cardLine}">
     <div style="flex:1;display:flex;flex-direction:column;gap:16px">
-      <span style="font-family:'Readex Pro';font-weight:700;font-size:44px;line-height:1.3;white-space:nowrap">${CTA}</span>
-      <span class="muted" style="font-size:32px;font-weight:700">${SAME_DAY}</span>
-      ${url("vezano.app/register").replace("class=\"url\"", 'class="url" style="font-size:40px;text-align:right"')}
+      <span style="font-family:'Readex Pro';font-weight:700;font-size:44px;line-height:1.3;white-space:nowrap">${C().cta}</span>
+      <span class="muted" style="font-size:32px;font-weight:700">${C().sameDay}</span>
+      ${url("vezano.app/register").replace("class=\"url\"", 'class="url" style="font-size:40px;text-align:${tx("right", "left")}"')}
     </div>
     <div style="display:flex;flex-direction:column;align-items:center;gap:12px">
       <div id="qr" style="width:252px;height:252px;background:#fff;border-radius:18px;padding:14px"></div>
-      <span class="muted" style="font-size:24px;font-weight:700">امسح للتسجيل</span>
+      <span class="muted" style="font-size:24px;font-weight:700">${C().scan}</span>
     </div>
   </footer>
 </div>`;
 }
 
 function html(fmt, key, theme) {
-  return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
-<link rel="stylesheet" href="${FONTS}">
+  return `<!doctype html><html lang="${L}" dir="${tx("rtl", "ltr")}"><head><meta charset="utf-8">
+<link rel="stylesheet" href="${FONTS[L]}">
 ${fmt === "a4" ? `<script src="${QR_LIB}"></script>` : ""}
 <style>${css(fmt, theme)}</style></head><body>${layout(fmt, key, theme)}
 ${fmt === "a4" ? `<script>
@@ -371,33 +448,33 @@ ${fmt === "a4" ? `<script>
 }
 
 // ---- render -----------------------------------------------------------------------
-const filters = process.argv.slice(2);
+const langArg = process.argv.find((a) => a.startsWith("--lang="));
+const LANGS = langArg ? [langArg.slice(7)] : ["ar", "en"];
+const filters = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 const wanted = (fmt, key) => filters.length === 0 || filters.every((f) => fmt.includes(f) || key.includes(f));
 const out = (p) => here(`out/${p}`);
 
 const browserApp = await chromium.launch({ channel: "chromium" });
 const rendered = [];
-const qrChecks = [];
 
 async function settle(page) {
-  await page.evaluate(async () => {
-    const want = [
-      ['700 40px "Readex Pro"', "فيزانو"], ['500 40px "Readex Pro"', "برو"],
-      ["500 30px Tajawal", "المبيعات"], ["700 30px Tajawal", "المبيعات"], ["800 30px Tajawal", "ابدأ"],
-      ["500 20px Inter", "vezano.app"], ["600 20px Inter", "vezano.app"],
-    ];
+  const want = L === "en"
+    ? [['700 40px "Readex Pro"', "Vezano"], ['500 40px "Readex Pro"', "Pro"], ["500 30px Inter", "Sales"], ["700 30px Inter", "Sales"], ["600 20px Inter", "vezano.app"]]
+    : [['700 40px "Readex Pro"', "فيزانو"], ['500 40px "Readex Pro"', "برو"], ["500 30px Tajawal", "المبيعات"], ["700 30px Tajawal", "المبيعات"], ["800 30px Tajawal", "ابدأ"], ["500 20px Inter", "vezano.app"], ["600 20px Inter", "vezano.app"]];
+  await page.evaluate(async (want) => {
     await Promise.all(want.map(([f, t]) => document.fonts.load(f, t)));
     await document.fonts.ready;
-  });
+  }, want);
   // Fail loudly if a font did not load (the page would fall back silently).
-  const missing = await page.evaluate(() =>
-    [['700 40px "Readex Pro"', "فيزانو"], ["500 30px Tajawal", "المبيعات"], ["700 30px Tajawal", "المبيعات"], ["600 20px Inter", "vezano"]]
-      .filter(([f, t]) => !document.fonts.check(f, t)).map(([f]) => f),
-  );
+  const missing = await page.evaluate((want) => want.filter(([f, t]) => !document.fonts.check(f, t)).map(([f]) => f), want);
   if (missing.length) throw new Error(`fonts not loaded: ${missing.join(", ")}`);
   await page.waitForTimeout(150);
 }
 
+const suffix = () => (L === "en" ? "-en" : "");
+for (const lang of LANGS) {
+L = lang;
+const qrChecks = [];
 for (const [fmt, f] of Object.entries(FORMATS)) {
   for (const [key, p] of Object.entries(POSTERS)) {
     for (const theme of p.themes) {
@@ -419,16 +496,16 @@ for (const [fmt, f] of Object.entries(FORMATS)) {
         if (v.height < 120) bad.push(`visual too small (${Math.round(v.height)}px)`);
         return bad;
       }, { w: f.w, h: f.h, safe: fmt === "a4" ? 59 : 24 });
-      if (problems.length) console.warn(`! ${fmt}/${key}-${theme}:\n  ${problems.join("\n  ")}`);
+      if (problems.length) console.warn(`! ${fmt}/${key}-${theme}${suffix()}:\n  ${problems.join("\n  ")}`);
       mkdirSync(out(fmt), { recursive: true });
-      const png = out(`${fmt}/${key}-${theme}.png`);
+      const png = out(`${fmt}/${key}-${theme}${suffix()}.png`);
       const buf = await page.screenshot({ type: "png" });
       await sharp(buf).png({ compressionLevel: 9, palette: false }).toFile(png);
       rendered.push({ fmt, key, theme, png });
       if (fmt === "a4") {
         // QR region, in device pixels, for the decode check below.
         const box = await page.locator("#qr").boundingBox();
-        qrChecks.push({ name: `${key}-${theme}`, png, box });
+        qrChecks.push({ name: `${key}-${theme}${suffix()}`, png, box });
         // The page is laid out at 1240 CSS px; A4 is 793.7 CSS px wide at
         // 96 dpi, so zoom the whole page down for print (text stays vector).
         // Big blurred box-shadows come out as hard dark rectangles in some PDF
@@ -436,12 +513,12 @@ for (const [fmt, f] of Object.entries(FORMATS)) {
         await page.addStyleTag({ content: `html{zoom:${793.7 / 1240}}.browser,.phone,.transfer,.motif.vert{box-shadow:none!important}` });
         await page.emulateMedia({ media: "print" });
         await page.pdf({
-          path: out(`a4/${key}-${theme}.pdf`), width: "210mm", height: "297mm", printBackground: true,
+          path: out(`a4/${key}-${theme}${suffix()}.pdf`), width: "210mm", height: "297mm", printBackground: true,
           margin: { top: 0, right: 0, bottom: 0, left: 0 }, pageRanges: "1",
         });
       }
       await page.close();
-      console.log(`✓ ${fmt}/${key}-${theme}`);
+      console.log(`✓ ${fmt}/${key}-${theme}${suffix()}`);
     }
   }
 }
@@ -468,7 +545,7 @@ if (qrChecks.length) {
     lines.push(`${name}: ${ok ? "OK" : "FAIL"} → ${text}`);
     if (!ok) process.exitCode = 1;
   }
-  writeFileSync(out("qr-check.txt"), `QR decode check (jsQR on the rendered A4 PNGs), expecting ${REGISTER_URL}\n${lines.join("\n")}\n`);
+  writeFileSync(out(`qr-check${suffix()}.txt`), `QR decode check (jsQR on the rendered A4 PNGs), expecting ${REGISTER_URL}\n${lines.join("\n")}\n`);
   console.log(lines.join("\n"));
   await page.close();
 }
@@ -481,8 +558,8 @@ if (filters.length === 0) {
     rows.flatMap(({ key, theme }) =>
       Object.entries(FORMATS).map(async ([fmt, f]) => {
         const width = Math.round((f.w / f.h) * ROW_H);
-        const b = await sharp(out(`${fmt}/${key}-${theme}.png`)).resize({ width, height: ROW_H }).jpeg({ quality: 82 }).toBuffer();
-        return `<figure><img src="data:image/jpeg;base64,${b.toString("base64")}" width="${width}" height="${ROW_H}"><figcaption>${fmt}/${key}-${theme}</figcaption></figure>`;
+        const b = await sharp(out(`${fmt}/${key}-${theme}${suffix()}.png`)).resize({ width, height: ROW_H }).jpeg({ quality: 82 }).toBuffer();
+        return `<figure><img src="data:image/jpeg;base64,${b.toString("base64")}" width="${width}" height="${ROW_H}"><figcaption>${fmt}/${key}-${theme}${suffix()}</figcaption></figure>`;
       }),
     ),
   );
@@ -492,11 +569,12 @@ if (filters.length === 0) {
   await page.setContent(`<!doctype html><html><head><style>
 body{margin:0;padding:36px;background:#e9edf2;font:500 15px Inter,system-ui,sans-serif;color:#12253b}
 h2{margin:0 0 20px;font-size:22px}.row{display:flex;gap:22px;margin-bottom:22px;align-items:flex-end}
-figure{margin:0}img{display:block;border-radius:6px;box-shadow:0 4px 14px rgba(18,37,59,.2)}figcaption{margin-top:6px}
-</style></head><body><h2>Vezano Pro — poster series (20 images)</h2>${rowsHtml}</body></html>`);
-  await page.screenshot({ path: out("contact-sheet.png"), fullPage: true });
+figure{margin:0;flex:none}figcaption{font-size:14px;white-space:nowrap;width:0}img{display:block;border-radius:6px;box-shadow:0 4px 14px rgba(18,37,59,.2)}figcaption{margin-top:6px}
+</style></head><body><h2>Vezano Pro — poster series${tx("", ", English")} (20 images)</h2>${rowsHtml}</body></html>`);
+  await page.screenshot({ path: out(`contact-sheet${suffix()}.png`), fullPage: true });
   await page.close();
-  console.log("✓ contact-sheet.png");
+  console.log(`✓ contact-sheet${suffix()}.png`);
 }
+} // for each language
 
 await browserApp.close();

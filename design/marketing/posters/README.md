@@ -1,8 +1,10 @@
 # «فيزانو برو» — poster series
 
 Four advertising posters for Vezano Pro (vezano.app), each in four formats,
-plus a light variant of the main poster: 20 images and 5 print PDFs.
-`out/contact-sheet.png` shows all 20 at a glance.
+plus a light variant of the main poster: 20 images and 5 print PDFs, in
+Arabic (the primary set) and in English (the same 20 + 5, file names ending
+in `-en`). `out/contact-sheet.png` and `out/contact-sheet-en.png` show each
+set at a glance.
 
 ## Goal and audience
 
@@ -14,7 +16,29 @@ trial: «ابدأ تجربتك المجانية — 14 يومًا», activated t
 programs, and who deal every day with network and power cuts and with
 payments through Bankak and other bank apps.
 
-Arabic first (RTL); the main poster alone carries one small English line.
+Arabic first (RTL); the Arabic main poster alone carries one small English
+line. The English set (LTR) is for English-speaking decision makers, partners,
+investors and LinkedIn; it keeps the Arabic app screenshots on purpose (they
+show an Arabic-first product).
+
+## English set
+
+Same layouts mirrored to LTR (text on the left, overlays on the other side;
+the story phone stays on the left), Readex Pro 700 for headlines and the
+"Vezano Pro" wordmark ("Pro" in teal), Inter for everything else.
+
+| # | Headline | Supporting points |
+|---|---|---|
+| 1 | One system for your whole business — every branch | Sales · Inventory · Purchasing · Customers · Staff · Financial management — Keeps selling when the network drops |
+| 2 | All your branches in one place / each person sees what’s theirs | Each branch sees its own data; head office sees everything · 12 roles with clear permissions · Approvals for discounts and till shifts · A log of every action |
+| 3 | Selling never stops / even when the network or power goes out | The till sells and collects payments offline · Everything is saved and synced once when you’re back online · No duplicates, nothing lost |
+| 4 | Bankak and bank-app payments / recorded and matched | Record each transfer with its transaction number · Match your bank statement in one click · A debt ledger that knows who owes you and since when |
+
+CTA «Start your free trial — 14 days», «Activated the same day», `vezano.app`;
+the A4 QR says «Scan to sign up». The same honesty rules apply (below). In
+the visuals: "Point of sale", branches Khartoum / Omdurman / Bahri with
+"Head office sees all", "Offline: still selling → Back online: synced", and a
+"Transfer recorded · Matched to statement" card (amounts in SDG).
 
 ## Messages, one per poster
 
@@ -49,11 +73,12 @@ Every poster carries the lockup (mark + «فيزانو برو»), the CTA
 |---|---|---|---|
 | `out/story/` | 1080×1920 | tall: lockup, big headline, points, visual, full-width CTA | Instagram/Facebook/WhatsApp status stories, TikTok covers |
 | `out/square/` | 1080×1080 | compact: headline, 2–3 points, a cropped strip of the screen, CTA row | Instagram/Facebook feed posts, WhatsApp groups |
-| `out/landscape/` | 1200×628 | split: text and CTA on the right, screen on the left | LinkedIn and Facebook link posts and ads, X/Twitter cards |
+| `out/landscape/` | 1200×628 | split: text and CTA on the right, screen on the left (mirrored in English) | LinkedIn and Facebook link posts and ads, X/Twitter cards |
 | `out/a4/` | 2480×3508 (A4, 300 dpi) + `.pdf` (210×297 mm) | print: ≥17 mm safe margins, CTA band with a QR code to `https://vezano.app/register/` | shop-window and counter posters, flyers, exhibitions |
 
 Themes: all four posters in dark (navy `#0f1d2c`, teal accents); the main
-poster also in light. File names are `<poster>-<theme>.png`.
+poster also in light. File names are `<poster>-<theme>.png`, and
+`<poster>-<theme>-en.png` for English (A4: `.pdf` beside each PNG).
 
 **Printing:** the backgrounds bleed to the page edge but there is no extra
 bleed area; ask the printer for "fit to page" or add 3 mm bleed in their
@@ -63,7 +88,8 @@ arm's length; recapture them at 2× for large-format prints. Big soft shadows
 are dropped in the PDF (some viewers draw them as dark boxes).
 
 **QR check:** the generator decodes every A4 PNG's QR with jsQR and writes
-the result to `out/qr-check.txt` (fails the run on a mismatch).
+the result to `out/qr-check.txt` and `out/qr-check-en.txt` (fails the run on
+a mismatch). All ten A4 QR codes decode to `https://vezano.app/register/`.
 
 ## Regenerating
 
@@ -71,13 +97,19 @@ From the repo root (needs `frontend/node_modules` with Playwright's Chromium
 and sharp, and a network connection for Google Fonts and cdn.jsdelivr.net):
 
 ```sh
-node design/marketing/posters/generate.mjs                 # all 20 PNGs, 5 PDFs, QR check, contact sheet
+node design/marketing/posters/generate.mjs                 # both sets: 40 PNGs, 10 PDFs, QR checks, 2 contact sheets
+node design/marketing/posters/generate.mjs --lang=en       # one set only (ar | en)
 node design/marketing/posters/generate.mjs square offline  # only matching format/poster names
 ```
 
-Everything lives in `generate.mjs`: copy per poster (`POSTERS`), colours
+Everything lives in `generate.mjs`: copy per poster (`POSTERS`, `tx(ar, en)`),
+shared strings (`COPY`), the LTR mirroring of overlays (`m()`), colours
 (`THEME`), type sizes per format (`SIZES`), one layout per format
 (`layout()`), and the visuals (browser frame, phone, branch diagram, sync
 motif, transfer card). The logo comes from `frontend/lib/brandMark.js`, the
 screenshots from `frontend/public/marketing/`. It stops if a font fails to
 load and warns if text spills out of the safe area.
+
+Re-rendering changes PNG bytes slightly (anti-aliasing) even when nothing
+visible changed; render only the set you edited (`--lang=`) to keep the
+other set's files untouched.
