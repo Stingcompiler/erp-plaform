@@ -1,0 +1,6 @@
+QR decode check (jsQR on the rendered A4 PNGs), expecting https://vezano.app/register/
+01-main-dark: OK → https://vezano.app/register/
+01-main-light: OK → https://vezano.app/register/
+02-branches-dark: OK → https://vezano.app/register/
+03-offline-dark: OK → https://vezano.app/register/
+04-bankak-dark: OK → https://vezano.app/register/
