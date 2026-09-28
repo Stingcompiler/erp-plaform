@@ -41,6 +41,7 @@ from sales.models import (
 )
 from inventory.models import StockMovement
 from sales.debt_queries import customer_debts, debt_summary, statement_for_period
+from sales.idempotency import CLIENT_UUID_CONFLICT, conflicts as key_conflicts
 from sales.price_rules import check_document_lines, record_document_check
 from sales.serializers import (
     RefundSerializer,
@@ -1087,6 +1088,19 @@ class POSCheckoutView(APIView):
         )
 
     @staticmethod
+    def _key_conflict():
+        return Response(
+            {
+                "code": CLIENT_UUID_CONFLICT,
+                "detail": _(
+                    "This sale's key was already used for a different sale (another "
+                    "till tab?). This sale was not recorded; complete it again."
+                ),
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    @staticmethod
     def _clock_corrected(data):
         """The body with its device times shifted by the device's clock error.
 
@@ -1113,7 +1127,11 @@ class POSCheckoutView(APIView):
             ).first()
             if existing:
                 # Replay of an already-synced offline sale — return it, don't
-                # ring it up again (Rule #2).
+                # ring it up again (Rule #2). Unless the key now carries a
+                # different sale (two till tabs restored one draft): that
+                # sale was NOT recorded and the till must say so.
+                if key_conflicts(existing, request.data):
+                    return self._key_conflict()
                 return Response(
                     InvoiceSerializer(existing, context={"request": request}).data,
                     status=status.HTTP_200_OK,
@@ -1138,6 +1156,8 @@ class POSCheckoutView(APIView):
             )
             if existing is None:
                 raise
+            if key_conflicts(existing, request.data):
+                return self._key_conflict()
             return Response(
                 InvoiceSerializer(existing, context={"request": request}).data,
                 status=status.HTTP_200_OK,

@@ -70,7 +70,7 @@ export default function DocumentDrawer({ open, onClose, fetcher, id, title }) {
             <div className="flex rounded-control border border-line p-0.5 text-xs" role="group" aria-label={t("doc.paper")}>
               {PAPERS.map((p) => (
                 <button
-                  key={p} type="button" onClick={() => choosePaper(p)}
+                  key={p} type="button" onClick={() => choosePaper(p)} aria-pressed={paper === p}
                   className={`tap rounded-control px-2.5 py-1.5 ${paper === p ? "bg-accent text-white" : "text-muted hover:text-ink"}`}
                 >
                   {t(`doc.paper_${p}`)}

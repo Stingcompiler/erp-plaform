@@ -7,7 +7,8 @@ import { inventory } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { cacheProducts, findProductOffline } from "@/lib/productCache";
 import { Input } from "@/components/ui/kit";
-import { createBurstDetector } from "@/lib/scanBurst";
+import { createBurstDetector, overlayOpen, touchFirst } from "@/lib/scanBurst";
+import { networkSuspect, raceNetwork } from "@/lib/netRace";
 
 // A UPC-A label is 12 digits; the same article in an EAN-13 catalogue is the
 // same digits with a leading 0, and some scanners drop that 0. The server does
@@ -59,58 +60,85 @@ function restoreValue(el, value) {
  * box) is recognised by its rhythm (lib/scanBurst), the field is put back as
  * it was, and the code is rung up here.
  */
-export default function BarcodeScanInput({ onScan, autoFocus = true, disabled, captureGlobal = false, focusRef = null }) {
+export default function BarcodeScanInput({
+  onScan, autoFocus = true, disabled, captureGlobal = false, focusRef = null,
+  // True when the app already knows the server is out of reach (the sync
+  // layer's probe): scans go straight to the local catalogue.
+  offline = false,
+}) {
   const { t } = useI18n();
   const [code, setCode] = useState("");
   const [status, setStatus] = useState(null); // {tone, text}
   const ref = useRef(null);
   const queue = useRef(Promise.resolve());
+  const offlineRef = useRef(offline);
+  offlineRef.current = offline;
 
+  // Not on a touch device: the focus would open the on-screen keyboard over
+  // the till as it opens (a scanner still reaches the field, see below).
   useEffect(() => {
-    if (autoFocus && !disabled) ref.current?.focus();
+    if (autoFocus && !disabled && !touchFirst()) ref.current?.focus();
   }, [autoFocus, disabled]);
 
-  const lookup = useCallback(
-    async (value) => {
-      setStatus({ tone: "muted", text: t("inventory.scanning") });
-      try {
-        const res = await inventory.byBarcode(value);
-        cacheProducts([res.data]);
-        onScan(res.data);
-        setStatus({ tone: "ok", text: t("inventory.scanFound", { name: res.data.name }) });
-      } catch (err) {
-        // Offline (no response at all) → try the cached catalogue before failing.
-        if (!err?.response) {
-          for (const candidate of scanCandidates(value)) {
-            const cached = await findProductOffline(candidate);
-            if (cached) {
-              onScan(cached);
-              setStatus({ tone: "warn", text: t("inventory.scanOffline") });
-              return;
-            }
-          }
-        }
-        setStatus({ tone: "danger", text: t("inventory.scanNotFound", { code: value }) });
+  // Finds the product for a code: { product, local } or null. Network first
+  // with a deadline (lib/netRace); the local catalogue when the app knows it
+  // is offline or the network hung or failed. A real "not found" from the
+  // server is final.
+  const find = useCallback(async (value) => {
+    const local = async () => {
+      for (const candidate of scanCandidates(value)) {
+        const cached = await findProductOffline(candidate);
+        if (cached) return { product: cached, local: true };
       }
-    },
-    [onScan, t]
-  );
+      return null;
+    };
+    if (offlineRef.current) return local();
+    // After a hung request the local catalogue answers first; the network
+    // is only asked about codes the mirror does not know.
+    if (networkSuspect()) {
+      const hit = await local();
+      if (hit) return hit;
+    }
+    try {
+      const res = await raceNetwork((signal) => inventory.byBarcode(value, { signal }));
+      cacheProducts([res.data]);
+      return { product: res.data, local: false };
+    } catch (err) {
+      // No answer at all (offline, hung, aborted) → the cached catalogue.
+      if (!err?.response) return local();
+      return null;
+    }
+  }, []);
 
   const resolve = useCallback(
     (raw) => {
       const value = raw.trim();
       setCode("");
       if (!value) return;
-      // Scans are serialised, not dropped: a second beep before the first
-      // lookup answered still rings up the second item, in order.
-      queue.current = queue.current.then(() => lookup(value));
+      setStatus({ tone: "muted", text: t("inventory.scanning") });
+      // Every lookup starts at once — a hung one no longer holds back the
+      // scans after it — but items are rung up in the order they were
+      // scanned: a second beep before the first answered still comes second.
+      const pending = find(value);
+      queue.current = queue.current.then(async () => {
+        const hit = await pending.catch(() => null);
+        if (!hit) {
+          setStatus({ tone: "danger", text: t("inventory.scanNotFound", { code: value }) });
+          return;
+        }
+        onScan(hit.product);
+        setStatus(hit.local
+          ? { tone: "warn", text: t("inventory.scanOffline") }
+          : { tone: "ok", text: t("inventory.scanFound", { name: hit.product.name }) });
+      });
     },
-    [lookup]
+    [find, onScan, t]
   );
 
-  // Lets the page hand the focus back after a quantity or price edit.
+  // Lets the page hand the focus back after a quantity or price edit, or
+  // after an item was added from the search (not on touch devices).
   useEffect(() => {
-    if (focusRef) focusRef.current = () => { if (!disabled) ref.current?.focus(); };
+    if (focusRef) focusRef.current = () => { if (!disabled && !touchFirst()) ref.current?.focus(); };
   }, [focusRef, disabled]);
 
   useEffect(() => {
@@ -119,6 +147,8 @@ export default function BarcodeScanInput({ onScan, autoFocus = true, disabled, c
       el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
     const bursts = createBurstDetector();
     const onKey = (e) => {
+      // A drawer or a confirmation is open: its fields get the keys.
+      if (overlayOpen(document, ref.current)) { bursts.reset(); return; }
       const active = document.activeElement;
       const own = active === ref.current;
       // A scan typed into another field (the quantity or price box, the
@@ -182,8 +212,14 @@ export default function BarcodeScanInput({ onScan, autoFocus = true, disabled, c
           }}
           placeholder={t("inventory.scan")}
           className="ps-9"
-          inputMode="numeric"
+          // Text keypad: codes with letters (Code 128, internal SKUs) must
+          // be typeable too; a hardware scanner is unaffected.
+          inputMode="text"
+          enterKeyHint="enter"
           autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
         />
       </div>
       <p className={`mt-1 text-xs ${status ? toneClass[status.tone] : "text-muted"}`}>

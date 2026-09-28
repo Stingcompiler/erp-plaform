@@ -22,6 +22,9 @@ import { localToday } from "@/lib/dates";
 import { identityScope, storageKey } from "@/lib/localIdentity";
 import { draftStore, newTender, overDiscountLimit, paymentsFor, tenderPlan } from "@/lib/posCart";
 import { useMoney } from "@/lib/useMoney";
+import { overlayOpen } from "@/lib/scanBurst";
+import { networkSuspect, raceNetwork } from "@/lib/netRace";
+import { claimSaleKey, releaseSaleKey } from "@/lib/saleKeys";
 
 const money = (v) =>
   formatAmount(v);
@@ -86,7 +89,8 @@ export default function PosTerminal({
   useEffect(() => {
     const onKey = (e) => {
       if (!activeRef.current) return;
-      if (document.querySelector('[role="dialog"]')) return;
+      // Any drawer or confirmation (role=alertdialog too) owns the keys.
+      if (overlayOpen(document)) return;
       if (e.key === "F2") { e.preventDefault(); searchRef.current?.focus(); }
       if (e.key === "F4") { e.preventDefault(); amountRef.current?.focus(); }
       if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); keyboardActions.current?.(); }
@@ -127,6 +131,23 @@ export default function PosTerminal({
   // One idempotency key per sale — stable across retries, reset after success.
   const saleUuid = useRef(null);
   const localRef = useRef(null);
+  // The key is held by this tab (lib/saleKeys). A draft or parked cart
+  // restored here while another open tab holds its key is a different sale:
+  // it gets a key (and printed reference) of its own, so the server can
+  // never answer it with the other tab's invoice.
+  function takeSaleKey(uuid) {
+    const previous = saleUuid.current;
+    if (previous && previous !== uuid) releaseSaleKey(previous);
+    saleUuid.current = uuid || null;
+    if (!uuid) return;
+    claimSaleKey(uuid).then((mine) => {
+      if (mine || saleUuid.current !== uuid) return;
+      saleUuid.current = crypto.randomUUID();
+      localRef.current = null;
+      claimSaleKey(saleUuid.current);
+    });
+  }
+  useEffect(() => () => releaseSaleKey(saleUuid.current), []);
 
   useEffect(() => {
     if (warehouses.length && !warehouse) setWarehouse(String(warehouses[0].id));
@@ -135,16 +156,32 @@ export default function PosTerminal({
   // Debounced product search. Only the rows shown are asked for, and an
   // answer to an older query (a slow request overtaken by the next
   // keystroke) is dropped instead of replacing the newer list.
+  // Offline (the sync layer's probe says so) the local catalogue answers at
+  // once; online the server gets a deadline (lib/netRace) — a network that
+  // accepts the connection and never answers used to leave the list empty
+  // for good — and the local catalogue answers past it.
   const searchSeq = useRef(0);
+  const [highlight, setHighlight] = useState(0);
   useEffect(() => {
     const seq = ++searchSeq.current;
+    setHighlight(0);
     if (!query.trim()) {
       setResults([]);
       return undefined;
     }
+    const local = async () => {
+      const rows = await searchProductsOffline(query, 6);
+      if (seq === searchSeq.current) setResults(rows);
+    };
+    if (!online) {
+      local();
+      return undefined;
+    }
+    // A lookup just hung: show the local catalogue now, the server's answer
+    // replaces it if it comes.
+    if (networkSuspect()) local();
     const timer = setTimeout(() => {
-      inventory
-        .products({ search: query, page_size: 6 })
+      raceNetwork((signal) => inventory.products({ search: query, page_size: 6 }, { signal }))
         .then((r) => {
           if (seq !== searchSeq.current) return;
           setResults(r.data.results.slice(0, 6));
@@ -155,12 +192,22 @@ export default function PosTerminal({
         .catch(async (err) => {
           if (seq !== searchSeq.current) return;
           if (err?.response) { setResults([]); return; }
-          const rows = await searchProductsOffline(query, 6);
-          if (seq === searchSeq.current) setResults(rows);
+          await local();
         });
     }, 250);
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, online]);
+
+  // The search list from the keyboard: arrows move, Enter adds.
+  const onSearchKey = (e) => {
+    if (!results.length) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setHighlight((i) => (i + 1) % results.length); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setHighlight((i) => (i - 1 + results.length) % results.length); }
+    else if (e.key === "Enter" && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      addProduct(results[Math.min(highlight, results.length - 1)]);
+    } else if (e.key === "Escape") { setResults([]); }
+  };
 
   // Quantity is held as a STRING while the cashier types: turning "1." or
   // "0.2" into a number on every keystroke fights the input (a trailing dot
@@ -232,7 +279,7 @@ export default function PosTerminal({
   };
 
   function addProduct(p, pack = p.scanned_pack || null) {
-    if (!saleUuid.current) saleUuid.current = crypto.randomUUID();
+    if (!saleUuid.current) takeSaleKey(crypto.randomUUID());
     const key = lineKey(p.id, pack?.id);
     const price = pack ? pack.effective_price : String(p.sale_price ?? 0);
     setCart((c) => {
@@ -272,6 +319,9 @@ export default function PosTerminal({
     });
     setQuery("");
     setResults([]);
+    // Back to the scanner for the next item (it keeps the focus after a
+    // scan anyway; this covers an item picked from the search).
+    scanFocus.current?.();
   }
 
   // Switching a line between the base unit and a pack re-keys it and resets
@@ -339,8 +389,8 @@ export default function PosTerminal({
       ...newTender(row.method || "cash"), amount: row.amount ?? "",
       bankAccount: row.bankAccount ?? "", reference: row.reference ?? "", sender: row.sender ?? "",
     }]);
-    saleUuid.current = row.sale_uuid || null;
     localRef.current = row.local_reference || null;
+    takeSaleKey(row.sale_uuid || null);
     restoredId.current = row.id || null;
   }
   async function holdCart() {
@@ -365,7 +415,7 @@ export default function PosTerminal({
     restoredId.current = null;
     setCart([]);
     setCustomer("");
-    saleUuid.current = null;
+    takeSaleKey(null);
     localRef.current = null;
     setTicketDiscount("");
     setTenders([newTender()]);
@@ -406,7 +456,7 @@ export default function PosTerminal({
       if (cancelled) return;
       restoredId.current = null;
       localRef.current = null;
-      saleUuid.current = crypto.randomUUID();
+      takeSaleKey(crypto.randomUUID());
       setSourceOrder(initialOrder.id);
       setCustomer(String(initialOrder.customer));
       setTicketDiscount("");
@@ -438,7 +488,7 @@ export default function PosTerminal({
     setError("");
     if (!warehouse) return setError(t("sales.selectWarehouseErr"));
     if (cart.length === 0) return setError(t("sales.addProductErr"));
-    if (!saleUuid.current) saleUuid.current = crypto.randomUUID();
+    if (!saleUuid.current) takeSaleKey(crypto.randomUUID());
     for (const row of plan.rows) {
       if (row.method !== "bank_transfer" || !(row.value > 0)) continue;
       if (!row.bankAccount) return setError(t("sales.chooseBankErr"));
@@ -561,6 +611,17 @@ export default function PosTerminal({
         await saveOffline();
         return;
       }
+      // The key already names a DIFFERENT sale (another tab of the till):
+      // nothing was recorded for this cart. It gets a key of its own and
+      // the cashier completes it again.
+      if (err?.response?.status === 409 && err.response.data?.code === "client_uuid_conflict") {
+        takeSaleKey(crypto.randomUUID());
+        localRef.current = null;
+        const conflict = t("sales.saleKeyConflict");
+        setError(conflict);
+        toast.error(conflict);
+        return;
+      }
       const msg =
         errorText(err, t, "sales.checkoutFailed");
       setError(msg);
@@ -668,7 +729,7 @@ export default function PosTerminal({
         {/* Scan first: the till's primary input. Falls back to the search
             below for products without a barcode. */}
         <div className="mb-3">
-          <BarcodeScanInput onScan={addProduct} captureGlobal disabled={!active} focusRef={scanFocus} />
+          <BarcodeScanInput onScan={addProduct} captureGlobal disabled={!active} focusRef={scanFocus} offline={!online} />
         </div>
         <div className="relative">
           <Search size={16} className="pointer-events-none absolute inset-y-0 start-3 my-auto text-muted" />
@@ -677,15 +738,20 @@ export default function PosTerminal({
             placeholder={t("sales.searchToAddShort")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={onSearchKey}
+            aria-describedby={results.length ? "pos-search-hint" : undefined}
             className="ps-9"
           />
           {results.length > 0 && (
             <Card className="absolute z-10 mt-1 w-full overflow-hidden">
-              {results.map((p) => (
+              <span id="pos-search-hint" className="sr-only">{t("sales.searchKeysHint")}</span>
+              {results.map((p, i) => (
                 <button
                   key={p.id}
                   onClick={() => addProduct(p)}
-                  className="tap flex w-full items-center justify-between px-4 py-2.5 text-start text-sm hover:bg-paper"
+                  onMouseEnter={() => setHighlight(i)}
+                  aria-current={i === highlight ? "true" : undefined}
+                  className={`tap flex w-full items-center justify-between px-4 py-2.5 text-start text-sm hover:bg-paper ${i === highlight ? "bg-paper" : ""}`}
                 >
                   <span className="min-w-0">
                     <span className="tabular text-muted">{p.sku}</span>{" "}
@@ -877,7 +943,8 @@ export default function PosTerminal({
           )}
           <Field label={t("sales.customer")} hint={t("sales.customerHint")}>
             <div className="flex gap-2">
-              <Select value={customer} onChange={(e) => setCustomer(e.target.value)}>
+              {/* Field labels the wrapper div here, so the select is named itself. */}
+              <Select value={customer} onChange={(e) => setCustomer(e.target.value)} aria-label={t("sales.customer")}>
                 <option value="">{t("sales.walkIn")}</option>
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>

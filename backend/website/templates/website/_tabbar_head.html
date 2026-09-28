@@ -1,7 +1,7 @@
-{# Styles of the phone tab bar (_tabbar.html). Include after the page's own <style>: it uses the page's --accent/--surface/--line/--muted/--ink and gives the body its bottom padding. #}
+{# Styles of the phone tab bar (_tabbar.html). Include after the page's own <style>: it uses the page's --accent/--surface/--line/--muted/--ink (and --accent-ink, the contrast-safe brand text colour, when the page defines it) and gives the body its bottom padding. #}
 <style>
-:root{--tb-h:60px;--tb-on:color-mix(in srgb,var(--accent) 88%,#000)}
-@media (prefers-color-scheme: dark){:root{--tb-on:color-mix(in srgb,var(--accent) 55%,#fff)}}
+:root{--tb-h:60px;--tb-on:var(--accent-ink,color-mix(in srgb,var(--accent) 88%,#000))}
+@media (prefers-color-scheme: dark){:root{--tb-on:var(--accent-ink,color-mix(in srgb,var(--accent) 55%,#fff))}}
 .tabbar,.tb-sheet,.tb-scrim{display:none}
 @media (max-width:767.98px){
 body{padding-bottom:calc(var(--tb-h) + env(safe-area-inset-bottom))}

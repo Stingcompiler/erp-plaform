@@ -2,6 +2,7 @@ import axios from "axios";
 
 import { cacheKey, recall, remember } from "@/lib/responseCache";
 import { clearStale, markStale } from "@/lib/staleData";
+import { pendingLogout } from "@/lib/pendingLogout";
 
 // One axios instance for the whole app. withCredentials sends the HttpOnly
 // auth cookie set by /api/auth/login/ on every request, and a 401 interceptor
@@ -51,7 +52,41 @@ api.interceptors.response.use(null, async (error) => {
 // stampede the endpoint) and replay the original request; only when the
 // refresh itself fails is the session really over, and the caller's own error
 // handling (AuthProvider) takes it from there. Auth endpoints are excluded so
-// a wrong password or an expired refresh can't loop.
+// a wrong password or an expired refresh can't loop — but only those: the
+// identity call (/auth/me/) is exactly the request that finds a lapsed
+// access cookie when the app is reloaded, and exempting it sent a cashier
+// with a perfectly valid 7-day session to the sign-in page.
+//
+// Tabs: the refresh token rotates, and the old one is blacklisted. Two tabs
+// refreshing at once sent the same old token twice; the second was refused
+// and its answer cleared the cookies the first had just received. So a
+// refresh takes a browser-wide lock (Web Locks), and a tab that finds
+// another tab refreshed after its own request left simply replays it.
+export const NO_REFRESH_URL = /\/auth\/(login|refresh|logout|password-reset)(\/|$)/;
+export function refreshExempt(url) {
+  return NO_REFRESH_URL.test(String(url || "").split("?")[0]);
+}
+const REFRESHED_AT = "vezano.auth.refreshedAt";
+const readRefreshedAt = () => {
+  try { return Number(window.localStorage.getItem(REFRESHED_AT)) || 0; } catch { return 0; }
+};
+async function refreshSession(sentAt) {
+  const run = async () => {
+    // Another tab rotated the tokens after this request was sent: the
+    // cookies are fresh already, a second refresh would only race it.
+    if (sentAt && readRefreshedAt() >= sentAt) return;
+    await api.post("/auth/refresh/");
+    try { window.localStorage.setItem(REFRESHED_AT, String(Date.now())); } catch { /* ignore */ }
+  };
+  if (typeof navigator !== "undefined" && navigator.locks?.request) {
+    return navigator.locks.request("vezano-auth-refresh", run);
+  }
+  return run();
+}
+api.interceptors.request.use((config) => {
+  config._sentAt ||= Date.now();
+  return config;
+});
 let refreshInFlight = null;
 // The platform suspended the company while this screen was open: tell the
 // auth layer, which re-reads the identity and swaps the workspace for the
@@ -66,12 +101,13 @@ api.interceptors.response.use(null, async (error) => {
     response?.status !== 401 ||
     !config ||
     config._retried ||
-    String(config.url || "").includes("/auth/")
+    refreshExempt(config.url) ||
+    // Signed out while offline: that session must not be revived.
+    pendingLogout()
   ) {
     throw error;
   }
-  refreshInFlight ||= api
-    .post("/auth/refresh/")
+  refreshInFlight ||= refreshSession(config._sentAt)
     .finally(() => { refreshInFlight = null; });
   await refreshInFlight; // a failed refresh rejects: the original 401 stands
   return api({ ...config, _retried: true });
@@ -163,7 +199,8 @@ export const inventory = {
     return api.post(`/products/${id}/image/`, form, { headers: { "Content-Type": "multipart/form-data" } });
   },
   removeProductImage: (id) => api.delete(`/products/${id}/image/`),
-  products: (params) => api.get("/products/", { params }),
+  // `config` carries an abort signal for the till's search (lib/netRace).
+  products: (params, config = {}) => api.get("/products/", { params, ...config }),
   lowStock: (params) => api.get("/products/low_stock/", { params }),
   negativeStock: (params) => api.get("/products/negative_stock/", { params }),
   expiringBatches: () => api.get("/products/expiring-batches/"),
@@ -185,7 +222,7 @@ export const inventory = {
     `${API_BASE}/products/export/?${new URLSearchParams(params || {})}`,
   stock: (id) => api.get(`/products/${id}/stock/`),
   // Exact-match scan lookup — resolves to one product or 404 (never fuzzy).
-  byBarcode: (code) => api.get("/products/by-barcode/", { params: { code } }),
+  byBarcode: (code, config = {}) => api.get("/products/by-barcode/", { params: { code }, ...config }),
   generateBarcode: (id) => api.post(`/products/${id}/generate-barcode/`),
   // Bulk reprice: by the day's rate (reference prices) or by percent.
   // dry_run previews counts and a sample without writing.

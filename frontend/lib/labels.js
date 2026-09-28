@@ -27,13 +27,44 @@ export const subscriptionStateLabel = (t, state) =>
 
 export const billingCycleLabel = (t, cycle) => enumLabel(t, "platformPlans", cycle);
 
+// "StockMovement" / "stock_movement" → "Stock movement"
+export function humanizeName(value) {
+  return humanize(String(value ?? "").replace(/([a-z0-9])([A-Z])/g, "$1 $2"));
+}
+
 // The activity log's action codes (create, update, login…) — the same words
-// the audit log page uses.
+// the audit log page uses; the rarer ones (device_revoked, pos_price_override…)
+// from labels.activityAction.
 export function activityActionLabel(t, action) {
   if (!action) return "—";
   const key = `logs.action${action.charAt(0).toUpperCase()}${action.slice(1)}`;
   const text = t(key);
-  return text !== key ? text : humanize(action);
+  if (text !== key) return text;
+  return enumLabel(t, "labels.activityAction", action);
+}
+
+// The record an audit row is about ("StockMovement") as a word.
+export function entityTypeLabel(t, type) {
+  if (!type) return "—";
+  const key = `labels.entityType.${type}`;
+  const text = t(key);
+  return text && text !== key ? text : humanizeName(type);
+}
+
+// A metadata key an action recorded ("device_id") and, for code-like values
+// ("pos_checkout"), the value — as words. Other values are shown as stored.
+export function metaKeyLabel(t, name) {
+  const key = `labels.metaKey.${name}`;
+  const text = t(key);
+  return text && text !== key ? text : humanizeName(name);
+}
+export function metaValueLabel(t, value) {
+  if (typeof value === "boolean") return t(value ? "labels.metaValue.yes" : "labels.metaValue.no");
+  const raw = String(value ?? "");
+  if (!/^[a-z]+(_[a-z]+)+$|^[a-z]+$/.test(raw)) return raw;
+  const key = `labels.metaValue.${raw}`;
+  const text = t(key);
+  return text && text !== key ? text : raw.includes("_") ? humanize(raw) : raw;
 }
 
 // A payment method as the API sends it: the code ("bank_transfer") or, on

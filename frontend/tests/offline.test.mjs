@@ -35,12 +35,38 @@ test("partial failure retains rejected and unconfirmed sales", async () => {
 
 test("retry keeps online idempotency key and never overwrites an uncertain sale", async () => {
   setup(); const id = crypto.randomUUID();
-  await queue.enqueue("pos_checkout", { client_uuid: id, amount: 20 }, "1:1");
-  const second = await queue.enqueue("pos_checkout", { client_uuid: id, amount: 50 }, "1:1");
+  await queue.enqueue("pos_checkout", { client_uuid: id, amount: 20, occurred_at: "a" }, "1:1");
+  // The same sale again (re-stamped times): a retry, the stored row answers.
+  const retry = await queue.enqueue("pos_checkout", { client_uuid: id, amount: 20, occurred_at: "b" }, "1:1");
   assert.equal(await queue.count("1:1"), 1);
-  assert.equal((await queue.list("1:1"))[0].client_uuid, id);
-  assert.equal((await queue.list("1:1"))[0].payload.amount, 20);
-  assert.equal(second.payload.amount, 20, "the stored body is what a retry gets back");
+  assert.equal(retry.client_uuid, id);
+  assert.equal(retry.payload.occurred_at, "a", "the stored body is what a retry gets back");
+  // A DIFFERENT sale under the same key (two till tabs restored one draft)
+  // is never answered with the first one: it is stored under its own key.
+  const other = await queue.enqueue("pos_checkout", { client_uuid: id, amount: 50 }, "1:1");
+  assert.notEqual(other.client_uuid, id);
+  assert.equal(other.payload.client_uuid, other.client_uuid);
+  const rows = await queue.list("1:1");
+  assert.equal(rows.length, 2);
+  assert.equal(rows.find((r) => r.client_uuid === id).payload.amount, 20);
+  assert.equal(rows.find((r) => r.client_uuid === other.client_uuid).payload.amount, 50);
+});
+
+test("other operations keep the first body under their key", async () => {
+  setup(); const id = crypto.randomUUID();
+  await queue.enqueue("payment", { client_uuid: id, amount: 20 }, "1:1");
+  const second = await queue.enqueue("payment", { client_uuid: id, amount: 50 }, "1:1");
+  assert.equal(await queue.count("1:1"), 1);
+  assert.equal(second.payload.amount, 20);
+});
+
+test("the localStorage queue re-keys a different sale too", () => {
+  setup(); const id = crypto.randomUUID();
+  localQueue.enqueue("pos_checkout", { client_uuid: id, amount: 20 }, "1:1");
+  assert.equal(localQueue.enqueue("pos_checkout", { client_uuid: id, amount: 20 }, "1:1").client_uuid, id);
+  const other = localQueue.enqueue("pos_checkout", { client_uuid: id, amount: 30 }, "1:1");
+  assert.notEqual(other.client_uuid, id);
+  assert.equal(localQueue.list("1:1").length, 2);
 });
 
 test("company and user queues do not mix", async () => {
