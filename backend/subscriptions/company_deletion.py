@@ -34,7 +34,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, models, transaction
 from django.db.models import ProtectedError, RestrictedError
 from django.utils import timezone
 from django.utils.translation import gettext as _
@@ -272,6 +272,22 @@ def _company_querysets(company, keep_backup_ids):
         yield model, queryset
 
 
+def _break_self_references(model, queryset):
+    """A row that protects another row of its own model — an expense and the
+    correction that reverses it — blocks deleting both in one go: Django
+    refuses the delete even though the protecting row is going too, and no
+    number of passes helps. Both rows are being purged, so the link between
+    them is cleared first."""
+    for field in model._meta.fields:
+        if (
+            isinstance(field, models.ForeignKey)
+            and field.related_model is model
+            and field.null
+            and field.remote_field.on_delete in (models.PROTECT, models.RESTRICT)
+        ):
+            queryset.filter(**{f"{field.name}__isnull": False}).update(**{field.name: None})
+
+
 def _delete_all(querysets):
     """Delete each queryset, retrying the ones blocked by a protected
     reference until nothing is left or no pass makes progress."""
@@ -282,6 +298,7 @@ def _delete_all(querysets):
         for model, queryset in pending:
             try:
                 with transaction.atomic():
+                    _break_self_references(model, queryset)
                     _total, per_model = queryset.delete()
             except (ProtectedError, RestrictedError, IntegrityError) as exc:
                 blocked.append((model, queryset, exc))
