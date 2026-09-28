@@ -240,3 +240,52 @@ class StockCountTests(APITestCase):
         rows = self.client.get(reverse("stockbatch-list"), {"product": self.a.id}).data
         rows = rows.get("results", rows)
         self.assertEqual([row["lot_number"] for row in rows], ["LA"])
+
+    def test_a_total_line_and_a_lot_line_for_one_product_are_refused(self):
+        """Review F07: the unique key is (count, product, lot), so a line for
+        the product's total (no lot) and a line for one of its lots both
+        passed. Both saw the same 10 on hand, both counted 8, and approval
+        posted the two-unit shortage twice: 6 on the shelf instead of 8."""
+        from inventory.models import StockBatch
+
+        lot = StockBatch.objects.create(company=self.company, product=self.a, lot_number="L1")
+        StockMovement.objects.filter(product=self.a).update(batch=lot)
+        self.client.force_authenticate(self.officer)
+        mixed = self.client.post(
+            reverse("stockcount-list"),
+            {"warehouse": self.wh.id, "lines": [
+                {"product": self.a.id, "counted_quantity": "8"},
+                {"product": self.a.id, "batch": lot.id, "counted_quantity": "8"},
+            ]},
+            format="json",
+        )
+        self.assertEqual(mixed.status_code, 400, mixed.data)
+        self.assertIn("lines", mixed.data)
+        self.assertEqual(StockCount.objects.count(), 0)
+        # The same rule when the count is edited later.
+        created = self.client.post(
+            reverse("stockcount-list"),
+            {"warehouse": self.wh.id, "lines": [
+                {"product": self.a.id, "batch": lot.id, "counted_quantity": "8"},
+            ]},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        edited = self.client.patch(
+            reverse("stockcount-detail", args=[created.data["id"]]),
+            {"lines": [
+                {"product": self.a.id, "batch": lot.id, "counted_quantity": "8"},
+                {"product": self.a.id, "counted_quantity": "8"},
+            ]},
+            format="json",
+        )
+        self.assertEqual(edited.status_code, 400, edited.data)
+        # Counted per lot, the shortage is posted once.
+        self.client.post(reverse("stockcount-submit", args=[created.data["id"]]))
+        self.client.force_authenticate(self.manager)
+        approved = self.client.post(reverse("stockcount-approve", args=[created.data["id"]]))
+        self.assertEqual(approved.status_code, 200, approved.data)
+        self.assertEqual(self.a.on_hand(warehouse=self.wh), Decimal("8"))
+        self.assertEqual(self.a.on_hand(warehouse=self.wh, batch=lot), Decimal("8"))
+        # A product with no lots is still counted as one total.
+        self.assertEqual(self.b.on_hand(warehouse=self.wh), Decimal("4"))

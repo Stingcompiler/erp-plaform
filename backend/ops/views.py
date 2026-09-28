@@ -2,6 +2,7 @@ import json
 
 from django.conf import settings
 from django.http import HttpResponse
+from django.utils import timezone
 from django.utils.translation import gettext as _
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -200,6 +201,58 @@ class BackupDownloadView(APIView):
                 render(dump, record, language), content_type=content_type
             )
             response["Content-Disposition"] = f'attachment; filename="{name}.{extension}"'
+        response["Cache-Control"] = "no-store"
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
+
+
+class CompanyExportView(APIView):
+    """GET /api/ops/backups/export/ — the whole company as one JSON file.
+
+    The nightly snapshot restores master data only (products, customers,
+    suppliers, settings); sales and money records in it are for reading.
+    This is the other thing the product promises: every document and
+    movement, the same transfer payload the platform moves companies with
+    (``ops.transfer``), minus uploaded files. Owner only, a few times an
+    hour — it walks every table of the company.
+    """
+
+    permission_classes = [IsAuthenticated, RoleModuleAccess]
+    rbac_module = "settings"
+    throttle_scope = "company_export"
+
+    def get_throttles(self):
+        from rest_framework.throttling import ScopedRateThrottle
+
+        return [ScopedRateThrottle()]
+
+    def get(self, request):
+        from django.core.serializers.json import DjangoJSONEncoder
+
+        from org.models import Company
+        from ops.transfer import export_company
+
+        user = request.user
+        role = getattr(getattr(user, "role", None), "name", None)
+        company_id = getattr(user, "company_id", None)
+        if company_id is None or role != "Business Owner":
+            return Response(
+                {"detail": _("Only the company owner can download the full export.")},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        company = Company.objects.get(pk=company_id)
+        payload, _media = export_company(company, include_media=False)
+        text = json.dumps(payload, cls=DjangoJSONEncoder, ensure_ascii=False)
+        rows = sum(payload["counts"].values())
+        log_activity(
+            action="export", request=request, entity_type="Company", entity_id=company.pk,
+            metadata={"kind": "full_export", "rows": rows, "models": len(payload["counts"])},
+        )
+        stamp = timezone.now().strftime("%Y-%m-%dT%H-%M-%S")
+        response = HttpResponse(text, content_type="application/json; charset=utf-8")
+        response["Content-Disposition"] = (
+            f'attachment; filename="vezano-company-{company.slug}-{stamp}.json"'
+        )
         response["Cache-Control"] = "no-store"
         response["X-Content-Type-Options"] = "nosniff"
         return response

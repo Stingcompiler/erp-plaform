@@ -459,7 +459,11 @@ def _pull_specs():
         ("stock_movements", StockMovement, StockMovementSerializer, "received_at",
          "inventory", StockMovementViewSet),
         ("customers", Customer, CustomerSerializer, "updated_at", "sales", CustomerViewSet),
-        ("invoices", Invoice, InvoiceSerializer, "received_at", "sales", InvoiceViewSet),
+        # updated_at is server-stamped like received_at, and it is also
+        # bumped by every payment, credit note, refund and void of the
+        # invoice (sales.signals), so a settled invoice reaches every
+        # device — on received_at it stayed "unpaid" in the mirror (F18).
+        ("invoices", Invoice, InvoiceSerializer, "updated_at", "sales", InvoiceViewSet),
         ("suppliers", Supplier, SupplierSerializer, "updated_at", "purchasing",
          SupplierViewSet),
         # Receiving against an order and paying a bill both happen on the
@@ -581,6 +585,14 @@ class SyncPullView(APIView):
                 from sales.querysets import with_ar_balance
 
                 qs = with_ar_balance(qs)
+            elif key == "invoices":
+                from sales.querysets import with_balances
+
+                qs = with_balances(
+                    qs.select_related("customer").prefetch_related(
+                        "lines__return_lines", "lines__product"
+                    )
+                )
 
             rows = list(qs.order_by(ts_field, "pk")[:501])
             more_for_key = len(rows) > 500

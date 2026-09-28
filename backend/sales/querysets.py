@@ -52,6 +52,31 @@ def with_outstanding(qs):
     )
 
 
+def with_balances(qs):
+    """Annotate `paid_sql` and `balance_sql` on an Invoice queryset — what
+    `Invoice.amount_paid()` and `Invoice.ledger_balance()` compute, so a
+    list serializes status, amount due and days overdue from the row
+    instead of five queries per invoice (review F20). Void invoices are
+    kept: the list shows them, and `amount_due()` still short-cuts to 0."""
+    from returns.models import CreditNote
+    from sales.models import Payment, Refund
+
+    paid = _sum_for(Payment, "invoice_id")
+    credited = _sum_for(CreditNote, "invoice_id", is_void=False)
+    refunded = _sum_for(Refund, "credit_note__invoice_id")
+    spent = _sum_for(Payment, "credit_note__invoice_id", method=Payment.STORE_CREDIT)
+    return qs.annotate(
+        paid_sql=Coalesce(Subquery(paid), ZERO, output_field=MONEY),
+        balance_sql=(
+            F("total")
+            - Coalesce(Subquery(paid), ZERO, output_field=MONEY)
+            - Coalesce(Subquery(credited), ZERO, output_field=MONEY)
+            + Coalesce(Subquery(refunded), ZERO, output_field=MONEY)
+            + Coalesce(Subquery(spent), ZERO, output_field=MONEY)
+        ),
+    )
+
+
 def open_invoices(qs):
     """Invoices with a positive balance."""
     return with_outstanding(qs).filter(outstanding__gt=0)

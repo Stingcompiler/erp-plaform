@@ -729,13 +729,17 @@ class InvoiceViewSet(
 
     # `lines__return_lines` feeds InvoiceLine.returned_quantity() from the
     # prefetch cache — without it each line would issue its own COUNT.
-    queryset = Invoice.objects.prefetch_related(
+    queryset = Invoice.objects.select_related("customer").prefetch_related(
         "lines__return_lines", "lines__product", "payments"
     ).all()
     serializer_class = InvoiceSerializer
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        # Balances in SQL: status, amount due and days overdue used to cost
+        # five queries per invoice (196 for a page of ten — review F20).
+        from sales.querysets import with_balances
+
+        qs = with_balances(super().get_queryset())
         params = self.request.query_params
         customer_id = params.get("customer", "").strip()
         if customer_id.isdigit():

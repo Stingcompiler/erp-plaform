@@ -246,9 +246,9 @@ class SalesReturnWriteSerializer(serializers.Serializer):
                 reason=validated_data.get("reason", ""),
                 created_by=user if user.is_authenticated else None,
             )
-            # The invoice changed now (sync pulls follow updated_at), even
-            # when the note itself is dated at the counter below.
-            Invoice.objects.filter(pk=invoice.pk).update(updated_at=note.created_at)
+            # The invoice changed now (sync pulls follow updated_at, which
+            # sales.signals bumps with server time when the note lands),
+            # even when the note itself is dated at the counter below.
             if occurred is not None and occurred < note.created_at:
                 # A return replayed from an offline till: the credit is owed
                 # from the moment the goods came back, not when the server
@@ -623,9 +623,8 @@ class CreditNoteSerializer(serializers.ModelSerializer):
                         }
                     )
                 validated_data["invoice"] = invoice
+            # sales.signals bumps the invoice's change marker for the note.
             note = super().create(validated_data)
-            if note.invoice_id:
-                Invoice.objects.filter(pk=note.invoice_id).update(updated_at=note.created_at)
         return note
 
 

@@ -4,8 +4,9 @@ Every path that records money against an invoice — the till, the collect
 drawer, the offline replay and the public order's transfer claim — goes
 through ``record_payment``. It locks the invoice, caps the amount at what
 is still owed, takes the currency and rate from the invoice (never from the
-caller), validates transfer references, and stamps the invoice's
-``updated_at`` so other devices pull the new balance. The 2026-09-20 review
+caller) and validates transfer references; the invoice's ``updated_at``
+is then stamped by ``sales.signals`` so other devices pull the new
+balance. The 2026-09-20 review
 found the public-order path writing payments directly and accepting
 800 + 800 on a 1,000 order; this module makes that impossible by
 construction.
@@ -89,7 +90,11 @@ def record_payment(invoice, *, amount, method, recorded_by=None, company_bank_ac
                     "code": "duplicate_reference",
                 })
             raise
-        Invoice.objects.filter(pk=locked.pk).update(updated_at=payment.recorded_at)
+        # The invoice's change marker is stamped with SERVER time by
+        # sales.signals when the payment row lands. Writing the payment's
+        # business time here (as this once did) put a backdated offline
+        # sale's marker in the past, and every other device's delta pull
+        # skipped it (review F18).
     return payment
 
 

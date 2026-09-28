@@ -372,6 +372,10 @@ class Invoice(models.Model):
             models.Index(fields=["company", "due_date"], name="invoice_co_due_idx"),
             models.Index(fields=["company", "customer"], name="invoice_co_customer_idx"),
             models.Index(fields=["company", "received_at"], name="invoice_co_received_idx"),
+            # The sync pull's delta key: bumped by every payment, credit
+            # note, refund and void (sales.signals), so a settled invoice
+            # reaches every device.
+            models.Index(fields=["company", "updated_at"], name="invoice_co_updated_idx"),
         ]
         constraints = [
             models.UniqueConstraint(
@@ -397,6 +401,11 @@ class Invoice(models.Model):
             if timezone.is_aware(issued):
                 issued = timezone.localtime(issued, company_zone(self.company))
             self.due_date = issued.date() + timedelta(days=self.payment_terms_days or 0)
+        # A void changes what every device shows for this invoice; the sync
+        # pull keys on updated_at, which a partial save would leave behind.
+        fields = kwargs.get("update_fields")
+        if fields is not None and "is_void" in fields and "updated_at" not in fields:
+            kwargs["update_fields"] = [*fields, "updated_at"]
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -418,6 +427,11 @@ class Invoice(models.Model):
         return f"INV-{self.number:06d}"
 
     def amount_paid(self):
+        # A list annotated by sales.querysets.with_balances already holds
+        # the figure; a single row computes it (same arithmetic).
+        annotated = self.__dict__.get("paid_sql")
+        if annotated is not None:
+            return annotated
         return self.payments.aggregate(
             t=Coalesce(Sum("amount"), Decimal("0"))
         )["t"]
@@ -460,6 +474,9 @@ class Invoice(models.Model):
         still hold credit the customer paid for — the part of a voided sale
         paid with store credit is given back as credit, not cash, and stays
         on the void note until it is spent or refunded."""
+        annotated = self.__dict__.get("balance_sql")
+        if annotated is not None:
+            return annotated
         return (
             self.total - self.amount_paid() - self._applied_credits()
             + self.refunded_total() + self.credit_spent_elsewhere()

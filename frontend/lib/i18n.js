@@ -1848,6 +1848,11 @@ const en = {
     backupFormatsNote: "Download it as JSON to restore from, or as Excel/CSV to read.",
     downloadBackup: "Download",
     backupsNote: "Every snapshot — manual or nightly — is kept for 30 days and can be downloaded here; the most recent one is always kept. Restore reads the JSON file.",
+    snapshotScope: "A snapshot holds your master data — products, categories, brands, units, warehouses, customers and suppliers — plus a readable copy of invoices, payments, stock movements and supplier bills. Restore replays the master data only; sales and money records are never written back over live data.",
+    fullExportTitle: "Full company export",
+    fullExportHint: "Every record of the company — all documents, payments and stock movements — in one JSON file: the same file used to move a company between hosted and on-server. Uploaded files are not included, and it is not a restore file.",
+    fullExportDownload: "Download full export",
+    fullExportOwnerOnly: "Only the company owner can download the full export.",
   },
   reports: {
     invoicedTotal: "Invoiced (incl. tax)",
@@ -4777,6 +4782,11 @@ const ar = {
     backupFormatsNote: "نزّلها JSON للاستعادة، أو إكسل/CSV للاطّلاع عليها.",
     downloadBackup: "تنزيل",
     backupsNote: "كل نسخة — يدوية أو ليلية — تُحفظ 30 يومًا ويمكن تنزيلها من هنا، وتبقى الأحدث دائمًا. الاسترجاع يقرأ ملف JSON.",
+    snapshotScope: "تحوي النسخة بياناتك الأساسية — المنتجات والتصنيفات والعلامات والوحدات والمستودعات والعملاء والموردين — مع صورة للاطّلاع من الفواتير والدفعات وحركات المخزون وفواتير الموردين. الاستعادة تعيد البيانات الأساسية فقط؛ ولا تُكتب سجلات البيع والأموال فوق بيانات حيّة أبدًا.",
+    fullExportTitle: "تصدير الشركة كاملة",
+    fullExportHint: "كل سجلات الشركة — جميع المستندات والدفعات وحركات المخزون — في ملف JSON واحد: الملف نفسه الذي تُنقل به الشركة بين السحابة والخادم الخاص. لا يشمل الملفات المرفوعة، وليس ملف استعادة.",
+    fullExportDownload: "تنزيل التصدير الكامل",
+    fullExportOwnerOnly: "تنزيل التصدير الكامل متاح لمالك الشركة فقط.",
   },
   reports: {
     invoicedTotal: "إجمالي الفواتير (شامل الضريبة)",

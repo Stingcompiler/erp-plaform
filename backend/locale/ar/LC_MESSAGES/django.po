@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-27 12:52+0000\n"
+"POT-Creation-Date: 2026-09-28 14:57+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -175,7 +175,9 @@ msgstr "يجب أن يبقى للشركة مالك نشط واحد على الأ
 msgid ""
 "The company account is suspended until payment. Record the payment on the "
 "subscription page; the account reopens once it is approved."
-msgstr "الحساب موقوف لحين السداد. سجّل الدفعة من صفحة الاشتراك، ويعود الحساب للعمل فور اعتمادها."
+msgstr ""
+"الحساب موقوف لحين السداد. سجّل الدفعة من صفحة الاشتراك، ويعود الحساب للعمل "
+"فور اعتمادها."
 
 msgid ""
 "The company account is temporarily suspended — contact the company owner."
@@ -596,6 +598,10 @@ msgid ""
 msgstr ""
 "لا يمكن حذف الخصم لأنه يؤثر على الرواتب. إن سُجّل خطأً فسجّل قيدًا مقابلًا له."
 
+#, python-format
+msgid "%(skus)s is counted both as a total and per lot; count it one way only."
+msgstr "%(skus)s مُدرج كإجمالي وكدفعات معًا؛ اجرده بطريقة واحدة فقط."
+
 msgid "Only a draft count can be submitted."
 msgstr "لا يُرسَل إلا الجرد الذي في حالة مسودة."
 
@@ -826,6 +832,9 @@ msgstr "تعذّرت قراءة هذه النسخة الاحتياطية من ا
 
 msgid "Stored backup payload is not valid JSON."
 msgstr "بيانات النسخة الاحتياطية المحفوظة ليست JSON صالحًا."
+
+msgid "Only the company owner can download the full export."
+msgstr "لا ينزّل تصدير الشركة الكامل إلا مالكها."
 
 msgid "Unsupported language."
 msgstr "اللغة غير مدعومة."
@@ -2110,7 +2119,9 @@ msgid ""
 "The company account is suspended until payment (%(reason)s) and this was "
 "recorded after the suspension. It stays on the device: send it again once "
 "the account is reopened."
-msgstr "حساب الشركة موقوف لحين السداد (%(reason)s)، وقد سُجّلت هذه العملية بعد الإيقاف. تبقى على الجهاز: أرسلها مجددًا بعد إعادة فتح الحساب."
+msgstr ""
+"حساب الشركة موقوف لحين السداد (%(reason)s)، وقد سُجّلت هذه العملية بعد "
+"الإيقاف. تبقى على الجهاز: أرسلها مجددًا بعد إعادة فتح الحساب."
 
 msgid ""
 "The subscription is read-only and this was recorded after it lapsed. It "

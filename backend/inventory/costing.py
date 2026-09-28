@@ -74,23 +74,18 @@ def _voided_invoices(company_id):
     }
 
 
-def _stream(product, voided=None, as_of=None):
-    """Movements in order. A voided invoice's sale and its reversal still move
-    quantities and cost layers, but neither counts toward COGS: revenue drops
-    the voided invoice from its own period, and charging its cost there while
-    crediting it back in the void's period showed a loss one month and a
-    matching gain the next."""
-    if voided is None:
-        voided = _voided_invoices(product.company_id)
-    movements = product.stock_movements.exclude(movement_type__in=COST_NEUTRAL)
+_ROW_FIELDS = (
+    "product_id", "movement_type", "quantity", "unit_cost", "created_at",
+    "reference_type", "reference_id", "adjustment__reason_code",
+)
+
+
+def _rows(movements, voided, as_of):
+    movements = movements.exclude(movement_type__in=COST_NEUTRAL)
     if as_of is not None:
         # The end of that day on the company's calendar (__date is local).
         movements = movements.filter(created_at__date__lte=as_of)
-    rows = list(
-        movements.order_by("created_at", "id")
-        .values("movement_type", "quantity", "unit_cost", "created_at",
-                "reference_type", "reference_id", "adjustment__reason_code")
-    )
+    rows = list(movements.order_by("created_at", "id").values(*_ROW_FIELDS))
     for row in rows:
         row["voided"] = (
             row["reference_type"] in ("Invoice", "InvoiceVoid")
@@ -101,6 +96,27 @@ def _stream(product, voided=None, as_of=None):
             and not is_opening(row["reference_type"], row["adjustment__reason_code"])
         )
     return rows
+
+
+def _stream(product, voided=None, as_of=None):
+    """Movements in order. A voided invoice's sale and its reversal still move
+    quantities and cost layers, but neither counts toward COGS: revenue drops
+    the voided invoice from its own period, and charging its cost there while
+    crediting it back in the void's period showed a loss one month and a
+    matching gain the next."""
+    if voided is None:
+        voided = _voided_invoices(product.company_id)
+    return _rows(product.stock_movements.all(), voided, as_of)
+
+
+def _company_streams(company_id, voided, as_of=None):
+    """Every product's stream in one query, keyed by product id: the
+    valuation report walked one query per product (review F20)."""
+    streams = {}
+    rows = _rows(StockMovement.objects.filter(company_id=company_id), voided, as_of)
+    for row in rows:
+        streams.setdefault(row["product_id"], []).append(row)
+    return streams
 
 
 def _in_window(when, start, end):
@@ -239,15 +255,19 @@ def _fifo(product, movements, start, end):
 _ENGINES = {STANDARD: _standard, AVERAGE: _average, FIFO: _fifo}
 
 
-def compute(product, method=STANDARD, start=None, end=None, voided=None, as_of=None):
+def compute(product, method=STANDARD, start=None, end=None, voided=None, as_of=None,
+            rows=None):
     """
     Return {on_hand, cogs, adjustments, valuation} for a product under the
     given method. `start`/`end` are dates bounding which sales and stock
     adjustments count; `as_of` cuts the ledger at the end of that local day.
+    `rows` is the product's stream when the caller already fetched it.
     """
     if method not in _ENGINES:
         method = STANDARD
-    return _ENGINES[method](product, _stream(product, voided, as_of), start, end)
+    if rows is None:
+        rows = _stream(product, voided, as_of)
+    return _ENGINES[method](product, rows, start, end)
 
 
 def company_totals(company_id, method=STANDARD, start=None, end=None, as_of=None):
@@ -261,8 +281,11 @@ def company_totals(company_id, method=STANDARD, start=None, end=None, as_of=None
     valuation = ZERO
     per_product = []
     voided = _voided_invoices(company_id)
+    streams = _company_streams(company_id, voided, as_of)
     for product in Product.objects.filter(company_id=company_id):
-        result = compute(product, method, start, end, voided, as_of)
+        result = compute(
+            product, method, start, end, voided, as_of, rows=streams.get(product.pk, []),
+        )
         cogs += result["cogs"]
         adjustments += result["adjustments"]
         valuation += result["valuation"]
