@@ -764,8 +764,13 @@ class SupplierPaymentSerializer(serializers.ModelSerializer):
             "recorded_by", "recorded_by_name", "recorded_at",
             "verified_at", "verified_by", "verified_by_name", "client_uuid",
         ]
+        # Currency and rate are copied from the bill, never client input
+        # (as on the customer side, review F04): an SDG bill paid 1,000 "at
+        # rate 3" settled 1,000 while the bank and the cash-flow report lost
+        # 3,000.
         read_only_fields = [
             "company", "recorded_by", "recorded_at", "verified_at", "verified_by",
+            "currency", "exchange_rate",
         ]
         # A payment settles a bill: the column is NOT NULL, and a payment sent
         # without one crashed the server (and failed every sync retry). An
@@ -813,9 +818,15 @@ class SupplierPaymentSerializer(serializers.ModelSerializer):
                     % {"due": bill.amount_due()}
                 }
             )
-        if bill is not None and not attrs.get("currency"):
-            attrs["currency"] = bill.currency
-            attrs.setdefault("exchange_rate", bill.exchange_rate)
+        company = _request_company(self)
+        if bill is not None and company is not None:
+            # A company-currency bill carrying a rate other than 1 is refused
+            # here rather than paid at it.
+            attrs["currency"], attrs["exchange_rate"] = _document_currency(
+                company, bill.currency, bill.exchange_rate
+            )
+        elif bill is not None:
+            attrs["currency"], attrs["exchange_rate"] = bill.currency, bill.exchange_rate
         return attrs
 
     def create(self, validated_data):

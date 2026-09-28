@@ -101,15 +101,21 @@ def current_access_end(subscription):
     return max((end for end in ends if end is not None), default=None)
 
 
+def earliest_new_start(subscription, now):
+    """The first day a newly paid period can start: the day after current
+    access ends, or today when it has already lapsed."""
+    company = subscription.company
+    end = current_access_end(subscription)
+    if end is not None and end > now:
+        return _local_date(company, end) + timedelta(days=1)
+    return _local_date(company, now)
+
+
 def next_period_start(subscription, now=None):
     """First day of the next renewal period nobody has invoiced yet."""
     now = now or timezone.now()
     company = subscription.company
-    end = current_access_end(subscription)
-    if end is not None and end > now:
-        start = _local_date(company, end) + timedelta(days=1)
-    else:
-        start = _local_date(company, now)
+    start = earliest_new_start(subscription, now)
     last_open = open_renewal_invoices(company).aggregate(last=Max("period_end"))["last"]
     if last_open is not None and last_open >= start:
         start = last_open + timedelta(days=1)
@@ -172,6 +178,12 @@ def plan_renewal(payment, now=None):
 
     remaining = Decimal(payment.amount)
     steps = []
+    # An open invoice completed after its period began would grant days
+    # already gone — a lapsed company that paid part of a cycle, then the
+    # rest weeks later, got a period that had ended: a full cycle paid, no
+    # access. Its period moves to start when a new one would (keeping its
+    # length and amount); `shifted_from` records where it was.
+    cursor = earliest_new_start(subscription, now)
     for invoice in open_renewal_invoices(company):
         if normalise_currency(invoice.currency) != currency:
             continue
@@ -179,15 +191,22 @@ def plan_renewal(payment, now=None):
         if balance <= 0:
             continue
         take = min(balance, remaining)
-        steps.append({
+        step = {
             "invoice_id": invoice.pk, "number": invoice.number,
             "period_start": invoice.period_start, "period_end": invoice.period_end,
             "amount": invoice.amount, "balance": balance, "allocate": take,
-        })
+        }
+        if take == balance:
+            if invoice.period_start < cursor:
+                step["shifted_from"] = (invoice.period_start, invoice.period_end)
+                step["period_start"] = cursor
+                step["period_end"] = cursor + (invoice.period_end - invoice.period_start)
+            cursor = max(cursor, step["period_end"] + timedelta(days=1))
+        steps.append(step)
         remaining -= take
         if not remaining:
             break
-    first = next_period_start(subscription, now)
+    first = max(next_period_start(subscription, now), cursor)
     months = cycle_months(version)
     cycle = 0
     while remaining > 0:
@@ -259,6 +278,10 @@ def renewal_as_json(plan):
     data["steps"] = [
         {
             **step,
+            **(
+                {"shifted_from": [day.isoformat() for day in step["shifted_from"]]}
+                if step.get("shifted_from") else {}
+            ),
             "period_start": step["period_start"].isoformat(),
             "period_end": step["period_end"].isoformat(),
             "amount": money(step["amount"]),
@@ -325,7 +348,7 @@ def renew_with_payment(payment_id, actor, expected_key=None, now=None):
     subscription = Subscription.objects.select_related("plan_version__plan").get(
         pk=subscription.pk
     )
-    allocations, issued = [], []
+    allocations, issued, shifted = [], [], []
     for step in plan["steps"]:
         invoice_id = step["invoice_id"]
         if invoice_id is None:
@@ -343,6 +366,16 @@ def renew_with_payment(payment_id, actor, expected_key=None, now=None):
             invoice_id = invoice.pk
             step["number"] = invoice.number
             issued.append(invoice.number)
+        elif step.get("shifted_from"):
+            # Same amount, later dates: the period it grants starts now.
+            SubscriptionInvoice.objects.filter(pk=invoice_id).update(
+                period_start=step["period_start"], period_end=step["period_end"],
+            )
+            shifted.append({
+                "invoice": step["number"],
+                "from": [day.isoformat() for day in step["shifted_from"]],
+                "to": [step["period_start"].isoformat(), step["period_end"].isoformat()],
+            })
         allocations.append({"invoice_id": invoice_id, "amount": step["allocate"]})
     verify_and_allocate_payment(payment.pk, actor, allocations)
     payment.refresh_from_db()
@@ -359,6 +392,7 @@ def renew_with_payment(payment_id, actor, expected_key=None, now=None):
             "amount": str(payment.amount),
             "currency": payment.currency,
             "invoices_issued": issued,
+            "periods_shifted": shifted,
             "periods_granted": plan["periods_granted"],
             "periods": [
                 {

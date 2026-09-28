@@ -27,9 +27,20 @@ Three rules keep the figures honest:
   * Transfers are skipped. A move between two of the company's own warehouses
     is cost-neutral company-wide; letting its two legs through would pop the
     oldest FIFO layer and re-add the stock as a new layer at today's cost.
-  * A sales return re-enters at the cost the goods LEFT at (the movement's
-    `unit_cost`, stamped by the return), and reverses COGS in the window it
-    falls in; inflows without a cost fall back to the standard cost.
+  * A sales return (or a void's reversal) re-enters at what the sale
+    actually took out under the method being run — FIFO: the cost of the
+    layers that sale consumed; average: the average it left at — and
+    reverses COGS in the window it falls in. The return's own `unit_cost`
+    is the sale's STANDARD snapshot (the last price paid), right for the
+    standard method only: re-entering a FIFO sale that took a 50 layer at
+    80 booked a 30 "profit" and valued the shelf 30 too high. The return is
+    matched to its sale through the invoice; one whose sale is not in the
+    ledger falls back to its own cost, and inflows without a cost fall back
+    to the standard cost.
+  * A purchase return leaves at its receipt line's cost (the debit note is
+    raised at it): FIFO takes it out of the layers at that cost first, the
+    average takes out that value. Consuming the oldest layer, or leaving at
+    the running average, kept the returned lot's price in the goods on hand.
   * The weighted average is never computed across a negative balance. An
     oversell (offline sale before the receipt arrives) leaves on-hand below
     zero; the next receipt then sets the average to its own cost instead of
@@ -80,13 +91,45 @@ _ROW_FIELDS = (
 )
 
 
+def _return_invoices(rows):
+    """{sales_return_id: invoice_id} (as strings) for the returns in rows."""
+    from returns.models import SalesReturn
+
+    ids = {
+        int(row["reference_id"]) for row in rows
+        if row["reference_type"] == "SalesReturn" and str(row["reference_id"]).isdigit()
+    }
+    if not ids:
+        return {}
+    return {
+        str(pk): str(invoice_id) for pk, invoice_id in
+        SalesReturn.objects.filter(pk__in=ids).values_list("pk", "invoice_id")
+    }
+
+
+def _origin(row, return_invoices):
+    """The invoice a sale left on, or the invoice a return/void puts back."""
+    kind = row["movement_type"]
+    ref = row["reference_type"]
+    if kind == StockMovement.SALE_OUT and ref == "Invoice":
+        return row["reference_id"]
+    if kind == StockMovement.SALES_RETURN_IN:
+        if ref == "InvoiceVoid":
+            return row["reference_id"]
+        if ref == "SalesReturn":
+            return return_invoices.get(row["reference_id"])
+    return None
+
+
 def _rows(movements, voided, as_of):
     movements = movements.exclude(movement_type__in=COST_NEUTRAL)
     if as_of is not None:
         # The end of that day on the company's calendar (__date is local).
         movements = movements.filter(created_at__date__lte=as_of)
     rows = list(movements.order_by("created_at", "id").values(*_ROW_FIELDS))
+    return_invoices = _return_invoices(rows)
     for row in rows:
+        row["origin"] = _origin(row, return_invoices)
         row["voided"] = (
             row["reference_type"] in ("Invoice", "InvoiceVoid")
             and row["reference_id"] in voided
@@ -138,6 +181,35 @@ def _is_sales_return(m):
     return m["movement_type"] == StockMovement.SALES_RETURN_IN
 
 
+def _is_purchase_return(m):
+    return m["movement_type"] == StockMovement.PURCHASE_RETURN_OUT
+
+
+class _Taken:
+    """What each invoice's sale took out of one product's stock — units and
+    their cost under the method being run — so a return or a void puts back
+    exactly that, per unit, instead of the sale's standard snapshot."""
+
+    def __init__(self):
+        self.by_invoice = {}
+
+    def record(self, m, units, cost):
+        if m.get("origin") is None or not _is_sale(m) or units <= 0:
+            return
+        seen = self.by_invoice.setdefault(m["origin"], [ZERO, ZERO])
+        seen[0] += units
+        seen[1] += cost
+
+    def unit_cost(self, m):
+        """Per-unit cost of the sale this return/void reverses, or None."""
+        if m.get("origin") is None or not _is_sales_return(m):
+            return None
+        seen = self.by_invoice.get(m["origin"])
+        if not seen or seen[0] <= 0:
+            return None
+        return seen[1] / seen[0]
+
+
 def _standard(product, movements, start, end):
     """Standard cost: stock is valued at the product's current standard cost,
     but COGS is what the goods cost when they left. Sale and return
@@ -173,11 +245,15 @@ def _average(product, movements, start, end):
     qty_on_hand = ZERO
     cogs = ZERO
     adjustments = ZERO
+    taken = _Taken()
     for m in movements:
         qty = m["quantity"]
         cost = m["unit_cost"]
         counts = not m["voided"] and _in_window(m["created_at"], start, end)
         if qty > 0:  # inflow updates the moving average
+            took = taken.unit_cost(m)
+            if took is not None:
+                cost = took
             in_cost = cost if cost is not None else (avg if qty_on_hand > 0 else fallback)
             if qty_on_hand <= 0:
                 # Nothing (or less than nothing) to blend with: the receipt
@@ -190,11 +266,18 @@ def _average(product, movements, start, end):
                 cogs -= qty * (cost if cost is not None else avg)
             elif m["shrinkage"] and counts:
                 adjustments -= qty * in_cost
-        else:  # outflow leaves the average unchanged
+        else:  # outflow leaves the average unchanged...
+            taken.record(m, -qty, (-qty) * avg)
             if _is_sale(m) and counts:
                 cogs += (-qty) * avg
             elif m["shrinkage"] and counts:
                 adjustments += (-qty) * avg
+            elif _is_purchase_return(m) and cost is not None and qty_on_hand + qty > 0:
+                # ...except goods sent back at their own cost: that value
+                # leaves, and what stays is averaged over what stays.
+                left = qty_on_hand * avg + qty * cost
+                if left >= 0:
+                    avg = left / (qty_on_hand + qty)
             qty_on_hand += qty
     valuation = qty_on_hand * avg if qty_on_hand > 0 else ZERO
     return {
@@ -209,11 +292,15 @@ def _fifo(product, movements, start, end):
     oversold = ZERO  # units sold with no layer to draw from
     cogs = ZERO
     adjustments = ZERO
+    taken = _Taken()
     for m in movements:
         qty = m["quantity"]
         cost = m["unit_cost"]
         counts = not m["voided"] and _in_window(m["created_at"], start, end)
         if qty > 0:
+            took = taken.unit_cost(m)
+            if took is not None:
+                cost = took
             in_cost = cost if cost is not None else fallback
             # A receipt first settles any earlier oversell before it becomes
             # a layer; those units are already gone.
@@ -229,6 +316,19 @@ def _fifo(product, movements, start, end):
         else:
             need = -qty
             consumed = ZERO  # cost of the layers this outflow used up
+            if _is_purchase_return(m) and cost is not None:
+                # Goods sent back to the supplier leave from the layers at
+                # their receipt cost (newest first), not the oldest layer.
+                for layer in reversed(layers):
+                    if need <= 0:
+                        break
+                    if layer[1] != cost:
+                        continue
+                    take = layer[0] if layer[0] <= need else need
+                    consumed += take * layer[1]
+                    layer[0] -= take
+                    need -= take
+                layers = [layer for layer in layers if layer[0] > 0]
             while need > 0 and layers:
                 layer = layers[0]
                 take = layer[0] if layer[0] <= need else need
@@ -240,6 +340,7 @@ def _fifo(product, movements, start, end):
             if need > 0:  # consumed past available stock (oversell)
                 oversold += need
                 consumed += need * fallback
+            taken.record(m, -qty, consumed)
             if _is_sale(m) and counts:
                 cogs += consumed
             elif m["shrinkage"] and counts:

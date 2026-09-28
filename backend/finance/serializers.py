@@ -41,6 +41,11 @@ class ExpenseSerializer(serializers.ModelSerializer):
                     "The correction (%(amount)s) is more than what is left of that expense "
                     "(%(left)s)."
                 ) % {"amount": -amount, "left": left}})
+            # The money comes back the way it went out. A correction posted
+            # as cash (the default) restored the profit while the bank the
+            # original was paid from stayed short by the full amount.
+            attrs["method"] = reverses.method
+            attrs["company_bank_account"] = reverses.company_bank_account
         elif reverses is not None:
             raise serializers.ValidationError({"reverses": _(
                 "Only a negative amount can correct an earlier expense."

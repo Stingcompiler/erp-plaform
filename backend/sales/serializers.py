@@ -1402,6 +1402,15 @@ class POSCheckoutSerializer(serializers.Serializer):
         if applied:
             from returns.models import CreditNote
 
+            # The note's own invoice first, then the note — the order refunds
+            # and record_payment use. The credit left on a note depends on
+            # that invoice; locking the note alone let a refund and this
+            # sale each spend the same credit.
+            origin = CreditNote.objects.filter(
+                pk=applied["credit_note"], company_id=company_id
+            ).values_list("invoice_id", flat=True).first()
+            if origin:
+                Invoice.objects.select_for_update().get(pk=origin)
             note = CreditNote.objects.select_for_update().filter(
                 pk=applied["credit_note"], company_id=company_id
             ).first()
