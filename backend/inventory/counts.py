@@ -22,6 +22,32 @@ def _locked(count_id, company_id):
     )
 
 
+def mixed_scope_skus(lines):
+    """SKUs counted both as a product total (no lot) and per lot.
+
+    ``lines`` are StockCountLine rows or the serializer's validated dicts.
+    A total line and a lot line for one product each see the same stock
+    and each post their own difference, so one shortage would be posted
+    twice (review F07). A product is counted one way or the other."""
+    totals = set()
+    lots = set()
+    for line in lines:
+        if isinstance(line, dict):
+            product, batch = line["product"], line.get("batch")
+        else:
+            product, batch = line.product, line.batch_id
+        (lots if batch else totals).add(product)
+    return sorted(product.sku for product in totals & lots)
+
+
+def assert_single_scope(lines):
+    skus = mixed_scope_skus(lines)
+    if skus:
+        raise ValidationError({"lines": _(
+            "%(skus)s is counted both as a total and per lot; count it one way only."
+        ) % {"skus": ", ".join(skus)}})
+
+
 @transaction.atomic
 def submit_count(count_id, actor, request=None):
     count = _locked(count_id, actor.company_id)
@@ -30,6 +56,7 @@ def submit_count(count_id, actor, request=None):
     lines = list(count.lines.select_related("product"))
     if not lines:
         raise ValidationError(_("Add at least one counted line before submitting."))
+    assert_single_scope(lines)
     # Two counts awaiting approval for one warehouse would post the same
     # difference twice.
     if StockCount.objects.filter(
@@ -93,8 +120,13 @@ def approve_count(count_id, actor, request=None):
         raise ValidationError(_("Only a submitted count can be approved."))
     if count.counted_by_id == actor.pk:
         raise ValidationError(_("The person who counted cannot approve their own count."))
+    lines = list(count.lines.select_related("product").order_by("pk"))
+    # A count saved before the one-scope rule could still hold both a total
+    # and a lot line for one product; posting it would apply the difference
+    # twice, so it is refused here as well.
+    assert_single_scope(lines)
     posted = 0
-    for line in count.lines.select_related("product").order_by("pk"):
+    for line in lines:
         variance = line.variance
         if variance is None or variance == 0:
             continue

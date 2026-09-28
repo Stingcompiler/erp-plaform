@@ -858,6 +858,16 @@ class StockCountSerializer(serializers.ModelSerializer):
         # moment the counter could have fixed it.
         if not lines:
             raise serializers.ValidationError(_("Add at least one product to the count."))
+        # A product is counted as one total or lot by lot, never both: each
+        # line sees the same stock and would post the same shortage twice.
+        from inventory.counts import mixed_scope_skus
+
+        skus = mixed_scope_skus(lines)
+        if skus:
+            raise serializers.ValidationError(
+                _("%(skus)s is counted both as a total and per lot; count it one way only.")
+                % {"skus": ", ".join(skus)}
+            )
         return lines
 
     def validate(self, attrs):

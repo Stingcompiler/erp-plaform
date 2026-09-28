@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Database, Download, Lock, Printer, RotateCcw, TrendingUp, Upload } from "lucide-react";
 
-import { settings, users } from "@/lib/api";
+import api, { settings, users } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
 import { errorText } from "@/lib/errors";
 import { useI18n } from "../../providers/I18nProvider";
@@ -36,6 +36,8 @@ export default function SettingsPage() {
   const confirm = useConfirm();
   const writable = canWrite("settings");
   const canApprove = can("finance.approve");
+  // The full export is the owner's alone (the server refuses everyone else).
+  const isOwner = user?.role_name === "Business Owner";
   const [profile, setProfile] = useState(null);
   const [company, setCompany] = useState(null);
   const [handlers, setHandlers] = useState([]);
@@ -670,6 +672,30 @@ export default function SettingsPage() {
           </div>
         )}
         <p className="mt-3 text-xs text-muted">{t("settings.backupsNote")} {t("settings.backupFormatsNote")}</p>
+        {/* What a snapshot restores is narrower than what it holds; say so
+            next to the list, and offer the whole company as its own file
+            (ops.transfer) rather than promising it "on request". */}
+        <p className="mt-2 text-xs text-muted">{t("settings.snapshotScope")}</p>
+        {writable && (
+          <div className="mt-4 rounded-control border border-line bg-paper p-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium text-ink">{t("settings.fullExportTitle")}</div>
+                <p className="mt-0.5 text-xs text-muted">{t("settings.fullExportHint")}</p>
+              </div>
+              {isOwner ? (
+                <a
+                  href={`${api.defaults.baseURL}/ops/backups/export/`}
+                  className="inline-flex min-h-10 items-center gap-2 rounded-control border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink shadow-sm hover:bg-paper"
+                >
+                  <Download size={15} />{t("settings.fullExportDownload")}
+                </a>
+              ) : (
+                <p className="text-xs text-muted">{t("settings.fullExportOwnerOnly")}</p>
+              )}
+            </div>
+          </div>
+        )}
         {writable && (
           <div className="mt-4 rounded-control border border-line bg-paper p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">

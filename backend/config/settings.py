@@ -315,6 +315,8 @@ REST_FRAMEWORK = {
         "login": "10000/min" if "test" in sys.argv else "10/min",
         "password_reset": "10000/min" if "test" in sys.argv else "5/hour",
         "public_order": "10000/min" if "test" in sys.argv else "20/hour",
+        # The full company export walks every table; a few an hour is plenty.
+        "company_export": "10000/min" if "test" in sys.argv else "3/hour",
     },
     # Reports export CSV via `?format=csv`, handled manually in the report views
     # (ReportView.wants_csv). Disable DRF's built-in `format` query-param

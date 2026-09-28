@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-28 14:55+0000\n"
+"POT-Creation-Date: 2026-09-28 18:59+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -602,6 +602,10 @@ msgid ""
 msgstr ""
 "لا يمكن حذف الخصم لأنه يؤثر على الرواتب. إن سُجّل خطأً فسجّل قيدًا مقابلًا له."
 
+#, python-format
+msgid "%(skus)s is counted both as a total and per lot; count it one way only."
+msgstr "%(skus)s مُدرج كإجمالي وكدفعات معًا؛ اجرده بطريقة واحدة فقط."
+
 msgid "Only a draft count can be submitted."
 msgstr "لا يُرسَل إلا الجرد الذي في حالة مسودة."
 
@@ -838,7 +842,8 @@ msgstr "الصف %(row)s في %(section)s: الحقل %(field)s ليس رقمً�
 
 #, python-format
 msgid "Row %(row)s of %(section)s repeats the %(field)s of row %(other)s."
-msgstr "الصف %(row)s في %(section)s يكرر قيمة %(field)s الموجودة في الصف %(other)s."
+msgstr ""
+"الصف %(row)s في %(section)s يكرر قيمة %(field)s الموجودة في الصف %(other)s."
 
 #, python-format
 msgid "Row %(row)s of %(section)s could not be saved: %(error)s"
@@ -859,6 +864,9 @@ msgstr "تعذّرت قراءة هذه النسخة الاحتياطية من ا
 
 msgid "Stored backup payload is not valid JSON."
 msgstr "بيانات النسخة الاحتياطية المحفوظة ليست JSON صالحًا."
+
+msgid "Only the company owner can download the full export."
+msgstr "لا ينزّل تصدير الشركة الكامل إلا مالكها."
 
 msgid "Unsupported language."
 msgstr "اللغة غير مدعومة."

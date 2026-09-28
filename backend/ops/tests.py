@@ -161,3 +161,50 @@ class SecurityHardeningTests(OpsBase):
     def test_security_headers_configured(self):
         self.assertTrue(settings.SECURE_CONTENT_TYPE_NOSNIFF)
         self.assertEqual(settings.X_FRAME_OPTIONS, "DENY")
+
+
+class CompanyExportTests(OpsBase):
+    """The nightly snapshot restores master data only; the owner can still
+    take the whole company home — every document and movement — as the
+    transfer payload, without uploaded files."""
+
+    def test_owner_downloads_every_document_of_their_own_company(self):
+        import json
+
+        from core.models import ActivityLog
+        from sales.models import Customer, Invoice
+
+        wh = Warehouse.objects.get(company=self.company)
+        customer = Customer.objects.create(company=self.company, name="Ahmed")
+        Invoice.objects.create(
+            company=self.company, customer=customer, warehouse=wh, number=1,
+            subtotal=Decimal("10"), total=Decimal("10"),
+        )
+        other = Company.objects.create(name="Beta")
+        Customer.objects.create(company=other, name="Stranger")
+        resp = self.client.get(reverse("ops-company-export"))
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertIn("attachment", resp["Content-Disposition"])
+        payload = json.loads(resp.content)
+        self.assertEqual(payload["source"]["slug"], self.company.slug)
+        self.assertEqual(payload["counts"]["sales.Invoice"], 1)
+        self.assertEqual(
+            {row["name"] for row in payload["objects"]["sales.Customer"]}, {"Ahmed"}
+        )
+        # Credentials never leave in a download.
+        self.assertNotIn("password", payload["objects"]["accounts.User"][0])
+        self.assertTrue(
+            ActivityLog.objects.filter(action="export", entity_type="Company").exists()
+        )
+
+    def test_only_the_owner_may_export(self):
+        manager_role = Role.objects.create(
+            name="General Manager", scope_level=Role.SCOPE_BUSINESS
+        )
+        manager = User.objects.create_user(
+            email="gm@alpha.test", password="passw0rd123",
+            company=self.company, role=manager_role,
+        )
+        self.client.force_authenticate(manager)
+        resp = self.client.get(reverse("ops-company-export"))
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)

@@ -1773,8 +1773,8 @@ class RefundSerializer(serializers.ModelSerializer):
                     reason=refund.note or f"Refund {note.number_display}",
                     recorded_by=refund.recorded_by, refund=refund,
                 )
-            if note.invoice_id:
-                Invoice.objects.filter(pk=note.invoice_id).update(updated_at=refund.recorded_at)
+            # The invoice's change marker is bumped with server time by
+            # sales.signals; the refund's business time would backdate it.
             if request is not None:
                 log_activity(
                     action="create", request=request, entity_type="Refund",
