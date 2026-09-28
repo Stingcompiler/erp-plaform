@@ -33,6 +33,16 @@ def record_payment(invoice, *, amount, method, recorded_by=None, company_bank_ac
     if amount is None or amount <= 0:
         raise serializers.ValidationError({"amount": _("Amount must be positive.")})
     with transaction.atomic():
+        if method == Payment.STORE_CREDIT and credit_note is not None and credit_note.invoice_id:
+            # What a note can still pay depends on its OWN invoice (what it
+            # settled there, what was refunded against it), so that invoice
+            # is locked before the note, as a refund does. Both invoices are
+            # taken in id order: two notes paying each other's invoices
+            # must not lock them crosswise.
+            list(
+                Invoice.objects.select_for_update()
+                .filter(pk__in={invoice.pk, credit_note.invoice_id}).order_by("pk")
+            )
         locked = Invoice.objects.select_for_update().get(pk=invoice.pk)
         if locked.is_void:
             raise serializers.ValidationError({"invoice": _("This invoice is void.")})

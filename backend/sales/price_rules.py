@@ -37,16 +37,21 @@ def price_breaches(rows, limit):
     an agreed lower one), gross (units x price) and discount (line plus
     ticket discount on it).
 
-    The list price is always allowed, even under a cost that rose since:
-    that price is the owner's decision, not the salesperson's."""
+    The floor is measured on the NET unit price, after the line and ticket
+    discounts: a 10% discount within the limit on an item whose margin is
+    5% sold it under cost with nobody's approval, as a typed-down price
+    would have been refused. The list price itself is always allowed, even
+    under a cost that rose since: that price is the owner's decision, not
+    the salesperson's (a discount on top of it is the salesperson's)."""
     breaches = []
     for row in rows:
         units, unit_value, listed = row["units"], row["unit_value"], row["listed"]
         gross, discount, reference = row["gross"], row["discount"], row["reference"]
-        if row["cost"] > 0 and unit_value < row["floor"] and unit_value < listed:
+        sold = (gross - discount) / units if units > 0 and discount > 0 else unit_value
+        if row["cost"] > 0 and sold < row["floor"] and sold < listed:
             breaches.append({
                 "sku": row["sku"], "rule": "below_cost", "price": str(_q2(unit_value)),
-                "list": str(_q2(listed)), "sold": str(_q2(unit_value)),
+                "list": str(_q2(listed)), "sold": str(_q2(sold)),
             })
         if limit is None or units <= 0:
             continue
@@ -73,8 +78,10 @@ def price_breaches(rows, limit):
 
 
 def refuse(breaches, limit):
-    """Raise the reason for the first breach, as the till shows it."""
-    first = breaches[0]
+    """Raise the reason for the first breach, as the till shows it. A
+    discount over the limit is named first: it says what to change, where
+    a discounted line under cost usually breaks both rules."""
+    first = next((b for b in breaches if b["rule"] == "discount"), breaches[0])
     if first["rule"] == "below_cost":
         message = _(
             "%(sku)s is priced below the allowed price. Sell it at the list "

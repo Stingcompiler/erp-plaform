@@ -218,9 +218,15 @@ class Bill(models.Model):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         if self.due_date is None and self.created_at:
-            self.due_date = self.created_at.date() + timedelta(
-                days=self.payment_terms_days or 0
-            )
+            # The company's calendar day, as Invoice.save: a bill keyed in at
+            # 01:30 in Khartoum took UTC's date (yesterday) and, with no
+            # terms, sat overdue on AP aging from the moment it was entered.
+            from core.timezone import company_zone
+
+            entered = self.created_at
+            if timezone.is_aware(entered):
+                entered = timezone.localtime(entered, company_zone(self.company))
+            self.due_date = entered.date() + timedelta(days=self.payment_terms_days or 0)
             super().save(update_fields=["due_date"])
 
     def __str__(self):
