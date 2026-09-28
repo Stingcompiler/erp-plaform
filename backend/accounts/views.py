@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from accounts.cookies import clear_auth_cookies, set_auth_cookies
+from accounts.cookies import clear_auth_cookies, issue_csrf_cookie, set_auth_cookies
 from accounts.models import Permission, Role, User
 from accounts.presence import record_login
 from accounts.serializers import (
@@ -177,6 +177,7 @@ class LoginView(APIView):
 
         response = Response(MeSerializer(user).data, status=status.HTTP_200_OK)
         set_auth_cookies(response, str(access), str(refresh))
+        issue_csrf_cookie(request)
 
         # Rule #8: login is a state-changing event and must be audited.
         log_activity(
@@ -270,6 +271,7 @@ class RefreshView(APIView):
 
         response = Response({"detail": _("Refreshed.")}, status=status.HTTP_200_OK)
         set_auth_cookies(response, str(rotated.access_token), str(rotated))
+        issue_csrf_cookie(request)
         return response
 
 
@@ -277,6 +279,9 @@ class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        # The app shell calls this first; a browser that lost the CSRF
+        # cookie (or signed in before it existed) gets it back here.
+        issue_csrf_cookie(request)
         return Response(MeSerializer(request.user).data)
 
 
@@ -296,6 +301,12 @@ class ChangePasswordView(APIView):
         user.save(update_fields=["password", "must_change_password"])
         invalidate_sessions(user)
         refresh = RefreshToken.for_user(user)
+        # The fresh tokens stay bound to the device this session signed in
+        # from: without the claim the next refresh would end the session
+        # (device_required) and the device could no longer be revoked.
+        device_id = request.auth.get("device") if request.auth is not None else None
+        if device_id:
+            refresh["device"] = device_id
         response = Response(MeSerializer(user).data)
         set_auth_cookies(response, str(refresh.access_token), str(refresh))
         log_activity(

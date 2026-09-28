@@ -17,6 +17,8 @@ eviction or a cache-table rebuild, and a removed device kept working until
 its refresh token expired).
 """
 
+import re
+
 from django.core.cache import cache
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
@@ -25,6 +27,11 @@ from core.activity import log_activity
 from org.models import Device
 
 DEVICE_ID_MAX = 64
+# One token of visible characters, at most the column's width. Whitespace
+# inside, control characters or an over-long id are not "a device": trimming
+# such a value into some other device's identity is how a limit gets shared
+# (review F16), so the id is refused as if none was sent.
+_DEVICE_ID = re.compile(r"^[^\s\x00-\x1f\x7f]{1,%d}$" % DEVICE_ID_MAX)
 # The cache only shortens the DB lookup; a miss is answered by the database,
 # so the TTL is about request cost, not correctness.
 REVOKED_CACHE_TTL = 60 * 5
@@ -42,8 +49,9 @@ class DeviceRefused(Exception):
 
 
 def clean_device_id(raw):
+    """The id as registered, or "" when what was sent is not usable as one."""
     value = str(raw or "").strip()
-    return value[:DEVICE_ID_MAX] if value else ""
+    return value if _DEVICE_ID.match(value) else ""
 
 
 def _revoked_key(company_id, device_id):
