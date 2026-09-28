@@ -36,6 +36,18 @@ def _assert_company(serializer, obj, label):
 
 # ---------- Sales return (Rule #5) ----------
 
+def _line_share(invoice_line, quantity):
+    """The part of an invoice line's value that `quantity` units carry, in
+    cents; the whole line once everything sold has come back."""
+    if quantity >= invoice_line.quantity:
+        return invoice_line.line_total
+    if quantity <= 0:
+        return Decimal("0")
+    return (invoice_line.line_total * quantity / invoice_line.quantity).quantize(
+        Decimal("0.01")
+    )
+
+
 class SalesReturnLineInputSerializer(serializers.Serializer):
     # Rule #4: a return is always a child of the original document, never a
     # standalone credit. The id is resolved unscoped here and then tied to the
@@ -168,7 +180,15 @@ class SalesReturnWriteSerializer(serializers.Serializer):
         if company_id is None:
             raise serializers.ValidationError(_("A company-scoped user is required."))
 
-        invoice = validated_data["invoice"]
+        # Lock the invoice FIRST (the void takes the same lock, then checks
+        # for returns): checked unlocked, a void and a return racing each
+        # other both passed — goods credited twice and restocked twice. The
+        # invoice lines are locked after it, in the same order everywhere.
+        invoice = Invoice.objects.select_for_update().get(pk=validated_data["invoice"].pk)
+        if invoice.is_void:
+            raise serializers.ValidationError(
+                {"invoice": _("A void invoice cannot be returned.")}
+            )
 
         # Serialise returns against the same original lines and repeat the cap
         # under the lock; validation alone is vulnerable to concurrent requests.
@@ -209,6 +229,7 @@ class SalesReturnWriteSerializer(serializers.Serializer):
         # Rule #5: NO stock movement here. Lines are quarantined until a
         # deliberate disposition restocks them.
         credit_total = Decimal("0")
+        returned = defaultdict(Decimal, already)
         for ln in validated_data["lines"]:
             invoice_line = ln["invoice_line"]
             SalesReturnLine.objects.create(
@@ -222,8 +243,15 @@ class SalesReturnWriteSerializer(serializers.Serializer):
             # product's current price — the customer is owed what they actually
             # paid, which may differ from today's list price.
             # Use the complete original line value, including its snapshotted
-            # tax, allocated proportionally for partial returns.
-            credit_total += (invoice_line.line_total / invoice_line.quantity) * ln["quantity"]
+            # tax, allocated proportionally for partial returns — rounded on
+            # the running total of the line, not per return: three returns
+            # of 1 from a 10.00 line of 3 credited 3.33 each and the cent
+            # was never owed back. Now they credit 3.33, 3.34, 3.33, and the
+            # return that completes the line credits whatever is left of it.
+            before = returned[invoice_line.pk]
+            after = before + ln["quantity"]
+            returned[invoice_line.pk] = after
+            credit_total += _line_share(invoice_line, after) - _line_share(invoice_line, before)
 
         # Rule #6: every return generates a note. Walk-in notes carry the
         # invoice as their party reference and intentionally have no customer.
@@ -479,6 +507,10 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
         bill = validated_data.get("bill")
         if bill is not None:
             _assert_company(self, bill, "bill")
+            # Under a lock on the bill, as a supplier payment takes it: a
+            # payment and this note checked against the same unlocked
+            # balance could together settle more than the bill owes.
+            bill = Bill.objects.select_for_update().get(pk=bill.pk)
             if bill.amount_due() < debit_amount:
                 raise serializers.ValidationError({"bill": _(
                     "The debit note (%(amount)s) is more than this bill still owes (%(due)s)."
@@ -489,9 +521,9 @@ class PurchaseReturnWriteSerializer(serializers.Serializer):
             # receipt; if that receipt was billed and the note fits what is
             # still owed, the note settles that bill. Otherwise it stays a
             # credit with the supplier.
-            from purchasing.models import Bill
-
-            billed = Bill.objects.filter(goods_receipt=receipt, is_void=False).first()
+            billed = Bill.objects.select_for_update().filter(
+                goods_receipt=receipt, is_void=False
+            ).order_by("pk").first()
             if billed is not None and billed.amount_due() >= debit_amount:
                 bill = billed
         note = DebitNote.objects.create(

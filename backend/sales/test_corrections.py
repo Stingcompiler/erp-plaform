@@ -532,8 +532,10 @@ class PayablesTests(CorrectionBase):
 class ReturnRevenueBasisTests(CorrectionBase):
     def test_returned_units_reverse_the_discounted_price_not_list_price(self):
         # A 50% discount is past the default cashier limit (10%); this test
-        # is about the return's revenue basis, so the limit is lifted.
+        # is about the return's revenue basis, so the limit is lifted — and
+        # the cost lowered, as the floor is checked on the net price.
         type(self.company).objects.filter(pk=self.company.pk).update(max_discount_percent=None)
+        type(self.product).objects.filter(pk=self.product.pk).update(cost_price=Decimal("40.00"))
         self._as(self.cashier)
         sale = self.client.post(
             reverse("pos-checkout"),
