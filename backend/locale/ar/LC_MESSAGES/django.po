@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-28 14:57+0000\n"
+"POT-Creation-Date: 2026-09-28 18:59+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -22,8 +22,15 @@ msgstr ""
 msgid "Choose your own password before continuing."
 msgstr "اختر كلمة مرور خاصة بك قبل المتابعة."
 
+msgid ""
+"The request is missing its security token. Reload the page and try again."
+msgstr "الطلب لا يحمل رمز الحماية الخاص به. أعد تحميل الصفحة وحاول مجددًا."
+
 msgid "This device was removed by the company."
 msgstr "أزالت الشركة هذا الجهاز."
+
+msgid "Sign in again from this device."
+msgstr "سجّل الدخول مرة أخرى من هذا الجهاز."
 
 msgid "The system is currently operating in shop mode."
 msgstr "النظام يعمل حاليًا في وضع المتجر."
@@ -162,9 +169,6 @@ msgstr "لا توجد جلسة نشطة. سجّل الدخول مرة أخرى."
 
 msgid "Invalid refresh token."
 msgstr "انتهت الجلسة أو أصبحت غير صالحة. سجّل الدخول مرة أخرى."
-
-msgid "Sign in again from this device."
-msgstr "سجّل الدخول مرة أخرى من هذا الجهاز."
 
 msgid "Refreshed."
 msgstr "تم تجديد الجلسة."
@@ -816,6 +820,34 @@ msgstr "يلزم إدخال الباركود."
 
 msgid "No product matches this barcode."
 msgstr "لا يوجد منتج بهذا الباركود."
+
+msgid "The backup file has no master data section."
+msgstr "ملف النسخة الاحتياطية لا يحتوي قسم البيانات الأساسية."
+
+#, python-format
+msgid "Section %(section)s must be a list of rows."
+msgstr "يجب أن يكون القسم %(section)s قائمة من الصفوف."
+
+#, python-format
+msgid "Row %(row)s of %(section)s is not a record."
+msgstr "الصف %(row)s في %(section)s ليس سجلًا."
+
+#, python-format
+msgid "Row %(row)s of %(section)s is missing %(field)s."
+msgstr "الصف %(row)s في %(section)s ينقصه الحقل %(field)s."
+
+#, python-format
+msgid "Row %(row)s of %(section)s: %(field)s is not a number."
+msgstr "الصف %(row)s في %(section)s: الحقل %(field)s ليس رقمًا."
+
+#, python-format
+msgid "Row %(row)s of %(section)s repeats the %(field)s of row %(other)s."
+msgstr ""
+"الصف %(row)s في %(section)s يكرر قيمة %(field)s الموجودة في الصف %(other)s."
+
+#, python-format
+msgid "Row %(row)s of %(section)s could not be saved: %(error)s"
+msgstr "تعذّر حفظ الصف %(row)s في %(section)s: %(error)s"
 
 msgid ""
 "Target company already has products; restore only into an empty company."

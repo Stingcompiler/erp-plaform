@@ -121,6 +121,56 @@ class DeviceLimitTests(TestCase):
         response = client.post("/api/auth/refresh/", {}, format="json")
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.data["code"], "device_required")
+        # The same for an access token: it is refused, not accepted uncounted.
+        client = APIClient()
+        client.cookies["access_token"] = str(legacy.access_token)
+        response = client.get("/api/auth/me/")
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data["code"], "device_required")
+
+    def test_an_unusable_device_id_counts_as_none(self):
+        """Review F16: whitespace or an over-long id is refused outright
+        rather than trimmed into some other device's identity."""
+        for device in ("   ", "x" * 65, "till one", "till\n1"):
+            _, response = self._login("owner@tills.test", "Owner-passw0rd!x", device)
+            self.assertEqual(response.status_code, 400, response.data)
+            self.assertEqual(response.data["code"], "device_required")
+        self.assertEqual(Device.objects.count(), 0)
+
+    def test_the_full_plan_refuses_a_login_without_an_id_as_well(self):
+        for device in ("TILL1", "TILL2"):
+            self.assertEqual(self._login("sales@tills.test", "Sales-passw0rd!x", device)[1]
+                             .status_code, 200)
+        client = APIClient()
+        response = client.post(
+            "/api/auth/login/", {"email": "sales@tills.test", "password": "Sales-passw0rd!x"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertEqual(response.data["code"], "device_required")
+        self.assertNotIn("access_token", response.cookies)
+        self.assertEqual(Device.objects.count(), 2)
+
+    def test_changing_the_password_keeps_the_session_on_its_device(self):
+        """The fresh tokens handed out after a password change carry the
+        device, so the session survives its next refresh and still ends when
+        the owner revokes that device."""
+        till, _ = self._login("sales@tills.test", "Sales-passw0rd!x", "TILL1")
+        changed = till.post(
+            "/api/auth/change-password/",
+            {"current_password": "Sales-passw0rd!x", "new_password": "Sales-N3w-passw0rd!"},
+            format="json",
+        )
+        self.assertEqual(changed.status_code, 200, changed.data)
+        self.assertEqual(till.get("/api/auth/me/").status_code, 200)
+        self.assertEqual(till.post("/api/auth/refresh/", {}, format="json").status_code, 200)
+        self.assertEqual(till.get("/api/auth/me/").status_code, 200)
+        self.assertEqual(Device.objects.filter(is_active=True).count(), 1)
+        device = Device.objects.get(device_id="TILL1")
+        owner, _ = self._login("owner@tills.test", "Owner-passw0rd!x", "OWNER")
+        owner.post(f"/api/subscription/devices/{device.pk}/revoke/", {}, format="json")
+        self.assertEqual(till.get("/api/auth/me/").status_code, 401)
+        self.assertEqual(till.post("/api/auth/refresh/", {}, format="json").status_code, 401)
 
     def test_sync_after_an_outage_keeps_working_and_stops_once_revoked(self):
         till, _ = self._login("sales@tills.test", "Sales-passw0rd!x", "TILL1")

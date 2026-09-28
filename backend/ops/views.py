@@ -14,7 +14,7 @@ from core.rbac import RoleModuleAccess
 from ops import exporters, snapshots
 from ops.models import BackupRecord, UserPreference
 from ops import services
-from ops.services import dump_company, restore_master
+from ops.services import InvalidBackup, dump_company, restore_master
 
 
 class BackupView(APIView):
@@ -142,7 +142,12 @@ class RestoreView(APIView):
         # without writing, so the owner sees it before agreeing.
         mode = request.data.get("mode") or services.EMPTY_ONLY
         dry_run = str(request.data.get("dry_run", "")).lower() in ("1", "true", "yes")
-        result = restore_master(company, dump, request.user, mode=mode, dry_run=dry_run)
+        try:
+            result = restore_master(company, dump, request.user, mode=mode, dry_run=dry_run)
+        except InvalidBackup as invalid:
+            # Nothing was written (the file is checked first, and the write
+            # is one transaction), so the same company can try again.
+            return Response(invalid.detail, status=status.HTTP_400_BAD_REQUEST)
         if dry_run:
             return Response(result, status=status.HTTP_200_OK)
         record = BackupRecord.objects.create(

@@ -1,4 +1,13 @@
 from django.conf import settings
+from django.middleware.csrf import get_token
+
+
+def issue_csrf_cookie(request):
+    """Have Django's CSRF middleware (re)issue the readable ``csrftoken``
+    cookie on this response. The page's scripts echo it as X-CSRFToken on
+    every unsafe request, which is what a cookie-authenticated write must
+    carry (accounts.authentication.enforce_csrf)."""
+    get_token(getattr(request, "_request", request))
 
 
 def _cookie_kwargs():

@@ -353,6 +353,22 @@ CORS_ALLOWED_ORIGINS = env.list(
 )
 CORS_ALLOW_CREDENTIALS = True
 
+# --- CSRF for the cookie-JWT API ---
+# A request authenticated by the auth cookie must echo the csrftoken cookie
+# in the X-CSRFToken header (accounts.authentication.enforce_csrf), so the
+# cookie is readable by the page's own scripts — never HttpOnly — and
+# travels on the same domain and SameSite terms as the auth cookies. A
+# cross-origin CORS frontend (the dev server on :3000) also has to be a
+# trusted CSRF origin, or Django's Origin check refuses its writes.
+CSRF_COOKIE_NAME = "csrftoken"
+CSRF_HEADER_NAME = "HTTP_X_CSRFTOKEN"
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_DOMAIN = SIMPLE_JWT["AUTH_COOKIE_DOMAIN"]
+CSRF_COOKIE_SAMESITE = SIMPLE_JWT["AUTH_COOKIE_SAMESITE"]
+for _origin in CORS_ALLOWED_ORIGINS:
+    if _origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(_origin)
+
 # --- Login lockout ---
 # Failed sign-ins per account before the account is refused for the window.
 # Complements the per-IP throttle, which alone cannot stop a distributed guess

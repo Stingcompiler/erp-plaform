@@ -6,9 +6,43 @@ import { clearStale, markStale } from "@/lib/staleData";
 // One axios instance for the whole app. withCredentials sends the HttpOnly
 // auth cookie set by /api/auth/login/ on every request, and a 401 interceptor
 // lets the auth layer react to an expired session.
+//
+// CSRF: the browser attaches the auth cookie to any request aimed at the
+// API, so a cookie-authenticated write must also prove it came from this
+// page — the readable `csrftoken` cookie (issued by login, refresh and
+// /auth/me/) echoed in the X-CSRFToken header. axios does that for every
+// request through this instance, including the offline queue's pushes.
+export const CSRF_COOKIE = "csrftoken";
+export const CSRF_HEADER = "X-CSRFToken";
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api",
   withCredentials: true,
+  xsrfCookieName: CSRF_COOKIE,
+  xsrfHeaderName: CSRF_HEADER,
+  // Also when the dev frontend (:3000) talks to the API (:8000): same host,
+  // different origin, and cookies are shared by host.
+  withXSRFToken: true,
+});
+
+// A browser signed in before the token existed (or one that lost the
+// cookie) is refused once with `csrf_failed`; the identity call reissues
+// the cookie and the request is replayed, so nobody has to sign in again.
+let csrfRepairInFlight = null;
+api.interceptors.response.use(null, async (error) => {
+  const { config, response } = error;
+  if (
+    response?.status !== 403 ||
+    response.data?.code !== "csrf_failed" ||
+    !config ||
+    config._csrfRetried
+  ) {
+    throw error;
+  }
+  csrfRepairInFlight ||= api
+    .get("/auth/me/")
+    .finally(() => { csrfRepairInFlight = null; });
+  await csrfRepairInFlight; // a failed identity call means the session is over
+  return api({ ...config, _csrfRetried: true });
 });
 
 // The access cookie lives 30 minutes; the refresh cookie lives 7 days. Without
