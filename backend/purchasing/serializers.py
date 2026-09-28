@@ -193,10 +193,28 @@ def _assert_same_company(serializer, obj, label):
         raise serializers.ValidationError({label: _("Not your company's record.")})
 
 
+def _scope_to_company(serializer, fields, names):
+    """Narrow the related-field querysets to the caller's company, so another
+    tenant's id is simply "not found" and its data (a SKU in an error
+    message) is never read, let alone echoed back."""
+    request = serializer.context.get("request")
+    company_id = getattr(getattr(request, "user", None), "company_id", None)
+    if company_id is None:
+        return fields
+    for name in names:
+        field = fields.get(name)
+        if field is not None and getattr(field, "queryset", None) is not None:
+            field.queryset = field.queryset.filter(company_id=company_id)
+    return fields
+
+
 # ---------- Goods Receipt ----------
 
 class ReceiptLineInputSerializer(serializers.Serializer):
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
+
+    def get_fields(self):
+        return _scope_to_company(self, super().get_fields(), ["product"])
     quantity = serializers.DecimalField(
         max_digits=16, decimal_places=3, min_value=Decimal("0.001")
     )
@@ -231,6 +249,11 @@ class GoodsReceiptWriteSerializer(serializers.Serializer):
         max_digits=14, decimal_places=6, required=False, min_value=Decimal("0.000001")
     )
     lines = ReceiptLineInputSerializer(many=True)
+
+    def get_fields(self):
+        return _scope_to_company(
+            self, super().get_fields(), ["supplier", "purchase_order", "warehouse"]
+        )
 
     def validate_occurred_at(self, value):
         from sales.serializers import validate_business_time

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-28 18:59+0000\n"
+"POT-Creation-Date: 2026-09-28 20:51+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -879,6 +879,9 @@ msgstr "المنطقة الزمنية غير معروفة؛ استخدم اسم�
 
 msgid "Branch does not belong to your company."
 msgstr "هذا الفرع لا يتبع شركتك."
+
+msgid "This department is outside your branch."
+msgstr "هذا القسم خارج فرعك."
 
 msgid "The rate must be greater than zero."
 msgstr "يجب أن يكون السعر أكبر من صفر."
@@ -2174,6 +2177,9 @@ msgstr "اكتب سبب تجاهل هذه العملية."
 msgid "The operation payload is required."
 msgstr "بيانات العملية مطلوبة."
 
+msgid "Unknown operation type."
+msgstr "نوع العملية غير معروف."
+
 msgid "Managers only."
 msgstr "للمديرين فقط."
 
@@ -2210,6 +2216,9 @@ msgstr "هذا الملف ليس صورة JPEG أو PNG أو WebP."
 
 msgid "Use a JPEG, PNG or WebP image."
 msgstr "استخدم صورة JPEG أو PNG أو WebP."
+
+msgid "Send the transfer as a form."
+msgstr "أرسل بيانات التحويل عبر النموذج."
 
 msgid "This order is closed."
 msgstr "هذا الطلب مغلق."
@@ -2268,11 +2277,17 @@ msgstr "تم تنفيذ هذا الطلب دون فاتورة."
 msgid "%(surplus)s above the balance is being returned to the customer."
 msgstr "يُعاد %(surplus)s الزائد على المتبقي إلى العميل."
 
+msgid "The shop is not taking orders right now."
+msgstr "المتجر لا يستقبل طلبات حاليًا"
+
 msgid "Enter a phone number we can reach you on."
 msgstr "أدخل رقم هاتف يمكننا التواصل معك عليه."
 
 msgid "This page does not take orders."
 msgstr "هذه الصفحة لا تستقبل طلبات."
+
+msgid "Send the order as a form."
+msgstr "أرسل الطلب عبر النموذج."
 
 msgid "Tell us who to ask for."
 msgstr "أخبرنا باسم من نسأل عنه."
@@ -2422,6 +2437,9 @@ msgstr "الإشعارات غير مُعدّة على الخادم."
 msgid "A push subscription is required."
 msgstr ""
 "بيانات اشتراك الإشعارات مطلوبة. فعّل الإشعارات من المتصفح ثم أعد المحاولة."
+
+msgid "This browser's push service is not supported."
+msgstr "خدمة الإشعارات في هذا المتصفح غير مدعومة."
 
 msgid "Enter a reference, a phone number, an email or a name."
 msgstr "اكتب رقم الطلب أو رقم الهاتف أو البريد الإلكتروني أو الاسم."

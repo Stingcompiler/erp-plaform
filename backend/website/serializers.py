@@ -176,6 +176,9 @@ class PublicSiteSerializer(serializers.ModelSerializer):
     logo_image_url = serializers.SerializerMethodField()
     gallery = serializers.SerializerMethodField()
     services = serializers.SerializerMethodField()
+    # Suspended until payment: the page stays visible, ordering is off.
+    accept_orders = serializers.SerializerMethodField()
+    orders_paused = serializers.SerializerMethodField()
 
     class Meta:
         model = Website
@@ -185,7 +188,18 @@ class PublicSiteSerializer(serializers.ModelSerializer):
             "social_links", "published_at", "sections", "featured_products",
             "category", "city", "opening_hours", "map_url", "services",
             "cover_image_url", "logo_image_url", "gallery", "accept_orders", "order_instructions",
+            "orders_paused",
         ]
+
+    def get_orders_paused(self, obj):
+        from website.orders import orders_paused
+
+        if not hasattr(self, "_paused"):
+            self._paused = orders_paused(obj.company)
+        return self._paused
+
+    def get_accept_orders(self, obj):
+        return bool(obj.accept_orders) and not self.get_orders_paused(obj)
 
     def get_services(self, obj):
         return service_lines(obj.services)
@@ -208,9 +222,10 @@ class PublicSiteSerializer(serializers.ModelSerializer):
         return PublicSectionSerializer(visible, many=True).data
 
     def get_featured_products(self, obj):
-        featured = obj.featured_products.select_related("product").order_by(
-            "order", "id"
-        )
+        # A deactivated (archived) product is off the public page too.
+        featured = obj.featured_products.filter(product__is_active=True).select_related(
+            "product"
+        ).order_by("order", "id")
         return PublicFeaturedProductSerializer(featured, many=True).data
 
 

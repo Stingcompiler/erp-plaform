@@ -863,6 +863,10 @@ class PublicOrderCreateView(APIView):
         site = getattr(company, "website", None)
         if site is None or not site.is_published or not site.accept_orders:
             return Response({"detail": _("Not found.")}, status=status.HTTP_404_NOT_FOUND)
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": _("Send the order as a form.")}, status=status.HTTP_400_BAD_REQUEST
+            )
         if str(request.data.get("website_url") or "").strip():
             return Response({"reference": "W" + "0" * 6, "whatsapp": ""}, status=201)
         order = place_order(site, request.data, request)
@@ -916,6 +920,11 @@ class PublicOrderStatusView(APIView):
         order = self._order(slug, reference)
         if order is None:
             return Response({"detail": _("Not found.")}, status=status.HTTP_404_NOT_FOUND)
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": _("Send the transfer as a form.")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         claim = declare_payment(order, request.data, request.FILES, request)
         return Response(claim_payload(claim), status=status.HTTP_201_CREATED)
 
@@ -984,8 +993,10 @@ class PublicOrderViewSet(
         return Response(self.get_serializer(self.get_queryset().get(pk=order.pk)).data)
 
     def _claim(self, pk, claim_pk):
+        from django.shortcuts import get_object_or_404
+
         order = self.get_object()
-        return order.payments.get(pk=claim_pk)
+        return get_object_or_404(order.payments, pk=claim_pk)
 
     @action(detail=True, methods=["get"], url_path=r"payments/(?P<claim_pk>\d+)/proof")
     def payment_proof(self, request, pk=None, claim_pk=None):
@@ -1053,14 +1064,20 @@ class PushSubscriptionView(APIView):
         })
 
     def post(self, request):
-        from core.push import push_is_enabled
+        from core.push import is_push_endpoint, push_is_enabled
 
         if not push_is_enabled():
             return Response({"detail": _("Push is not configured.")}, status=503)
+        if not isinstance(request.data, dict):
+            return Response({"detail": _("A push subscription is required.")}, status=400)
         endpoint = str(request.data.get("endpoint") or "")[:1000]
         keys = request.data.get("keys") or {}
-        if not endpoint.startswith("https://") or not keys.get("p256dh") or not keys.get("auth"):
+        if not isinstance(keys, dict) or not keys.get("p256dh") or not keys.get("auth"):
             return Response({"detail": _("A push subscription is required.")}, status=400)
+        if not is_push_endpoint(endpoint):
+            return Response(
+                {"detail": _("This browser's push service is not supported.")}, status=400
+            )
         sub, _created = PushSubscription.objects.update_or_create(
             endpoint=endpoint,
             defaults={
@@ -1100,6 +1117,11 @@ class PlatformTrackView(APIView):
     def post(self, request):
         from website import platform_tracking, tracking
 
+        if not isinstance(request.data, dict):
+            return self._private(Response(
+                {"detail": _("Enter a reference, a phone number, an email or a name.")},
+                status=status.HTTP_400_BAD_REQUEST,
+            ))
         query = str(request.data.get("q") or "").strip()[:254]
         language = "en" if str(request.data.get("language") or "").startswith("en") else "ar"
         if not query:

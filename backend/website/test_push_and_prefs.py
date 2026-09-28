@@ -13,6 +13,7 @@ from inventory.models import Product
 from org.models import Branch, Company
 from website.models import FeaturedProduct, PublicOrder, PushSubscription, Website
 
+FCM = "https://fcm.googleapis.com/fcm/send/"
 PUSH = {
     "WEB_PUSH_ENABLED": True, "VAPID_PRIVATE_KEY": "priv", "VAPID_PUBLIC_KEY": "pub",
     "EMAIL_ENABLED": True, "EMAIL_BACKEND": "django.core.mail.backends.locmem.EmailBackend",
@@ -65,16 +66,16 @@ class PushAndPrefsTests(TestCase):
         client.force_authenticate(self.manager)
         info = client.get("/api/push/subscription/")
         self.assertEqual(info.data, {"enabled": True, "public_key": "pub", "subscriptions": 0})
-        self.assertEqual(self._subscribe(self.manager, "https://push.example/1").status_code, 201)
+        self.assertEqual(self._subscribe(self.manager, FCM + "1").status_code, 201)
         # Same endpoint again: one row, updated.
-        self.assertEqual(self._subscribe(self.manager, "https://push.example/1").status_code, 201)
+        self.assertEqual(self._subscribe(self.manager, FCM + "1").status_code, 201)
         self.assertEqual(PushSubscription.objects.count(), 1)
         bad = client.post(
             "/api/push/subscription/", {"endpoint": "http://x", "keys": {}}, format="json"
         )
         self.assertEqual(bad.status_code, 400)
         gone = client.delete(
-            "/api/push/subscription/", {"endpoint": "https://push.example/1"}, format="json"
+            "/api/push/subscription/", {"endpoint": FCM + "1"}, format="json"
         )
         self.assertEqual(gone.status_code, 204)
         self.assertEqual(PushSubscription.objects.count(), 0)
@@ -84,11 +85,11 @@ class PushAndPrefsTests(TestCase):
         client = APIClient()
         client.force_authenticate(self.manager)
         self.assertFalse(client.get("/api/push/subscription/").data["enabled"])
-        self.assertEqual(self._subscribe(self.manager, "https://push.example/1").status_code, 503)
+        self.assertEqual(self._subscribe(self.manager, FCM + "1").status_code, 503)
 
     def test_new_order_pushes_and_emails_the_right_people(self):
-        self._subscribe(self.manager, "https://push.example/m")
-        self._subscribe(self.owner, "https://push.example/o")
+        self._subscribe(self.manager, FCM + "m")
+        self._subscribe(self.owner, FCM + "o")
         self.site.order_notify_owners = False
         self.site.order_notify_emails = "accounts@bakery.test\nnot an email\n"
         self.site.save()
@@ -97,7 +98,7 @@ class PushAndPrefsTests(TestCase):
         self.assertEqual(response.status_code, 201, response.data)
         # Push: the branch manager only (owners switched off).
         endpoints = [c.kwargs["subscription_info"]["endpoint"] for c in webpush.call_args_list]
-        self.assertEqual(endpoints, ["https://push.example/m"])
+        self.assertEqual(endpoints, [FCM + "m"])
         payload = webpush.call_args_list[0].kwargs["data"]
         self.assertIn(response.data["reference"], payload)
         self.assertIn("/web-orders/?ref=", payload)
@@ -118,7 +119,7 @@ class PushAndPrefsTests(TestCase):
 
         from core import push
 
-        self._subscribe(self.manager, "https://push.example/dead")
+        self._subscribe(self.manager, FCM + "dead")
         response = mock.Mock(status_code=410)
         boom = WebPushException("gone", response=response)
         with mock.patch("pywebpush.webpush", side_effect=boom):

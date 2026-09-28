@@ -612,7 +612,10 @@ class QuotationViewSet(AppendOnlyScopedViewSet):
     @action(detail=True, methods=["post"])
     @transaction.atomic
     def convert_to_order(self, request, pk=None):
-        quotation = self.get_queryset().select_for_update().get(pk=pk)
+        from django.shortcuts import get_object_or_404
+
+        # Another company's (or a missing) quotation is a 404, never a 500.
+        quotation = get_object_or_404(self.get_queryset().select_for_update(), pk=pk)
         existing = quotation.sales_orders.order_by("id").first()
         if existing is not None:
             return Response(

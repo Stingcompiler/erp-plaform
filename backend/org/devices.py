@@ -108,6 +108,7 @@ def register_device(company, device_id, user, request):
         if user.branch_id and device.branch_id != user.branch_id:
             device.branch_id = user.branch_id
         device.save(update_fields=["last_seen_at", "last_user", "user_agent", "branch"])
+        record_contact(company.pk, device_id, now)
         return device
     try:
         assert_capacity(company, "devices")
@@ -125,6 +126,7 @@ def register_device(company, device_id, user, request):
         action="device_registered", request=request, user=user, company=company,
         entity_type="Device", entity_id=device.pk, metadata={"device_id": device_id},
     )
+    record_contact(company.pk, device_id, now)
     return device
 
 
@@ -180,3 +182,77 @@ def reactivate_device(device, actor, request=None):
         entity_type="Device", entity_id=device.pk, metadata={"device_id": device.device_id},
     )
     return device
+
+
+# ----- when a device was online -------------------------------------------
+#
+# Offline sync needs to know whether a sale was really captured with the till
+# cut off (it happened; keep it and flag it) or pushed by hand while the till
+# was talking to the server (the live checkout would have refused it). The
+# device's own word cannot decide that, so every authenticated request from a
+# device extends its current stretch of contact; a silence longer than
+# CONTACT_GAP starts a new one. The app pulls every five minutes while open,
+# so an online till is never silent for longer than that.
+CONTACT_TOUCH_SECONDS = 60
+CONTACT_GAP_SECONDS = 6 * 60
+CONTACT_KEEP = 60
+CONTACT_KEEP_DAYS = 32
+
+
+def _contact_key(company_id, device_id):
+    return f"device-contact:{company_id}:{device_id}"
+
+
+def record_contact(company_id, device_id, now=None):
+    """Note that ``device_id`` reached the server now. At most one write a
+    minute per device; never raises (it runs on every request)."""
+    if company_id is None or not device_id:
+        return False
+    now = now or timezone.now()
+    stamp = int(now.timestamp())
+    key = _contact_key(company_id, device_id)
+    try:
+        last = cache.get(key)
+        if last is not None and 0 <= stamp - int(last) < CONTACT_TOUCH_SECONDS:
+            return False
+        cache.set(key, stamp, CONTACT_TOUCH_SECONDS)
+        row = Device.objects.filter(
+            company_id=company_id, device_id=device_id
+        ).values_list("pk", "contact_log").first()
+        if row is None:
+            return False
+        pk, log = row
+        log = [
+            [int(span[0]), int(span[1])] for span in (log or [])
+            if isinstance(span, (list, tuple)) and len(span) == 2
+        ]
+        if log and 0 <= stamp - log[-1][1] <= CONTACT_GAP_SECONDS:
+            log[-1][1] = stamp
+        elif not log or stamp > log[-1][1]:
+            log.append([stamp, stamp])
+        oldest = stamp - CONTACT_KEEP_DAYS * 86400
+        log = [span for span in log if span[1] >= oldest][-CONTACT_KEEP:]
+        Device.objects.filter(pk=pk).update(contact_log=log)
+        return True
+    except Exception:  # noqa: BLE001 - bookkeeping must never fail a request
+        return False
+
+
+def was_online_at(company_id, device_id, when):
+    """True when the server heard from ``device_id`` within CONTACT_GAP
+    before ``when``: the till was online when it says it captured the item.
+    False when it was silent then, or when nothing is known about it."""
+    if company_id is None or not device_id or when is None:
+        return False
+    log = Device.objects.filter(
+        company_id=company_id, device_id=device_id
+    ).values_list("contact_log", flat=True).first() or []
+    moment = when.timestamp()
+    for span in log:
+        try:
+            start, end = int(span[0]), int(span[1])
+        except (TypeError, ValueError, IndexError):
+            continue
+        if start <= moment <= end + CONTACT_GAP_SECONDS:
+            return True
+    return False
