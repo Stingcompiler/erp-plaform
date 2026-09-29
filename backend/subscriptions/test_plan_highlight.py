@@ -54,7 +54,9 @@ class SingleHighlightTests(TestCase):
         first.refresh_from_db()
         self.assertFalse(first.is_highlighted)
         listing = client.get("/api/platform/plans/")
-        rows = listing.data.get("results", listing.data) if isinstance(listing.data, dict) else listing.data
+        rows = listing.data
+        if isinstance(rows, dict):
+            rows = rows.get("results", rows)
         self.assertEqual([row["code"] for row in rows if row["is_highlighted"]], ["b"])
 
 
