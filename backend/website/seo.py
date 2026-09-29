@@ -30,7 +30,9 @@ def _load():
 
     settings_row = SeoSettings.objects.filter(pk=SeoSettings.SINGLETON_PK).first()
     site = SiteSeo()
+    pricing = dict(PRICING_DISPLAY_DEFAULTS)
     if settings_row is not None:
+        pricing = pricing_display_of(settings_row)
         site = SiteSeo(
             google_site_verification=settings_row.google_site_verification.strip(),
             bing_site_verification=settings_row.bing_site_verification.strip(),
@@ -50,7 +52,31 @@ def _load():
         )
         for row in SeoPageOverride.objects.all()
     }
-    return {"site": site, "pages": pages}
+    return {"site": site, "pages": pages, "pricing": pricing}
+
+
+# What /pricing renders when nothing is saved (and what the static export
+# ships before the page asks): the classic cards with both extras on.
+PRICING_DISPLAY_DEFAULTS = {
+    "template": "classic",
+    "show_compare": True,
+    "show_self_hosted": True,
+    "default_cycle": "monthly",
+}
+
+
+def pricing_display_of(settings_row):
+    return {
+        "template": settings_row.pricing_template,
+        "show_compare": settings_row.pricing_show_compare,
+        "show_self_hosted": settings_row.pricing_show_self_hosted,
+        "default_cycle": settings_row.pricing_default_cycle,
+    }
+
+
+def pricing_display():
+    """The pricing page layout for the public endpoint, from the cache."""
+    return seo_state().get("pricing") or dict(PRICING_DISPLAY_DEFAULTS)
 
 
 def seo_state():
@@ -60,7 +86,7 @@ def seo_state():
             state = _load()
         except DatabaseError:
             log.warning("SEO settings unavailable; serving pages untouched", exc_info=True)
-            return {"site": SiteSeo(), "pages": {}}
+            return {"site": SiteSeo(), "pages": {}, "pricing": dict(PRICING_DISPLAY_DEFAULTS)}
         cache.set(CACHE_KEY, state, CACHE_SECONDS)
     return state
 

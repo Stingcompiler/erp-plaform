@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 from subscriptions.models import (
     LIMIT_KEYS,
+    PLAN_CURRENCIES,
     Plan,
     PlanChangeRequest,
     PlanVersion,
@@ -12,6 +13,7 @@ from subscriptions.models import (
     SubscriptionEvent,
     SubscriptionInvoice,
     SubscriptionPayment,
+    plan_currency_error,
 )
 
 
@@ -73,6 +75,13 @@ class PlanVersionSerializer(serializers.ModelSerializer):
                         % {"module": module, "required": ", ".join(sorted(missing))}
                     )
         return value
+
+    def validate_currency(self, value):
+        code = (value or "").strip().upper()
+        unchanged = self.instance is not None and code == self.instance.currency
+        if code not in PLAN_CURRENCIES and not unchanged:
+            raise serializers.ValidationError(plan_currency_error())
+        return code
 
     def validate_addon_prices(self, value):
         from decimal import Decimal, InvalidOperation

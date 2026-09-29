@@ -46,6 +46,15 @@ const AR_LABEL = {
   OMR: "ر.ع",
 };
 
+// ISO 4217 codes a plan may be priced in: the ones labelled above. Keep in
+// step with PLAN_CURRENCIES in backend/subscriptions/models.py, which
+// refuses any other code on a new plan version.
+export const PLAN_CURRENCIES = Object.freeze(Object.keys(AR_LABEL));
+
+export function isPlanCurrency(code) {
+  return PLAN_CURRENCIES.includes(String(code ?? "").trim().toUpperCase());
+}
+
 function isBlank(value) {
   return value === null || value === undefined || value === "";
 }

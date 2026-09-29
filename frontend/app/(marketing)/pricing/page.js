@@ -4,7 +4,7 @@ import { Check, Minus } from "lucide-react";
 
 import { useI18n } from "@/app/providers/I18nProvider";
 import { MarketingPage } from "@/components/marketing/Chrome";
-import PlanCards from "@/components/marketing/PlanCards";
+import { PricingPlans, usePricingDisplay } from "@/components/marketing/PlanCards";
 
 function Cell({ value }) {
   if (value === true) return <Check size={18} className="mx-auto text-accent" />;
@@ -67,6 +67,9 @@ function Faq() {
 
 export default function PricingPage() {
   const { t } = useI18n();
+  // The layout the platform team picked on /platform-plans; the static
+  // export renders the default until it arrives (PricingPlans waits).
+  const { display, ready } = usePricingDisplay();
   return (
     <MarketingPage>
       <section className="relative overflow-hidden">
@@ -77,11 +80,12 @@ export default function PricingPage() {
             <p className="mt-4 text-muted sm:text-lg">{t("pricing.pageSubtitle")}</p>
           </div>
           <div className="mt-12">
-            <PlanCards showCompare />
+            <PricingPlans display={display} ready={ready} />
           </div>
         </div>
       </section>
-      <Compare />
+      {/* Hosted vs. on-server only makes sense while the on-server offer is shown. */}
+      {display.show_self_hosted && <Compare />}
       <Faq />
     </MarketingPage>
   );

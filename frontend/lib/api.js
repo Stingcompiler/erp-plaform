@@ -572,6 +572,8 @@ export const publicTrack = { search: (body) => api.post("/public/track/", body) 
 export const publicSite = {
   showcase: () => api.get("/public/showcase/"),
   contact: () => api.get("/public/site-contact/"),
+  // How /pricing lays out the plans (set on /platform-plans).
+  pricingDisplay: () => api.get("/public/plans/display/"),
 };
 
 export const registration = {
@@ -730,4 +732,6 @@ export const platformSubscriptions = {
   createPlan: (body) => api.post("/platform/plans/", body),
   createPlanVersion: (body) => api.post("/platform/plan-versions/", body),
   updatePlan: (id, body) => api.patch(`/platform/plans/${id}/`, body),
+  pricingDisplay: () => api.get("/platform/pricing-display/"),
+  updatePricingDisplay: (body) => api.patch("/platform/pricing-display/", body),
 };

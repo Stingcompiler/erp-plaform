@@ -11,6 +11,7 @@ import FollowUpPanel, { ContactLinks, FollowUpBadge } from "@/components/platfor
 import { errorText } from "@/lib/errors";
 import { SkeletonCard } from "@/components/ui/Skeleton";
 import { enumLabel } from "@/lib/labels";
+import { offerRows } from "@/lib/planCatalog";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 const ACTIVE = ["submitted", "under_review", "needs_information", "approved"];
@@ -50,7 +51,8 @@ export default function PlatformRegistrationsPage() {
         registration.publicPlans().catch(() => ({ data: [] })),
       ]);
       setRows(list.data.results || list.data);
-      setPlans(publicPlans.data || []);
+      // Every live offer (a plan sold monthly and yearly is two versions).
+      setPlans(offerRows(publicPlans.data || []));
     } catch {
       setError(t("platformRegistration.loadError"));
     } finally {
@@ -208,7 +210,7 @@ export default function PlatformRegistrationsPage() {
                     {canReview && open && row.delivery_mode === "saas" && plans.length > 0 && (
                       <Select value={live ? row.plan_version : ""} onChange={(event) => event.target.value && run(row, "plan", { plan_version: Number(event.target.value) })} className="w-44" disabled={saving === `plan-${row.id}`}>
                         <option value="" disabled>{t("platformRegistration.changePlan")}</option>
-                        {plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.plan_name} · {plan.price} {plan.currency}</option>)}
+                        {plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.plan_name} · {plan.price} {plan.currency} · {t(`platformPlans.${plan.billing_cycle}`)}</option>)}
                       </Select>
                     )}
                     {canReview && open && (

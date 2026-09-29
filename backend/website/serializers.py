@@ -323,6 +323,15 @@ class PublicPlanVersionSerializer(serializers.ModelSerializer):
         return getattr(settings, "VEZANO_TRIAL_DAYS", 14)
 
 
+class PublicPlanCycleSerializer(serializers.ModelSerializer):
+    """One billing cycle a public plan is offered on: its own version id (the
+    one a sign-up requests), price and what that version includes."""
+
+    class Meta:
+        model = PlanVersion
+        fields = ["id", "currency", "price", "billing_cycle", "modules", "limits"]
+
+
 class RegistrationRequestSerializer(serializers.ModelSerializer):
     request_uuid = serializers.UUIDField(required=False, validators=[])
     estimated_users = serializers.IntegerField(required=False, min_value=1)

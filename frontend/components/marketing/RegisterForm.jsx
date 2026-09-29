@@ -12,6 +12,7 @@ import { CheckCircle2, Mail } from "lucide-react";
 
 import { useI18n } from "../../app/providers/I18nProvider";
 import { registration } from "@/lib/api";
+import { offerRows } from "@/lib/planCatalog";
 import { formatPrice, usePublicPlans } from "./PlanCards";
 
 // Placeholders use the muted token (≥ 4.5:1 on the field in light and dark),
@@ -66,7 +67,10 @@ function Flow({ standalone }) {
 export default function RegisterForm() {
   const { t, language, href } = useI18n();
   const params = useSearchParams();
-  const { plans } = usePublicPlans();
+  const { plans: rows } = usePublicPlans();
+  // One option per offer: a plan sold monthly and yearly is two, so the
+  // version a pricing card links to is always in the list.
+  const plans = useMemo(() => (rows ? offerRows(rows) : null), [rows]);
   const [mode, setMode] = useState(params.get("mode") === "standalone" ? "standalone" : "saas");
   const [planId, setPlanId] = useState(params.get("plan") || "");
   // { reference, email } once the request is accepted.
@@ -200,7 +204,7 @@ export default function RegisterForm() {
                 <option value="" disabled>{t("registration.plan")}</option>
                 {(plans || []).map((plan) => (
                   <option key={plan.id} value={plan.id}>
-                    {plan.display?.name?.[language] || plan.plan_name} · {formatPrice(plan.price, plan.currency, language)}
+                    {plan.display?.name?.[language] || plan.plan_name} · {formatPrice(plan.price, plan.currency, language)} · {t(plan.billing_cycle === "yearly" ? "pricing.perYearLine" : "pricing.perMonthLine")}
                   </option>
                 ))}
               </select>

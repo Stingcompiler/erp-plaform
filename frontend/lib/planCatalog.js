@@ -213,10 +213,100 @@ function pick(copy, language) {
   return copy[language] || "";
 }
 
+// ---- Billing cycles --------------------------------------------------------
+
+export const CYCLES = ["monthly", "yearly"];
+
+function cycleOf(value) {
+  return value === "yearly" ? "yearly" : "monthly";
+}
+
+// cycle → the version a plan is really offered on for it ({ id, price,
+// currency, billing_cycle, modules, limits }). The API lists them under
+// `cycles`; the row itself is always the offer for its own cycle, so rows
+// from an older API (no `cycles`) still read correctly.
+export function planOffers(row) {
+  const offers = {};
+  for (const [cycle, offer] of Object.entries(row?.cycles || {})) {
+    if (CYCLES.includes(cycle) && offer) offers[cycle] = offer;
+  }
+  if (row) offers[cycleOf(row.billing_cycle)] = row;
+  return offers;
+}
+
+// The cycles the monthly/yearly switch offers: both, but only when at
+// least one plan really has a published version on each. Otherwise [] and
+// no switch: every plan shows the cycle it is sold on. Never a derived or
+// discounted price.
+export function billingCycles(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const both = list.some((row) => CYCLES.every((cycle) => cycle in planOffers(row)));
+  return both ? [...CYCLES] : [];
+}
+
+// The cycle to show: the visitor's remembered choice, else the platform's
+// default, else the first on offer. null when there is no switch.
+export function resolveCycle(available, stored, fallback) {
+  const list = available || [];
+  if (!list.length) return null;
+  if (list.includes(stored)) return stored;
+  if (list.includes(fallback)) return fallback;
+  return list[0];
+}
+
+// For the sign-up form: one option per real offer (a plan sold monthly and
+// yearly is two options), so a card's "start" link always finds its
+// version. Rows keep the plan's display copy.
+export function offerRows(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  return list.flatMap((row) => {
+    const offers = planOffers(row);
+    return CYCLES.filter((cycle) => offers[cycle]).map((cycle) => ({ ...row, ...offers[cycle], cycles: undefined }));
+  });
+}
+
+// ---- Page layout (set on the platform plans page) --------------------------
+
+export const PRICING_TEMPLATES = ["classic", "featured", "table", "compact"];
+
+export const DEFAULT_DISPLAY = Object.freeze({
+  template: "classic",
+  show_compare: true,
+  show_self_hosted: true,
+  default_cycle: "monthly",
+});
+
+// /api/public/plans/display/ as the page may trust it: an unknown template
+// (an older export reading a newer server) falls back to classic.
+export function resolveDisplay(raw) {
+  const value = raw && typeof raw === "object" ? raw : {};
+  return {
+    template: PRICING_TEMPLATES.includes(value.template) ? value.template : DEFAULT_DISPLAY.template,
+    show_compare: typeof value.show_compare === "boolean" ? value.show_compare : DEFAULT_DISPLAY.show_compare,
+    show_self_hosted: typeof value.show_self_hosted === "boolean" ? value.show_self_hosted : DEFAULT_DISPLAY.show_self_hosted,
+    default_cycle: CYCLES.includes(value.default_cycle) ? value.default_cycle : DEFAULT_DISPLAY.default_cycle,
+  };
+}
+
+// The "featured" layout: the highlighted plan in the middle, the others in
+// their order around it (cheaper before, dearer after where possible).
+export function featuredOrder(plans) {
+  const list = plans || [];
+  const index = list.findIndex((plan) => plan.highlighted);
+  if (index < 0) return list;
+  const others = list.filter((_, i) => i !== index);
+  const middle = Math.ceil(others.length / 2);
+  return [...others.slice(0, middle), list[index], ...others.slice(middle)];
+}
+
 // rows: the API response. language: "ar" | "en". labels(optional):
 // { module(code) → label, limit(key) → label } in the UI language, so a
-// feature line that merely repeats a row label is dropped.
-export function normalizePlans(rows, language = "ar", labels = {}) {
+// feature line that merely repeats a row label is dropped. options.cycle:
+// the cycle the switch is on (null/absent: no switch); a plan with no
+// version on that cycle comes back `available: false` with price kind
+// "unavailable" — never a price made up from the other cycle.
+export function normalizePlans(rows, language = "ar", labels = {}, options = {}) {
+  const chosen = CYCLES.includes(options.cycle) ? options.cycle : null;
   const list = Array.isArray(rows) ? rows : [];
   const sorted = [...list].sort((a, b) => {
     const order = (a.display?.sort_order ?? 100) - (b.display?.sort_order ?? 100);
@@ -228,7 +318,12 @@ export function normalizePlans(rows, language = "ar", labels = {}) {
     return String(a.plan_name || "").localeCompare(String(b.plan_name || ""));
   });
   let badgeGiven = false;
-  return sorted.map((row) => {
+  // Sorted on the plans' own rows, so switching cycle never reorders them.
+  return sorted.map((listed) => {
+    const offers = planOffers(listed);
+    const offer = chosen ? offers[chosen] : null;
+    const available = !chosen || Boolean(offer);
+    const row = offer ? { ...listed, ...offer } : listed;
     const display = row.display || {};
     const included = includedSet(row.modules);
     const modules = GATED_MODULES.filter((code) => included.has(code));
@@ -254,11 +349,15 @@ export function normalizePlans(rows, language = "ar", labels = {}) {
     const highlighted = Boolean(display.is_highlighted) && !badgeGiven;
     if (highlighted) badgeGiven = true;
     return {
+      // The version a sign-up requests; `key` stays the same across cycles.
       id: row.id,
+      key: listed.id,
       name,
       tagline,
-      price: planPrice(row),
-      cycle: row.billing_cycle === "yearly" ? "yearly" : "monthly",
+      price: available ? planPrice(row) : { kind: "unavailable" },
+      cycle: available ? cycleOf(row.billing_cycle) : chosen,
+      available,
+      offeredCycles: CYCLES.filter((cycle) => offers[cycle]),
       trialDays: Number(row.trial_days) || 0,
       highlighted,
       allModules: (row.modules || []).includes(ALL_MODULES),

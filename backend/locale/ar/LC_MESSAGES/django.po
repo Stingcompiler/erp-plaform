@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-29 07:50+0000\n"
+"POT-Creation-Date: 2026-09-29 09:50+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1889,6 +1889,10 @@ msgid "This company is not scheduled for deletion."
 msgstr "هذه الشركة ليست مجدولة للحذف."
 
 #, python-format
+msgid "Use one of the supported currency codes: %(codes)s."
+msgstr "استخدم أحد رموز العملات المدعومة: %(codes)s."
+
+#, python-format
 msgid "Unknown modules: %(modules)s"
 msgstr "وحدات غير معروفة: %(modules)s"
 
@@ -2223,6 +2227,24 @@ msgstr "هذا الملف ليس صورة JPEG أو PNG أو WebP."
 
 msgid "Use a JPEG, PNG or WebP image."
 msgstr "استخدم صورة JPEG أو PNG أو WebP."
+
+msgid "Classic cards"
+msgstr "بطاقات تقليدية"
+
+msgid "Featured plan in the middle"
+msgstr "الباقة المميّزة في الوسط"
+
+msgid "Comparison table"
+msgstr "جدول مقارنة"
+
+msgid "Compact list"
+msgstr "قائمة مختصرة"
+
+msgid "Monthly"
+msgstr "شهري"
+
+msgid "Yearly"
+msgstr "سنوي"
 
 msgid "Send the transfer as a form."
 msgstr "أرسل بيانات التحويل عبر النموذج."
