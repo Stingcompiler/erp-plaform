@@ -60,7 +60,7 @@ const NAV_LINKS = [
 
 // vezano.app/track/: after the other links; on a narrow desktop header it
 // lives in the phone menu and the footer only, so the bar never overflows.
-const TRACK_LINK = ["/track", "track.nav", "hidden lg:inline"];
+const TRACK_LINK = ["/track", "track.nav", "hidden xl:inline"];
 
 // The stores directory joins the header as soon as one complete, listed
 // store exists (owner's call: one real example is worth showing). The footer
@@ -99,7 +99,7 @@ export function MarketingHeader() {
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (event) => event.key === "Escape" && setOpen(false);
-    const media = window.matchMedia("(min-width: 768px)");
+    const media = window.matchMedia("(min-width: 1024px)");
     const onMedia = (event) => event.matches && setOpen(false);
     window.addEventListener("keydown", onKey);
     media.addEventListener("change", onMedia);
@@ -136,20 +136,22 @@ export function MarketingHeader() {
           <LogoMark size={32} decorative />
           <Wordmark />
         </Link>
-        <nav className="hidden items-center gap-6 text-sm text-muted md:flex">
+        <nav className="hidden items-center gap-4 text-sm text-muted lg:flex xl:gap-6">
           {navLinks.map(([path, key, visibility]) => (
             <a key={path} href={navHref(path)} className={`hover:text-ink ${visibility || ""}`}>{t(key)}</a>
           ))}
         </nav>
-        {/* Desktop / tablet: everything inline. */}
-        <div className="hidden items-center gap-1 md:flex">
+        {/* Desktop: everything inline. Tablets use the phone menu — seven links
+            and four controls don't fit below 1024px (English overflowed by
+            ~200px at 800). */}
+        <div className="hidden items-center gap-1 lg:flex">
           <LangToggle />
           <ThemeToggle />
           {trial("ms-1 inline-flex h-10 items-center whitespace-nowrap rounded-control border border-line bg-surface px-3.5 text-sm font-medium text-ink hover:border-accent")}
           <span className="ms-1">{signIn}</span>
         </div>
-        {/* Phone: sign-in stays visible; the rest lives behind the menu. */}
-        <div className="flex items-center gap-1 md:hidden">
+        {/* Phone and tablet: sign-in stays visible; the rest lives behind the menu. */}
+        <div className="flex items-center gap-1 lg:hidden">
           {signIn}
           <button
             type="button"
@@ -164,7 +166,7 @@ export function MarketingHeader() {
         </div>
       </div>
       {open && (
-        <div id="landing-menu" className="border-t border-line/70 bg-paper md:hidden">
+        <div id="landing-menu" className="border-t border-line/70 bg-paper lg:hidden">
           <nav className="mx-auto flex max-w-6xl flex-col px-4 py-2 text-base">
             {navLinks.map(([path, key]) => (
               <a
