@@ -15,7 +15,7 @@ import { useI18n } from "../../../app/providers/I18nProvider";
 import { Figure } from "@/components/ui/kit";
 import { compareMatrix } from "@/lib/planCatalog";
 import { moduleLabel } from "@/lib/planModules";
-import { limitValue, periodText, PlanCta, priceText } from "./parts";
+import { limitValue, periodText, PlanCta, priceText, usePriceChars } from "./parts";
 
 const STICKY = "sticky start-0 z-10 border-e border-line";
 
@@ -43,7 +43,7 @@ function Row({ label, children }) {
   );
 }
 
-function PlanHead({ plan, primary, onSwitchCycle, t, language }) {
+function PlanHead({ plan, primary, onSwitchCycle, t, language, chars }) {
   const period = periodText(plan, t);
   return (
     <th
@@ -57,7 +57,7 @@ function PlanHead({ plan, primary, onSwitchCycle, t, language }) {
       {primary && (
         <div className="mt-3 font-normal">
           {plan.price.kind === "paid" ? (
-            <Figure value={priceText(plan, language, t)} size="price" animate={false} valueClassName="font-bold text-ink" />
+            <Figure value={priceText(plan, language, t)} size="price" chars={chars} animate={false} valueClassName="font-bold text-ink" />
           ) : (
             <p className={`font-display font-bold ${plan.price.kind === "unavailable" ? "text-xs text-muted" : "text-lg text-ink"}`}>
               {priceText(plan, language, t)}
@@ -73,6 +73,8 @@ function PlanHead({ plan, primary, onSwitchCycle, t, language }) {
 
 export default function PlanCompareTable({ plans, primary = false, onSwitchCycle }) {
   const { t, language } = useI18n();
+  // Every column's price at the size the longest one fits.
+  const chars = usePriceChars(plans);
   if (!plans?.length) return null;
   const { modules, limits } = compareMatrix(plans);
   const cell = "border-t border-line px-3 py-3 text-center";
@@ -81,7 +83,7 @@ export default function PlanCompareTable({ plans, primary = false, onSwitchCycle
   const minWidth = primary ? `${10 + plans.length * 10}rem` : `${11 + plans.length * 8.5}rem`;
   return (
     <section
-      className={primary ? "" : "mt-16"}
+      className={primary ? "" : "mx-auto mt-16 max-w-6xl"}
       aria-labelledby={primary ? undefined : "plans-compare-title"}
       aria-label={primary ? t("pricing.plansCompareTitle") : undefined}
     >
@@ -101,7 +103,7 @@ export default function PlanCompareTable({ plans, primary = false, onSwitchCycle
                 {t("pricing.feature")}
               </th>
               {plans.map((plan) => (
-                <PlanHead key={plan.key ?? plan.id} plan={plan} primary={primary} onSwitchCycle={onSwitchCycle} t={t} language={language} />
+                <PlanHead key={plan.key ?? plan.id} plan={plan} primary={primary} onSwitchCycle={onSwitchCycle} t={t} language={language} chars={chars} />
               ))}
             </tr>
           </thead>

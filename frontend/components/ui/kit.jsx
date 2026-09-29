@@ -104,7 +104,10 @@ export function Badge({ tone = "muted", children }) {
 // sizing the card, so nothing moves. `animate={false}` where a count would
 // distract (a receipt, anything inside a table or list); reduced motion and
 // printing always show the final figure at once.
-export function Figure({ value, size = "lg", className = "", valueClassName = "", animate = true }) {
+// `chars`: size the figure as if it were that many cells long. A row of
+// cards passes the longest figure's length so every figure in it matches
+// (lib/planDeck.js sharedFigureChars).
+export function Figure({ value, size = "lg", className = "", valueClassName = "", animate = true, chars }) {
   const parts = splitFigure(value);
   const { counting, overlay, numberRef } = useCountUp(value, animate);
   const overlayParts = counting ? splitFigure(overlay) : null;
@@ -112,7 +115,7 @@ export function Figure({ value, size = "lg", className = "", valueClassName = ""
     <div className={`figure-fit ${className}`}>
       <span
         className={`figure-fit__value figure-${size} tabular ${parts ? "figure-fit__value--money" : ""} ${counting ? "figure-count" : ""} ${valueClassName}`}
-        style={figureFitStyle(value)}
+        style={chars ? { "--figure-chars": chars } : figureFitStyle(value)}
       >
         {parts ? <><span>{parts[0]}</span> <span>{parts[1]}</span></> : value}
         {counting && (

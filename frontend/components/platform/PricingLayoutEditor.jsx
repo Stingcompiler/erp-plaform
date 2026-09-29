@@ -173,11 +173,11 @@ export default function PricingLayoutEditor({ canManage }) {
         <h3 className="font-display font-semibold">{t("platformPlans.layoutPreview")}</h3>
         <p className="mt-1 text-xs text-muted">{t("platformPlans.layoutPreviewHint")}</p>
         <div className="mt-4 rounded-card border border-dashed border-line bg-surface p-3 sm:p-5">
-          {rows === null ? <PlansSkeleton /> : rows.length === 0 ? (
+          {rows === null ? <PlansSkeleton bleed={false} selfHosted={preview.show_self_hosted} /> : rows.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted">{t("platformPlans.layoutPreviewEmpty")}</p>
           ) : (
             // Re-mounted on a new default period so the preview opens on it.
-            <PlanShowcase key={preview.default_cycle} rows={rows} display={preview} persistCycle={false} />
+            <PlanShowcase key={preview.default_cycle} rows={rows} display={preview} persistCycle={false} bleed={false} />
           )}
         </div>
       </section>
