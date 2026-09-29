@@ -79,7 +79,6 @@ REGISTRY = {
     ),
     # ----- org & HR policy objects --------------------------------------
     "org.Branch": (COMPANY_WIDE, "The branch list itself must be visible to pick from."),
-    "org.Department": (COMPANY_WIDE, "Org structure is shared."),
     "org.ExchangeRate": (COMPANY_WIDE, "One rate prices the whole catalogue."),
     "hr.Position": (COMPANY_WIDE, "Job catalogue."),
     "hr.WorkPolicy": (COMPANY_WIDE, "Company-level HR policy."),
@@ -99,6 +98,7 @@ REGISTRY = {
     "crm.FollowUp": (BRANCH, None),
     "crm.Note": (BRANCH, None),
     "hr.Employee": (BRANCH, None),
+    "org.Department": (BRANCH, None),
     "hr.Attendance": (BRANCH, None),
     "hr.Deduction": (BRANCH, None),
     "hr.EmployeeDocument": (BRANCH, None),

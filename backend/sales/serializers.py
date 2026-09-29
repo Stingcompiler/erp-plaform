@@ -1520,7 +1520,10 @@ class POSCheckoutSerializer(serializers.Serializer):
                 metadata={"breaches": breaches, "limit": str(limit)},
             )
             return
-        if self.context.get("via_sync"):
+        # Kept and flagged only when the till was offline at capture: pushed
+        # through sync while it was online, the sale is refused exactly as
+        # the live checkout refuses it (sync.views / org.devices).
+        if self.context.get("via_sync") and self.context.get("captured_offline"):
             log_activity(
                 action="pos_price_unapproved", request=request,
                 entity_type="Invoice", entity_id=invoice.pk,

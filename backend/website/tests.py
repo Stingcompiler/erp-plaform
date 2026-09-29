@@ -506,7 +506,8 @@ class PreviewAndShowcaseTests(LandingPageImageTests):
         self.assertEqual(preview["Cache-Control"], "no-store")
         self.assertEqual(preview["X-Robots-Tag"], "noindex")
         self.assertEqual(preview["X-Frame-Options"], "SAMEORIGIN")
-        self.assertEqual(preview["Content-Security-Policy"], "frame-ancestors 'self'")
+        # The site-wide policy (core/csp.py), framable by this origin only.
+        self.assertIn("frame-ancestors 'self'", preview["Content-Security-Policy"])
         html = preview.content.decode()
         self.assertIn('content="noindex, nofollow"', html)
         self.assertIn("Preview", html)  # English fixture; Arabic sites get "معاينة"

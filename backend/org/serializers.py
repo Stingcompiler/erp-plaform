@@ -86,6 +86,28 @@ class DepartmentSerializer(serializers.ModelSerializer):
                 )
         return branch
 
+    def validate(self, attrs):
+        # A branch-scoped HR officer or manager keeps to their own branch:
+        # they may not move a department to another branch, nor change a
+        # company-wide one (that is for business-wide HR).
+        from core.scoping import branch_scope_for
+
+        request = self.context.get("request")
+        scope = branch_scope_for(getattr(request, "user", None), "branch")
+        if scope is not None:
+            if self.instance is not None and self.instance.branch_id != scope:
+                raise serializers.ValidationError(
+                    {"branch": _("This department is outside your branch.")}
+                )
+            # On create an empty branch is stamped with theirs (perform_create).
+            branch = attrs.get("branch")
+            moved_off = self.instance is not None and "branch" in attrs and branch is None
+            if moved_off or (branch is not None and branch.pk != scope):
+                raise serializers.ValidationError(
+                    {"branch": _("This department is outside your branch.")}
+                )
+        return attrs
+
 
 class DeviceSerializer(serializers.ModelSerializer):
     branch_name = serializers.CharField(source="branch.name", read_only=True, default=None)

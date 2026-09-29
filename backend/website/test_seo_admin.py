@@ -217,7 +217,8 @@ class ServedExportTests(SeoAdminBase):
         original = (FRONTEND_DIST / "index.html").read_text(encoding="utf-8")
         response, body = self._get("")
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.streaming)
+        # Read into memory (the CSP middleware hashes its inline scripts),
+        # but unchanged.
         self.assertEqual(body, original)
         self.assertEqual(response["Cache-Control"], "no-cache, must-revalidate")
         _, robots = self._get("robots.txt")

@@ -8,6 +8,7 @@ forgotten the subscription; the row is deleted so we stop knocking.
 
 import json
 import logging
+from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.utils import timezone
@@ -15,6 +16,32 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 GONE = {404, 410}
+
+# The push services browsers actually hand out. The endpoint comes from the
+# client, and the server POSTs to it: anything else would let a signed-in
+# person make the server call an address of their choosing (SSRF).
+PUSH_HOSTS = frozenset({
+    "fcm.googleapis.com",                      # Chrome, Edge (Chromium), Android
+    "updates.push.services.mozilla.com",       # Firefox
+    "web.push.apple.com",                      # Safari
+})
+PUSH_HOST_SUFFIXES = (".notify.windows.com", ".push.apple.com")
+
+
+def is_push_endpoint(endpoint):
+    """True for an https URL on a known push service, default port, no
+    credentials in it."""
+    try:
+        parts = urlsplit(str(endpoint or ""))
+        port = parts.port
+    except ValueError:
+        return False
+    host = (parts.hostname or "").lower().rstrip(".")
+    if parts.scheme != "https" or not host or parts.username or parts.password:
+        return False
+    if port not in (None, 443):
+        return False
+    return host in PUSH_HOSTS or host.endswith(PUSH_HOST_SUFFIXES)
 
 
 def push_is_enabled():
@@ -33,6 +60,10 @@ def send_to_user(user, *, title, body, url="", tag=""):
     payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag})
     delivered = 0
     for sub in PushSubscription.objects.filter(user=user):
+        if not is_push_endpoint(sub.endpoint):
+            # Registered before the allowlist: never called, dropped.
+            sub.delete()
+            continue
         try:
             webpush(
                 subscription_info={

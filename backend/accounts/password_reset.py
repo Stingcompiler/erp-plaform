@@ -11,8 +11,10 @@ session the old credential opened.
 """
 
 import logging
+import threading
 
 from django.conf import settings
+from django.db import close_old_connections
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -42,7 +44,7 @@ def reset_link(user):
     return f"{origin}/reset-password/?uid={uid}&token={token}"
 
 
-def _send_reset_email(user, link):
+def _send_reset_email(user, link, primary=None):
     name = user.full_name or ""
     return mailer.send_bilingual(
         subject_ar="إعادة تعيين كلمة المرور",
@@ -61,7 +63,29 @@ def _send_reset_email(user, link):
         ],
         link=link,
         recipient=user.email,
+        primary=primary,
     )
+
+
+def _in_background(work):
+    """Run ``work`` off the request path: the answer for a known address
+    must not take measurably longer than for an unknown one (an SMTP round
+    trip is hundreds of milliseconds), or timing would tell which addresses
+    have accounts. Tests (and PASSWORD_RESET_EMAIL_BACKGROUND=False) run it
+    inline so the outbox can be read at once."""
+    if not getattr(settings, "PASSWORD_RESET_EMAIL_BACKGROUND", True):
+        work()
+        return
+
+    def run():
+        try:
+            work()
+        except Exception:  # noqa: BLE001 - a failed email is logged, never raised
+            logger.exception("password reset email failed")
+        finally:
+            close_old_connections()
+
+    threading.Thread(target=run, name="password-reset-email", daemon=True).start()
 
 
 class PasswordResetRequestView(APIView):
@@ -83,11 +107,17 @@ class PasswordResetRequestView(APIView):
         if user is not None and email_enabled:
             link = reset_link(user)
             if link:
-                _send_reset_email(user, link)
-                log_activity(
-                    action="password_reset_requested", request=request, user=user,
-                    entity_type="User", entity_id=user.pk,
-                )
+                # Read on this thread: the worker has no active language.
+                primary = mailer.primary_language()
+
+                def send():
+                    log_activity(
+                        action="password_reset_requested", request=request, user=user,
+                        entity_type="User", entity_id=user.pk,
+                    )
+                    _send_reset_email(user, link, primary)
+
+                _in_background(send)
         # Same answer for a known and an unknown address.
         return Response({"accepted": True, "email_enabled": email_enabled})
 

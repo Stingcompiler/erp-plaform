@@ -97,13 +97,31 @@ OP_REGISTRY = {
 }
 
 
-def process_operation(request, op, blocked=None):
+def _plan_allows(request, module):
+    """The plan/licence gate the REST endpoints apply (EntitlementAccess),
+    resolved once per request."""
+    decision = getattr(request, "_sync_entitlements", None)
+    if decision is None:
+        from core.entitlements import resolve_entitlements
+
+        decision = resolve_entitlements(getattr(request.user, "company", None))
+        try:
+            request._sync_entitlements = decision
+        except AttributeError:
+            pass
+    return decision.allows_module(module)
+
+
+def process_operation(request, op, blocked=None, captured_offline=False):
     """
     Apply one queued op. Returns
     (status, result_model, result_id, error, uuid, error_field).
     `blocked` is a refusal decided by the caller (the subscription lapsed
     before this op was captured): an op that already landed still answers
-    "duplicate", anything else is refused with it. Never raises — failures
+    "duplicate", anything else is refused with it. `captured_offline` says
+    the server has no sign the device was online when it captured the op
+    (org.devices.was_online_at); only then is a sale priced past the till's
+    rule kept and flagged instead of refused. Never raises — failures
     come back as ERROR (refused, final) or RETRY (temporary, try again
     later) so the batch keeps going.
     """
@@ -136,11 +154,21 @@ def process_operation(request, op, blocked=None):
 
     if blocked:
         return ERROR, "", "", str(blocked), client_uuid, "subscription"
+    # The offline queue is not a way around the plan: a module the plan
+    # leaves out is refused here as its REST endpoint refuses it.
+    if not _plan_allows(request, spec.module):
+        return (
+            ERROR, "", "", _("This module is not included in the current plan or licence."),
+            client_uuid, "subscription",
+        )
 
     try:
         with transaction.atomic():  # savepoint — isolates this op
             serializer = spec.serializer(
-                data=payload, context={"request": request, "via_sync": True}
+                data=payload, context={
+                    "request": request, "via_sync": True,
+                    "captured_offline": bool(captured_offline),
+                },
             )
             serializer.is_valid(raise_exception=True)
             if spec.kind == MODEL:

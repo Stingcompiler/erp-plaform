@@ -45,6 +45,23 @@ def role_rank(role):
     return ROLE_RANK.get(role.name, 0)
 
 
+def outranks(actor, target):
+    """Whether ``actor`` may administer ``target`` (password, email,
+    deactivation, role): only accounts ranked strictly below them. A peer is
+    off limits — one General Manager must not be able to take over another's
+    account — except that Business Owners may administer each other."""
+    if actor is None or target is None:
+        return False
+    if getattr(actor, "company_id", None) is None:
+        return True  # platform administration is gated elsewhere
+    if actor.pk == target.pk:
+        return True
+    actor_role = getattr(actor, "role", None)
+    if actor_role is not None and actor_role.name == "Business Owner":
+        return True
+    return role_rank(getattr(target, "role", None)) < role_rank(actor_role)
+
+
 def invalidate_sessions(user):
     """Blacklist every refresh token the user holds, so a password change
     (their own, or an administrator's reset) ends any session the old
@@ -103,7 +120,7 @@ class UserSerializer(serializers.ModelSerializer):
             )
             if editing_other and (
                 role_rank(current_role) > actor_rank
-                or (actor_role_name == "Branch Manager" and role_rank(current_role) >= 1)
+                or not outranks(actor, self.instance)
             ):
                 raise serializers.ValidationError(
                     {"role": _("You cannot modify an account with equal or higher authority.")}

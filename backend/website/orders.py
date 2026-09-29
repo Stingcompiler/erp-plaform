@@ -60,6 +60,19 @@ def _new_reference():
     return new_reference("W", lambda ref: PublicOrder.objects.filter(reference=ref).exists())
 
 
+def orders_paused(company):
+    """True while the company is suspended until payment: its page stays up,
+    but it takes no new orders and no transfer claims (nobody is there to
+    fulfil them, and nothing may be sold through a locked account)."""
+    from subscriptions.tenant_controls import unpaid_suspension
+
+    return unpaid_suspension(company) is not None
+
+
+def paused_message():
+    return _("The shop is not taking orders right now.")
+
+
 def clean_phone(raw):
     digits = re.sub(r"[^\d+]", "", str(raw or ""))
     if len(re.sub(r"\D", "", digits)) < 8:
@@ -72,7 +85,11 @@ def place_order(site, payload, request=None):
     """Record a visitor's order. ``payload`` is the public form."""
     if not site.is_published or not site.accept_orders:
         raise ValidationError({"detail": _("This page does not take orders.")})
+    if not isinstance(payload, dict):
+        raise ValidationError({"detail": _("Send the order as a form.")})
     company = site.company
+    if orders_paused(company):
+        raise ValidationError({"detail": paused_message()})
     name = str(payload.get("contact_name") or "").strip()[:120]
     if not name:
         raise ValidationError({"contact_name": _("Tell us who to ask for.")})
@@ -90,7 +107,10 @@ def place_order(site, payload, request=None):
     branch_id = payload.get("branch")
     branches = company.branches.filter(is_active=True)
     if branch_id:
-        branch = branches.filter(pk=branch_id).first()
+        try:
+            branch = branches.filter(pk=int(str(branch_id))).first()
+        except (TypeError, ValueError):
+            branch = None
         if branch is None:
             raise ValidationError({"branch": _("Choose one of the listed branches.")})
     elif branches.count() == 1:
@@ -117,7 +137,9 @@ def place_order(site, payload, request=None):
         try:
             product_id = int(raw.get("product"))
             quantity = Decimal(str(raw.get("quantity", 1)))
-        except (TypeError, ValueError, ArithmeticError):
+            if not quantity.is_finite():
+                raise ValueError(quantity)
+        except (TypeError, ValueError, ArithmeticError, AttributeError):
             raise ValidationError({"lines": _("Each line needs a product and a quantity.")})
         item = offered.get(product_id)
         if item is None:

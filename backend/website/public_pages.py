@@ -326,6 +326,7 @@ def render_site(request, site, *, preview=False):
         "products": data["featured_products"],
         "services": data["services"],
         "accept_orders": bool(data.get("accept_orders")) and not preview,
+        "orders_paused": bool(data.get("orders_paused")) and not preview,
         "order_instructions": _lines(data.get("order_instructions") or ""),
         "branches": list(
             site.company.branches.filter(is_active=True).values("id", "name", "phone")
@@ -489,8 +490,11 @@ def public_pay_page(request, slug):
     """/s/<slug>/pay/?ref=… — where a visitor declares a bank transfer for
     an order. Never cached, never indexed: it is one person's order."""
     site = _site_or_404(slug)
+    from website.orders import orders_paused
+
     context = _order_page_context(request, site, page="pay")
     context["api_base"] = f"/api/public/site/{slug}/orders/"
+    context["orders_paused"] = orders_paused(site.company)
     return _private(render(request, "website/public_pay.html", context))
 
 
