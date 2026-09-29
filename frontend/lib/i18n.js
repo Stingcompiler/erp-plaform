@@ -2,25 +2,21 @@ import { improvementsEn, improvementsAr } from "./improvementsI18n.js";
 import { debtEn, debtAr } from "./debtI18n.js";
 import { subscriptionEn, subscriptionAr } from "./subscriptionI18n.js";
 import { labelsAr, labelsEn, statesAr, statesEn } from "./labelsI18n.js";
-import { homeAr, homeEn, pricingAr, pricingEn, productAr, productEn, registerAr, registerEn, trackAr, trackEn } from "./marketingI18n.js";
-// Central translation catalog. Keys are dot-namespaced by surface. `t(key)`
-// (from useI18n) looks a key up in the active language, falling back to English,
-// then to the raw key — so a missing translation is visible, never a crash.
+import {
+  contentAr, contentEn, homeAr, homeEn, installAr, installEn, landingAr, landingEn, pricingAr, pricingEn, productAr, productEn,
+  registerAr, registerEn, registrationAr, registrationEn, sharedAr, sharedEn, trackAr, trackEn,
+} from "./marketingI18n.js";
+import { DEFAULT_LANGUAGE, LANGUAGES, dirFor, translateFrom } from "./i18nCore.js";
+// The app's translation catalog: every namespace, for the workspace and the
+// other app routes (the public pages load lib/publicI18n.js instead). Keys
+// are dot-namespaced by surface. `t(key)` (from useI18n) looks a key up in
+// the active language, falling back to English, then to the raw key — so a
+// missing translation is visible, never a crash (lib/i18nCore.js).
 //
-// Adding a language = add its code here + a block below + list it in LANGUAGES.
+// Adding a language = add its code in lib/i18nCore.js + a block below (and in
+// lib/marketingI18n.js for the public pages).
 
-export const LANGUAGES = [
-  { code: "en", label: "English", native: "English", dir: "ltr" },
-  { code: "ar", label: "Arabic", native: "العربية", dir: "rtl" },
-];
-
-export const DEFAULT_LANGUAGE = "ar";
-const FALLBACK_LANGUAGE = "en";
-
-export function dirFor(lang) {
-  const entry = LANGUAGES.find((l) => l.code === lang);
-  return entry ? entry.dir : "rtl";
-}
+export { DEFAULT_LANGUAGE, LANGUAGES, dirFor };
 
 const en = {
   empty: {
@@ -76,7 +72,7 @@ const en = {
     signOut: "Sign out",
   },
   common: {
-    appName: "Vezano Pro",
+    ...sharedEn.common,
     choose: "— choose —",
     remove: "Remove",
     save: "Save",
@@ -84,7 +80,6 @@ const en = {
     add: "Add",
     edit: "Edit",
     delete: "Delete",
-    close: "Close",
     search: "Search",
     loading: "Loading…",
     saving: "Saving…",
@@ -117,12 +112,11 @@ const en = {
     next: "Next",
     previous: "Previous",
     pageOf: "Page {page} of {pages}",
-    signIn: "Sign in",
     signOut: "Sign out",
     loadError: "Something went wrong. Check the connection and try again.",
   },
   nav: {
-    dashboard: "Dashboard",
+    ...sharedEn.nav,
     inventory: "Inventory",
     sales: "Sales",
     debts: "Debt ledger",
@@ -763,6 +757,7 @@ const en = {
     statusWithdrawn: "Withdrawn",
   },
   platformPlans: {
+    ...sharedEn.platformPlans,
     title: "Plans and pricing",
     subtitle: "Create published plan versions for new companies. Used versions remain immutable.",
     newPlan: "New plan",
@@ -780,16 +775,8 @@ const en = {
     modules: "Included modules",
     modulesHint: "Tick what the plan includes; returns pull in what they need automatically.",
     coreIncluded: "Always included with every plan: {modules}. The limits above decide how many.",
-    allModules: "All modules (everything, including future ones)",
     requires: "needs {modules}",
     modulesRequired: "Pick at least one module.",
-    moduleNames: {
-      inventory: "Inventory", sales: "Sales & POS", purchasing: "Purchasing",
-      sales_returns: "Sales returns", purchase_returns: "Purchase returns",
-      crm: "CRM", hr: "HR", finance: "Finance", reports: "Reports",
-      website: "Public company page", org: "Branches & organization", users: "Users & roles",
-      settings: "Settings",
-    },
     users: "User limit",
     branches: "Branch limit",
     warehouses: "Warehouse limit",
@@ -1085,35 +1072,13 @@ const en = {
     waitQueue: "Upload the queued sales first.",
     waitOnline: "Available once the connection returns.",
   },
-  install: {
-    button: "Install on this device",
-    cardTitle: "Install Vezano Pro as an app",
-    cardBody: "Opens from your home screen and keeps working when the connection drops.",
-    installed: "Installed as an app on this device",
-    notInstalled: "Running in a browser tab",
-    manualHint: "To install: Safari — Share → Add to Home Screen; Firefox — the browser menu → Install.",
-    route: {
-      chromium: "To install: the install icon in the address bar, or the browser menu → Install app.",
-      "safari-ios": "To install: Share → Add to Home Screen.",
-      "safari-mac": "To install: File → Add to Dock.",
-      "firefox-android": "To install: the browser menu → Add app to Home screen.",
-      "firefox-desktop": "Firefox on a computer cannot install web apps (Mozilla removed that in 2021). Offline sales still work in this tab; to install as an app, open Vezano Pro in Chrome, Edge or Safari.",
-      unknown: "This browser offers no install option; offline sales still work in this tab.",
-    },
-    storageDurable: "Local storage is protected — queued sales will not be evicted by the browser.",
-    storageBestEffort: "Local storage is not protected — the browser may clear queued sales if space runs low. Installing the app fixes this.",
-    storageUnknown: "Checking local storage…",
-    storageLow: "This device is nearly out of storage — free space before working offline, or queued sales may fail to save.",
-  },
   shell: {
+    ...sharedEn.shell,
     workspace: "Workspace",
     noRole: "No role",
-    switchLanguage: "Switch language",
-    theme: "Theme",
     sections: "sections",
     shopMode: "Shop mode",
     change: "Change",
-    menu: "Menu",
     noAccessTitle: "No access",
     noAccessBody: "Your role doesn't include the {module} section. Ask an administrator if you need it.",
     platformGroups: {
@@ -1342,70 +1307,6 @@ const en = {
     failed: "The invitation is invalid, expired, or already used.",
     success: "Your owner account is active.",
     signIn: "Continue to sign in",
-  },
-  landing: {
-    navFeatures: "Features",
-    navModules: "Modules",
-    navSolutions: "Solutions",
-    navGuides: "Guides",
-    navStores: "Company pages",
-    skipToContent: "Skip to content",
-    navPricing: "Pricing",
-    navContact: "Contact",
-    heroCtaDemo: "Try the live demo",
-    heroCtaTrial: "Start your free trial",
-    ctaTitle: "Ready to see it on your data?",
-    ctaSubtitle: "Leave your number and we'll set up a short walkthrough — 20 minutes on WhatsApp or a call — showing Vezano Pro on your own products and the way your business actually runs.",
-    contactPhone: "WhatsApp number",
-    whatsappFloat: "Chat on WhatsApp",
-    footerContact: "Contact",
-    contactEmail: "Work email",
-    contactChannel: "How should we reach you?",
-    channels: { whatsapp: "WhatsApp", call: "Phone call", email: "Email" },
-    contactName: "Your name",
-    contactMessage: "What would you like to solve?",
-    contactSend: "Request the walkthrough — it's free",
-    contactSent: "Got it. We'll contact you on the channel you chose to set a time.",
-    footerTagline: "Business management that grows with you.",
-    footerProduct: "Product",
-    footerSolutions: "Solutions",
-    footerLearn: "Learn",
-    footerCompany: "Company",
-    footerRights: "All rights reserved.",
-  },
-  content: {
-    solutionsEyebrow: "Solution",
-    guidesEyebrow: "Guide",
-    compareEyebrow: "Comparison",
-    minutes: "{minutes} min read",
-    published: "Published {date}",
-    faqTitle: "Common questions",
-    takeaway: "In short",
-    relatedSolution: "The part of Vezano Pro that does this",
-    moreSolutions: "More solutions",
-    moreGuides: "More guides",
-    allSolutions: "All solutions",
-    allGuides: "All guides",
-    startTrial: "Start your free trial",
-    seePricing: "See pricing",
-    breadcrumbHome: "Home",
-    comparisonNote: "Every cell describes what Vezano Pro does today; nothing here is a promise.",
-  },
-  registration: {
-    trialLength: "{days}-day free trial, no card required. Your workspace becomes read-only when it ends until a plan is activated.",
-    companyName: "Company name",
-    contactName: "Contact name",
-    email: "Work email",
-    phone: "Phone with country code",
-    country: "Country code (for example SD)",
-    plan: "Select a plan",
-    estimatedUsers: "Estimated users",
-    estimatedBranches: "Estimated branches",
-    message: "What do you need to manage? (optional)",
-    privacy: "By sending this request, you agree that Vezano Pro may use these details to respond to your registration request.",
-    submit: "Request company trial",
-    sending: "Sending request…",
-    publicError: "We could not save your request. Please check the details and try again.",
   },
   crm: {
     emptyTitle: "No leads yet",
@@ -3059,7 +2960,7 @@ const ar = {
     signOut: "تسجيل الخروج",
   },
   common: {
-    appName: "فيزانو برو",
+    ...sharedAr.common,
     choose: "— اختر —",
     remove: "إزالة",
     save: "حفظ",
@@ -3067,7 +2968,6 @@ const ar = {
     add: "إضافة",
     edit: "تعديل",
     delete: "حذف",
-    close: "إغلاق",
     search: "بحث",
     loading: "جارٍ التحميل…",
     saving: "جارٍ الحفظ…",
@@ -3100,12 +3000,11 @@ const ar = {
     next: "التالي",
     previous: "السابق",
     pageOf: "صفحة {page} من {pages}",
-    signIn: "تسجيل الدخول",
     signOut: "تسجيل الخروج",
     loadError: "حدث خطأ ما. تحقق من الاتصال وحاول مرة أخرى.",
   },
   nav: {
-    dashboard: "لوحة التحكم",
+    ...sharedAr.nav,
     inventory: "المخزون",
     sales: "المبيعات",
     debts: "دفتر الديون",
@@ -3746,6 +3645,7 @@ const ar = {
     statusWithdrawn: "مسحوب",
   },
   platformPlans: {
+    ...sharedAr.platformPlans,
     title: "الباقات والتسعير",
     subtitle: "أنشئ إصدارات باقات منشورة للشركات الجديدة. الإصدارات المستخدمة تبقى غير قابلة للتعديل.",
     newPlan: "باقة جديدة",
@@ -3763,16 +3663,8 @@ const ar = {
     modules: "الوحدات المشمولة",
     modulesHint: "اختر ما تشمله الباقة؛ المرتجعات تجلب ما تحتاجه تلقائيًا.",
     coreIncluded: "مضمّنة في كل باقة دائمًا: {modules}. الحدود أعلاه تحدد العدد.",
-    allModules: "كل الوحدات (بما فيها ما يُضاف مستقبلًا)",
     requires: "يحتاج {modules}",
     modulesRequired: "اختر وحدة واحدة على الأقل.",
-    moduleNames: {
-      inventory: "المخزون", sales: "المبيعات ونقطة البيع", purchasing: "المشتريات",
-      sales_returns: "مرتجعات المبيعات", purchase_returns: "مرتجعات المشتريات",
-      crm: "إدارة العملاء", hr: "الموارد البشرية", finance: "المالية", reports: "التقارير",
-      website: "الصفحة العامة للشركة", org: "الفروع والهيكل", users: "المستخدمون والأدوار",
-      settings: "الإعدادات",
-    },
     users: "حد المستخدمين",
     branches: "حد الفروع",
     warehouses: "حد المستودعات",
@@ -4066,35 +3958,13 @@ const ar = {
     waitQueue: "ارفع المبيعات المعلّقة أولًا.",
     waitOnline: "متاح عند عودة الاتصال.",
   },
-  install: {
-    button: "تثبيت على هذا الجهاز",
-    cardTitle: "ثبّت فيزانو برو كتطبيق",
-    cardBody: "يُفتح من الشاشة الرئيسية ويواصل العمل عند انقطاع الاتصال.",
-    installed: "مثبَّت كتطبيق على هذا الجهاز",
-    notInstalled: "يعمل داخل تبويب المتصفح",
-    manualHint: "للتثبيت: في Safari — مشاركة ← إضافة إلى الشاشة الرئيسية؛ في Firefox — قائمة المتصفح ← تثبيت.",
-    route: {
-      chromium: "للتثبيت: أيقونة التثبيت في شريط العنوان، أو قائمة المتصفح ← تثبيت التطبيق.",
-      "safari-ios": "للتثبيت: مشاركة ← إضافة إلى الشاشة الرئيسية.",
-      "safari-mac": "للتثبيت: ملف ← إضافة إلى Dock.",
-      "firefox-android": "للتثبيت: قائمة المتصفح ← إضافة التطبيق إلى الشاشة الرئيسية.",
-      "firefox-desktop": "Firefox على الحاسوب لا يثبّت تطبيقات الويب (أزالت Mozilla هذه الميزة عام 2021). البيع دون اتصال يعمل في هذا التبويب؛ للتثبيت كتطبيق افتح فيزانو برو في Chrome أو Edge أو Safari.",
-      unknown: "هذا المتصفح لا يوفّر خيار تثبيت؛ البيع دون اتصال يعمل في هذا التبويب.",
-    },
-    storageDurable: "التخزين المحلي محمي — لن يحذف المتصفح المبيعات المعلّقة.",
-    storageBestEffort: "التخزين المحلي غير محمي — قد يحذف المتصفح المبيعات المعلّقة عند امتلاء المساحة. تثبيت التطبيق يعالج ذلك.",
-    storageUnknown: "جارٍ فحص التخزين المحلي…",
-    storageLow: "مساحة التخزين على هذا الجهاز شبه ممتلئة — أفرغ مساحة قبل العمل دون اتصال، وإلا قد يفشل حفظ المبيعات المعلّقة.",
-  },
   shell: {
+    ...sharedAr.shell,
     workspace: "مساحة العمل",
     noRole: "بلا دور",
-    switchLanguage: "تغيير اللغة",
-    theme: "المظهر",
     sections: "أقسام",
     shopMode: "وضع المتجر",
     change: "تغيير",
-    menu: "القائمة",
     noAccessTitle: "لا صلاحية",
     noAccessBody: "دورك لا يشمل قسم {module}. تواصل مع المسؤول إذا كنت بحاجة إليه.",
     platformGroups: {
@@ -4323,70 +4193,6 @@ const ar = {
     failed: "الدعوة غير صالحة أو منتهية أو استُخدمت سابقًا.",
     success: "تم تفعيل حساب المالك بنجاح.",
     signIn: "المتابعة إلى تسجيل الدخول",
-  },
-  landing: {
-    navFeatures: "المميزات",
-    navModules: "الوحدات",
-    navSolutions: "الحلول",
-    navGuides: "الأدلة",
-    navStores: "صفحات الشركات",
-    skipToContent: "تخطَّ إلى المحتوى",
-    navPricing: "الأسعار",
-    navContact: "تواصل",
-    heroCtaDemo: "جرّب النسخة التجريبية",
-    heroCtaTrial: "ابدأ تجربتك المجانية",
-    ctaTitle: "جاهز لرؤيته على بياناتك؟",
-    ctaSubtitle: "اترك رقمك وسنرتّب معك جولة قصيرة — 20 دقيقة على واتساب أو مكالمة — نعرض فيها فيزانو برو على أصنافك وطريقة عمل متجرك أو شركتك الفعلية.",
-    contactPhone: "رقم الواتساب",
-    whatsappFloat: "راسلنا على واتساب",
-    footerContact: "التواصل",
-    contactEmail: "بريد العمل",
-    contactChannel: "كيف نتواصل معك؟",
-    channels: { whatsapp: "واتساب", call: "مكالمة", email: "بريد" },
-    contactName: "اسمك",
-    contactMessage: "ما الذي تودّ حلّه؟",
-    contactSend: "اطلب الجولة — مجانًا",
-    contactSent: "وصلنا طلبك. سنتواصل معك عبر القناة التي اخترتها لتحديد الموعد.",
-    footerTagline: "إدارة أعمال تنمو معك.",
-    footerProduct: "المنتج",
-    footerSolutions: "الحلول",
-    footerLearn: "تعلّم",
-    footerCompany: "الشركة",
-    footerRights: "جميع الحقوق محفوظة.",
-  },
-  content: {
-    solutionsEyebrow: "حل",
-    guidesEyebrow: "دليل",
-    compareEyebrow: "مقارنة",
-    minutes: "قراءة {minutes} دقائق",
-    published: "نُشر {date}",
-    faqTitle: "أسئلة شائعة",
-    takeaway: "الخلاصة",
-    relatedSolution: "الجزء من فيزانو برو الذي يقوم بهذا",
-    moreSolutions: "حلول أخرى",
-    moreGuides: "أدلة أخرى",
-    allSolutions: "كل الحلول",
-    allGuides: "كل الأدلة",
-    startTrial: "ابدأ التجربة المجانية",
-    seePricing: "شاهد الأسعار",
-    breadcrumbHome: "الرئيسية",
-    comparisonNote: "كل خانة تصف ما يفعله فيزانو برو اليوم؛ لا شيء هنا وعد.",
-  },
-  registration: {
-    trialLength: "تجربة مجانية لمدة {days} يومًا بلا بطاقة. عند انتهائها تصبح مساحة العمل للقراءة فقط حتى تفعيل خطة.",
-    companyName: "اسم الشركة",
-    contactName: "اسم جهة الاتصال",
-    email: "بريد العمل",
-    phone: "الهاتف مع رمز الدولة",
-    country: "رمز الدولة، مثل SD",
-    plan: "اختر الباقة",
-    estimatedUsers: "عدد المستخدمين المتوقع",
-    estimatedBranches: "عدد الفروع المتوقع",
-    message: "ما الذي تحتاج إلى إدارته؟ اختياري",
-    privacy: "بإرسال الطلب، توافق على استخدام فيزانو برو لهذه البيانات للرد على طلب التسجيل.",
-    submit: "اطلب تجربة للشركة",
-    sending: "جارٍ إرسال الطلب…",
-    publicError: "تعذر حفظ طلبك. راجع البيانات وحاول مرة أخرى.",
   },
   crm: {
     emptyTitle: "لا يوجد عملاء محتملون بعد",
@@ -5997,26 +5803,24 @@ en.product = productEn;
 ar.product = productAr;
 en.track = trackEn;
 ar.track = trackAr;
+en.landing = landingEn;
+ar.landing = landingAr;
+en.content = contentEn;
+ar.content = contentAr;
+en.registration = registrationEn;
+ar.registration = registrationAr;
+en.install = installEn;
+ar.install = installAr;
+en.improvements = { ...en.improvements, ...sharedEn.improvements };
+ar.improvements = { ...ar.improvements, ...sharedAr.improvements };
 en.labels = labelsEn;
 ar.labels = labelsAr;
 en.states = statesEn;
 ar.states = statesAr;
-const CATALOG = { en, ar };
-
-function lookup(obj, path) {
-  return path.split(".").reduce((acc, part) => (acc == null ? acc : acc[part]), obj);
-}
+export const CATALOG = { en, ar };
 
 export function translate(lang, key, vars) {
-  let value = lookup(CATALOG[lang], key);
-  if (value == null) value = lookup(CATALOG[FALLBACK_LANGUAGE], key);
-  if (value == null) return key;
-  if (vars) {
-    return value.replace(/\{(\w+)\}/g, (m, name) =>
-      name in vars ? String(vars[name]) : m
-    );
-  }
-  return value;
+  return translateFrom(CATALOG, lang, key, vars);
 }
 
 // Canonical (English, DB-stored) role names → i18n keys. The stored name is

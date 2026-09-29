@@ -172,48 +172,34 @@ export function ringOffset(fraction, circumference) {
 //     applies once a script has armed it (the `motion-ok` class on <html>
 //     for the hero, `data-reveal-state` on a card), so a crawler, a no-JS
 //     visitor or a failed script gets the page as it is;
-//   - text moves by the line, never by the letter: Arabic letters join, and
-//     a word split into letters stops being shaped;
+//   - the home page's headline does not move at all: it is whole and
+//     readable in the first painted frame (landing review 2026-09-29 — the
+//     old per-phrase mask left it clipped at first paint on a slow phone);
 //   - transform, opacity and clip-path only, so nothing moves the layout.
 
-// The home hero: the headline's lines rise from behind their mask, then
-// the subtitle, the offline line and the buttons fade up while the
-// screenshot opens from an inset clip. All of it within HERO_TOTAL_MS.
+// The home hero, around the static headline and badge: the subtitle, offline
+// line and buttons rise a few pixels from a dimmed start and the screenshot
+// settles from a hair smaller. Nothing starts hidden (HERO_START_OPACITY)
+// and nothing waits for a font, so the first frame already shows every
+// part; the whole entrance is over within HERO_TOTAL_MS.
 export const HERO = {
-  fontWaitMs: 500, // the longest the hero waits for its fonts
-  line: { delay: 0, step: 70, duration: 520 },
-  badge: { delay: 0, duration: 400 },
-  subtitle: { delay: 240, duration: 400 },
-  offline: { delay: 300, duration: 400 },
-  actions: { delay: 360, duration: 400 },
-  shot: { delay: 300, duration: 600 },
+  subtitle: { delay: 0, duration: 360 },
+  offline: { delay: 40, duration: 360 },
+  actions: { delay: 80, duration: 360 },
+  shot: { delay: 120, duration: 480 },
 };
-export const HERO_TOTAL_MS = 900;
+export const HERO_TOTAL_MS = 600;
+export const HERO_START_OPACITY = 0.4;
 
-// CSS custom properties for one hero part (`line` takes its index).
-export function heroTiming(part, index = 0) {
+// CSS custom properties for one hero part.
+export function heroTiming(part) {
   const spec = HERO[part];
-  const delay = spec.delay + (spec.step || 0) * index;
-  return { "--hero-delay": `${delay}ms`, "--hero-dur": `${spec.duration}ms` };
+  return { "--hero-delay": `${spec.delay}ms`, "--hero-dur": `${spec.duration}ms` };
 }
 
-// When the last hero part settles, for a headline of `lines` lines.
-export function heroEndMs(lines) {
-  const parts = ["badge", "subtitle", "offline", "actions", "shot"].map((part) => HERO[part].delay + HERO[part].duration);
-  const lastLine = HERO.line.delay + HERO.line.step * Math.max(0, lines - 1) + HERO.line.duration;
-  return Math.max(lastLine, ...parts);
-}
-
-// The headline's lines: a phrase each, broken after a colon and before a
-// dash, so a line is a unit of meaning at any screen width (a phrase wider
-// than the screen wraps inside its own mask). Joined with single spaces the
-// lines are the headline again, character for character.
-export function headlineLines(text) {
-  if (typeof text !== "string" || !text.trim()) return [];
-  return text
-    .split(/(?<=[:؛])\s+|\s+(?=[—–])/u)
-    .map((line) => line.trim())
-    .filter(Boolean);
+// When the last hero part settles.
+export function heroEndMs() {
+  return Math.max(...Object.values(HERO).map((spec) => spec.delay + spec.duration));
 }
 
 // Section cards fading up as they scroll in (lib/useRevealOnce.js).

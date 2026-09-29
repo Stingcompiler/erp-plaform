@@ -1,3 +1,4 @@
+import AppCatalog from "@/components/i18n/AppCatalog";
 import { NOINDEX } from "@/lib/site";
 
 // Sign-in is not a landing page: keep it out of search results so the brand
@@ -5,5 +6,5 @@ import { NOINDEX } from "@/lib/site";
 export const metadata = { title: "تسجيل الدخول", robots: NOINDEX };
 
 export default function LoginLayout({ children }) {
-  return children;
+  return <AppCatalog>{children}</AppCatalog>;
 }

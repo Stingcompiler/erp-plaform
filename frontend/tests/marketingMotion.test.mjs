@@ -2,31 +2,35 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { HERO, HERO_TOTAL_MS, REVEAL, headlineLines, heroEndMs, heroTiming, revealDelay } from "../lib/motion.js";
+import { HERO, HERO_START_OPACITY, HERO_TOTAL_MS, REVEAL, heroEndMs, heroTiming, revealDelay } from "../lib/motion.js";
 import { VIEW, branchFlowLayout, dotBegin } from "../lib/branchFlow.js";
 import { homeAr, homeEn } from "../lib/marketingI18n.js";
-import { HERO_ARM, HERO_GO } from "../components/landing/heroScripts.js";
+import { HERO_ARM } from "../components/landing/heroScripts.js";
 
-test("the headline splits into whole phrases that join back into it", () => {
-  for (const title of [homeAr.heroTitle, homeEn.heroTitle]) {
-    const lines = headlineLines(title);
-    assert.equal(lines.length, 3, title);
-    assert.equal(lines.join(" "), title);
-    // By the line, never by the letter: every line holds several words.
-    for (const line of lines) assert.ok(line.split(/\s+/).length >= 3, line);
-  }
-  assert.deepEqual(headlineLines("One line only"), ["One line only"]);
-  assert.deepEqual(headlineLines(""), []);
-  assert.deepEqual(headlineLines(undefined), []);
+test("the headline is one short message, the modules are in the subtitle", () => {
+  assert.equal(homeAr.heroTitle, "إدارة متكاملة لشركتك وفروعها. والبيع يستمر عند انقطاع الشبكة.");
+  assert.equal(homeEn.heroTitle, "Manage your company and branches together. Keep selling through outages.");
+  assert.match(homeAr.heroSubtitle, /المخزون/);
+  assert.match(homeEn.heroSubtitle, /inventory/);
 });
 
-test("the hero entrance ends within its budget", () => {
-  const lines = Math.max(headlineLines(homeAr.heroTitle).length, headlineLines(homeEn.heroTitle).length);
-  assert.ok(heroEndMs(lines) <= HERO_TOTAL_MS, `${heroEndMs(lines)} ms`);
-  assert.ok(HERO_TOTAL_MS <= 900);
-  assert.ok(HERO.fontWaitMs <= 500);
-  assert.deepEqual(heroTiming("line", 2), { "--hero-delay": "140ms", "--hero-dur": "520ms" });
-  assert.deepEqual(heroTiming("shot"), { "--hero-delay": "300ms", "--hero-dur": "600ms" });
+test("the hero entrance never hides anything and ends within its budget", () => {
+  assert.ok(heroEndMs() <= HERO_TOTAL_MS, `${heroEndMs()} ms`);
+  assert.ok(HERO_TOTAL_MS <= 600);
+  assert.ok(HERO_START_OPACITY >= 0.4);
+  assert.ok(!("line" in HERO), "the headline has no entrance");
+  assert.deepEqual(heroTiming("shot"), { "--hero-delay": "120ms", "--hero-dur": "480ms" });
+});
+
+test("the h1 has no motion rule and no wrapper that could hide it", () => {
+  const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.ok(!/hero-mask|hero-rise|h1/.test(css.slice(css.indexOf("Public site motion"), css.indexOf("Section cards (lib/useRevealOnce.js)")).replace(/\/\*[\s\S]*?\*\//g, "")));
+  const source = readFileSync(new URL("../components/landing/LandingPage.jsx", import.meta.url), "utf8");
+  const h1 = source.slice(source.indexOf("<h1"), source.indexOf("</h1>"));
+  assert.ok(!/hero-|style=|<span/.test(h1), h1);
+  const keyframes = css.match(/@keyframes hero-[a-z]+ \{[^}]*\}/g) || [];
+  assert.ok(keyframes.length >= 2);
+  for (const rule of keyframes) assert.match(rule, /opacity: 0\.4/, rule);
 });
 
 test("section cards stagger a little and stop growing", () => {
@@ -79,15 +83,14 @@ test("the diagram's copy exists in both languages", () => {
 });
 
 test("the hero's inline scripts are valid, self-contained and honour reduced motion", () => {
-  for (const source of [HERO_ARM, HERO_GO]) {
-    assert.doesNotThrow(() => new Function(source));
-    assert.ok(!source.includes("${"));
-    assert.ok(!source.includes("</script"));
-  }
+  assert.doesNotThrow(() => new Function(HERO_ARM));
+  assert.ok(!HERO_ARM.includes("${"));
+  assert.ok(!HERO_ARM.includes("</script"));
   assert.match(HERO_ARM, /prefers-reduced-motion: reduce/);
   assert.match(HERO_ARM, /motion-ok/);
-  assert.match(HERO_GO, /fonts\.load/);
-  assert.match(HERO_GO, /hero-done/);
+  assert.match(HERO_ARM, /hero-done/);
+  // No wait for a font: nothing in the hero is held back.
+  assert.ok(!/fonts/.test(HERO_ARM));
 });
 
 test("nothing is hidden unless a script armed it", () => {
@@ -95,7 +98,7 @@ test("nothing is hidden unless a script armed it", () => {
   const block = css.slice(css.indexOf("Public site motion"));
   // Every rule that sets opacity: 0 or pushes content out is keyed to an
   // armed state set from JS.
-  for (const rule of block.match(/[^{}]+\{[^{}]*(opacity: 0|translateY\(calc|stroke-dashoffset: 1)[^{}]*\}/g) || []) {
+  for (const rule of block.match(/[^{}]+\{[^{}]*(opacity: 0[;\s}]|translateY\(calc|stroke-dashoffset: 1)[^{}]*\}/g) || []) {
     const selector = rule.slice(0, rule.indexOf("{"));
     assert.match(selector, /motion-ok|data-reveal-state="armed"|data-draw-state="armed"/, selector.trim());
   }

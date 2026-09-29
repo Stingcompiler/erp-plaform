@@ -7,16 +7,7 @@ import { useI18n } from "@/app/providers/I18nProvider";
 import { MarketingPage } from "@/components/marketing/Chrome";
 import Shot from "@/components/marketing/Shot";
 
-const SHOTS = {
-  dashboard: { light: "/marketing/dashboard.png", dark: "/marketing/dashboard-dark.png" },
-  pos: { light: "/marketing/pos.png", dark: "/marketing/pos-dark.png" },
-  inventory: { light: "/marketing/inventory.png", dark: "/marketing/inventory.png" },
-  debts: { light: "/marketing/debts.png", dark: "/marketing/debts.png" },
-  users: { light: "/marketing/users.png", dark: "/marketing/users.png" },
-};
-
 function ModuleSection({ module, index }) {
-  const shot = SHOTS[module.shot] || SHOTS.dashboard;
   const flip = index % 2 === 1;
   return (
     <section id={module.id} className="scroll-mt-24 border-t border-line py-14 first:border-t-0 sm:py-20">
@@ -33,7 +24,7 @@ function ModuleSection({ module, index }) {
             ))}
           </ul>
         </div>
-        <Shot light={shot.light} dark={shot.dark} alt={module.title} priority={index === 0} />
+        <Shot name={module.shot} alt={module.title} priority={index === 0} sizes="(min-width: 1152px) 524px, (min-width: 1024px) calc(50vw - 52px), (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)" />
       </div>
     </section>
   );

@@ -12,8 +12,7 @@ import { Languages, Menu, MoonStar, Sun, SunMoon, X } from "lucide-react";
 import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { DEMO_URL, HAS_LIVE_DEMO } from "@/lib/demo";
-import { GUIDES } from "@/lib/content/guides";
-import { SOLUTIONS } from "@/lib/content/solutions";
+import { GUIDE_TITLES, SOLUTION_TITLES } from "@/lib/content/titles";
 import { cachedDeploymentMode, fetchDeploymentMode } from "@/lib/deploymentMode";
 import LogoMark from "@/components/brand/LogoMark";
 import Wordmark from "@/components/brand/Wordmark";
@@ -89,9 +88,14 @@ export function MarketingHeader() {
     };
   }, [open]);
 
+  // prefetch={false}: sign-in and the workspace are app routes (their own
+  // JavaScript and the app's dictionary); a visitor reading the landing page
+  // should not download them on a slow line just because the link is on
+  // screen. They load when clicked.
   const signIn = (
     <Link
       href={user ? "/dashboard" : "/login"}
+      prefetch={false}
       className="tap inline-flex h-10 shrink-0 items-center whitespace-nowrap rounded-control bg-accent px-3.5 text-sm font-medium text-white hover:bg-accent-strong"
     >
       {user ? t("nav.dashboard") : t("common.signIn")}
@@ -199,8 +203,8 @@ export function MarketingFooter() {
                 {t("landing.footerSolutions")}
               </div>
               <ul className="mt-3 space-y-2 text-sm text-paper/60">
-                {SOLUTIONS.map((item) => (
-                  <li key={item.slug}><Link href={href(`/solutions/${item.slug}`)} className="hover:text-paper">{item[contentLanguage].title}</Link></li>
+                {SOLUTION_TITLES.map((item) => (
+                  <li key={item.slug}><Link href={href(`/solutions/${item.slug}`)} className="hover:text-paper">{item[contentLanguage]}</Link></li>
                 ))}
               </ul>
             </div>
@@ -209,8 +213,8 @@ export function MarketingFooter() {
                 {t("landing.footerLearn")}
               </div>
               <ul className="mt-3 space-y-2 text-sm text-paper/60">
-                {GUIDES.map((item) => (
-                  <li key={item.slug}><Link href={href(`/guides/${item.slug}`)} className="hover:text-paper">{item[contentLanguage].title}</Link></li>
+                {GUIDE_TITLES.map((item) => (
+                  <li key={item.slug}><Link href={href(`/guides/${item.slug}`)} className="hover:text-paper">{item[contentLanguage]}</Link></li>
                 ))}
                 <li><Link href={href("/compare/excel-and-paper")} className="hover:text-paper">{t("content.compareEyebrow")}</Link></li>
                 <li><a href={STORES_PATH} className="hover:text-paper">{t("landing.navStores")}</a></li>
@@ -224,7 +228,7 @@ export function MarketingFooter() {
                 <li><Link href={href("/product")} className="hover:text-paper">{t("landing.navFeatures")}</Link></li>
                 <li><Link href={href("/#modules")} className="hover:text-paper">{t("landing.navModules")}</Link></li>
                 <li><Link href={href("/pricing")} className="hover:text-paper">{t("landing.navPricing")}</Link></li>
-                <li><Link href="/login" className="hover:text-paper">{t("common.signIn")}</Link></li>
+                <li><Link href="/login" prefetch={false} className="hover:text-paper">{t("common.signIn")}</Link></li>
               </ul>
             </div>
             <div>
