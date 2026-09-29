@@ -181,6 +181,9 @@ const en = {
   },
   budgets: {
     title: "Budgets",
+    ringExpense: "Spent of the expense plan",
+    ringRevenue: "Earned of the revenue plan",
+    ringOf: "{actual} of {planned}",
     new: "New budget",
     newTitle: "New budget",
     create: "Save budget",
@@ -997,6 +1000,9 @@ const en = {
     viewer: "Viewer",
   },
   sync: {
+    uploadLabel: "Upload progress",
+    uploadSent: "{sent} of {total} sent",
+    uploadHint: "Counted since the list was last empty; items the server refused stay unsent.",
     signOutPending: "This device has {count} operation(s) not uploaded yet. After you sign out, whoever signs in next will not see them until you are back. Sign out?",
     signOutPendingOffline: "This device has {count} operation(s) not uploaded and there is no connection. You will be signed out on this device now; the operations stay here until you sign in again, and signing in needs the connection. Sign out?",
     signOutOffline: "There is no connection. You will be signed out on this device now, and the server is told as soon as the connection returns. Signing in again needs the connection. Sign out?",
@@ -3123,6 +3129,9 @@ const ar = {
   },
   budgets: {
     title: "الموازنات",
+    ringExpense: "المصروف من خطة المصروفات",
+    ringRevenue: "المحقَّق من خطة الإيرادات",
+    ringOf: "{actual} من {planned}",
     new: "موازنة جديدة",
     newTitle: "موازنة جديدة",
     create: "حفظ الموازنة",
@@ -3937,6 +3946,9 @@ const ar = {
     viewer: "مستعرض",
   },
   sync: {
+    uploadLabel: "تقدّم الرفع",
+    uploadSent: "أُرسلت {sent} من {total}",
+    uploadHint: "يُحسب منذ آخر مرة خلت فيها القائمة؛ ما رفضه الخادم يبقى غير مُرسَل.",
     signOutPending: "على هذا الجهاز {count} عملية لم تُرفع بعد. إن سجّلت الخروج فلن يراها من يسجّل الدخول بعدك حتى تعود أنت. هل تريد الخروج؟",
     signOutPendingOffline: "على هذا الجهاز {count} عملية لم تُرفع، ولا يوجد اتصال. سيُسجَّل خروجك من هذا الجهاز الآن، وتبقى العمليات محفوظة عليه حتى تسجّل الدخول من جديد، وتسجيل الدخول يحتاج الاتصال. هل تريد الخروج؟",
     signOutOffline: "لا يوجد اتصال. سيُسجَّل خروجك من هذا الجهاز الآن، ويُبلَّغ الخادم فور عودة الاتصال. تسجيل الدخول من جديد يحتاج الاتصال. هل تريد الخروج؟",

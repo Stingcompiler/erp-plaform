@@ -85,10 +85,16 @@ export default function OperationalReports({ range, areas }) {
     };
   }, [range.start, range.end, sales, crmReport, purchasing, finance]);
 
+  // A card already showing an answer keeps it (dimmed, `refreshing`) while
+  // the new period loads, so its bars move to the new values instead of
+  // redrawing from a skeleton; a card with nothing yet shows its skeleton.
+  const [refreshing, setRefreshing] = useState(0);
   const fetchOne = useCallback(([wanted, fetch, setter]) => {
     if (!wanted) return;
-    setter(null);
-    fetch().then((r) => setter(r.data)).catch((err) => setter(slotFromError(err)));
+    setter((prev) => (prev && typeof prev === "object" ? prev : null));
+    setRefreshing((n) => n + 1);
+    fetch().then((r) => setter(r.data)).catch((err) => setter(slotFromError(err)))
+      .finally(() => setRefreshing((n) => n - 1));
   }, []);
 
   useEffect(() => {
@@ -102,7 +108,8 @@ export default function OperationalReports({ range, areas }) {
         : render(data);
 
   return (
-    <div className="mt-6 grid gap-4 lg:grid-cols-2">
+    <div aria-busy={refreshing > 0 || undefined}
+      className={`mt-6 grid gap-4 transition-opacity duration-200 lg:grid-cols-2 ${refreshing > 0 ? "opacity-60" : ""}`}>
       {finance && (
         <div className="lg:col-span-2">
           <Section title={t("reports.ops.reconciliation")} hint={t("reports.ops.reconciliationHint")} csvHref={csv("/reports/payment-reconciliation/")}>

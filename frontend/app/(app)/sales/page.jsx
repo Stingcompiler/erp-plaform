@@ -15,6 +15,7 @@ import BankAccounts from "@/components/sales/BankAccounts";
 import CashDrawer from "@/components/sales/CashDrawer";
 import ShiftHistory from "@/components/sales/ShiftHistory";
 import TabBar from "@/components/ui/TabBar";
+import { useTabFade } from "@/lib/useTabFade";
 import PriceFlagReview from "@/components/sales/PriceFlagReview";
 
 export default function SalesPage() {
@@ -22,6 +23,7 @@ export default function SalesPage() {
   const { t } = useI18n();
   const writable = canWrite("sales");
   const [tab, setTab] = useState(writable ? "pos" : "invoices");
+  const tabFade = useTabFade(tab, { disabled: tab === "pos" });
   useEffect(() => { const requested = new URLSearchParams(window.location.search).get("tab");
     if (['pos', 'till', 'invoices', 'banks', 'quotes', 'price-review'].includes(requested)) setTab(requested);
   }, []);
@@ -82,6 +84,10 @@ export default function SalesPage() {
 
       <TabBar value={tab} onChange={setTab} tabs={tabs} />
 
+      {/* A 150 ms fade-in when the tab changes — never onto the till, where
+          nothing may move between one scan and the next. */}
+      <div ref={tabFade}>
+
       {/* Kept mounted while another tab is open: a look at the invoices in
           the middle of a sale used to unmount the till and drop the cart. */}
       {writable && (
@@ -119,6 +125,7 @@ export default function SalesPage() {
       {tab === "banks" && writable && (
         <BankAccounts writable={canWrite("finance")} onChanged={loadAccounts} />
       )}
+      </div>
     </div>
   );
 }
