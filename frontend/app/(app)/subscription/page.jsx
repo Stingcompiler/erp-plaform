@@ -8,6 +8,8 @@ import { useI18n } from "../../providers/I18nProvider";
 import { subscription as subscriptionApi } from "@/lib/api";
 import { Badge, Button, Card, Input, PageHeader, Select } from "@/components/ui/kit";
 import UsageMeter from "@/components/subscription/UsageMeter";
+import ProgressRing from "@/components/ui/ProgressRing";
+import { subscriptionWindow } from "@/lib/progress";
 import DeviceList from "@/components/subscription/DeviceList";
 import PlanChangePanel from "@/components/subscription/PlanChangePanel";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -154,6 +156,9 @@ export default function SubscriptionPage() {
   const record = standalone ? data?.license : data?.subscription;
   const entitlements = data?.entitlements || {};
   const planName = standalone ? record?.organisation_name : record?.plan?.plan_name;
+  // Days left of the trial / period / grace, as a ring — only when both
+  // ends of that window are known (lib/progress.js).
+  const timeLeft = standalone ? null : subscriptionWindow(record);
   return <div>
     <PageHeader title={t("subscription.title")} subtitle={t("subscription.subtitle")} />
     {error && <div role="alert" className="mb-4 rounded-control bg-danger/10 p-3 text-sm text-danger">{error}</div>}
@@ -187,7 +192,21 @@ export default function SubscriptionPage() {
           {data.installation.application_version && <div className="mt-1">{t("subscription.appVersion")}: {data.installation.application_version}</div>}
         </div>}
       </Card>}
-      {!standalone && record && <Card className="mt-5 p-5"><div className="grid gap-4 sm:grid-cols-3">{[["periodEnd", record.period_ends_at], ["trialEnd", record.trial_ends_at], ["graceEnd", record.grace_ends_at]].map(([key, value]) => <div key={key}><div className="text-xs text-muted">{t(`subscription.${key}`)}</div><div className="mt-1">{showDate(value)}</div></div>)}</div></Card>}
+      {!standalone && record && <Card className="mt-5 p-5"><div className="flex flex-wrap items-center gap-5">
+        {timeLeft && <div className="flex items-center gap-3">
+          <ProgressRing value={timeLeft.daysLeft} max={timeLeft.totalDays} size={72} stroke={7}
+            tone={timeLeft.daysLeft <= 3 ? "danger" : timeLeft.daysLeft <= 7 || timeLeft.kind === "grace" ? "warn" : "accent"}
+            label={t(`subscription.ringLabel.${timeLeft.kind}`)}
+            valueText={t("subscription.ringValueText", { left: timeLeft.daysLeft, total: timeLeft.totalDays })}>
+            <span className="tabular block text-lg font-semibold text-ink">{timeLeft.daysLeft}</span>
+          </ProgressRing>
+          <div className="text-sm">
+            <div className="font-medium text-ink">{t(`subscription.ringLabel.${timeLeft.kind}`)}</div>
+            <div className="text-muted">{t("subscription.ringOf", { total: timeLeft.totalDays })}</div>
+          </div>
+        </div>}
+        <div className="grid min-w-0 flex-1 gap-4 sm:grid-cols-3">{[["periodEnd", record.period_ends_at], ["trialEnd", record.trial_ends_at], ["graceEnd", record.grace_ends_at]].map(([key, value]) => <div key={key}><div className="text-xs text-muted">{t(`subscription.${key}`)}</div><div className="mt-1">{showDate(value)}</div></div>)}</div>
+      </div></Card>}
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
         <Card className="p-5"><h2 className="font-display font-semibold">{t("subscription.modules")}</h2><div className="mt-3 flex flex-wrap gap-2">{(entitlements.modules || []).map((item) => <Badge key={item} tone="accent">{moduleLabel(item, t)}</Badge>)}</div></Card>
         <Card className="p-5"><h2 className="font-display font-semibold">{t("subscription.limits")}</h2><p className="mt-1 text-sm text-muted">{t("usage.hint")}</p><div className="mt-4"><UsageMeter usage={data.usage} /></div></Card>

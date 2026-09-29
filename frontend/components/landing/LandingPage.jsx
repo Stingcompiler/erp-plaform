@@ -4,9 +4,8 @@
 // /marketing is a real capture of the demo company (Arabic, light and dark),
 // so the copy next to it describes what the visitor is actually looking at.
 
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
   Banknote,
@@ -39,6 +38,10 @@ import { MarketingFooter, MarketingHeader } from "@/components/marketing/Chrome"
 import { DirectWhatsAppLink, SiteContactProvider, WhatsAppFloat, useSiteContact } from "@/components/marketing/SiteContact";
 import PlanCards from "@/components/marketing/PlanCards";
 import Shot from "@/components/marketing/Shot";
+import BranchFlow from "@/components/marketing/BranchFlow";
+import { HERO_ARM, HERO_GO } from "@/components/landing/heroScripts";
+import { headlineLines, heroTiming, revealStyle } from "@/lib/motion";
+import { useRevealOnce } from "@/lib/useRevealOnce";
 
 // Icons for the module cards (home.modules[].key); the copy and the /product
 // anchor each card links to live in lib/marketingI18n.js.
@@ -61,49 +64,55 @@ const STORY_SHOTS = [
   { light: "/marketing/debts.png", dark: "/marketing/debts.png" },
 ];
 
-function Reveal({ children, delay = 0, className = "", immediate = false }) {
-  const reduce = useReducedMotion();
-  const visible = { opacity: 1, y: 0 };
+// A card or block that fades up once as it scrolls into view. Visible in
+// the HTML; useRevealOnce (on <main>) arms it only if it is below the fold.
+// `index` staggers the cards of one group (lib/motion.js revealDelay).
+function Reveal({ children, index = 0, className = "" }) {
   return (
-    <motion.div
-      className={className}
-      initial={reduce ? false : { opacity: 0, y: 18 }}
-      animate={immediate ? visible : undefined}
-      whileInView={immediate ? undefined : visible}
-      viewport={{ once: true, margin: "-80px" }}
-      transition={{ duration: 0.5, delay, ease: "easeOut" }}
-    >
+    <div className={`mk-reveal ${className}`} style={revealStyle(index)}>
       {children}
-    </motion.div>
+    </div>
   );
 }
 
+// The headline, subtitle and buttons are plain HTML at first paint; the
+// entrance (masked lines, fades, the screenshot's clip) is CSS started by
+// the two inline scripts in heroScripts.js. See the "Public site motion"
+// block in app/globals.css.
+const noSubscribe = () => () => {};
+
 function Hero() {
   const { t, href } = useI18n();
+  const lines = headlineLines(t("home.heroTitle"));
+  // True in the exported HTML and while hydrating it, false on a
+  // client-side render: the scripts only belong in the page as loaded (a
+  // script React creates would never run anyway).
+  const fromHtml = useSyncExternalStore(noSubscribe, () => false, () => true);
   return (
     <section className="relative overflow-hidden">
+      {fromHtml && <script dangerouslySetInnerHTML={{ __html: HERO_ARM }} />}
       <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-accent/10 via-transparent to-transparent" />
       <div className="pointer-events-none absolute start-1/2 top-24 -z-10 h-[480px] w-[900px] -translate-x-1/2 rounded-full bg-accent/10 blur-3xl" />
       <div className="mx-auto max-w-6xl px-4 pb-10 pt-14 sm:px-6 sm:pt-20">
         <div className="mx-auto max-w-3xl text-center">
-          <Reveal immediate>
-            <span className="inline-flex items-center rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-muted">
-              {t("home.heroBadge")}
-            </span>
-          </Reveal>
-          <Reveal immediate delay={0.05}>
-            <h1 className="mt-5 font-display text-3xl font-bold leading-[1.2] tracking-tight sm:text-5xl">
-              {t("home.heroTitle")}
-            </h1>
-          </Reveal>
-          <Reveal immediate delay={0.1}>
-            <p className="mx-auto mt-5 max-w-2xl text-base text-muted sm:text-lg">{t("home.heroSubtitle")}</p>
-            <p className="mx-auto mt-4 flex max-w-2xl items-start justify-center gap-2 text-sm text-ink/80">
-              <WifiOff size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-accent" />
-              <span>{t("home.heroOffline")}</span>
-            </p>
-          </Reveal>
-          <Reveal immediate delay={0.15}>
+          <span className="hero-fade inline-flex items-center rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-muted" style={heroTiming("badge")}>
+            {t("home.heroBadge")}
+          </span>
+          <h1 className="mt-5 font-display text-3xl font-bold leading-[1.2] tracking-tight sm:text-5xl">
+            {lines.map((line, index) => (
+              <Fragment key={line}>
+                {index > 0 && " "}
+                <span className="hero-mask"><span style={heroTiming("line", index)}>{line}</span></span>
+              </Fragment>
+            ))}
+          </h1>
+          {fromHtml && <script dangerouslySetInnerHTML={{ __html: HERO_GO }} />}
+          <p className="hero-fade mx-auto mt-5 max-w-2xl text-base text-muted sm:text-lg" style={heroTiming("subtitle")}>{t("home.heroSubtitle")}</p>
+          <p className="hero-fade mx-auto mt-4 flex max-w-2xl items-start justify-center gap-2 text-sm text-ink/80" style={heroTiming("offline")}>
+            <WifiOff size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-accent" />
+            <span>{t("home.heroOffline")}</span>
+          </p>
+          <div className="hero-fade" style={heroTiming("actions")}>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link href={href("/register")} className="w-full rounded-control bg-accent px-6 py-3 text-center font-medium text-white shadow-card hover:bg-accent-strong sm:w-auto">
                 {t("home.heroPrimary")}
@@ -114,12 +123,14 @@ function Hero() {
             </div>
             <p className="mt-4 text-sm text-muted">{t("home.heroNote")}</p>
             <InstallCard className="mx-auto mt-6 max-w-md text-start" />
-          </Reveal>
+          </div>
         </div>
-        <Reveal immediate delay={0.2} className="mx-auto mt-12 max-w-5xl">
-          <Shot light="/marketing/dashboard.png" dark="/marketing/dashboard-dark.png" alt={t("home.heroCaption")} priority />
+        <div className="mx-auto mt-12 max-w-5xl">
+          <div className="hero-shot" style={heroTiming("shot")}>
+            <Shot light="/marketing/dashboard.png" dark="/marketing/dashboard-dark.png" alt={t("home.heroCaption")} priority />
+          </div>
           <p className="mt-3 text-center text-xs text-muted">{t("home.heroCaption")}</p>
-        </Reveal>
+        </div>
       </div>
     </section>
   );
@@ -196,7 +207,7 @@ function Modules() {
         {modules.map((module, index) => {
           const Icon = MODULE_ICONS[module.key] || Package;
           return (
-            <Reveal key={module.key} delay={index * 0.03} className="h-full">
+            <Reveal key={module.key} index={index % 4} className="h-full">
               <Link
                 href={href(`/product#${module.anchor}`)}
                 className="group flex h-full flex-col rounded-card border border-line bg-surface p-5 shadow-card transition-colors hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
@@ -232,6 +243,7 @@ function MultiBranch() {
           <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">{t("home.multiTitle")}</h2>
           <p className="mt-3 text-muted">{t("home.multiSubtitle")}</p>
         </div>
+        <BranchFlow className="mt-10" />
         <div className="mt-10 grid gap-5 lg:grid-cols-3">
           <Reveal className="h-full">
             <div className={card}>
@@ -239,7 +251,7 @@ function MultiBranch() {
               <p className="mt-3 text-sm text-muted">{t("home.multiBranchBody")}</p>
             </div>
           </Reveal>
-          <Reveal delay={0.05} className="h-full">
+          <Reveal index={1} className="h-full">
             <div className={card}>
               <h3 className={heading}><Users size={20} aria-hidden="true" className="shrink-0 text-accent" />{t("home.multiRolesTitle")}</h3>
               {Array.isArray(roles) && (
@@ -251,7 +263,7 @@ function MultiBranch() {
               )}
             </div>
           </Reveal>
-          <Reveal delay={0.1} className="h-full">
+          <Reveal index={2} className="h-full">
             <div className={card}>
               <h3 className={heading}><ShieldCheck size={20} aria-hidden="true" className="shrink-0 text-accent" />{t("home.multiApprovalsTitle")}</h3>
               {Array.isArray(approvals) && (
@@ -282,7 +294,7 @@ function SudanFit() {
         {items.map(([title, body], index) => {
           const Icon = SUDAN_ICONS[index] || Check;
           return (
-            <Reveal key={title} delay={index * 0.05} className="h-full">
+            <Reveal key={title} index={index} className="h-full">
               <div className="h-full rounded-card border border-line bg-paper p-5 shadow-card">
                 <span className="grid h-9 w-9 place-items-center rounded-control bg-accent/10 text-accent"><Icon size={18} aria-hidden="true" /></span>
                 <h3 className="mt-3 font-display font-semibold">{title}</h3>
@@ -305,7 +317,7 @@ function HowItWorks() {
       <h2 className="text-center font-display text-2xl font-bold tracking-tight sm:text-3xl">{t("home.howTitle")}</h2>
       <div className="mt-10 grid gap-5 md:grid-cols-3">
         {steps.map(([title, body], index) => (
-          <Reveal key={title} delay={index * 0.08}>
+          <Reveal key={title} index={index}>
             <div className="h-full rounded-card border border-line bg-paper p-6 shadow-card">
               <span className="grid h-9 w-9 place-items-center rounded-full bg-accent font-display text-sm font-bold text-white">{index + 1}</span>
               <h3 className="mt-4 font-display text-lg font-semibold">{title}</h3>
@@ -520,11 +532,13 @@ function ContactCTA() {
 }
 
 export default function LandingPage() {
+  const mainRef = useRef(null);
+  useRevealOnce(mainRef);
   return (
     <SiteContactProvider>
       <div className="min-h-screen bg-paper text-ink">
         <MarketingHeader />
-        <main>
+        <main ref={mainRef}>
           <Hero />
           <TrustStrip />
           <Modules />

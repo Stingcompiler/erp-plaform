@@ -8,6 +8,7 @@ import { useI18n } from "../../providers/I18nProvider";
 import { platformSubscriptions as api } from "@/lib/api";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import PhoneLink from "@/components/ui/PhoneLink";
+import SuccessCheck from "@/components/ui/SuccessCheck";
 import PlanChangeRequests from "@/components/subscription/PlanChangeRequests";
 import { errorText } from "@/lib/errors";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -89,6 +90,13 @@ export default function PlatformSubscriptionsPage() {
   const [saving, setSaving] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  // An approved payment (verified, or approved and renewed) gets the drawn
+  // check beside its message; `n` replays it for the next approval.
+  const [approved, setApproved] = useState({ text: "", n: 0 });
+  const approvedMessage = (text) => {
+    setSuccess(text);
+    setApproved((current) => ({ text, n: current.n + 1 }));
+  };
 
   const versions = useMemo(
     () => plans.flatMap((plan) => (plan.versions || []).filter((version) => version.published_at)),
@@ -181,7 +189,7 @@ export default function PlatformSubscriptionsPage() {
         invoice_id: Number(draft.invoice),
         amount: draft.amount,
       }]);
-      setSuccess(t("subscription.paymentVerified"));
+      approvedMessage(t("subscription.paymentVerified"));
       await load();
     } catch (requestError) {
       setError(errorText(requestError, t, "subscription.loadError"));
@@ -210,7 +218,7 @@ export default function PlatformSubscriptionsPage() {
     setSuccess("");
     try {
       await api.renewPayment(payment.id, plan.key);
-      setSuccess(t("subscription.renewed"));
+      approvedMessage(t("subscription.renewed"));
       await load();
     } catch (requestError) {
       setError(errorText(requestError, t, "subscription.loadError"));
@@ -299,7 +307,12 @@ export default function PlatformSubscriptionsPage() {
         }
       />
       {error && <div className="mb-4 rounded-control bg-danger/10 p-3 text-danger">{error}</div>}
-      {success && <div className="mb-4 rounded-control bg-ok/10 p-3 text-ok">{success}</div>}
+      {success && (
+        <div role="status" className="mb-4 flex items-center gap-2 rounded-control bg-ok/10 p-3 text-ok">
+          {approved.text === success && <SuccessCheck key={approved.n} size={22} />}
+          <span>{success}</span>
+        </div>
+      )}
       <PlanChangeRequests canManage={canManageSubs} onChanged={load} />
       {canBill && <Card id="renewal-invoice" className="mb-6 p-5">
         <h2 className="font-display text-xl font-semibold">{t("subscription.createInvoice")}</h2>

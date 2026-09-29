@@ -104,6 +104,140 @@ body {
   .figure-xl { --figure-max: 1.875rem; }
 }
 
+/* ---- Motion (lib/motion.js) ---------------------------------------------
+   One curve and three durations for everything that moves. Under
+   prefers-reduced-motion the rule below cuts every duration to nothing;
+   the components also skip their animations in JS
+   (lib/useReducedMotionSafe.js), so no delay or first frame is left over. */
+:root {
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --motion-slow: 250ms;
+  --motion-chart: 350ms;
+}
+
+/* A figure counting to its value: the final text stays in the layout
+   (transparent) and sizes the card; the count is drawn over it. */
+.figure-count { position: relative; -webkit-text-fill-color: transparent; }
+.figure-count__overlay {
+  position: absolute;
+  inset: 0;
+  white-space: nowrap;
+  -webkit-text-fill-color: currentcolor;
+  pointer-events: none;
+}
+@media print {
+  .figure-count { -webkit-text-fill-color: currentcolor; }
+  .figure-count__overlay { display: none; }
+}
+
+/* Progress ring (components/ui/ProgressRing.jsx): the arc starts at twelve
+   o'clock and runs with the reading direction — clockwise in English,
+   anticlockwise in Arabic, like the app's bars that fill from the right. */
+.progress-ring__svg { transform: rotate(-90deg); }
+[dir="rtl"] .progress-ring__svg { transform: rotate(-90deg) scaleY(-1); }
+.progress-ring__arc {
+  transition: stroke-dashoffset 600ms var(--motion-ease), stroke var(--motion-base) linear;
+}
+
+/* Success check (components/ui/SuccessCheck.jsx): the disc pops in, then
+   the tick is drawn — 350 ms in all. */
+.success-check--animate .success-check__disc {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: success-disc var(--motion-base) var(--motion-ease) both;
+}
+.success-check--animate .success-check__tick {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: success-tick var(--motion-slow) var(--motion-ease) 100ms forwards;
+}
+@keyframes success-disc { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes success-tick { to { stroke-dashoffset: 0; } }
+
+/* Bars of a report chart (components/reports/BarList.jsx) move to the new
+   period's length instead of redrawing. Width keeps the rounded ends round
+   (a scaleX squashes them); the track is `contain: layout paint`, so a
+   frame re-lays out one 10 px bar, not the page. A bar starts at the
+   inline start by itself: the right in Arabic. */
+.bar-track { contain: layout paint; }
+.bar-morph { transition: width var(--motion-chart) var(--motion-ease); }
+
+/* ---- Public site motion (lib/motion.js, "Public site") -------------------
+   Every rule that hides something is keyed to a state a script set: the
+   `motion-ok` class the hero's inline script puts on <html>, or a card's
+   data-reveal-state. Without them (no JS, a crawler, reduced motion) the
+   page is simply there. Timings come from lib/motion.js as --hero-delay /
+   --hero-dur on each part. */
+
+/* Hero headline: each line (a phrase, lib/motion.js headlineLines) is a
+   mask; its text rises from below the mask's edge. The mask is a clip-path
+   reaching a little past the line box, so Arabic marks above and below the
+   line are never cut, and nothing about the layout changes. */
+.hero-mask { display: block; }
+.hero-mask > span { display: block; text-wrap: balance; }
+.motion-ok:not(.hero-done) .hero-mask { clip-path: inset(-0.4em -1em -0.3em -1em); }
+.motion-ok:not(.hero-done) .hero-mask > span { transform: translateY(calc(100% + 0.8em)); }
+.motion-ok:not(.hero-done) .hero-fade { opacity: 0; transform: translateY(10px); }
+.motion-ok:not(.hero-done) .hero-shot { clip-path: inset(10% 12% 10% 12% round 18px); transform: scale(0.97); }
+
+.motion-ok.hero-go:not(.hero-done) .hero-mask > span {
+  animation: hero-rise var(--hero-dur) var(--motion-ease) var(--hero-delay) both;
+}
+.motion-ok.hero-go:not(.hero-done) .hero-fade {
+  animation: hero-fade var(--hero-dur) var(--motion-ease) var(--hero-delay) both;
+}
+.motion-ok.hero-go:not(.hero-done) .hero-shot {
+  animation: hero-open var(--hero-dur) var(--motion-ease) var(--hero-delay) both;
+}
+@keyframes hero-rise { to { transform: translateY(0); } }
+@keyframes hero-fade { to { opacity: 1; transform: translateY(0); } }
+@keyframes hero-open { to { clip-path: inset(0 0 0 0 round 18px); transform: scale(1); } }
+
+/* Section cards (lib/useRevealOnce.js): armed only below the fold. */
+.mk-reveal[data-reveal-state="armed"] { opacity: 0; transform: translateY(12px); }
+.mk-reveal[data-reveal-state="in"] {
+  transition:
+    opacity var(--motion-slow) var(--motion-ease) var(--reveal-delay, 0ms),
+    transform var(--motion-slow) var(--motion-ease) var(--reveal-delay, 0ms);
+}
+
+/* Branch → head-office diagram (components/marketing/BranchFlow.jsx): the
+   paths are drawn in when it scrolls into view. */
+.branch-flow[data-draw-state] .branch-flow__path { stroke-dasharray: 1; }
+.branch-flow[data-draw-state="armed"] .branch-flow__path { stroke-dashoffset: 1; }
+.branch-flow[data-draw-state="in"] .branch-flow__path {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset var(--flow-dur) var(--motion-ease) var(--flow-delay);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-ok .hero-mask > span,
+  .motion-ok .hero-fade,
+  .motion-ok .hero-shot,
+  .mk-reveal[data-reveal-state],
+  .branch-flow .branch-flow__path {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+}
+@media print {
+  .motion-ok .hero-mask > span,
+  .motion-ok .hero-fade,
+  .motion-ok .hero-shot,
+  .mk-reveal[data-reveal-state] {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

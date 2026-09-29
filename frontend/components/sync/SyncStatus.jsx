@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Cloud, CloudOff, RefreshCw, AlertTriangle, Download, ShieldCheck, ShieldAlert } from "lucide-react";
 import { installRoute, useInstallPrompt } from "@/lib/installPrompt";
 import { useSync } from "@/components/sync/SyncProvider";
@@ -12,6 +12,8 @@ import { offlineStore } from "@/lib/offlineStore";
 import { isRetrying, RETRY_EXHAUSTED } from "@/lib/syncRetry";
 import { errorText } from "@/lib/errors";
 import { formatAmount } from "@/lib/money";
+import { uploadProgress } from "@/lib/progress";
+import ProgressRing from "@/components/ui/ProgressRing";
 
 const money = (v) => formatAmount(v);
 
@@ -72,6 +74,15 @@ export default function SyncStatus() {
   const { installed, canPrompt, prompt } = useInstallPrompt();
   const { t, language } = useI18n();
   const [open, setOpen] = useState(false);
+  // The most operations the queue held since it was last empty: the ring in
+  // the drawer shows how many of them have been sent (lib/progress.js).
+  const [peak, setPeak] = useState(0);
+  const lastPending = useRef(pending);
+  useEffect(() => {
+    setPeak((current) => (lastPending.current === 0 && pending > 0 ? pending : Math.max(current, pending)));
+    lastPending.current = pending;
+  }, [pending]);
+  const upload = uploadProgress(peak, pending);
   const failedCount = operations.filter((op) => op.error).length;
   const failed = failedCount > 0;
   const Icon = error || failed || legacy ? AlertTriangle : online ? Cloud : CloudOff;
@@ -107,6 +118,20 @@ export default function SyncStatus() {
         <RefreshCw size={16} className={flushing ? "animate-spin" : ""} />{t("improvements.retry")}
       </Button>}>
       <p className="mb-4 text-sm text-muted">{t("improvements.syncNote")}</p>
+      {upload && (
+        <div className="mb-4 flex items-center gap-3 rounded-card border border-line p-3" data-testid="upload-progress">
+          <ProgressRing value={upload.sent} max={upload.total} size={52} stroke={5}
+            tone={failedCount > 0 ? "warn" : upload.sent === upload.total ? "ok" : "accent"}
+            label={t("sync.uploadLabel")}
+            valueText={t("sync.uploadSent", { sent: upload.sent, total: upload.total })}>
+            <span className="tabular text-xs font-semibold text-ink">{Math.round(upload.fraction * 100)}%</span>
+          </ProgressRing>
+          <div className="min-w-0 text-sm">
+            <div className="font-medium text-ink">{t("sync.uploadSent", { sent: upload.sent, total: upload.total })}</div>
+            <div className="text-xs text-muted">{t("sync.uploadHint")}</div>
+          </div>
+        </div>
+      )}
       {/* Whether queued sales are actually safe on this device. Durable
           storage is what the browser grants an installed app; a plain tab's
           data can be evicted, so the two rows are shown together. */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, Check, Minus, Plus, Printer, Search, Trash2, ShoppingBag, CreditCard, UserPlus } from "lucide-react";
+import { AlertTriangle, Minus, Plus, Printer, Search, Trash2, ShoppingBag, CreditCard, UserPlus } from "lucide-react";
 import CustomerDrawer from "@/components/sales/CustomerDrawer";
 
 import { inventory, sales } from "@/lib/api";
@@ -11,6 +11,7 @@ import { useSync } from "@/components/sync/SyncProvider";
 import { useAuth } from "../../app/providers/AuthProvider";
 import DocumentDrawer from "@/components/print/DocumentDrawer";
 import { Badge, Button, Card, Field, Figure, Input, Select } from "@/components/ui/kit";
+import SuccessCheck from "@/components/ui/SuccessCheck";
 import { accountLabel } from "@/lib/bankChannels";
 import BarcodeScanInput from "@/components/inventory/BarcodeScanInput";
 import { heldCarts } from "@/lib/syncQueue";
@@ -643,16 +644,16 @@ export default function PosTerminal({
   if (receipt) {
     return (
       <Card className="mx-auto max-w-md p-6 text-center">
-        <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-ok/10 text-ok">
-          <Check />
-        </div>
+        {/* Drawn in 350 ms by CSS; nothing waits for it — the buttons below
+            work from the first frame; it plays once per sale (the card mounts anew). */}
+        <SuccessCheck size={48} className="mx-auto block" />
         <h2 className="mt-3 font-display text-xl font-semibold">{t(receipt.queued ? "improvements.queuedSale" : "sales.saleRecorded")}</h2>
         <p className="mt-1 text-muted">
           {receipt.queued ? t("improvements.queuedHint") : t("sales.invoice")}
           <span className="tabular block break-all text-ink">{receipt.queued ? receipt.local_reference : (receipt.number_display || receipt.number)}</span>
           {receipt.queued && <span className="mt-1 block font-mono text-[11px] text-muted">{receipt.reference}</span>}
         </p>
-        <Figure value={moneyTotal(receipt.total)} size="xl" className="mt-4" valueClassName="font-medium text-ink" />
+        <Figure value={moneyTotal(receipt.total)} size="xl" animate={false} className="mt-4" valueClassName="font-medium text-ink" />
         {!receipt.queued && <div className="mt-1 text-sm text-muted">
           {t("sales.tax")} {money(receipt.tax_amount)} · {t("sales.subtotal")} {money(receipt.subtotal)}
         </div>}

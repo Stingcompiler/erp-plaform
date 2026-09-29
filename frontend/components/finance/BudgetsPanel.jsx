@@ -13,6 +13,8 @@ import { errorText } from "@/lib/errors";
 import { SkeletonLines, SkeletonRows } from "@/components/ui/Skeleton";
 import { expenseCategory } from "@/lib/expenseCategories";
 import { formatAmount } from "@/lib/money";
+import { budgetTotals } from "@/lib/progress";
+import ProgressRing from "@/components/ui/ProgressRing";
 
 const money = (v) =>
   formatAmount(v);
@@ -94,7 +96,34 @@ function VarianceTable({ budgetId }) {
   useEffect(() => { finance.budgetVariance(budgetId).then((r) => setData(r.data)).catch(() => setData({ rows: [] })); }, [budgetId]);
   if (!data) return <SkeletonLines />;
   if (!data.rows.length) return <p className="px-4 py-3 text-sm text-muted">{t("budgets.noLines")}</p>;
+  const totals = budgetTotals(data.rows);
   return (
+    <>
+    {Object.keys(totals).length > 0 && (
+      <div className="flex flex-wrap gap-x-8 gap-y-3 border-t border-line px-4 py-3">
+        {["expense", "revenue"].filter((kind) => totals[kind]).map((kind) => {
+          const { planned, actual } = totals[kind];
+          const share = actual / planned;
+          const tone = kind === "expense"
+            ? (share > 1 ? "danger" : share > 0.9 ? "warn" : "accent")
+            : (share >= 1 ? "ok" : "accent");
+          const label = t(kind === "expense" ? "budgets.ringExpense" : "budgets.ringRevenue");
+          const of = t("budgets.ringOf", { actual: money(actual), planned: money(planned) });
+          return (
+            <div key={kind} className="flex items-center gap-3">
+              <ProgressRing value={actual} max={planned} size={56} stroke={6} tone={tone} label={label}
+                valueText={`${Math.round(share * 100)}% · ${of}`}>
+                <span className="tabular text-xs font-semibold text-ink">{Math.round(share * 100)}%</span>
+              </ProgressRing>
+              <div className="min-w-0 text-sm">
+                <div className="font-medium text-ink">{label}</div>
+                <div className="tabular text-muted">{of}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    )}
     <div className="overflow-x-auto border-t border-line">
       <table className="stack-sm w-full text-sm">
         <thead><tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
@@ -113,6 +142,7 @@ function VarianceTable({ budgetId }) {
         ))}</tbody>
       </table>
     </div>
+    </>
   );
 }
 

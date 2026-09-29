@@ -11,6 +11,7 @@ import { useI18n } from "../../providers/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import { Badge, Button, Card, Field, Figure, Input, PageHeader, Select } from "@/components/ui/kit";
 import Drawer from "@/components/ui/Drawer";
+import SuccessCheck from "@/components/ui/SuccessCheck";
 import EmployeeDrawer from "@/components/hr/EmployeeDrawer";
 import AttendanceRegister from "@/components/hr/AttendanceRegister";
 import LeaveBalances from "@/components/hr/LeaveBalances";
@@ -478,6 +479,8 @@ export default function HrPage() {
   );
 
   const [tab, setTab] = useState("employees");
+  // The payroll run just approved here: its badge gets the drawn check.
+  const [payrollApproved, setPayrollApproved] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [positions, setPositions] = useState([]);
   const [leave, setLeave] = useState([]);
@@ -534,6 +537,7 @@ export default function HrPage() {
   async function decide(kind, id, approveFn, rejectFn) {
     try {
       await (kind === "approve" ? approveFn(id) : rejectFn(id));
+      if (approveFn === hr.approvePayrollRun && kind === "approve") setPayrollApproved(id);
       load();
     } catch (error) {
       toast.error(
@@ -729,7 +733,7 @@ export default function HrPage() {
             <Card key={run.id} className="p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div><div className="font-medium text-ink">{t("hr.payrollFor", { period: run.period?.slice(0, 7) })}</div><div className="text-sm text-muted">{t("hr.payrollEmployees", { count: run.employee_count })}</div></div>
-                <div className="flex items-center gap-2"><Badge tone={run.status === "approved" ? "ok" : "warn"}>{run.status === "approved" ? t("hr.approved") : t("hr.pending")}</Badge>{writable && run.status === "draft" && <Button variant="outline" onClick={() => refreshPayroll(run.id)}><RefreshCw size={15} /> {t("hr.refreshPayroll")}</Button>}{canApproveAdvances && run.status === "draft" && <Button variant="outline" onClick={() => decide("approve", run.id, hr.approvePayrollRun, hr.approvePayrollRun)}><Check size={15} /> {t("hr.approve")}</Button>}</div>
+                <div className="flex items-center gap-2">{run.status === "approved" && payrollApproved === run.id && <SuccessCheck size={22} label={t("hr.approved")} />}<Badge tone={run.status === "approved" ? "ok" : "warn"}>{run.status === "approved" ? t("hr.approved") : t("hr.pending")}</Badge>{writable && run.status === "draft" && <Button variant="outline" onClick={() => refreshPayroll(run.id)}><RefreshCw size={15} /> {t("hr.refreshPayroll")}</Button>}{canApproveAdvances && run.status === "draft" && <Button variant="outline" onClick={() => decide("approve", run.id, hr.approvePayrollRun, hr.approvePayrollRun)}><Check size={15} /> {t("hr.approve")}</Button>}</div>
               </div>
               <div className="mt-3 divide-y divide-line border-t border-line">
                 {(run.entries || []).map((entry) => <PayrollEntryRow key={entry.id} entry={entry} money={money} />)}
