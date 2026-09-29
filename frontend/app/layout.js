@@ -1,43 +1,16 @@
-import { IBM_Plex_Mono, Inter, Readex_Pro, Sora, Tajawal } from "next/font/google";
-
 import "./globals.css";
 import { AuthProvider } from "./providers/AuthProvider";
 import HtmlShell from "@/components/HtmlShell";
+import { fontVariables } from "./fonts/fonts";
 import JsonLd from "@/components/seo/JsonLd";
 import { organizationJsonLd, softwareApplicationJsonLd } from "@/lib/seo";
 import { OG_IMAGE, SITE_NAME, SITE_NAME_LATIN, SITE_URL } from "@/lib/site";
 
-// Latin UI: Inter (body) + Sora (display). Arabic UI: Tajawal for body and
-// headings — the same face the public company pages (/s/<slug>/) load. The CSS variables are swapped onto the
-// document by I18nProvider when the language flips, so the right script-specific
-// pairing is always active.
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
-const sora = Sora({
-  subsets: ["latin"],
-  variable: "--font-sora",
-  weight: ["500", "600", "700"],
-  display: "swap",
-});
-const mono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-  weight: ["400", "500"],
-  display: "swap",
-});
-const tajawal = Tajawal({
-  subsets: ["arabic"],
-  variable: "--font-tajawal",
-  weight: ["400", "500", "700"],
-  display: "swap",
-});
-// Readex Pro is the wordmark's face (components/brand/Wordmark.jsx) and
-// nothing else: it is exposed as a variable only, never set on body text.
-const readex = Readex_Pro({
-  subsets: ["arabic", "latin"],
-  variable: "--font-readex",
-  weight: ["500", "700"],
-  display: "swap",
-});
+// Fonts are self-hosted (app/fonts/fonts.js). Latin UI: Inter (body) + Sora
+// (display). Arabic UI: Tajawal for body and headings — the same face the
+// public company pages (/s/<slug>/) load. Readex Pro is the wordmark's face
+// only. The CSS variables are swapped by [dir="rtl"] in globals.css when the
+// language flips, so the right script-specific pairing is always active.
 
 // Site-wide defaults, reached by the routes that have no metadata of their
 // own (sign-in, activation, the app — all noindex). The public pages set
@@ -106,7 +79,7 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <HtmlShell className={`${inter.variable} ${sora.variable} ${mono.variable} ${tajawal.variable} ${readex.variable}`}>
+    <HtmlShell className={fontVariables}>
       <JsonLd data={[organizationJsonLd(), softwareApplicationJsonLd()]} />
       <AuthProvider>{children}</AuthProvider>
     </HtmlShell>
