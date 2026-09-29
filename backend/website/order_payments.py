@@ -76,7 +76,10 @@ def paid_so_far(order):
 
 
 def public_order_payload(order):
+    from website.orders import orders_paused
+
     accounts = public_bank_accounts(order.company)
+    paused = orders_paused(order.company)
     return {
         "reference": order.reference,
         "status": order.status,
@@ -97,8 +100,11 @@ def public_order_payload(order):
              "account_number": a.account_number}
             for a in accounts
         ],
+        # Suspended until payment: the page stays, claims are not taken.
+        "orders_paused": paused,
         "can_pay": (
-            order.status in PublicOrder.PAYABLE
+            not paused
+            and order.status in PublicOrder.PAYABLE
             and order.total is not None and bool(accounts)
             and paid_so_far(order) < order.total
         ),
@@ -109,6 +115,12 @@ def public_order_payload(order):
 
 @transaction.atomic
 def declare_payment(order, payload, files=None, request=None):
+    from website.orders import orders_paused, paused_message
+
+    if orders_paused(order.company):
+        raise ValidationError({"detail": paused_message()})
+    if not hasattr(payload, "get"):
+        raise ValidationError({"detail": _("Send the transfer as a form.")})
     if order.status not in PublicOrder.PAYABLE:
         raise ValidationError({"detail": _("This order is closed.")})
     if order.total is None:
@@ -128,7 +140,7 @@ def declare_payment(order, payload, files=None, request=None):
         amount = Decimal(str(payload.get("amount"))).quantize(Decimal("0.01"))
     except Exception:  # noqa: BLE001
         raise ValidationError({"amount": _("Enter the amount you transferred.")})
-    if amount <= 0:
+    if not amount.is_finite() or amount <= 0:
         raise ValidationError({"amount": _("Enter the amount you transferred.")})
     if order.payments.filter(reference_last4=ref).exists():
         raise ValidationError({"reference_last4": _("This transfer was already declared.")})

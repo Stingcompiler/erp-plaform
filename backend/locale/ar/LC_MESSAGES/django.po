@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-28 21:01+0000\n"
+"POT-Creation-Date: 2026-09-29 09:50+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -880,6 +880,9 @@ msgstr "المنطقة الزمنية غير معروفة؛ استخدم اسم�
 msgid "Branch does not belong to your company."
 msgstr "هذا الفرع لا يتبع شركتك."
 
+msgid "This department is outside your branch."
+msgstr "هذا القسم خارج فرعك."
+
 msgid "The rate must be greater than zero."
 msgstr "يجب أن يكون السعر أكبر من صفر."
 
@@ -1481,12 +1484,12 @@ msgid "Return and bill must refer to the same receipt."
 msgstr "المرتجع والفاتورة يجب أن يشيرا إلى الاستلام نفسه."
 
 #, python-format
-msgid "Line %(line)s appears twice."
-msgstr "السطر %(line)s مكرر."
-
-#, python-format
 msgid "Line %(line)s not in this return."
 msgstr "السطر %(line)s ليس ضمن هذا المرتجع."
+
+#, python-format
+msgid "Line %(line)s appears twice."
+msgstr "السطر %(line)s مكرر."
 
 #, python-format
 msgid "Line %(line)s already dispositioned."
@@ -1863,8 +1866,8 @@ msgid ""
 "This sale's key was already used for a different sale (another till tab?). "
 "This sale was not recorded; complete it again."
 msgstr ""
-"رقم هذه البيعة استُخدم لبيعة أخرى (نافذة أخرى من نقطة البيع؟). لم تُسجَّل "
-"هذه البيعة؛ أتمّها مرة أخرى."
+"رقم هذه البيعة استُخدم لبيعة أخرى (نافذة أخرى من نقطة البيع؟). لم تُسجَّل هذه "
+"البيعة؛ أتمّها مرة أخرى."
 
 msgid "Only a manager or an approver reviews flagged sales."
 msgstr "مراجعة المبيعات المعلَّمة للمدير أو لصاحب صلاحية الاعتماد فقط."
@@ -1884,6 +1887,10 @@ msgstr "هذه الشركة مجدولة للحذف بالفعل."
 
 msgid "This company is not scheduled for deletion."
 msgstr "هذه الشركة ليست مجدولة للحذف."
+
+#, python-format
+msgid "Use one of the supported currency codes: %(codes)s."
+msgstr "استخدم أحد رموز العملات المدعومة: %(codes)s."
 
 #, python-format
 msgid "Unknown modules: %(modules)s"
@@ -2181,6 +2188,9 @@ msgstr "اكتب سبب تجاهل هذه العملية."
 msgid "The operation payload is required."
 msgstr "بيانات العملية مطلوبة."
 
+msgid "Unknown operation type."
+msgstr "نوع العملية غير معروف."
+
 msgid "Managers only."
 msgstr "للمديرين فقط."
 
@@ -2217,6 +2227,27 @@ msgstr "هذا الملف ليس صورة JPEG أو PNG أو WebP."
 
 msgid "Use a JPEG, PNG or WebP image."
 msgstr "استخدم صورة JPEG أو PNG أو WebP."
+
+msgid "Classic cards"
+msgstr "بطاقات تقليدية"
+
+msgid "Featured plan in the middle"
+msgstr "الباقة المميّزة في الوسط"
+
+msgid "Comparison table"
+msgstr "جدول مقارنة"
+
+msgid "Compact list"
+msgstr "قائمة مختصرة"
+
+msgid "Monthly"
+msgstr "شهري"
+
+msgid "Yearly"
+msgstr "سنوي"
+
+msgid "Send the transfer as a form."
+msgstr "أرسل بيانات التحويل عبر النموذج."
 
 msgid "This order is closed."
 msgstr "هذا الطلب مغلق."
@@ -2275,11 +2306,17 @@ msgstr "تم تنفيذ هذا الطلب دون فاتورة."
 msgid "%(surplus)s above the balance is being returned to the customer."
 msgstr "يُعاد %(surplus)s الزائد على المتبقي إلى العميل."
 
+msgid "The shop is not taking orders right now."
+msgstr "المتجر لا يستقبل طلبات حاليًا"
+
 msgid "Enter a phone number we can reach you on."
 msgstr "أدخل رقم هاتف يمكننا التواصل معك عليه."
 
 msgid "This page does not take orders."
 msgstr "هذه الصفحة لا تستقبل طلبات."
+
+msgid "Send the order as a form."
+msgstr "أرسل الطلب عبر النموذج."
 
 msgid "Tell us who to ask for."
 msgstr "أخبرنا باسم من نسأل عنه."
@@ -2430,6 +2467,9 @@ msgid "A push subscription is required."
 msgstr ""
 "بيانات اشتراك الإشعارات مطلوبة. فعّل الإشعارات من المتصفح ثم أعد المحاولة."
 
+msgid "This browser's push service is not supported."
+msgstr "خدمة الإشعارات في هذا المتصفح غير مدعومة."
+
 msgid "Enter a reference, a phone number, an email or a name."
 msgstr "اكتب رقم الطلب أو رقم الهاتف أو البريد الإلكتروني أو الاسم."
 
@@ -2444,25 +2484,3 @@ msgstr "اكتب رقم الطلب أو رقم الهاتف أو البريد ا
 
 #~ msgid "Cash payment must not carry bank/reference details."
 #~ msgstr "الدفع النقدي لا يحمل بيانات بنك أو مرجع."
-
-msgid "Classic cards"
-msgstr "بطاقات تقليدية"
-
-msgid "Featured plan in the middle"
-msgstr "الباقة المميّزة في الوسط"
-
-msgid "Comparison table"
-msgstr "جدول مقارنة"
-
-msgid "Compact list"
-msgstr "قائمة مختصرة"
-
-msgid "Monthly"
-msgstr "شهري"
-
-msgid "Yearly"
-msgstr "سنوي"
-
-#, python-format
-msgid "Use one of the supported currency codes: %(codes)s."
-msgstr "استخدم أحد رموز العملات المدعومة: %(codes)s."

@@ -127,4 +127,9 @@ class CookieJWTAuthentication(JWTAuthentication):
         activate_for_user(user)
         # Presence: at most one write every few minutes per user.
         touch_last_seen(user)
+        # When this device was online, for offline sync (org.devices).
+        if device_id:
+            from org.devices import record_contact
+
+            record_contact(user.company_id, device_id)
         return user, validated_token

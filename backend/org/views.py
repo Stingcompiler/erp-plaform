@@ -24,6 +24,7 @@ from org.serializers import (
 )
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from django.db import transaction
 from django.utils.translation import gettext as _
 from rest_framework.permissions import IsAuthenticated
@@ -352,6 +353,19 @@ class DepartmentViewSet(CompanyScopedModelViewSet):
     # Departments are maintained by HR; this lets an HR manager organise the
     # workforce without granting access to company-wide settings.
     rbac_module = "hr"
+    # A branch HR officer or branch manager sees their branch's departments
+    # and the company-wide ones (no branch), and may change only their own
+    # branch's (DepartmentSerializer.validate).
+    branch_field = "branch"
+    include_unassigned_branch_rows = True
+
+    def perform_destroy(self, instance):
+        from core.scoping import branch_scope_for
+
+        scope = branch_scope_for(self.request.user, self.branch_field)
+        if scope is not None and instance.branch_id != scope:
+            raise PermissionDenied(_("This department is outside your branch."))
+        super().perform_destroy(instance)
 
 
 class CompanyDeviceViewSet(viewsets.GenericViewSet):

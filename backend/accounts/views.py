@@ -24,6 +24,7 @@ from accounts.serializers import (
     UserSerializer,
     UserDetailSerializer,
     invalidate_sessions,
+    outranks,
 )
 from core import mailer
 from core.activity import log_activity
@@ -435,6 +436,8 @@ class UserViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         """Shared refusals for deactivating or removing an account."""
         if target.pk == request.user.pk:
             return _("You cannot deactivate your own account.")
+        if not outranks(request.user, target):
+            return _("You cannot modify an account with equal or higher authority.")
         if target.role and target.role.name == "Business Owner":
             remaining = User.objects.filter(
                 company_id=target.company_id,

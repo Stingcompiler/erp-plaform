@@ -67,6 +67,10 @@ def _rewritten(candidate, clean):
 def _serve_file(candidate, clean, status=200):
     content_type, _ = mimetypes.guess_type(str(candidate))
     rewritten = _rewritten(candidate, clean)
+    if rewritten is None and candidate.suffix == ".html":
+        # Read, not streamed: the CSP middleware hashes the page's inline
+        # scripts for its report-only policy (core/csp.py).
+        rewritten = candidate.read_text(encoding="utf-8")
     if rewritten is not None:
         response = HttpResponse(
             rewritten.encode("utf-8"), content_type=content_type, status=status

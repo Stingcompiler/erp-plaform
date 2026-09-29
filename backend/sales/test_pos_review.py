@@ -52,6 +52,9 @@ class POSBase(APITestCase):
             "operations": [{
                 "op_type": "pos_checkout", "client_uuid": str(uuid.uuid4()),
                 "payload": {"warehouse": self.warehouse.id, **payload},
+                # Captured on the till a few minutes ago, with no server
+                # contact on record then: an offline sale.
+                "queued_at": int((timezone.now() - timedelta(minutes=5)).timestamp() * 1000),
             }],
         }, format="json")
 

@@ -4,13 +4,19 @@
 # the result with the release. Standalone installs use this file so two
 # installs of one version resolve identical wheels:
 #   pip install -r requirements.lock
+aiohappyeyeballs==2.7.1
+aiohttp==3.14.3
+aiosignal==1.4.0
 amqp==5.3.1
 asgiref==3.12.1
+attrs==26.1.0
 billiard==4.2.4
 boto3==1.43.93
 botocore==1.43.93
 celery==5.4.0
+certifi==2026.7.22
 cffi==2.1.1
+charset-normalizer==3.5.1
 click==8.5.0
 click-didyoumean==0.3.1
 click-plugins==1.1.1.2
@@ -21,20 +27,35 @@ django-cors-headers==4.7.0
 django-environ==0.11.2
 djangorestframework==3.16.1
 djangorestframework_simplejwt==5.5.1
+et_xmlfile==2.0.0
+frozenlist==1.8.0
 gunicorn==23.0.0
+http_ece==1.2.1
+idna==3.20
 jmespath==1.1.0
 kombu==5.6.2
+multidict==6.9.0
+openpyxl==3.1.5
+packaging==26.3
 pillow==11.3.0
+prompt_toolkit==3.0.53
+propcache==0.5.4
 psycopg==3.2.13
 psycopg-binary==3.2.13
+py-vapid==1.9.2
 pycparser==3.0
 PyJWT==2.14.0
 python-dateutil==2.9.0.post0
+pywebpush==2.3.0
 redis==5.0.8
+requests==2.34.2
 s3transfer==0.19.2
 six==1.17.0
 sqlparse==0.6.0
+typing_extensions==4.16.0
 tzdata==2026.4
 urllib3==2.7.0
 vine==5.1.0
+wcwidth==0.8.3
 whitenoise==6.9.0
+yarl==1.25.1

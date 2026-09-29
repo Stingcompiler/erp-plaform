@@ -248,8 +248,11 @@ def populate_every_module(owner, test=_CHECK):
     O("post", "/api/credit-notes/", {"customer": owed[1].customer_id, "invoice": owed[1].pk,
                                      "amount": "1000", "reason": "تسوية"})
 
-    # an offline sale under cost by a sales officer, reviewed by the owner
+    # an offline sale under cost by a sales officer, reviewed by the owner; it was
+    # captured two hours ago while the till had no connection (a sale captured
+    # online is refused instead of flagged)
     under = (products[5].cost_price * Decimal("0.8")).quantize(Decimal("1"))
+    two_hours_ago = (timezone.now() - timedelta(hours=2)).isoformat()
     S("post", "/api/sync/push/", {
         "batch_uuid": str(uuid.uuid4()), "expected_company": company.pk,
         "expected_user": seller.pk,
@@ -257,7 +260,8 @@ def populate_every_module(owner, test=_CHECK):
                         "payload": {"warehouse": main_wh.pk,
                                     "lines": [{"product": products[5].pk, "quantity": "1",
                                                "unit_price": str(under)}],
-                                    "payment": {"method": "cash", "amount": str(under)}}}],
+                                    "payment": {"method": "cash", "amount": str(under)},
+                                    "occurred_at": two_hours_ago}}],
     })
     flagged = O("get", "/api/price-flags/")
     flagged = flagged.get("results", flagged) if isinstance(flagged, dict) else flagged

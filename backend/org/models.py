@@ -384,6 +384,11 @@ class Device(models.Model):
         "accounts.User", null=True, blank=True, on_delete=models.SET_NULL,
         related_name="devices_revoked",
     )
+    # When this device was talking to the server: recent unbroken stretches
+    # of authenticated requests as [[start, end], ...] in epoch seconds
+    # (org.devices.record_contact). Offline sync reads it to tell a sale
+    # captured with the till cut off from one pushed by hand while online.
+    contact_log = models.JSONField(default=list, blank=True)
 
     class Meta:
         constraints = [

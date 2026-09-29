@@ -125,6 +125,8 @@ AUTH_USER_MODEL = "accounts.User"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Content-Security-Policy on every HTML page (core/csp.py).
+    "core.csp.ContentSecurityPolicyMiddleware",
     # Answers 404 for platform/registration routes on standalone installs.
     "core.deployment_gate.StandaloneSurfaceGate",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -239,6 +241,16 @@ VEZANO_TRIAL_DAYS = env.int("VEZANO_TRIAL_DAYS", default=14)
 # enough for a multi-week outage, short enough that a forgotten device cannot
 # rewrite a closed period.
 VEZANO_MAX_BACKDATE_DAYS = env.int("VEZANO_MAX_BACKDATE_DAYS", default=31)
+# While a company is suspended until payment or read-only, a till may still
+# upload what it captured BEFORE that moment — but only for this many hours
+# after it. Past the window every upload waits on the device until the
+# account is reopened, so a backdated "old" sale cannot keep a locked
+# company trading.
+VEZANO_LOCKED_SYNC_WINDOW_HOURS = env.int("VEZANO_LOCKED_SYNC_WINDOW_HOURS", default=72)
+# The password-reset email goes out on a background thread so the request's
+# timing does not reveal whether the address has an account. Tests send it
+# inline to read the outbox.
+PASSWORD_RESET_EMAIL_BACKGROUND = "test" not in sys.argv and "pytest" not in sys.modules
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"

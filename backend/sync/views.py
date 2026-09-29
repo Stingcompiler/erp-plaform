@@ -15,11 +15,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.activity import log_activity
-from core.entitlements import writes_allowed_at
+from core.entitlements import writes_allowed_at, writes_stopped_at
 from core.permissions import EntitlementAccess
 from core.rbac import role_can
 from core.scoping import apply_branch_scope
 from inventory.stock_scope import branch_movements, with_on_hand
+from org.devices import was_online_at
 from sync.models import DiscardedOperation, SyncBatch, SyncOperation
 from sync.services import APPLIED, DUPLICATE, ERROR, RETRY, process_operation
 
@@ -103,6 +104,54 @@ def captured_at(op):
             return None
         return when + (_op_clock_offset(op) or timedelta(0))
     return None
+
+
+def _token_device(request):
+    """The device the session was opened on (stamped into its token at
+    sign-in), or "" — never the device id the body claims."""
+    token = getattr(request, "auth", None)
+    try:
+        return str(token.get("device") or "") if token is not None else ""
+    except (AttributeError, TypeError):
+        return ""
+
+
+def business_time(op):
+    """The first business time the payload carries (occurred_at, …), or None.
+    Unlike captured_at, never falls back to when the item was queued."""
+    payload = op.get("payload") if isinstance(op, dict) else None
+    if not isinstance(payload, dict):
+        return None
+    for field in DEVICE_TIME_FIELDS:
+        stamped = _aware(payload.get(field))
+        if stamped is not None:
+            return stamped
+    return None
+
+
+def locked_upload_window():
+    from django.conf import settings
+
+    return timedelta(hours=getattr(settings, "VEZANO_LOCKED_SYNC_WINDOW_HOURS", 72))
+
+
+def captured_before_lock(device_time, corrected, moved, cutoff, now=None):
+    """Whether an item may still upload while the company is locked
+    (suspended until payment, or read-only) since ``cutoff``.
+
+    Everything here comes from the device, so nothing it says is taken on
+    trust beyond a bounded window: the item needs a business time the
+    server did not have to move, that time must be before the lock — both
+    as the device stamped it and after the clock correction it claims, so
+    an invented clock offset cannot push a new sale into the past — and the
+    upload must arrive within VEZANO_LOCKED_SYNC_WINDOW_HOURS of the lock.
+    """
+    if cutoff is None or corrected is None or device_time is None or moved:
+        return False
+    now = now or timezone.now()
+    if now - cutoff > locked_upload_window():
+        return False
+    return max(device_time, corrected) < cutoff
 
 
 def settle_out_of_window_times(operations):
@@ -191,6 +240,8 @@ class SyncPushView(APIView):
         company_id = getattr(request.user, "company_id", None)
         if company_id is None:
             return Response({"detail": _("A company is required.")}, status=400)
+        if not isinstance(request.data, dict):
+            return Response({"detail": "operations must be a list."}, status=400)
         # A second tab can replace the shared auth cookie while this tab still
         # holds another user's cart. Never replay it under the new identity.
         # A client that identifies the account it queued under must send both
@@ -224,6 +275,10 @@ class SyncPushView(APIView):
                 {"detail": "operations must be a list."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # What the device stamped, before any correction: while the company
+        # is locked, neither its time nor the corrected one may be after the
+        # lock (see captured_before_lock).
+        device_times = [business_time(op) for op in operations]
         skew, own_offsets = correct_device_clock(operations, request.data.get("sent_at"))
         if skew:
             log_activity(
@@ -231,6 +286,7 @@ class SyncPushView(APIView):
                 entity_id=str(batch_uuid),
                 metadata={"skew_seconds": skew, "own_offsets": own_offsets},
             )
+        corrected_times = [business_time(op) for op in operations]
         settled = settle_out_of_window_times(operations)
 
         try:
@@ -309,26 +365,40 @@ class SyncPushView(APIView):
         from subscriptions.tenant_controls import unpaid_suspension
 
         suspension = unpaid_suspension(request.user.company)
+        lapsed_at = writes_stopped_at(request.user.company) if read_only else None
+        device_id = _token_device(request)
         for i, op in enumerate(operations):
             previous = recorded.get(i)
             if previous is not None and previous != RETRY:
                 continue
             when, moved = settled[i]
             blocked = None
-            if suspension and (
-                when is None or suspension["since"] is None or when >= suspension["since"]
+            if suspension and not captured_before_lock(
+                device_times[i], corrected_times[i], moved, suspension["since"]
             ):
                 blocked = _(
                     "The company account is suspended until payment (%(reason)s) and this "
                     "was recorded after the suspension. It stays on the device: send it "
                     "again once the account is reopened."
                 ) % {"reason": suspension["reason"]}
-            elif read_only and not writes_allowed_at(request.user.company, when):
+            elif read_only and not (
+                writes_allowed_at(request.user.company, corrected_times[i])
+                and captured_before_lock(
+                    device_times[i], corrected_times[i], moved,
+                    lapsed_at or corrected_times[i] + timedelta(microseconds=1),
+                )
+            ):
                 blocked = _(
                     "The subscription is read-only and this was recorded after it "
                     "lapsed. It stays on the device: renew, then send it again."
                 )
-            st, model, rid, err, cu, field = process_operation(request, op, blocked=blocked)
+            # A price past the till's rule is kept and flagged only for a sale
+            # the till really captured offline; pushed while it was online,
+            # it is refused like the live checkout (org.devices).
+            offline = when is not None and not was_online_at(company_id, device_id, when)
+            st, model, rid, err, cu, field = process_operation(
+                request, op, blocked=blocked, captured_offline=offline
+            )
             if st == APPLIED:
                 for note in moved:
                     log_activity(
@@ -540,8 +610,15 @@ class SyncPullView(APIView):
 
         changes = {}
         has_more = False
+        # The plan gate of the normal endpoints: a module the plan leaves out
+        # is not mirrored to the device either.
+        from core.entitlements import resolve_entitlements
+
+        plan = resolve_entitlements(getattr(request.user, "company", None))
         for key, model, serializer_cls, ts_field, module, viewset in _pull_specs():
             if not role_can(request.user, module, write=False):
+                continue
+            if not plan.allows_module(module):
                 continue
             if key in completed:
                 changes[key] = []
@@ -677,6 +754,18 @@ class SyncDiscardView(APIView):
         payload = request.data.get("payload")
         if not isinstance(payload, dict):
             return Response({"payload": _("The operation payload is required.")}, status=400)
+        # Only someone who could have recorded the operation may give up on
+        # it: a Viewer must not be able to fill the managers' "lost sales"
+        # list.
+        from sync.services import OP_REGISTRY
+
+        spec = OP_REGISTRY.get(str(request.data.get("op_type") or ""))
+        if spec is None:
+            return Response({"op_type": _("Unknown operation type.")}, status=400)
+        if not role_can(request.user, spec.module, write=True):
+            return Response(
+                {"detail": _("Your role does not permit this operation.")}, status=403
+            )
         # The device may be giving up on an op that DID land (the answer was
         # lost on the way back, then it was refused as something else). A
         # discard row would show managers a "lost" sale that is on the books:

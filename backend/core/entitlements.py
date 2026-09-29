@@ -1,6 +1,6 @@
 import logging
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.utils import timezone
 
@@ -226,9 +226,39 @@ def writes_allowed_at(company, when):
         and not get_deployment_config().is_standalone
         and subscription.status in _SET_STATES
     ):
-        changed = (
-            subscription.events.filter(to_status=subscription.status)
-            .order_by("-created_at").values_list("created_at", flat=True).first()
-        ) or subscription.updated_at
+        changed = _set_state_since(subscription)
         return bool(changed and when < changed)
     return resolve_entitlements(company, now=when).allow_writes
+
+
+def _set_state_since(subscription):
+    """When a state put in place by hand or by a job was set."""
+    return (
+        subscription.events.filter(to_status=subscription.status)
+        .order_by("-created_at").values_list("created_at", flat=True).first()
+    ) or subscription.updated_at
+
+
+def writes_stopped_at(company):
+    """The moment the company lost the right to record new work, or None
+    when it still has it or the moment cannot be dated (see
+    writes_allowed_at for how each kind of lapse is dated)."""
+    decision = resolve_entitlements(company)
+    if decision.allow_writes:
+        return None
+    try:
+        subscription = company.subscription
+    except Exception:  # noqa: BLE001 - no subscription row: nothing to date
+        subscription = None
+    if (
+        subscription is not None
+        and not get_deployment_config().is_standalone
+        and subscription.status in _SET_STATES
+    ):
+        return _set_state_since(subscription)
+    until = decision.valid_until
+    if until is not None and until <= timezone.now() and writes_allowed_at(
+        company, until - timedelta(seconds=1)
+    ):
+        return until
+    return None
