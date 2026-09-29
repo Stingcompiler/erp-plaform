@@ -54,9 +54,9 @@ function Faq() {
         <h2 className="text-center font-display text-2xl font-bold tracking-tight">{t("pricing.faqTitle")}</h2>
         <div className="mt-8 space-y-3">
           {items.map(([question, answer]) => (
-            <details key={question} className="group rounded-card border border-line bg-paper p-5">
-              <summary className="cursor-pointer list-none font-medium marker:content-none">{question}</summary>
-              <p className="mt-3 text-sm text-muted">{answer}</p>
+            <details key={question} className="group rounded-card border border-line bg-paper">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center rounded-card p-5 font-medium marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40">{question}</summary>
+              <p className="-mt-2 px-5 pb-5 text-sm text-muted">{answer}</p>
             </details>
           ))}
         </div>

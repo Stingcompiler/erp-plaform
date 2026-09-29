@@ -2,7 +2,7 @@
 
 // The platform's own contact details, set by the team on /platform-seo and
 // read here by every visitor: a floating WhatsApp button, the footer's
-// contact lines, and a direct link under the walkthrough form. Nothing
+// contact lines, and the channel links on the home page. Nothing
 // renders until the API answers, and nothing renders when nothing is set.
 import { createContext, useContext, useEffect, useState } from "react";
 import { Mail, MessageCircle, Phone } from "lucide-react";
@@ -87,17 +87,42 @@ export function SiteContactLines({ className = "" }) {
   );
 }
 
-// Under the walkthrough form: "or message us directly".
-export function DirectWhatsAppLink() {
+// The platform's channels that are set, as links (WhatsApp, phone, email),
+// after a short lead-in ("Or reach us directly:"). Used by the support card
+// and next to the walkthrough form; renders nothing when no channel is set,
+// so the page never points at a channel that does not exist.
+const CHANNEL_LINK = "inline-flex min-h-11 items-center gap-2 rounded-control border border-line bg-paper px-4 py-2 text-sm font-medium text-ink hover:border-accent";
+
+export function ContactChannels({ lead, className = "" }) {
   const { t } = useI18n();
-  const { whatsappHref } = useSiteContact();
-  if (!whatsappHref) return null;
+  const { whatsapp, whatsappHref, phone, phoneHref, email } = useSiteContact();
+  if (!whatsappHref && !phoneHref && !email) return null;
   return (
-    <p className="mt-4 text-center text-sm text-muted">
-      {t("landing.orWhatsApp")}{" "}
-      <a href={whatsappHref} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 font-medium text-[#128c7e] hover:underline">
-        <MessageCircle size={15} />{t("landing.whatsappDirect")}
-      </a>
-    </p>
+    <div className={className}>
+      {lead && <p className="text-sm text-muted">{lead}</p>}
+      <ul className="mt-2 flex flex-wrap gap-2">
+        {whatsappHref && (
+          <li>
+            <a href={whatsappHref} target="_blank" rel="noreferrer noopener" className={CHANNEL_LINK}>
+              <MessageCircle size={15} aria-hidden="true" />{t("home.supportWhatsApp")}: <bdi dir="ltr">{whatsapp}</bdi>
+            </a>
+          </li>
+        )}
+        {phoneHref && (
+          <li>
+            <a href={phoneHref} className={CHANNEL_LINK}>
+              <Phone size={15} aria-hidden="true" />{t("home.supportPhone")}: <bdi dir="ltr">{phone}</bdi>
+            </a>
+          </li>
+        )}
+        {email && (
+          <li>
+            <a href={`mailto:${email}`} className={CHANNEL_LINK}>
+              <Mail size={15} aria-hidden="true" />{t("home.supportEmail")}: <bdi dir="ltr">{email}</bdi>
+            </a>
+          </li>
+        )}
+      </ul>
+    </div>
   );
 }

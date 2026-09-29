@@ -55,7 +55,9 @@
   --accent: 55 176 184;
   --accent-strong: 90 198 205;
   --pro: 55 176 184;
-  --pro-inverse: var(--brand);
+  /* On the dark theme the bg-ink panels (the footer) are light: the brand
+     teal measured 4.2:1 on them, so «برو»/"Pro" takes the strong teal. */
+  --pro-inverse: 11 90 97;
 }
 
 html,
