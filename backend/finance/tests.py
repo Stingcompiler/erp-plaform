@@ -93,8 +93,9 @@ class BudgetTests(APITestCase):
             email="cfo@budget.test", password="passw0rd12345",
             company=self.company, role=self.cfo_role,
         )
+        # The whole current month, so "today" is always inside it.
         self.start = date.today().replace(day=1)
-        self.end = self.start + timedelta(days=27)
+        self.end = (self.start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
         self.client.force_authenticate(self.clerk)
 
     def _create(self, lines=None):

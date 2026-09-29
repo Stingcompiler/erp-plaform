@@ -6,6 +6,7 @@ import { Check } from "lucide-react";
 import { useI18n } from "@/app/providers/I18nProvider";
 import { MarketingPage } from "@/components/marketing/Chrome";
 import Shot from "@/components/marketing/Shot";
+import BranchFlow from "@/components/marketing/BranchFlow";
 import { SOLUTIONS_INDEX_PATH } from "@/lib/content";
 import { solution } from "@/lib/content/solutions";
 import { INDEX_COPY } from "@/lib/content";
@@ -37,6 +38,9 @@ export default function SolutionPage({ slug }) {
           </div>
           <Shot light={shot.light} dark={shot.dark} alt={copy.title} priority />
         </header>
+
+        {/* The branches → head office diagram, drawn at rest here. */}
+        {slug === "multi-branch" && <BranchFlow animate={false} className="mt-14" />}
 
         <div className="mt-16 grid gap-10 lg:grid-cols-[1fr_280px] lg:gap-16">
           <div className="space-y-12">
