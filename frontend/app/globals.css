@@ -100,6 +100,8 @@ body {
 .figure-md { --figure-max: 1.25rem; }
 .figure-lg { --figure-max: 1.5rem; }
 .figure-xl { --figure-max: 1.25rem; }
+/* A plan's price on the public pricing cards (components/marketing/pricing). */
+.figure-price { --figure-min: 0.875rem; --figure-max: 1.875rem; }
 @media (min-width: 640px) {
   .figure-xl { --figure-max: 1.875rem; }
 }

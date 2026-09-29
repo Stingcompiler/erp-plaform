@@ -104,6 +104,10 @@ class PlanVersionSerializer(serializers.ModelSerializer):
 
 class PlanSerializer(serializers.ModelSerializer):
     versions = PlanVersionSerializer(many=True, read_only=True)
+    # Declared so DRF does not derive a "must be unique" validator from the
+    # one-highlighted-plan constraint: highlighting another plan is how the
+    # badge moves, and Plan.save() clears the previous one.
+    is_highlighted = serializers.BooleanField(required=False)
 
     class Meta:
         model = Plan
