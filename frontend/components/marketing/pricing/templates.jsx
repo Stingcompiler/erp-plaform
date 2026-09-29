@@ -6,50 +6,31 @@
 // modules are decided there — so switching layout can never change what a
 // plan costs or includes.
 //
-// A layout takes { plans, compact, onSwitchCycle, selfHosted } and says
-// whether it shows the on-server offer itself (`ownsSelfHosted`) or lets
-// PlanShowcase put the band under it.
+// A layout takes { plans, compact, onSwitchCycle, bleed }. The on-server
+// offer is never part of one: PlanShowcase puts it under every layout as a
+// full-width band.
 
 import { useI18n } from "../../../app/providers/I18nProvider";
 import { Figure } from "@/components/ui/kit";
 import { featuredOrder } from "@/lib/planCatalog";
-import ClassicPlanCard from "./ClassicPlanCard";
 import PlanCompareTable from "./PlanCompareTable";
-import { cardLimitKeys, limitValue, periodText, PlanCta, priceText, StandaloneCard } from "./parts";
+import PlanDeck from "./PlanDeck";
+import { cardLimitKeys, limitValue, periodText, PlanCta, priceText, usePriceChars } from "./parts";
 
-// One card per plan in a grid, the on-server card last (the original page).
-function ClassicLayout({ plans, compact, onSwitchCycle, selfHosted }) {
-  const columns = Math.min(4, Math.max(2, plans.length + (selfHosted ? 1 : 0)));
-  const grid = columns >= 4 ? "xl:grid-cols-4" : columns === 3 ? "lg:grid-cols-3" : "";
-  return (
-    <div className={`grid gap-5 md:grid-cols-2 ${grid}`}>
-      {plans.map((plan) => <ClassicPlanCard key={plan.key} plan={plan} compact={compact} onSwitchCycle={onSwitchCycle} />)}
-      {selfHosted && <StandaloneCard compact={compact} />}
-    </div>
-  );
+// One card per plan: a carousel on phones and tablets, a grid of plan
+// columns from 1024px (components/marketing/pricing/PlanDeck.jsx).
+function ClassicLayout({ plans, compact, onSwitchCycle, bleed }) {
+  return <PlanDeck plans={plans} compact={compact} onSwitchCycle={onSwitchCycle} bleed={bleed} />;
 }
-ClassicLayout.ownsSelfHosted = true;
+ClassicLayout.isDeck = true;
 
-// The highlighted plan in the middle, raised, the others flanking it. On a
-// phone or tablet (one or two columns) it comes first instead.
-function FeaturedLayout({ plans, compact, onSwitchCycle }) {
-  const ordered = featuredOrder(plans);
-  const hasFeatured = ordered.some((plan) => plan.highlighted);
-  return (
-    <div className={`flex flex-col gap-5 md:flex-row md:flex-wrap md:justify-center lg:flex-nowrap lg:items-stretch ${hasFeatured ? "lg:py-4" : ""}`}>
-      {ordered.map((plan) => (
-        <div
-          key={plan.key}
-          className={`min-w-0 md:w-[calc(50%-0.625rem)] lg:w-auto lg:min-w-0 lg:flex-1 ${
-            plan.highlighted ? "order-first lg:order-none lg:z-10 lg:-my-4 lg:flex-[1.15]" : "lg:max-w-sm"
-          }`}
-        >
-          <ClassicPlanCard plan={plan} compact={compact} raised={plan.highlighted} onSwitchCycle={onSwitchCycle} />
-        </div>
-      ))}
-    </div>
-  );
+// The same deck with the highlighted plan in the middle and raised a
+// little more (a stronger ring and shadow — nothing moves). The carousel
+// opens on it, centred, with a plan peeking on each side.
+function FeaturedLayout({ plans, compact, onSwitchCycle, bleed }) {
+  return <PlanDeck plans={featuredOrder(plans)} compact={compact} raised onSwitchCycle={onSwitchCycle} bleed={bleed} />;
 }
+FeaturedLayout.isDeck = true;
 
 // The comparison table first: plans as columns, price and call to action
 // in each column head, no cards.
@@ -62,6 +43,7 @@ TableLayout.isTable = true;
 // long price list.
 function CompactLayout({ plans, onSwitchCycle }) {
   const { t, language } = useI18n();
+  const chars = usePriceChars(plans);
   return (
     <ul className="divide-y divide-line overflow-hidden rounded-card border border-line bg-paper shadow-card">
       {plans.map((plan) => {
@@ -92,7 +74,7 @@ function CompactLayout({ plans, onSwitchCycle }) {
             </ul>
             <div className="min-w-0">
               {plan.price.kind === "paid" ? (
-                <Figure value={priceText(plan, language, t)} size="md" animate={false} valueClassName="font-bold text-ink" />
+                <Figure value={priceText(plan, language, t)} size="md" chars={chars} animate={false} valueClassName="font-bold text-ink" />
               ) : (
                 <p className={`font-display font-bold ${plan.price.kind === "unavailable" ? "text-sm text-muted" : "text-lg text-ink"}`}>{priceText(plan, language, t)}</p>
               )}

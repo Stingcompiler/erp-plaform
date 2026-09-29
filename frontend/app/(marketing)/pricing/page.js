@@ -74,7 +74,7 @@ export default function PricingPage() {
     <MarketingPage>
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-accent/10 to-transparent" />
-        <div className="mx-auto max-w-6xl px-4 pb-8 pt-16 sm:px-6 sm:pt-20">
+        <div className="mx-auto max-w-7xl px-4 pb-8 pt-16 sm:px-6 sm:pt-20">
           <div className="mx-auto max-w-2xl text-center">
             <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">{t("pricing.pageTitle")}</h1>
             <p className="mt-4 text-muted sm:text-lg">{t("pricing.pageSubtitle")}</p>

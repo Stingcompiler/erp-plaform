@@ -19,6 +19,7 @@ import {
 } from "@/lib/planCatalog";
 import { moduleLabel } from "@/lib/planModules";
 import PlanCompareTable from "./pricing/PlanCompareTable";
+import { deckStyle, PlanDeckSkeleton } from "./pricing/PlanDeck";
 import { CycleToggle, StandaloneBand } from "./pricing/parts";
 import { TEMPLATES } from "./pricing/templates";
 
@@ -114,18 +115,23 @@ function storeCycle(cycle) {
 
 // ---- The showcase -----------------------------------------------------------
 
-export function PlansSkeleton() {
+// The deck's shape at every width (carousel with pills, or the grid) and
+// the on-server band under it, so the page does not move when the plans
+// arrive. Three plans is the usual catalogue.
+export function PlansSkeleton({ bleed = true, compact = false, selfHosted = DEFAULT_DISPLAY.show_self_hosted }) {
   return (
-    <div className="grid gap-5 md:grid-cols-3" aria-busy="true">
-      {[0, 1, 2].map((i) => <div key={i} className="h-96 animate-pulse rounded-card border border-line bg-paper" />)}
+    <div aria-busy="true" className="plan-showcase" style={deckStyle(3)}>
+      <PlanDeckSkeleton count={3} bleed={bleed} compact={compact} />
+      {selfHosted && <div className={`plan-band plan-band--skeleton mt-8 animate-pulse rounded-card bg-ink/90 ${compact ? "plan-band--skeleton-compact" : ""}`} />}
     </div>
   );
 }
 
 // rows: /api/public/plans/ (null while loading). display: a resolveDisplay()
 // object. persistCycle: remember the visitor's monthly/yearly choice (the
-// admin preview does not).
-export function PlanShowcase({ rows, error = false, display = DEFAULT_DISPLAY, compact = false, persistCycle = true }) {
+// admin preview does not). bleed: on a phone/tablet the carousel runs to
+// the screen edges (the page's px-4 / sm:px-6 gutter); off inside a box.
+export function PlanShowcase({ rows, error = false, display = DEFAULT_DISPLAY, compact = false, persistCycle = true, bleed = true }) {
   const { t } = useI18n();
   const cycles = useMemo(() => billingCycles(rows), [rows]);
   const [chosen, setChosen] = useState(() => (persistCycle && typeof window !== "undefined" ? readStoredCycle() : null));
@@ -136,16 +142,16 @@ export function PlanShowcase({ rows, error = false, display = DEFAULT_DISPLAY, c
     if (persistCycle) storeCycle(next);
   }, [persistCycle]);
 
-  if (plans === null) return <PlansSkeleton />;
-  const Layout = TEMPLATES[display.template] || TEMPLATES.classic;
   const selfHosted = display.show_self_hosted;
+  if (plans === null) return <PlansSkeleton bleed={bleed} compact={compact} selfHosted={selfHosted} />;
+  const Layout = TEMPLATES[display.template] || TEMPLATES.classic;
   return (
-    <div>
+    <div className={Layout.isDeck ? "plan-showcase" : undefined} style={Layout.isDeck ? deckStyle(plans.length) : undefined}>
       {error && <p className="mb-4 text-center text-sm text-danger">{t("pricing.loadError")}</p>}
       {!error && plans.length === 0 && <p className="mb-4 text-center text-muted">{t("pricing.quoteOnly")}</p>}
       <CycleToggle value={cycle} options={cycles} onChange={onSwitchCycle} />
-      {(plans.length > 0 || Layout.ownsSelfHosted) && <Layout plans={plans} compact={compact} onSwitchCycle={onSwitchCycle} selfHosted={selfHosted} />}
-      {selfHosted && !Layout.ownsSelfHosted && <StandaloneBand />}
+      {plans.length > 0 && <Layout plans={plans} compact={compact} onSwitchCycle={onSwitchCycle} bleed={bleed} />}
+      {selfHosted && <StandaloneBand compact={compact} />}
       {display.show_compare && !Layout.isTable && <PlanCompareTable plans={plans} onSwitchCycle={onSwitchCycle} />}
     </div>
   );
@@ -154,7 +160,7 @@ export function PlanShowcase({ rows, error = false, display = DEFAULT_DISPLAY, c
 // The pricing page: the saved layout, the plans, one skeleton until both.
 export function PricingPlans({ display, ready }) {
   const { plans: rows, error } = usePublicPlans();
-  if (!ready || rows === null) return <PlansSkeleton />;
+  if (!ready || rows === null) return <PlansSkeleton selfHosted={display.show_self_hosted} />;
   return <PlanShowcase rows={rows} error={error} display={display} />;
 }
 

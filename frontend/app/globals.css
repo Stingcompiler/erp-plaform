@@ -106,6 +106,141 @@ body {
   .figure-xl { --figure-max: 1.875rem; }
 }
 
+/* ---- Plan cards (components/marketing/pricing/PlanDeck.jsx) -------------
+   < 640      a carousel: one card 86% wide, centred, the next one peeking;
+   640–1023   the same carousel two at a time (44% each) — or, with two
+              plans or fewer (.plan-deck--pair), a plain two-column grid;
+   >= 1024    a centred grid of plan columns (380px at most) whose cards are
+              subgrids of it, so names, prices, buttons and limits line up.
+   Below 1024 the deck bleeds into the page gutter (px-4 / sm:px-6) so the
+   carousel runs to the screen edges; it scrolls inside its own box, never
+   the page. cqi = the deck's width. */
+.plan-deck {
+  --deck-bleed: 1rem;
+  margin-inline: calc(var(--deck-bleed) * -1);
+  container-type: inline-size;
+  min-width: 0;
+}
+.plan-deck__pills {
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-inline: var(--deck-bleed);
+  margin-bottom: 0.75rem;
+}
+.plan-deck__pills::-webkit-scrollbar { display: none; }
+.plan-deck__pill-row { display: flex; gap: 0.5rem; width: max-content; margin-inline: auto; }
+.plan-deck__pill {
+  border: 1px solid rgb(var(--line));
+  border-radius: 9999px;
+  background: rgb(var(--paper));
+  padding: 0.375rem 0.875rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  color: rgb(var(--muted));
+  white-space: nowrap;
+  transition: background-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
+}
+.plan-deck__pill:hover { color: rgb(var(--ink)); }
+.plan-deck__pill[aria-current="true"] { background: rgb(var(--accent)); border-color: rgb(var(--accent)); color: #fff; }
+.dark .plan-deck__pill[aria-current="true"] { color: rgb(var(--paper)); }
+.plan-deck__pill:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; }
+.plan-deck__pill--skeleton { display: block; width: 5.5rem; height: 2.125rem; background: rgb(var(--line) / 0.6); }
+.plan-deck__track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 86cqi;
+  column-gap: 1rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  padding: 0.5rem 7cqi 1rem;
+  scroll-padding-inline: 7cqi;
+  scrollbar-width: none;
+}
+.plan-deck__track::-webkit-scrollbar { display: none; }
+.plan-deck__track > * { scroll-snap-align: center; }
+/* Every card is a subgrid of the deck's seven rows (ClassicPlanCard), so
+   its rows line up with the cards beside it in the carousel and the grid. */
+.plan-card { display: grid; grid-row: span 7; grid-template-rows: subgrid; row-gap: 0; }
+.plan-card--highlighted { background-image: linear-gradient(to bottom, rgb(var(--accent) / 0.07), transparent 10rem); }
+@media (min-width: 640px) {
+  .plan-deck { --deck-bleed: 1.5rem; }
+  .plan-deck__track { grid-auto-columns: 44cqi; padding-inline: 3cqi; scroll-padding-inline: 3cqi; }
+  .plan-deck__track > * { scroll-snap-align: start; }
+}
+@media (min-width: 640px) and (max-width: 1023.98px) {
+  .plan-deck--pair .plan-deck__pills { display: none; }
+  .plan-deck--pair .plan-deck__track {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(var(--deck-count), minmax(0, 24rem));
+    justify-content: center;
+    overflow: visible;
+    scroll-snap-type: none;
+    padding-inline: var(--deck-bleed);
+  }
+}
+@media (min-width: 1024px) {
+  .plan-deck { margin-inline: 0; }
+  .plan-deck__pills { display: none; }
+  .plan-deck__track {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(var(--deck-cols-lg), minmax(0, 23.75rem));
+    justify-content: center;
+    column-gap: 1.25rem;
+    row-gap: 0;
+    overflow: visible;
+    scroll-snap-type: none;
+    padding: 0.5rem 0 0;
+  }
+  .plan-card { margin-bottom: 1.25rem; }
+  .figure-price { --figure-max: 2.25rem; }
+  /* The on-server band as wide as the plan grid above it. */
+  .plan-showcase .plan-band {
+    max-width: max(48rem, calc(var(--deck-cols-lg) * 23.75rem + (var(--deck-cols-lg) - 1) * 1.25rem));
+    margin-inline: auto;
+  }
+}
+@media (min-width: 1280px) {
+  .plan-deck__track { grid-template-columns: repeat(var(--deck-cols-xl), minmax(0, 23.75rem)); }
+  .plan-showcase .plan-band { max-width: max(48rem, calc(var(--deck-cols-xl) * 23.75rem + (var(--deck-cols-xl) - 1) * 1.25rem)); }
+}
+.plan-deck.plan-deck--flush { --deck-bleed: 0rem; }
+/* The skeleton (PlanDeckSkeleton, PlansSkeleton): the loaded cards' and
+   band's heights at each width (Arabic, the collapsed phone/tablet card),
+   so nothing below moves when the plans arrive. */
+.plan-card.plan-card--skeleton { display: block; grid-row: auto; min-height: 29.875rem; }
+.plan-band.plan-band--skeleton { height: 22.5rem; }
+/* The landing preview (compact: no modules, no extras, no band points). */
+.plan-card.plan-card--skeleton.plan-card--skeleton-compact { min-height: 21rem; }
+.plan-band.plan-band--skeleton.plan-band--skeleton-compact { height: 13.75rem; }
+@media (min-width: 480px) {
+  .plan-band.plan-band--skeleton { height: 20rem; }
+}
+@media (min-width: 640px) {
+  .plan-card.plan-card--skeleton { min-height: 32.25rem; }
+  .plan-card.plan-card--skeleton.plan-card--skeleton-compact { min-height: 21.25rem; }
+  .plan-band.plan-band--skeleton.plan-band--skeleton-compact { height: 13rem; }
+}
+@media (min-width: 768px) {
+  .plan-band.plan-band--skeleton { height: 17rem; }
+}
+@media (min-width: 1024px) {
+  .plan-card.plan-card--skeleton { min-height: 42.875rem; }
+  .plan-card.plan-card--skeleton.plan-card--skeleton-compact { min-height: 22rem; }
+  .plan-band.plan-band--skeleton { height: 10.125rem; }
+  .plan-band.plan-band--skeleton.plan-band--skeleton-compact { height: 8.875rem; }
+}
+@media (min-width: 1280px) {
+  .plan-card.plan-card--skeleton { min-height: 43.375rem; }
+  .plan-card.plan-card--skeleton.plan-card--skeleton-compact { min-height: 22.25rem; }
+  .plan-band.plan-band--skeleton { height: 8.875rem; }
+}
+/* No subgrid: equal-height flex columns (the grid stretches them). */
+@supports not (grid-template-rows: subgrid) {
+  .plan-card { display: flex; flex-direction: column; grid-row: auto; }
+}
+
 /* ---- Motion (lib/motion.js) ---------------------------------------------
    One curve and three durations for everything that moves. Under
    prefers-reduced-motion the rule below cuts every duration to nothing;
