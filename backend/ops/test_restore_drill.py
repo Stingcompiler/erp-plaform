@@ -252,6 +252,7 @@ def populate_every_module(owner, test=_CHECK):
     # captured two hours ago while the till had no connection (a sale captured
     # online is refused instead of flagged)
     under = (products[5].cost_price * Decimal("0.8")).quantize(Decimal("1"))
+    two_hours_ago = (timezone.now() - timedelta(hours=2)).isoformat()
     S("post", "/api/sync/push/", {
         "batch_uuid": str(uuid.uuid4()), "expected_company": company.pk,
         "expected_user": seller.pk,
@@ -260,7 +261,7 @@ def populate_every_module(owner, test=_CHECK):
                                     "lines": [{"product": products[5].pk, "quantity": "1",
                                                "unit_price": str(under)}],
                                     "payment": {"method": "cash", "amount": str(under)},
-                                    "occurred_at": (timezone.now() - timedelta(hours=2)).isoformat()}}],
+                                    "occurred_at": two_hours_ago}}],
     })
     flagged = O("get", "/api/price-flags/")
     flagged = flagged.get("results", flagged) if isinstance(flagged, dict) else flagged
