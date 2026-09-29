@@ -229,7 +229,13 @@ class PublicPlanListView(APIView):
         latest = {}
         for version in plans:
             latest.setdefault(version.plan_id, version)
-        return Response(PublicPlanVersionSerializer(latest.values(), many=True).data)
+        # The operator's sort_order first; plans left on the same order read
+        # cheapest to dearest rather than alphabetically by working name.
+        ordered = sorted(
+            latest.values(),
+            key=lambda version: (version.plan.sort_order, version.price, version.plan.name),
+        )
+        return Response(PublicPlanVersionSerializer(ordered, many=True).data)
 
 
 class PublicRegistrationRequestView(APIView):

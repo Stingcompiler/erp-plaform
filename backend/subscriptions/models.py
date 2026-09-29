@@ -3,7 +3,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q
 from django.utils.translation import gettext as _
 
@@ -32,9 +32,34 @@ class Plan(models.Model):
 
     class Meta:
         ordering = ["name"]
+        constraints = [
+            # The pricing page badges one plan as "most popular"; two badges
+            # read as a mistake. Plan.save() keeps this true by clearing the
+            # previous one, the index catches anything that bypasses save().
+            models.UniqueConstraint(
+                fields=["is_highlighted"],
+                condition=Q(is_highlighted=True),
+                name="uniq_highlighted_plan",
+            )
+        ]
 
     def __str__(self):
         return self.name
+
+    def validate_constraints(self, exclude=None):
+        # A form highlighting a second plan is not an error: save() moves the
+        # badge. The index still stands behind it.
+        super().validate_constraints(exclude={*(exclude or ()), "is_highlighted"})
+
+    def save(self, *args, **kwargs):
+        # Highlighting a plan moves the badge: the previously highlighted
+        # plan is cleared in the same transaction, never left beside it.
+        with transaction.atomic():
+            if self.is_highlighted:
+                Plan.objects.filter(is_highlighted=True).exclude(pk=self.pk).update(
+                    is_highlighted=False
+                )
+            super().save(*args, **kwargs)
 
 
 class PlanVersion(models.Model):

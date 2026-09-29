@@ -77,7 +77,7 @@ export default function PricingPage() {
             <p className="mt-4 text-muted sm:text-lg">{t("pricing.pageSubtitle")}</p>
           </div>
           <div className="mt-12">
-            <PlanCards />
+            <PlanCards showCompare />
           </div>
         </div>
       </section>
