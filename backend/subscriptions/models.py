@@ -11,6 +11,17 @@ from django.utils.translation import gettext as _
 # subscriptions.services.LIMIT_RESOLVERS; storage_mb is priced, not counted.
 LIMIT_KEYS = ("users", "branches", "warehouses", "devices", "storage_mb")
 
+# ISO 4217 codes a plan may be priced in: the currencies the app can label in
+# both languages (keep in step with PLAN_CURRENCIES in frontend/lib/money.js).
+# "SD" or "sdg" typed by hand split one price list into two currencies.
+PLAN_CURRENCIES = ("SDG", "USD", "EUR", "SAR", "AED", "EGP", "QAR", "KWD", "BHD", "OMR")
+
+
+def plan_currency_error():
+    return _("Use one of the supported currency codes: %(codes)s.") % {
+        "codes": ", ".join(PLAN_CURRENCIES)
+    }
+
 
 class Plan(models.Model):
     code = models.SlugField(max_length=64, unique=True)
@@ -112,6 +123,16 @@ class PlanVersion(models.Model):
             "website",
             "settings",
         }
+        # Only a new or changed code is checked: a version saved before the
+        # rule (production has one in "SD") stays readable and savable; the
+        # plans page flags it so the owner publishes a corrected version.
+        currency = (self.currency or "").strip().upper()
+        previous = (
+            PlanVersion.objects.filter(pk=self.pk).values_list("currency", flat=True).first()
+            if self.pk else None
+        )
+        if currency not in PLAN_CURRENCIES and currency != previous:
+            raise ValidationError({"currency": plan_currency_error()})
         modules = set(self.modules or [])
         unknown = modules - allowed
         if unknown:

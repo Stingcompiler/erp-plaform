@@ -3,6 +3,7 @@ import uuid
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
+from django.utils.translation import gettext_lazy
 
 
 class FollowUpMixin(models.Model):
@@ -408,6 +409,18 @@ def normalize_seo_path(path):
     return path
 
 
+# The pricing page layouts (frontend/components/marketing/PlanCards.jsx
+# TEMPLATES); every one renders the same normalized plans.
+PRICING_TEMPLATE_DEFAULT = "classic"
+PRICING_TEMPLATES = [
+    ("classic", gettext_lazy("Classic cards")),
+    ("featured", gettext_lazy("Featured plan in the middle")),
+    ("table", gettext_lazy("Comparison table")),
+    ("compact", gettext_lazy("Compact list")),
+]
+PRICING_CYCLES = [("monthly", gettext_lazy("Monthly")), ("yearly", gettext_lazy("Yearly"))]
+
+
 class SeoSettings(models.Model):
     """Site-wide search settings the platform team controls without a
     deploy: verification tags, the analytics id, a default share image and
@@ -429,6 +442,19 @@ class SeoSettings(models.Model):
     support_whatsapp = models.CharField(max_length=32, blank=True)
     support_phone = models.CharField(max_length=32, blank=True)
     support_email = models.EmailField(blank=True)
+    # How /pricing presents the published plans (never what they cost: the
+    # prices, limits and modules always come from the plan versions). The
+    # plans page edits these; /api/public/plans/display/ serves them.
+    pricing_template = models.CharField(
+        max_length=16, choices=PRICING_TEMPLATES, default=PRICING_TEMPLATE_DEFAULT
+    )
+    pricing_show_compare = models.BooleanField(default=True)
+    pricing_show_self_hosted = models.BooleanField(default=True)
+    # The cycle the monthly/yearly switch starts on; the switch itself only
+    # appears when a published plan really has both.
+    pricing_default_cycle = models.CharField(
+        max_length=16, choices=PRICING_CYCLES, default="monthly"
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -455,6 +481,10 @@ class SeoSettings(models.Model):
                       "analytics_id", "robots_extra", "support_whatsapp", "support_phone",
                       "support_email"):
             setattr(self, field, "")
+        self.pricing_template = PRICING_TEMPLATE_DEFAULT
+        self.pricing_show_compare = True
+        self.pricing_show_self_hosted = True
+        self.pricing_default_cycle = "monthly"
         if self.default_og_image:
             self.default_og_image.delete(save=False)
             self.default_og_image = None

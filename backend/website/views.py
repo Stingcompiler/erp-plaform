@@ -38,6 +38,7 @@ from website.serializers import (
     OwnerInvitationAcceptSerializer,
     PlatformLeadSerializer,
     PlatformRegistrationRequestSerializer,
+    PublicPlanCycleSerializer,
     PublicPlanVersionSerializer,
     PublicSiteSerializer,
     RegistrationRequestSerializer,
@@ -227,15 +228,31 @@ class PublicPlanListView(APIView):
             plan__is_active=True, plan__is_public=True, published_at__isnull=False
         ).order_by("plan__sort_order", "plan__name", "-version")
         latest = {}
+        # plan -> cycle -> its newest published, non-legacy version: what the
+        # pricing page's monthly/yearly switch offers. A plan has a cycle
+        # only when such a version really exists; nothing is derived.
+        by_cycle = {}
         for version in plans:
             latest.setdefault(version.plan_id, version)
+            if not version.is_legacy:
+                by_cycle.setdefault(version.plan_id, {}).setdefault(
+                    version.billing_cycle, version
+                )
         # The operator's sort_order first; plans left on the same order read
         # cheapest to dearest rather than alphabetically by working name.
         ordered = sorted(
             latest.values(),
             key=lambda version: (version.plan.sort_order, version.price, version.plan.name),
         )
-        return Response(PublicPlanVersionSerializer(ordered, many=True).data)
+        rows = PublicPlanVersionSerializer(ordered, many=True).data
+        for version, row in zip(ordered, rows):
+            # The row itself is the offer for its own cycle.
+            cycles = {**by_cycle.get(version.plan_id, {}), version.billing_cycle: version}
+            row["cycles"] = {
+                cycle: PublicPlanCycleSerializer(offer).data
+                for cycle, offer in sorted(cycles.items())
+            }
+        return Response(rows)
 
 
 class PublicRegistrationRequestView(APIView):

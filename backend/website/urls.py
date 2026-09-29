@@ -4,7 +4,8 @@ from rest_framework.routers import DefaultRouter
 from website.public_pages import public_showcase
 from website.analytics_views import CompanyVisitsView, PlatformAnalyticsOverview, PlatformFunnelView
 from website.seo_views import (
-    PublicSiteContactView, SeoOgImageView, SeoPageOverrideViewSet, SeoSettingsView,
+    PricingDisplayView, PublicPricingDisplayView, PublicSiteContactView, SeoOgImageView,
+    SeoPageOverrideViewSet, SeoSettingsView,
 )
 from website.views import (
     FeaturedProductViewSet,
@@ -60,6 +61,14 @@ urlpatterns = [
     ),
     path("public/demo-requests/", DemoRequestView.as_view(), name="demo-request"),
     path("public/plans/", PublicPlanListView.as_view(), name="public-plan-list"),
+    path(
+        "public/plans/display/", PublicPricingDisplayView.as_view(),
+        name="public-plan-display",
+    ),
+    path(
+        "platform/pricing-display/", PricingDisplayView.as_view(),
+        name="platform-pricing-display",
+    ),
     path("public/track/", PlatformTrackView.as_view(), name="platform-track"),
     path(
         "public/registration-requests/", PublicRegistrationRequestView.as_view(),

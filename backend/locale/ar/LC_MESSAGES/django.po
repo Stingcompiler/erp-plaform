@@ -2444,3 +2444,25 @@ msgstr "اكتب رقم الطلب أو رقم الهاتف أو البريد ا
 
 #~ msgid "Cash payment must not carry bank/reference details."
 #~ msgstr "الدفع النقدي لا يحمل بيانات بنك أو مرجع."
+
+msgid "Classic cards"
+msgstr "بطاقات تقليدية"
+
+msgid "Featured plan in the middle"
+msgstr "الباقة المميّزة في الوسط"
+
+msgid "Comparison table"
+msgstr "جدول مقارنة"
+
+msgid "Compact list"
+msgstr "قائمة مختصرة"
+
+msgid "Monthly"
+msgstr "شهري"
+
+msgid "Yearly"
+msgstr "سنوي"
+
+#, python-format
+msgid "Use one of the supported currency codes: %(codes)s."
+msgstr "استخدم أحد رموز العملات المدعومة: %(codes)s."

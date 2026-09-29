@@ -18,8 +18,10 @@ from core.permissions import IsPlatformAdmin
 from core.public_media import stored_public_url
 from core.seo_inject import ANALYTICS_ID
 from website.images import clear_image, prepare_image, replace_image
-from website.models import SeoPageOverride, SeoSettings, normalize_seo_path
-from website.seo import site_seo
+from website.models import (
+    PRICING_CYCLES, PRICING_TEMPLATES, SeoPageOverride, SeoSettings, normalize_seo_path,
+)
+from website.seo import pricing_display, pricing_display_of, site_seo
 
 # A share image is 1200×630 by convention; the longest side is bounded here
 # and the file re-encoded like every other public image.
@@ -143,6 +145,73 @@ class PublicSiteContactView(APIView):
             "email": site.support_email,
         })
         response["Cache-Control"] = "public, max-age=300"
+        return response
+
+
+class PricingDisplaySerializer(serializers.ModelSerializer):
+    """How /pricing lays out the plans: a template name and three switches.
+    Choices are validated against the model's; nothing here touches a
+    price, which stays with the plan versions."""
+
+    template = serializers.ChoiceField(
+        source="pricing_template", choices=[value for value, _label in PRICING_TEMPLATES],
+        required=False,
+    )
+    show_compare = serializers.BooleanField(source="pricing_show_compare", required=False)
+    show_self_hosted = serializers.BooleanField(
+        source="pricing_show_self_hosted", required=False
+    )
+    default_cycle = serializers.ChoiceField(
+        source="pricing_default_cycle", choices=[value for value, _label in PRICING_CYCLES],
+        required=False,
+    )
+
+    class Meta:
+        model = SeoSettings
+        fields = ["template", "show_compare", "show_self_hosted", "default_cycle", "updated_at"]
+        read_only_fields = ["updated_at"]
+
+
+class PricingDisplayView(APIView):
+    """GET/PATCH the pricing page layout. It lives beside the price list, so
+    it takes the plans capabilities (`platform.plans.view` to read,
+    `platform.plans.manage` to change), not the SEO ones."""
+
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    platform_view_capability = platform_roles.PLANS_VIEW
+    platform_capability = platform_roles.PLANS_MANAGE
+    entitlement_exempt = True
+
+    def get(self, request):
+        return Response(PricingDisplaySerializer(SeoSettings.load()).data)
+
+    def patch(self, request):
+        settings_row = SeoSettings.load()
+        serializer = PricingDisplaySerializer(settings_row, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        log_activity(
+            action="update", request=request, entity_type="PricingDisplay",
+            entity_id=settings_row.pk,
+            metadata={
+                "fields": sorted(serializer.validated_data),
+                **pricing_display_of(settings_row),
+            },
+        )
+        return Response(serializer.data)
+
+
+class PublicPricingDisplayView(APIView):
+    """The pricing page layout for every visitor (cached like the contact
+    details). Under public/plans/, so a standalone install gates it with the
+    rest of the plan catalogue (core.deployment_gate)."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        response = Response(pricing_display())
+        response["Cache-Control"] = "public, max-age=60"
         return response
 
 

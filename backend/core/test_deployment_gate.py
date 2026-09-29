@@ -16,6 +16,8 @@ class StandaloneSurfaceGateTests(TestCase):
         "/api/platform/registration-requests/",
         "/api/platform/subscriptions/",
         "/api/public/plans/",
+        "/api/public/plans/display/",
+        "/api/platform/pricing-display/",
         "/api/public/registration-requests/",
         "/api/public/demo-requests/",
         "/api/public/owner-invitations/accept/",
