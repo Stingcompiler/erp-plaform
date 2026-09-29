@@ -33,3 +33,26 @@ export function createBurstDetector({ gapMs = SCAN_GAP_MS, minLength = SCAN_MIN_
     reset() { burst = null; },
   };
 }
+
+// Anything modal on screen: a drawer, a confirmation, a native <dialog>.
+// While one is open the till's global scanner capture and its hotkeys stand
+// down — typing a new customer's name in the drawer used to land in the
+// scan field behind it, and a confirmation (role=alertdialog) did not pause
+// the hotkeys at all.
+export const OVERLAY_SELECTOR = '[role="dialog"], [role="alertdialog"], dialog[open], [aria-modal="true"]';
+// `inside`: an element that may itself live in an overlay (a scan field in a
+// drawer) — only the overlays that do not contain it count.
+export function overlayOpen(doc = globalThis.document, inside = null) {
+  try {
+    return [...(doc?.querySelectorAll(OVERLAY_SELECTOR) || [])]
+      .some((el) => !(inside && el.contains(inside)));
+  } catch { return false; }
+}
+
+// A phone or tablet whose main pointer is a finger. Focusing the scan field
+// there opens the on-screen keyboard over half the till, so the field is
+// not focused on its own; a Bluetooth scanner still reaches it through the
+// global capture.
+export function touchFirst(win = globalThis.window) {
+  try { return Boolean(win?.matchMedia?.("(pointer: coarse)")?.matches); } catch { return false; }
+}

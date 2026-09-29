@@ -251,10 +251,11 @@ function SidebarContent({ onNavigate }) {
         >
           <Store size={14} className="shrink-0" />
           <span className="min-w-0 flex-1 truncate">{t("shell.shopMode")}</span>
-          <span className="text-sidebarText/40">{t("shell.change")}</span>
+          {/* /60, not /40: muted sidebar text at /40 measured 3.5:1. */}
+          <span className="text-sidebarText/60">{t("shell.change")}</span>
         </Link>
       )}
-      <div className="p-3 text-xs text-sidebarText/40">
+      <div className="p-3 text-xs text-sidebarText/60">
         v1 · {countLeaves(items)} {t("shell.sections")}
       </div>
     </>

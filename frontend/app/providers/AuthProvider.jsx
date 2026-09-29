@@ -12,6 +12,7 @@ import {
 } from "@/lib/sessionCache";
 
 import { COMPANY_ACCESS_EVENT, auth, prefs, rbac } from "@/lib/api";
+import { clearPendingLogout, flushPendingLogout, markPendingLogout, pendingLogout } from "@/lib/pendingLogout";
 import { useI18n } from "./I18nProvider";
 
 const AuthContext = createContext(null);
@@ -25,7 +26,24 @@ export function AuthProvider({ children }) {
   const [offlineSession, setOfflineSession] = useState(false);
   const { hydrateFromServer } = useI18n();
 
+  const signedOut = useCallback(() => {
+    clearSessionCache();
+    setLocalIdentity(null);
+    setUser(null);
+    setAccess({});
+    setOfflineSession(false);
+  }, []);
+
   const loadSession = useCallback(async () => {
+    // A sign-out taken while offline goes to the server before anything
+    // else; until it has, this device is signed out — the old cookies must
+    // not bring the last cashier's session back.
+    if (pendingLogout()) {
+      await flushPendingLogout(auth.logout);
+      signedOut();
+      setLoading(false);
+      return null;
+    }
     try {
       const [meRes, accessRes] = await Promise.all([auth.me(), rbac.access()]);
       setLocalIdentity(meRes.data);
@@ -54,21 +72,24 @@ export function AuthProvider({ children }) {
         setOfflineSession(true);
         return cached.me;
       }
-      clearSessionCache();
-      setLocalIdentity(null);
-      setUser(null);
-      setAccess({});
-      setOfflineSession(false);
+      signedOut();
       return null;
     } finally {
       setLoading(false);
     }
-  }, [hydrateFromServer]);
+  }, [hydrateFromServer, signedOut]);
 
   useEffect(() => {
     registerServiceWorker();
     loadSession();
   }, [loadSession]);
+
+  // The connection is back: send a sign-out still waiting for it.
+  useEffect(() => {
+    const onOnline = () => { if (pendingLogout()) flushPendingLogout(auth.logout); };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, []);
 
   // A request refused because the platform suspended the company: re-read
   // the identity (it carries company_access) so the shell can react. At
@@ -87,6 +108,10 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(
     async (email, password) => {
+      // The previous session's sign-out goes first: sent after this login it
+      // would end the NEW session instead (the cookies are shared). If it
+      // still cannot be sent, the login cannot reach the server either.
+      if (!(await flushPendingLogout(auth.logout))) clearPendingLogout();
       await auth.login(email, password);
       setLoading(true);
       await loadSession();
@@ -94,17 +119,16 @@ export function AuthProvider({ children }) {
     [loadSession]
   );
 
+  // The screen is cleared at once, whatever the network does: a cashier who
+  // pressed "Sign out" must never be left signed in on a shared device. The
+  // server call ends the session for real (blacklists the refresh token,
+  // clears the cookies); when the server cannot be reached the sign-out is
+  // kept as pending and sent the moment it answers again.
   const logout = useCallback(async () => {
-    try {
-      await auth.logout();
-    } finally {
-      clearSessionCache();
-      setLocalIdentity(null);
-      setUser(null);
-      setAccess({});
-      setOfflineSession(false);
-    }
-  }, []);
+    markPendingLogout(user?.id ?? null);
+    signedOut();
+    await flushPendingLogout(auth.logout);
+  }, [user?.id, signedOut]);
 
   const canRead = useCallback(
     (module) => !module || (access[module] && access[module] !== "none"),

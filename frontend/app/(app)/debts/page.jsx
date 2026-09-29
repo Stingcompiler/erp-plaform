@@ -155,10 +155,10 @@ export default function DebtsPage() {
           <div className="mb-3 grid gap-2 sm:grid-cols-[1fr_132px] xl:grid-cols-1">
             <div className="relative">
               <Search size={15} className="pointer-events-none absolute inset-y-0 start-3 my-auto text-muted" />
-              <Input className="ps-9" placeholder={t("debts.search")} value={filters.search}
+              <Input className="ps-9" placeholder={t("debts.search")} aria-label={t("debts.searchLabel")} value={filters.search}
                 onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} />
             </div>
-            <Select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}>
+            <Select value={filters.status} aria-label={t("debts.statusFilter")} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}>
               <option value="">{t("debts.all")}</option>
               <option value="overdue">{t("debts.overdue")}</option>
               <option value="owing">{t("debts.owing")}</option>

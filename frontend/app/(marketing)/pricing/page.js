@@ -19,7 +19,8 @@ function Compare() {
   return (
     <section className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
       <h2 className="text-center font-display text-2xl font-bold tracking-tight">{t("pricing.compareTitle")}</h2>
-      <div className="mt-8 overflow-x-auto rounded-card border border-line bg-paper shadow-card">
+      {/* Scrolls sideways on a phone: focusable, so a keyboard can scroll it too. */}
+      <div tabIndex={0} role="region" aria-label={t("pricing.compareTitle")} className="mt-8 overflow-x-auto rounded-card border border-line bg-paper shadow-card">
         <table className="w-full min-w-[520px] text-start">
           <thead className="bg-surface text-sm text-muted">
             <tr>

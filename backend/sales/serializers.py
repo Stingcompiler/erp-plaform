@@ -29,6 +29,7 @@ from sales.models import (
     SalesOrder,
     SalesOrderLine,
 )
+from sales.idempotency import checkout_fingerprint
 from sales.numbering import allocate_invoice_number
 from sales.price_rules import (
     check_document_lines,
@@ -1245,6 +1246,12 @@ class POSCheckoutSerializer(serializers.Serializer):
                 tax_rate_snapshot=rate,
                 created_by=user if user.is_authenticated else None,
                 client_uuid=validated_data.get("client_uuid"),
+                # What this key recorded, so a replay carrying a different
+                # sale is refused (sales.idempotency).
+                client_body_hash=(
+                    checkout_fingerprint(self.initial_data)
+                    if validated_data.get("client_uuid") else ""
+                ),
                 issued_at=occurred_at,
                 payment_terms_days=terms,
                 source_order=source_order,

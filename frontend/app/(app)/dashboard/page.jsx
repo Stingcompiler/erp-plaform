@@ -138,7 +138,7 @@ export default function DashboardPage() {
               <Button variant="ghost" onClick={hideSetup}>{t("improvements.checklistHide")}</Button>
             </div>
             <div className="mt-4 flex items-center gap-3">
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-line" role="progressbar" aria-valuemin={0} aria-valuemax={setupTotal} aria-valuenow={setupDone}>
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-line" role="progressbar" aria-label={t("improvements.checklist")} aria-valuetext={t("improvements.checklistProgress", { done: setupDone, total: setupTotal })} aria-valuemin={0} aria-valuemax={setupTotal} aria-valuenow={setupDone}>
                 <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${(setupDone / setupTotal) * 100}%` }} />
               </div>
               <span className="shrink-0 text-xs font-medium text-muted">{t("improvements.checklistProgress", { done: setupDone, total: setupTotal })}</span>

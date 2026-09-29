@@ -20,9 +20,10 @@
 // IndexedDB the first time the scope is opened.
 
 import { localScope, storageKey } from "./localIdentity.js";
-import { queue as localQueue } from "./syncQueueLocal.js";
+import { localCarts, queue as localQueue } from "./syncQueueLocal.js";
 import { retryPatch } from "./syncRetry.js";
 import { clockOffset } from "./deviceClock.js";
+import { rekeyed } from "./opBody.js";
 
 const VERSION = 1;
 const DB_PREFIX = "vezano.queue.v1:";
@@ -192,17 +193,24 @@ export const queue = {
   async enqueue(opType, payload, scope) {
     if (!(await ready(scope))) return localQueue.enqueue(opType, payload, scope);
     const id = payload.client_uuid || crypto.randomUUID();
-    const op = { op_type: opType, client_uuid: id,
-      payload: { ...payload, client_uuid: id }, queued_at: Date.now(), seq: ++seq, error: null,
+    const build = (body, key) => ({ op_type: opType, client_uuid: key,
+      payload: { ...body, client_uuid: key }, queued_at: Date.now(), seq: ++seq, error: null,
       // This device's clock error when the operation was captured (see
       // deviceClock.js); the server prefers it to the gap at upload time.
-      clock_offset_ms: clockOffset() };
+      clock_offset_ms: clockOffset() });
     // add() (not put) refuses to overwrite: a retry of an uncertain request
-    // keeps the original body, and the stored one is what is returned.
+    // keeps the original body, and the stored one is what is returned. A
+    // DIFFERENT sale under a stored key (two till tabs, one draft) is
+    // stored under a key of its own instead (lib/opBody.js).
     return withStore(scope, "ops", "readwrite", (store) => new Promise((resolve, reject) => {
       const get = store.get(id);
       get.onsuccess = () => {
-        if (get.result) { resolve(get.result); return; }
+        let op = build(payload, id);
+        if (get.result) {
+          const other = rekeyed(opType, get.result, payload);
+          if (!other) { resolve(get.result); return; }
+          op = build(other, other.client_uuid);
+        }
         const add = store.add(op);
         add.onsuccess = () => resolve(op);
         add.onerror = () => reject(add.error);
@@ -307,20 +315,24 @@ export async function otherAccountsPending(scope) {
 }
 
 // Parked carts, same database. `scope` defaults to the active identity.
+// Without IndexedDB they fall back to localStorage (size-guarded, see
+// syncQueueLocal.localCarts) instead of throwing on every list.
 export const heldCarts = {
   async list(scope = localScope()) {
-    if (!(await ready(scope))) throw new Error("Durable storage unavailable.");
+    if (!scope) return [];
+    if (!(await ready(scope))) return localCarts.list(scope);
     return (await getAll(scope, "carts")).sort((a, b) => b.saved_at - a.saved_at);
   },
   async save(cart, scope = localScope()) {
     const row = { ...cart, id: cart.id || crypto.randomUUID(), saved_at: Date.now() };
-    if (!(await ready(scope))) throw new Error("Durable storage unavailable.");
+    if (!scope) throw new Error("A signed-in company is required for local storage.");
+    if (!(await ready(scope))) return localCarts.save(row, scope);
     await withStore(scope, "carts", "readwrite", (store) => { store.put(row); });
     return row;
   },
   async remove(id, scope = localScope()) {
-    if (!id) return;
-    if (!(await ready(scope))) return;
+    if (!id || !scope) return;
+    if (!(await ready(scope))) { localCarts.remove(id, scope); return; }
     await withStore(scope, "carts", "readwrite", (store) => { store.delete(id); });
   },
 };

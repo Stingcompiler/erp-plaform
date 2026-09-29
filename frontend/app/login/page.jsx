@@ -83,7 +83,7 @@ export default function LoginPage() {
           </h1>
           <p className="mt-4 max-w-sm text-paper/70">{t("auth.heroSubtitle")}</p>
         </div>
-        <div className="tabular text-sm text-paper/50">{t("auth.tagline")}</div>
+        <div className="tabular text-sm text-paper/70">{t("auth.tagline")}</div>
       </section>
 
       {/* Sign-in */}
@@ -107,8 +107,9 @@ export default function LoginPage() {
           <h2 className="font-display text-2xl font-semibold">{t("auth.signInHeading")}</h2>
           <p className="mt-1 text-sm text-muted">{t("auth.signInSubtitle")}</p>
 
-          <label className="mt-6 block text-sm font-medium">{t("auth.emailLabel")}</label>
+          <label htmlFor="login-email" className="mt-6 block text-sm font-medium">{t("auth.emailLabel")}</label>
           <input
+            id="login-email"
             type="email"
             autoComplete="username"
             value={email}
@@ -118,11 +119,12 @@ export default function LoginPage() {
           />
 
           <div className="mt-4 flex items-baseline justify-between">
-            <label className="block text-sm font-medium">{t("auth.passwordLabel")}</label>
+            <label htmlFor="login-password" className="block text-sm font-medium">{t("auth.passwordLabel")}</label>
             <Link href="/forgot-password" className="text-xs text-accent hover:underline">{t("auth.forgotPassword")}</Link>
           </div>
           <div className="mt-1">
             <PasswordInput
+              id="login-password"
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

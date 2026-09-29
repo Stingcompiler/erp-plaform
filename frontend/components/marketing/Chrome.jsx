@@ -250,7 +250,7 @@ export function MarketingFooter() {
             </div>
           </div>
         </div>
-        <div className="mt-10 border-t border-white/10 pt-6 text-sm text-paper/50">
+        <div className="mt-10 border-t border-white/10 pt-6 text-sm text-paper/70">
           © {year} {t("common.appName")}. {t("landing.footerRights")}
         </div>
       </div>
