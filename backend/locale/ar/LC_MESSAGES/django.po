@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-28 20:51+0000\n"
+"POT-Creation-Date: 2026-09-29 07:50+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1484,12 +1484,12 @@ msgid "Return and bill must refer to the same receipt."
 msgstr "المرتجع والفاتورة يجب أن يشيرا إلى الاستلام نفسه."
 
 #, python-format
-msgid "Line %(line)s appears twice."
-msgstr "السطر %(line)s مكرر."
-
-#, python-format
 msgid "Line %(line)s not in this return."
 msgstr "السطر %(line)s ليس ضمن هذا المرتجع."
+
+#, python-format
+msgid "Line %(line)s appears twice."
+msgstr "السطر %(line)s مكرر."
 
 #, python-format
 msgid "Line %(line)s already dispositioned."
@@ -1861,6 +1861,13 @@ msgstr "اختر الحساب المستلِم."
 
 msgid "Upload the statement export."
 msgstr "ارفع ملف كشف الحساب."
+
+msgid ""
+"This sale's key was already used for a different sale (another till tab?). "
+"This sale was not recorded; complete it again."
+msgstr ""
+"رقم هذه البيعة استُخدم لبيعة أخرى (نافذة أخرى من نقطة البيع؟). لم تُسجَّل هذه "
+"البيعة؛ أتمّها مرة أخرى."
 
 msgid "Only a manager or an approver reviews flagged sales."
 msgstr "مراجعة المبيعات المعلَّمة للمدير أو لصاحب صلاحية الاعتماد فقط."

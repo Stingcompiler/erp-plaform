@@ -359,6 +359,10 @@ class Invoice(models.Model):
         related_name="invoices",
     )
     client_uuid = models.UUIDField(null=True, blank=True, unique=True)
+    # Fingerprint of the checkout body that created this invoice
+    # (sales.idempotency): a replay of `client_uuid` with a different sale in
+    # it is refused instead of being answered with this invoice.
+    client_body_hash = models.CharField(max_length=64, blank=True, default="")
     # The human-readable reference the till printed BEFORE the server assigned
     # `number` (e.g. "MAIN-7F3A-000012"): branch code, device id, per-device
     # counter. Lets a receipt handed to a customer during an outage be matched

@@ -183,9 +183,14 @@ class PriceRuleTests(POSBase):
 
     def test_limit_is_a_company_setting(self):
         Company.objects.filter(pk=self.company.pk).update(max_discount_percent=None)
+        # 15% is past the default 10% but keeps the net price (85) over cost.
+        r = self.sell([{"product": self.rice.id, "quantity": "1", "discount_percent": "15"}],
+                      payment={"method": "cash", "amount": "85.00"})
+        self.assertEqual(r.status_code, 201, r.data)
+        # With no limit the floor still holds: 50% sells under the cost of 80.
         r = self.sell([{"product": self.rice.id, "quantity": "1", "discount_percent": "50"}],
                       payment={"method": "cash", "amount": "50.00"})
-        self.assertEqual(r.status_code, 201, r.data)
+        self.assertEqual(r.status_code, 400, r.data)
         Company.objects.filter(pk=self.company.pk).update(max_discount_percent=Decimal("0"))
         r = self.sell([{"product": self.rice.id, "quantity": "1", "discount_amount": "1.00"}],
                       payment={"method": "cash", "amount": "99.00"})

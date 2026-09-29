@@ -110,8 +110,16 @@ export default function InvoiceList({ refreshKey }) {
                   onClick={() => setOpenId(inv.id)}
                   className="cursor-pointer border-b border-line last:border-0 hover:bg-paper"
                 >
+                  {/* The row opens on a click; the number is the same action
+                      as a real button, so it is reachable from the keyboard. */}
                   <td className="tabular px-4 py-3 text-ink">
-                    {inv.number_display || inv.number}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setOpenId(inv.id); }}
+                      className="rounded-control text-start underline-offset-2 hover:underline focus-visible:underline"
+                    >
+                      {inv.number_display || inv.number}
+                    </button>
                   </td>
                   <td className="px-4 py-3 text-ink">{inv.customer_name || t("sales.walkIn")}</td>
                   <td className="tabular px-4 py-3 text-end text-ink">{money(inv.total)}</td>

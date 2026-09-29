@@ -998,8 +998,8 @@ const en = {
   },
   sync: {
     signOutPending: "This device has {count} operation(s) not uploaded yet. After you sign out, whoever signs in next will not see them until you are back. Sign out?",
-    signOutPendingOffline: "This device has {count} operation(s) not uploaded and there is no connection — signing back in needs the server. Sign out anyway?",
-    signOutOffline: "There is no connection. After you sign out, nobody can sign in on this device until the connection returns. Sign out anyway?",
+    signOutPendingOffline: "This device has {count} operation(s) not uploaded and there is no connection. You will be signed out on this device now; the operations stay here until you sign in again, and signing in needs the connection. Sign out?",
+    signOutOffline: "There is no connection. You will be signed out on this device now, and the server is told as soon as the connection returns. Signing in again needs the connection. Sign out?",
     othersPending: "{count} operation(s) from another account are waiting on this device. They upload when that person signs in here with a connection.",
     discardAlreadyApplied: "The server already had this operation, so it was not discarded: it is recorded.",
     discardFailed: "The operation could not be discarded. It is still on this device; try again.",
@@ -2537,6 +2537,8 @@ const en = {
     manualOffline: "Manual payment · offline-safe",
     newSale: "New sale",
     searchToAddShort: "Search a product to add…",
+    searchKeysHint: "Arrow keys choose a result, Enter adds it.",
+    saleKeyConflict: "This sale's number was already used for a different sale (another tab of the till). This cart was not recorded — press Complete sale again to record it as a new sale.",
   },
   purchasing: {
     onlyUnpaid: "Unpaid only",
@@ -3936,8 +3938,8 @@ const ar = {
   },
   sync: {
     signOutPending: "على هذا الجهاز {count} عملية لم تُرفع بعد. إن سجّلت الخروج فلن يراها من يسجّل الدخول بعدك حتى تعود أنت. هل تريد الخروج؟",
-    signOutPendingOffline: "على هذا الجهاز {count} عملية لم تُرفع، ولا يوجد اتصال — تسجيل الدخول من جديد يحتاج الخادم. هل تريد الخروج رغم ذلك؟",
-    signOutOffline: "لا يوجد اتصال. إن سجّلت الخروج فلن يستطيع أحد تسجيل الدخول على هذا الجهاز حتى يعود الاتصال. هل تريد الخروج رغم ذلك؟",
+    signOutPendingOffline: "على هذا الجهاز {count} عملية لم تُرفع، ولا يوجد اتصال. سيُسجَّل خروجك من هذا الجهاز الآن، وتبقى العمليات محفوظة عليه حتى تسجّل الدخول من جديد، وتسجيل الدخول يحتاج الاتصال. هل تريد الخروج؟",
+    signOutOffline: "لا يوجد اتصال. سيُسجَّل خروجك من هذا الجهاز الآن، ويُبلَّغ الخادم فور عودة الاتصال. تسجيل الدخول من جديد يحتاج الاتصال. هل تريد الخروج؟",
     othersPending: "على هذا الجهاز {count} عملية من حساب آخر تنتظر الرفع. تُرفع حين يسجّل صاحبها الدخول هنا مع وجود اتصال.",
     discardAlreadyApplied: "كانت هذه العملية مسجّلة لدى الخادم بالفعل، فلم تُسقَط: إنها محفوظة.",
     discardFailed: "تعذّر إسقاط العملية. ما زالت على هذا الجهاز؛ حاول مرة أخرى.",
@@ -5471,6 +5473,8 @@ const ar = {
     manualOffline: "دفع يدوي · آمن دون اتصال",
     newSale: "بيع جديد",
     searchToAddShort: "ابحث عن منتج لإضافته…",
+    searchKeysHint: "اختر نتيجة بالأسهم، واضغط Enter لإضافتها.",
+    saleKeyConflict: "رقم هذه البيعة استُخدم لبيعة أخرى (نافذة أخرى من نقطة البيع). لم تُسجَّل هذه السلة — اضغط «إتمام البيع» مرة أخرى لتسجيلها بيعةً جديدة.",
   },
   purchasing: {
     onlyUnpaid: "غير المسددة فقط",

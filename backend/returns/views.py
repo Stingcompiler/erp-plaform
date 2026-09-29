@@ -189,6 +189,15 @@ class SalesReturnViewSet(
             )
 
         allowed_warehouses = self._restock_warehouses(request)
+        # Lock the return's lines (in id order, the one lock this call takes)
+        # before reading their disposition: two clicks of "restock" checked
+        # the unlocked rows, both saw quarantine, and the goods went back
+        # twice. The second call now waits, then finds them dispositioned.
+        lines = {
+            line.pk: line for line in
+            SalesReturnLine.objects.select_for_update()
+            .filter(sales_return=sales_return).order_by("pk")
+        }
 
         # ---- pass 1: validate everything, write nothing ----
         planned = []
@@ -197,19 +206,19 @@ class SalesReturnViewSet(
             # Two decisions for one line would both pass validation (the DB
             # still says quarantine) and then apply twice, double-counting the
             # stock.
-            if d.get("line_id") in seen:
-                return Response(
-                    {"detail": _("Line %(line)s appears twice.") % {"line": d.get("line_id")}},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            seen.add(d.get("line_id"))
             try:
-                line = sales_return.lines.get(id=d.get("line_id"))
-            except SalesReturnLine.DoesNotExist:
+                line = lines[int(d.get("line_id"))]
+            except (KeyError, TypeError, ValueError):
                 return Response(
                     {"detail": _("Line %(line)s not in this return.") % {"line": d.get("line_id")}},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            if line.pk in seen:
+                return Response(
+                    {"detail": _("Line %(line)s appears twice.") % {"line": d.get("line_id")}},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            seen.add(line.pk)
             if line.disposition != SalesReturnLine.QUARANTINE:
                 return Response(
                     {"detail": _("Line %(line)s already dispositioned.") % {"line": line.id}},

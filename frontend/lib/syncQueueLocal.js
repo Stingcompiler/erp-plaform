@@ -1,6 +1,7 @@
 import { storageKey } from "./localIdentity.js";
 import { retryPatch } from "./syncRetry.js";
 import { clockOffset } from "./deviceClock.js";
+import { rekeyed } from "./opBody.js";
 
 // One key per operation avoids one tab overwriting another tab's entire queue.
 // A failed write MUST throw: the caller keeps the sale on screen until durable.
@@ -43,11 +44,18 @@ export const queue = {
   hasLegacy: () => Boolean(localStorage.getItem("erp.sync.queue.v1") &&
     localStorage.getItem("erp.sync.queue.v1") !== "[]"),
   enqueue(opType, payload, scope) {
-    const id = payload.client_uuid || crypto.randomUUID();
-    const key = prefix(scope) + id;
-    // Keep the original body if an uncertain network request is retried.
+    let id = payload.client_uuid || crypto.randomUUID();
+    let key = prefix(scope) + id;
+    // Keep the original body if an uncertain network request is retried; a
+    // different sale under the same key gets a key of its own (opBody.js).
     const previous = localStorage.getItem(key);
-    if (previous) return JSON.parse(previous);
+    if (previous) {
+      const stored = JSON.parse(previous);
+      const other = rekeyed(opType, stored, payload);
+      if (!other) return stored;
+      id = other.client_uuid;
+      key = prefix(scope) + id;
+    }
     const op = { op_type: opType, client_uuid: id,
       payload: { ...payload, client_uuid: id }, queued_at: Date.now(),
       clock_offset_ms: clockOffset(), error: null };
@@ -96,5 +104,38 @@ export const queue = {
       error: null, error_field: null, attempts: 0, retry_at: null };
     localStorage.setItem(key, JSON.stringify(next));
     return next;
+  },
+};
+
+// Parked carts when IndexedDB is unavailable (some private modes, a locked
+// profile): the till's "Hold" used to throw and the cart could not be
+// parked at all. Same key layout the IndexedDB migration reads, so carts
+// parked here move over once IndexedDB works. Size-guarded: a cart that
+// would crowd out the offline sales queue sharing this storage is refused
+// with a clear error instead.
+export const CART_LIMIT_BYTES = 200 * 1024;
+const cartPrefix = (scope) => `${storageKey("heldCart", scope)}:`;
+export const localCarts = {
+  list(scope) {
+    const keyPrefix = cartPrefix(scope);
+    const rows = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith(keyPrefix)) continue;
+      try {
+        const row = JSON.parse(localStorage.getItem(key));
+        if (row?.id) rows.push(row);
+      } catch { /* an unreadable parked cart is skipped, not fatal */ }
+    }
+    return rows.sort((a, b) => b.saved_at - a.saved_at);
+  },
+  save(row, scope) {
+    const text = JSON.stringify(row);
+    if (text.length > CART_LIMIT_BYTES) throw new Error("This cart is too large to park on this device.");
+    localStorage.setItem(cartPrefix(scope) + row.id, text);
+    return row;
+  },
+  remove(id, scope) {
+    if (id) localStorage.removeItem(cartPrefix(scope) + id);
   },
 };

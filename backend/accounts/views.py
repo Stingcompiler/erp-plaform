@@ -190,22 +190,41 @@ class LoginView(APIView):
 
 
 class LogoutView(APIView):
-    permission_classes = [IsAuthenticated]
+    """Ends this browser's session, whatever state its tokens are in.
+
+    It used to require a valid access token, so a cashier who pressed
+    "Sign out" after the 30-minute access cookie lapsed got a 401: the
+    refresh cookie was neither blacklisted nor cleared, and the next person
+    on the shared tablet was signed straight back in as them. Signing out
+    now needs nothing: the refresh cookie is blacklisted when it is valid,
+    and the auth and CSRF cookies are always cleared."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         refresh_cookie = request.COOKIES.get(settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"])
+        user = None
         # Blacklist the refresh token so it can't mint new access tokens after
         # logout (append-only invalidation, not a silent delete).
         if refresh_cookie:
             try:
-                RefreshToken(refresh_cookie).blacklist()
-            except TokenError:
+                token = RefreshToken(refresh_cookie)
+                user = User.objects.filter(pk=token.get("user_id")).first()
+                token.blacklist()
+            except (TokenError, ValueError):
                 pass
 
-        log_activity(action="logout", user=request.user, request=request)
+        if user is not None:
+            log_activity(action="logout", user=user, request=request)
 
         response = Response({"detail": _("Logged out.")}, status=status.HTTP_200_OK)
         clear_auth_cookies(response)
+        response.delete_cookie(
+            settings.CSRF_COOKIE_NAME,
+            path=settings.CSRF_COOKIE_PATH,
+            domain=settings.CSRF_COOKIE_DOMAIN,
+        )
         return response
 
 

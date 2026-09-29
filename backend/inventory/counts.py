@@ -133,6 +133,11 @@ def approve_count(count_id, actor, request=None):
         movement = StockMovement.objects.create(
             company_id=count.company_id, product=line.product, warehouse=count.warehouse,
             batch=line.batch, movement_type=StockMovement.ADJUSTMENT, quantity=variance,
+            # Valued at the product's cost at approval, like a manual
+            # adjustment: the standard method's shrinkage figure then keeps
+            # this count's worth when the price moves, and a found unit
+            # enters the cost layers at a known cost.
+            unit_cost=line.product.cost_price,
             reference_type="StockCount", reference_id=str(count.pk),
             note=f"Stock count #{count.pk}", created_by=actor,
         )

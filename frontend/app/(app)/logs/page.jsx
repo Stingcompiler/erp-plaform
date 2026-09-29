@@ -7,6 +7,7 @@ import { logs as logsApi, users as usersApi } from "@/lib/api";
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
 import { translateRole } from "@/lib/i18n";
+import { activityActionLabel, entityTypeLabel, metaKeyLabel, metaValueLabel } from "@/lib/labels";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui/kit";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 
@@ -54,7 +55,7 @@ function Details({ log }) {
   if (Array.isArray(m.fields) && m.fields.length) {
     return (
       <span className="text-ink">
-        {t("logs.fieldsChanged", { fields: m.fields.join("، ") })}
+        {t("logs.fieldsChanged", { fields: m.fields.map((f) => metaKeyLabel(t, f)).join("، ") })}
       </span>
     );
   }
@@ -80,7 +81,7 @@ function Details({ log }) {
     );
   }
   if (typeof m.status === "string") {
-    return <span className="text-ink">{t("logs.statusSet", { value: m.status })}</span>;
+    return <span className="text-ink">{t("logs.statusSet", { value: metaValueLabel(t, m.status) })}</span>;
   }
 
   const changes = m.changes;
@@ -89,7 +90,7 @@ function Details({ log }) {
       <div className="space-y-0.5">
         {Object.entries(changes).map(([field, v]) => (
           <div key={field} className="text-xs">
-            <span className="font-medium text-ink">{field}: </span>
+            <span className="font-medium text-ink">{metaKeyLabel(t, field)}: </span>
             <span className="text-danger line-through">{String(v.before ?? "")}</span>
             <span className="text-muted"> → </span>
             <span className="text-ok">{String(v.after ?? "")}</span>
@@ -111,8 +112,8 @@ function Details({ log }) {
       <div className="space-y-0.5 text-xs text-ink">
         {scalars.map(([k, v]) => (
           <div key={k}>
-            <span className="text-muted">{k}: </span>
-            {String(v)}
+            <span className="text-muted">{metaKeyLabel(t, k)}: </span>
+            {metaValueLabel(t, v)}
           </div>
         ))}
       </div>
@@ -307,11 +308,11 @@ export default function LogsPage() {
                     <td className="px-4 py-3"><Person log={r} /></td>
                     <td className="px-4 py-3">
                       <Badge tone={ACTION_TONE[r.action] || "muted"}>
-                        {ACTION_KEY[r.action] ? t(ACTION_KEY[r.action]) : r.action}
+                        {activityActionLabel(t, r.action)}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-muted">
-                      {r.entity_type ? `${r.entity_type}${r.entity_id ? ` #${r.entity_id}` : ""}` : "—"}
+                      {r.entity_type ? `${entityTypeLabel(t, r.entity_type)}${r.entity_id ? ` #${r.entity_id}` : ""}` : "—"}
                     </td>
                     <td className="px-4 py-3"><Details log={r} /></td>
                     <td className="tabular px-4 py-3 text-xs text-muted">{r.ip_address || "—"}</td>

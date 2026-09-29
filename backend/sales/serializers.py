@@ -29,6 +29,7 @@ from sales.models import (
     SalesOrder,
     SalesOrderLine,
 )
+from sales.idempotency import checkout_fingerprint
 from sales.numbering import allocate_invoice_number
 from sales.price_rules import (
     check_document_lines,
@@ -1245,6 +1246,12 @@ class POSCheckoutSerializer(serializers.Serializer):
                 tax_rate_snapshot=rate,
                 created_by=user if user.is_authenticated else None,
                 client_uuid=validated_data.get("client_uuid"),
+                # What this key recorded, so a replay carrying a different
+                # sale is refused (sales.idempotency).
+                client_body_hash=(
+                    checkout_fingerprint(self.initial_data)
+                    if validated_data.get("client_uuid") else ""
+                ),
                 issued_at=occurred_at,
                 payment_terms_days=terms,
                 source_order=source_order,
@@ -1395,6 +1402,15 @@ class POSCheckoutSerializer(serializers.Serializer):
         if applied:
             from returns.models import CreditNote
 
+            # The note's own invoice first, then the note — the order refunds
+            # and record_payment use. The credit left on a note depends on
+            # that invoice; locking the note alone let a refund and this
+            # sale each spend the same credit.
+            origin = CreditNote.objects.filter(
+                pk=applied["credit_note"], company_id=company_id
+            ).values_list("invoice_id", flat=True).first()
+            if origin:
+                Invoice.objects.select_for_update().get(pk=origin)
             note = CreditNote.objects.select_for_update().filter(
                 pk=applied["credit_note"], company_id=company_id
             ).first()
