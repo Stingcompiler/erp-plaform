@@ -1,31 +1,28 @@
 "use client";
 
 // Public plan cards, driven by /api/public/plans/. The same component serves
-// the landing preview (`compact`) and the pricing page. The last card is the
-// on-server (standalone) offer, which is quoted, not priced.
+// the landing preview (`compact`) and the pricing page (with the compare
+// table under the cards). The last card is the on-server (standalone)
+// offer, which is quoted, not priced.
+//
+// The API rows go through lib/planCatalog.js once (order, one badge, real
+// limits/modules first, feature lines deduped, no internal codes); a
+// template is only a renderer over those normalized plans — see TEMPLATES.
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, Server, Sparkles } from "lucide-react";
+import { Check, Server } from "lucide-react";
 
 import { useI18n } from "../../app/providers/I18nProvider";
 import { registration } from "@/lib/api";
-import { expandModules, moduleLabel } from "@/lib/planModules";
+import { formatPlanAmount, normalizePlans } from "@/lib/planCatalog";
+import { moduleLabel } from "@/lib/planModules";
+import ClassicPlanCard from "./pricing/ClassicPlanCard";
+import PlanCompareTable from "./pricing/PlanCompareTable";
 
+// One amount and one currency label ("500,000 ج.س"), as on the cards.
 export function formatPrice(amount, currency, language) {
-  const value = Number(amount);
-  const locale = language === "ar" ? "ar-EG-u-nu-latn" : "en-US";
-  try {
-    return new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: Number.isInteger(value) ? 0 : 2,
-    }).format(value);
-  } catch {
-    // An unknown ISO code (an operator typo) must not blank the card.
-    return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value)} ${currency}`;
-  }
+  return formatPlanAmount(amount, currency, language);
 }
 
 export function usePublicPlans() {
@@ -42,92 +39,21 @@ export function usePublicPlans() {
   return { plans, error };
 }
 
-function LimitLine({ plan }) {
-  const { t } = useI18n();
-  const limits = plan.limits || {};
-  const parts = [
-    ["users", "pricing.limitUsers"],
-    ["branches", "pricing.limitBranches"],
-    ["warehouses", "pricing.limitWarehouses"],
-  ]
-    // A key that is absent from the plan is uncapped (see assert_capacity);
-    // only real caps are shown.
-    .filter(([key]) => key in limits)
-    .map(([key, labelKey]) => t(labelKey, { count: limits[key] }));
-  if (!parts.length) return null;
-  return <p className="mt-3 text-sm text-muted">{parts.join(" · ")}</p>;
-}
-
-// Every module the version includes, "*" expanded to the full list, so the
-// visitor sees what they get rather than a code.
-function ModuleChips({ modules }) {
-  const { t } = useI18n();
-  const labels = useMemo(() => expandModules(modules).map((code) => moduleLabel(code, t)), [modules, t]);
-  if (!labels.length) return null;
-  return (
-    <div className="mt-4 flex flex-wrap gap-1.5">
-      {labels.map((label) => (
-        <span key={label} className="rounded-full border border-line bg-surface px-2.5 py-1 text-xs text-muted">{label}</span>
-      ))}
-    </div>
+// The API rows as the templates read them, in the UI language.
+export function usePlanCatalog(rows) {
+  const { t, language } = useI18n();
+  return useMemo(
+    () => (rows ? normalizePlans(rows, language, {
+      module: (code) => moduleLabel(code, t),
+      limit: (key) => t(`pricing.limitLabels.${key}`),
+    }) : null),
+    [rows, language, t],
   );
 }
 
-function HostedCard({ plan, compact }) {
-  const { t, language, href } = useI18n();
-  const display = plan.display || {};
-  const name = display.name?.[language] || plan.plan_name;
-  const tagline = display.tagline?.[language] || "";
-  const features = display.features?.[language]?.length ? display.features[language] : display.features?.en || [];
-  const highlighted = Boolean(display.is_highlighted);
-  const cycle = plan.billing_cycle === "yearly" ? t("pricing.perYear") : t("pricing.perMonth");
-  return (
-    <article
-      className={`relative flex flex-col rounded-card border bg-paper p-6 shadow-card ${
-        highlighted ? "border-accent ring-1 ring-accent" : "border-line"
-      }`}
-    >
-      {highlighted && (
-        <span className="absolute -top-3 start-6 inline-flex items-center gap-1 rounded-full bg-accent px-3 py-1 text-xs font-medium text-white">
-          <Sparkles size={12} /> {t("pricing.mostPopular")}
-        </span>
-      )}
-      <h3 className="font-display text-lg font-semibold">{name}</h3>
-      {tagline && <p className="mt-1 text-sm text-muted">{tagline}</p>}
-      <p className="mt-4 flex items-baseline gap-1">
-        <span className="tabular font-display text-3xl font-bold text-ink">{formatPrice(plan.price, plan.currency, language)}</span>
-        <span className="text-sm text-muted">{cycle}</span>
-      </p>
-      {plan.trial_days > 0 && (
-        <span className="mt-3 inline-block w-fit rounded-control bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent">
-          {t("pricing.trialBadge", { days: plan.trial_days })}
-        </span>
-      )}
-      <LimitLine plan={plan} />
-      {!compact && features.length > 0 && (
-        <ul className="mt-5 space-y-2 text-sm">
-          {features.map((line) => (
-            <li key={line} className="flex items-start gap-2">
-              <Check size={16} className="mt-0.5 shrink-0 text-accent" />
-              <span>{line}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {!compact && <ModuleChips modules={plan.modules} />}
-      <div className="mt-auto pt-6">
-        <Link
-          href={href(`/register?plan=${plan.id}`)}
-          className={`block rounded-control px-4 py-3 text-center font-medium ${
-            highlighted ? "bg-accent text-white hover:bg-accent-strong" : "border border-line bg-surface text-ink hover:border-accent"
-          }`}
-        >
-          {t("pricing.startTrial")}
-        </Link>
-      </div>
-    </article>
-  );
-}
+// Card renderers by template name. PR B adds more; each takes
+// { plan, compact } with `plan` from normalizePlans().
+export const TEMPLATES = { classic: ClassicPlanCard };
 
 function StandaloneCard({ compact }) {
   const { t, href } = useI18n();
@@ -163,9 +89,11 @@ function StandaloneCard({ compact }) {
   );
 }
 
-export default function PlanCards({ compact = false }) {
+export default function PlanCards({ compact = false, showCompare = false, template = "classic" }) {
   const { t } = useI18n();
-  const { plans, error } = usePublicPlans();
+  const { plans: rows, error } = usePublicPlans();
+  const plans = usePlanCatalog(rows);
+  const Card = TEMPLATES[template] || ClassicPlanCard;
 
   if (plans === null) {
     return (
@@ -180,9 +108,10 @@ export default function PlanCards({ compact = false }) {
       {error && <p className="mb-4 text-center text-sm text-danger">{t("pricing.loadError")}</p>}
       {!error && plans.length === 0 && <p className="mb-4 text-center text-muted">{t("pricing.quoteOnly")}</p>}
       <div className={`grid gap-5 md:grid-cols-2 ${columns >= 4 ? "xl:grid-cols-4" : columns === 3 ? "lg:grid-cols-3" : ""}`}>
-        {plans.map((plan) => <HostedCard key={plan.id} plan={plan} compact={compact} />)}
+        {plans.map((plan) => <Card key={plan.id} plan={plan} compact={compact} />)}
         <StandaloneCard compact={compact} />
       </div>
+      {showCompare && <PlanCompareTable plans={plans} />}
     </div>
   );
 }
