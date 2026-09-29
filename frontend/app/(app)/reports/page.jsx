@@ -15,6 +15,7 @@ import ReportState, { ReportFailed } from "@/components/reports/ReportState";
 import TabBar from "@/components/ui/TabBar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useHashTab } from "@/lib/useHashTab";
+import { useTabFade } from "@/lib/useTabFade";
 import { expenseCategory } from "@/lib/expenseCategories";
 import { localToday } from "@/lib/dates";
 import { formatAmount } from "@/lib/money";
@@ -97,6 +98,7 @@ export default function ReportsPage() {
   ];
   const payrollTab = hrReports ? "hr" : "finance";
   const [tab, setTab] = useHashTab(reportTabs.map((x) => x.id));
+  const tabFade = useTabFade(tab);
   // Headline figures carry the currency; a figure that is not there shows a
   // dash, never 0.00 — a failed profit report used to read as "profit 0.00".
   const money = (v) => withCurrency(v, { empty: "—" });
@@ -156,8 +158,15 @@ export default function ReportsPage() {
     return list;
   }, [tab, payrollTab, range.start, range.end, costMethod, salesReports, inventoryReports, purchasingReports, financeReports, hrReports, payrollReports, forecastWeeks]);
 
+  // A card that already shows figures keeps them, dimmed, while the new
+  // period loads (`refreshing`); the figures then count and the bars move
+  // to the new values instead of blinking through a skeleton. A card with
+  // nothing yet (or a failure) shows its loading shape as before.
   const run = useCallback((key, fetcher, id) => {
-    setSlots((current) => ({ ...current, [key]: LOADING }));
+    setSlots((current) => ({
+      ...current,
+      [key]: current[key]?.status === "ok" ? { ...current[key], refreshing: true } : LOADING,
+    }));
     return fetcher()
       .then((r) => ({ status: "ok", data: r.data }))
       .catch((err) => ({ status: slotFromError(err), data: null }))
@@ -216,6 +225,9 @@ export default function ReportsPage() {
   }
 
   const slot = (key) => slots[key] || LOADING;
+  // Only the open tab's requests: an answer dropped because the tab changed
+  // leaves its slot marked, and that must not dim this tab.
+  const refreshing = Object.keys(requestsFor()).some((key) => slots[key]?.refreshing);
   const data = (key) => (slots[key]?.status === "ok" ? slots[key].data : null);
   const summary = data("summary");
   const income = data("income");
@@ -350,7 +362,11 @@ export default function ReportsPage() {
         </Card>
       )}
 
-      <div className="space-y-6">
+      <div
+        ref={tabFade}
+        aria-busy={refreshing || undefined}
+        className={`space-y-6 transition-opacity duration-200 ${refreshing ? "opacity-60" : ""}`}
+      >
         {tab === "hr" && hrReports && (
           <ReportState slot={slot("hrSummary")} onRetry={() => retry("hrSummary")} isEmpty={() => false} lines={4}>
             {(hrSummary) => (

@@ -12,6 +12,7 @@ import DispositionDrawer from "@/components/returns/DispositionDrawer";
 import NotesList from "@/components/returns/NotesList";
 import PurchaseReturnList from "@/components/returns/PurchaseReturnList";
 import TabBar from "@/components/ui/TabBar";
+import { useTabFade } from "@/lib/useTabFade";
 import { SkeletonTableRows } from "@/components/ui/Skeleton";
 import { EmptyTableRow } from "@/components/ui/EmptyState";
 
@@ -32,6 +33,7 @@ export default function ReturnsPage() {
   ];
 
   const [tab, setTab] = useState(canSales ? "returns" : "purchaseReturns");
+  const tabFade = useTabFade(tab);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newOpen, setNewOpen] = useState(false);
@@ -93,6 +95,7 @@ export default function ReturnsPage() {
         }))}
       />
 
+      <div ref={tabFade}>
       {tab === "creditNotes" && <NotesList kind="credit" />}
       {tab === "purchaseReturns" && (
         <PurchaseReturnList writable={canWrite("purchase_returns")} />
@@ -160,6 +163,7 @@ export default function ReturnsPage() {
         </div>
       </Card>
       )}
+      </div>
 
       <NewReturnDrawer open={newOpen} onClose={() => setNewOpen(false)} onCreated={load} />
       <DispositionDrawer

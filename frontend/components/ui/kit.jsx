@@ -3,6 +3,7 @@
 import { cloneElement, forwardRef, isValidElement, useId } from "react";
 
 import { figureFitStyle, splitFigure } from "../../lib/figureFit";
+import { useCountUp } from "../../lib/useCountUp";
 
 export function Button({ variant = "primary", className = "", ...props }) {
   const base =
@@ -97,15 +98,30 @@ export function Badge({ tone = "muted", children }) {
 // (20px) is the largest it gets; long figures go down to 11px. The number
 // itself never breaks; only on a card too narrow even at 11px does the
 // currency label move, whole, under the number.
-export function Figure({ value, size = "lg", className = "", valueClassName = "" }) {
+//
+// It counts to its value when it appears and when the value changes
+// (lib/useCountUp.js): the count is drawn over the final text, which keeps
+// sizing the card, so nothing moves. `animate={false}` where a count would
+// distract (a receipt, anything inside a table or list); reduced motion and
+// printing always show the final figure at once.
+export function Figure({ value, size = "lg", className = "", valueClassName = "", animate = true }) {
   const parts = splitFigure(value);
+  const { counting, overlay, numberRef } = useCountUp(value, animate);
+  const overlayParts = counting ? splitFigure(overlay) : null;
   return (
     <div className={`figure-fit ${className}`}>
       <span
-        className={`figure-fit__value figure-${size} tabular ${parts ? "figure-fit__value--money" : ""} ${valueClassName}`}
+        className={`figure-fit__value figure-${size} tabular ${parts ? "figure-fit__value--money" : ""} ${counting ? "figure-count" : ""} ${valueClassName}`}
         style={figureFitStyle(value)}
       >
         {parts ? <><span>{parts[0]}</span> <span>{parts[1]}</span></> : value}
+        {counting && (
+          <span className="figure-count__overlay" aria-hidden="true">
+            {overlayParts
+              ? <><span ref={numberRef}>{overlayParts[0]}</span> <span>{overlayParts[1]}</span></>
+              : <span ref={numberRef}>{overlay}</span>}
+          </span>
+        )}
       </span>
     </div>
   );
