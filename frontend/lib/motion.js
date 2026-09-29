@@ -161,3 +161,71 @@ export function ringFraction(value, max) {
 export function ringOffset(fraction, circumference) {
   return circumference * (1 - Math.min(1, Math.max(0, fraction)));
 }
+
+// ---- Public site (marketing pages) -----------------------------------------
+//
+// The marketing pages use the same curve (--motion-ease) with a little more
+// room: an entrance is read once, not on every click. Three rules on top of
+// the ones above:
+//
+//   - content is never hidden in the HTML. A pre-animation state only
+//     applies once a script has armed it (the `motion-ok` class on <html>
+//     for the hero, `data-reveal-state` on a card), so a crawler, a no-JS
+//     visitor or a failed script gets the page as it is;
+//   - text moves by the line, never by the letter: Arabic letters join, and
+//     a word split into letters stops being shaped;
+//   - transform, opacity and clip-path only, so nothing moves the layout.
+
+// The home hero: the headline's lines rise from behind their mask, then
+// the subtitle, the offline line and the buttons fade up while the
+// screenshot opens from an inset clip. All of it within HERO_TOTAL_MS.
+export const HERO = {
+  fontWaitMs: 500, // the longest the hero waits for its fonts
+  line: { delay: 0, step: 70, duration: 520 },
+  badge: { delay: 0, duration: 400 },
+  subtitle: { delay: 240, duration: 400 },
+  offline: { delay: 300, duration: 400 },
+  actions: { delay: 360, duration: 400 },
+  shot: { delay: 300, duration: 600 },
+};
+export const HERO_TOTAL_MS = 900;
+
+// CSS custom properties for one hero part (`line` takes its index).
+export function heroTiming(part, index = 0) {
+  const spec = HERO[part];
+  const delay = spec.delay + (spec.step || 0) * index;
+  return { "--hero-delay": `${delay}ms`, "--hero-dur": `${spec.duration}ms` };
+}
+
+// When the last hero part settles, for a headline of `lines` lines.
+export function heroEndMs(lines) {
+  const parts = ["badge", "subtitle", "offline", "actions", "shot"].map((part) => HERO[part].delay + HERO[part].duration);
+  const lastLine = HERO.line.delay + HERO.line.step * Math.max(0, lines - 1) + HERO.line.duration;
+  return Math.max(lastLine, ...parts);
+}
+
+// The headline's lines: a phrase each, broken after a colon and before a
+// dash, so a line is a unit of meaning at any screen width (a phrase wider
+// than the screen wraps inside its own mask). Joined with single spaces the
+// lines are the headline again, character for character.
+export function headlineLines(text) {
+  if (typeof text !== "string" || !text.trim()) return [];
+  return text
+    .split(/(?<=[:؛])\s+|\s+(?=[—–])/u)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+// Section cards fading up as they scroll in (lib/useRevealOnce.js).
+export const REVEAL = { duration: 250, step: 40, maxSteps: 5, distance: 12 };
+
+// The delay of the `index`-th card in a group: a short stagger that stops
+// growing, so the eighth card does not wait a third of a second.
+export function revealDelay(index) {
+  const i = Math.max(0, Math.min(Number(index) || 0, REVEAL.maxSteps));
+  return i * REVEAL.step;
+}
+
+export function revealStyle(index) {
+  return { "--reveal-delay": `${revealDelay(index)}ms` };
+}

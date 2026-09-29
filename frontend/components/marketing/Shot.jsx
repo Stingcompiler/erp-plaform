@@ -20,6 +20,3 @@ export default function Shot({ light, dark, alt, priority = false, className = "
     </figure>
   );
 }
-
-// Above the fold (`immediate`) animates on mount; everything else waits until
-// it scrolls into view. Reduced-motion users get the final state at once.
