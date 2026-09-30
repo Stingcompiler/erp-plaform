@@ -34,13 +34,55 @@ host does not need Node.js; `npm ci && npm run build` is a build-machine step.
 
 ## Upgrade
 
-Put the application in a documented maintenance window, verify a fresh database
-and media backup, unpack the signed new release beside the old one, install its
-locked dependencies, build the frontend, run `migrate --plan`, then `migrate`
-and `check --deploy`. Change the `/opt/vezano/current` link only after those
-checks pass. A rollback after an incompatible database migration requires the
-matching pre-upgrade database and media backup; changing application files
-alone is not a safe rollback.
+The `upgrade.sh` orchestration also supports an existing SaaS installation on a
+systemd host. It obtains the effective mode through Django and runs
+`bootstrap_standalone` only in standalone mode. Do not change the deployment
+mode to accommodate an upgrade.
+
+The web unit is required, must already be active, and must use the selected
+`current` link for its working directory and Gunicorn executable. Both managed
+web and worker units must use only `VEZANO_ENV_FILE` for application settings;
+additional unit environment overrides are rejected to avoid checking one
+database and serving another. Django commands run as the web service user.
+Run the orchestrator with `sudo` on the Linux host.
+
+Worker handling defaults to `--worker-service auto`: a missing worker is
+skipped, an inactive worker remains inactive, and an active worker is stopped
+and restarted. `--worker-service none` is appropriate for a host without a
+worker, but rejects an active default worker. An explicitly named worker must
+exist. This never installs or enables a worker. Existing active daily-scan and
+backup timers are paused, their current jobs are allowed to finish, and their
+active state is restored. Other writers, including cron, beat, candidate test
+processes and workers on other hosts, must be quiesced separately.
+
+Preparation and checks happen before maintenance. The full backup is captured
+after writers stop and before database changes. A lock prevents concurrent
+invocations for the same link. Promotion uses an atomic same-directory rename,
+then verifies the actual web endpoint and effective deployment mode. Set
+`--health-host` to the production domain for deployments with host validation.
+Use `--prepare-only` first to validate the service assumptions and prepare the
+candidate without stopping services or changing the current link. This may
+create the candidate venv, collect its static files, and probe media permissions.
+
+For a repackaged release with no pending migrations, use
+`--require-no-migrations`. It checks again during the writer pause, never runs
+`migrate` to apply changes, and restores the previous link and service state if
+promotion fails. Standalone bootstrap is itself a database write. After any
+migration or bootstrap attempt, failure stops managed writers and requires
+operator recovery using the matching backup; it never pretends that reverting
+code also reverts the database. Do not expose the environment file or database
+connection URL in support output. Do not run with shell tracing.
+
+This workflow uses a maintenance window, including backup time, and does not
+promise zero downtime. Acceptance on the actual host remains necessary. See
+`UPGRADE_REVIEW.md` for the OVH SaaS candidate and deployment assumptions.
+
+For a manual upgrade, prepare the signed release and migration plan first,
+quiesce writers during a documented maintenance window, then capture the full
+database and media backup before applying migrations. Change the
+`/opt/vezano/current` link only after deployment checks pass. A rollback after
+an incompatible database migration requires the matching pre-upgrade database
+and media backup; changing application files alone is not a safe rollback.
 
 ## Rollback
 
