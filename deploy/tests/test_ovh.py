@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import pwd
+import shutil
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -31,6 +32,12 @@ DIGEST = "b" * 64
 
 
 class ProtocolTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform.startswith("linux"), "deployment host is Linux")
+    def test_upgrade_environment_finds_required_host_commands(self):
+        for command in ("bash", "systemctl", "flock", "runuser", "curl"):
+            with self.subTest(command=command):
+                self.assertIsNotNone(shutil.which(command, path=controller.UPGRADE_PATH))
+
     def test_only_fixed_commands_are_accepted(self):
         self.assertEqual(gateway.parse_command("ready"), ("ready",))
         self.assertEqual(gateway.parse_command(f"deploy {SHA} {DIGEST}"), ("deploy", SHA, DIGEST))
@@ -221,7 +228,7 @@ class ControllerTests(unittest.TestCase):
         self.assertIn("--require-no-migrations", args)
         self.assertEqual(args[args.index("--worker-service") + 1], "none")
         self.assertNotIn("--skip-backup", args)
-        self.assertEqual(kwargs["env"], {"PATH": "/usr/local/bin:/usr/bin:/bin"})
+        self.assertEqual(kwargs["env"], {"PATH": controller.UPGRADE_PATH})
         saved = json.loads((Path(self.config["state"]) / "last-success.json").read_text())
         self.assertEqual(saved["commit"], SHA)
         self.assertEqual(self.current.resolve().name, f"1.0.0-{SHA[:12]}-auto")

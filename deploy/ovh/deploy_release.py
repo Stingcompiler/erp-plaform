@@ -25,6 +25,8 @@ CONFIG = Path("/etc/vezano-deploy.json")
 UPGRADE = "/usr/local/libexec/vezano/upgrade.sh"
 MAX_EXPANDED_BYTES = 2 * 1024 * 1024 * 1024
 MAX_MEMBERS = 100000
+# Root upgrade orchestration needs administrator commands such as runuser.
+UPGRADE_PATH = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 
 def validate_arguments(sha, digest):
@@ -179,7 +181,7 @@ def main():
                     ["bash", UPGRADE, "--release", str(release), "--link", config["link"],
                      "--env-file", config["env_file"], "--backup-dir", config["backups"],
                      "--worker-service", "none", "--require-no-migrations", "--health-host", config["health_host"], "--yes"],
-                    env={"PATH": "/usr/local/bin:/usr/bin:/bin"}, stdout=log, stderr=log,
+                    env={"PATH": UPGRADE_PATH}, stdout=log, stderr=log,
                 )
                 if result.returncode:
                     print(f"[deploy] upgrade stopped; protected server log: {log_path}", file=sys.stderr)

@@ -40,6 +40,10 @@ and oversized payloads. It installs code as the existing `vezano` application
 user. It always uses the reviewed root-owned upgrade and backup scripts in
 `/usr/local/libexec/vezano`, never uploaded root scripts.
 
+The privileged upgrade receives a fixed system PATH including `/usr/sbin` and
+`/sbin`, so administrator commands such as `runuser` remain available. It does
+not inherit the operator's environment.
+
 Application Python (including backup fingerprinting), database dumps and media
 reads run as the application account. Root opens the protected backup output
 files and copies the fixed environment file; it uses only the isolated system
