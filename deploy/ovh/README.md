@@ -7,6 +7,9 @@ other branches cannot run this job. It is gated by the repository variable
 `OVH_AUTO_DEPLOY_ENABLED=true` and serializes deployment without cancelling an
 upgrade already in progress.
 
+Backend and E2E dependency installation is constrained by `requirements.lock`,
+so their runtime versions match the packaged release and the VPS installation.
+
 The deployment uses the frontend export produced by the successful frontend
 job in the same workflow run. It checks out the exact tested commit, installs
 the runtime pins, creates the existing release manifest/archive, and uploads

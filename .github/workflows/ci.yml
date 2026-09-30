@@ -57,7 +57,8 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        # Test the same runtime versions that release packaging installs.
+        run: pip install -r requirements.txt -c requirements.lock
 
       - name: Repo structure audit (URL wiring + migration graph)
         run: python scripts/repo_audit.py
@@ -169,7 +170,7 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: backend
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt -c requirements.lock
 
       - name: Install frontend dependencies
         working-directory: frontend
