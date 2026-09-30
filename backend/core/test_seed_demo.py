@@ -96,6 +96,33 @@ class SeedDemoTests(TestCase):
         self.assertEqual(invoices.count(), 5)
         self.assertTrue(all(inv.total >= 1000 for inv in invoices))
 
+    def test_lang_en_writes_the_same_company_in_english(self):
+        """--lang en: the same rows (SKUs, prices, counts) with English names
+        and page copy, for the English marketing screenshots."""
+        with tempfile.TemporaryDirectory() as media:
+            with override_settings(MEDIA_ROOT=media):
+                call_command("seed_demo", "--lang", "en", "--scale", "2500",
+                             owner="owner@demo.test", sales=4, yes=True, verbosity=0)
+                site = Website.objects.get(company=self.company)
+                self.assertEqual(completeness(site), [])
+        sugar = self._product("DEMO-001")
+        self.assertEqual(sugar.name, "Sugar 1 kg")
+        self.assertEqual(sugar.sale_price, Decimal(3000))
+        self.assertEqual(sugar.category.name, "Groceries")
+        self.assertEqual(Product.objects.filter(company=self.company).count(), 24)
+        self.assertTrue(Customer.objects.filter(company=self.company,
+                                                name="Al Noor Grocery").exists())
+        self.assertTrue(Lead.objects.filter(company=self.company, name="East Distributor")
+                        .exists())
+        self.assertEqual(site.city, "Khartoum")
+        self.assertEqual(Invoice.objects.filter(company=self.company).count(), 4)
+        arabic = "".join(Product.objects.filter(company=self.company)
+                         .values_list("name", flat=True))
+        self.assertFalse(any("؀" <= ch <= "ۿ" for ch in arabic))
+        with self.assertRaises(CommandError):
+            call_command("seed_demo", "--lang", "fr", owner="owner@demo.test", yes=True,
+                         verbosity=0)
+
     def test_scale_rounding_and_validation(self):
         self.assertEqual(_scaled("0.55", Decimal(2500)), Decimal(1400))   # 1375 → 1400
         self.assertEqual(_scaled("0.25", Decimal(600)), Decimal(150))

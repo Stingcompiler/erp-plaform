@@ -37,7 +37,7 @@ export default function Showcase() {
             <h2 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">{t("home.showcaseTitle")}</h2>
             <p className="mt-2 max-w-2xl text-muted">{t("home.showcaseBody")}</p>
           </div>
-          <a href="/s/" className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
+          <a href="/s/" className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-accent hover:underline">
             {t("home.showcaseAll")}<Arrow size={15} />
           </a>
         </div>

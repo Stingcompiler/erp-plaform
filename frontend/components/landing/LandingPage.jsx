@@ -1,8 +1,13 @@
 "use client";
 
-// Public landing page for the hosted product. Every screenshot under
-// /marketing is a real capture of the demo company (Arabic, light and dark),
-// so the copy next to it describes what the visitor is actually looking at.
+// Public landing page for the hosted product. Every screenshot is a real
+// capture of a local seed_demo company in the page's language and theme
+// (lib/marketingShots.js), so the copy next to it describes what the visitor
+// is actually looking at.
+//
+// On a phone a way to start is never far: the hero, a short trial band after
+// the modules and another after the branches/Sudan sections, then the closing
+// choice between the trial and a walkthrough, with the form.
 
 import { useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
@@ -13,6 +18,7 @@ import {
   Building2,
   ChartColumn,
   Check,
+  ChevronDown,
   Contact,
   DatabaseBackup,
   Languages,
@@ -67,6 +73,41 @@ function Reveal({ children, index = 0, className = "" }) {
   return (
     <div className={`mk-reveal ${className}`} style={revealStyle(index)}>
       {children}
+    </div>
+  );
+}
+
+// Details a visitor can open: a native <details>, so it works without JS,
+// is announced as a disclosure and opens with Enter or Space. The summary
+// is a 44 px target.
+function Disclosure({ summary, children, className = "" }) {
+  return (
+    <details className={`group ${className}`}>
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-control text-sm font-medium text-accent marker:content-none hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+        {summary}
+        <ChevronDown size={16} aria-hidden="true" className="shrink-0 transition-transform group-open:rotate-180" />
+      </summary>
+      {children}
+    </details>
+  );
+}
+
+// A short prompt to start between sections: one line and the two ways in.
+function TrialBand({ text }) {
+  const { t, href } = useI18n();
+  return (
+    <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="flex flex-col items-center gap-4 rounded-card border border-accent/30 bg-accent/5 px-5 py-6 text-center sm:flex-row sm:justify-between sm:px-8 sm:text-start">
+        <p className="font-display text-lg font-semibold text-ink">{text}</p>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-3">
+          <Link href={href("/register")} className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-control bg-accent px-5 py-2.5 font-medium text-white shadow-card hover:bg-accent-strong">
+            {t("home.heroPrimary")}
+          </Link>
+          <a href="#walkthrough" className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-control border border-line bg-surface px-5 py-2.5 font-medium text-ink hover:border-accent">
+            {t("home.finalSecondary")}
+          </a>
+        </div>
+      </div>
     </div>
   );
 }
@@ -133,7 +174,7 @@ function TrustStrip() {
   if (!Array.isArray(items)) return null;
   return (
     <section className="border-y border-line bg-surface">
-      <div className="mx-auto grid max-w-6xl gap-3 px-4 py-6 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
+      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-3 px-4 py-5 sm:px-6 sm:py-6 lg:grid-cols-4">
         {items.map((item) => (
           <div key={item} className="flex items-center justify-center gap-2 text-sm font-medium text-ink">
             <Check size={16} className="shrink-0 text-accent" />
@@ -146,13 +187,13 @@ function TrustStrip() {
 }
 
 function Stories() {
-  const { t } = useI18n();
+  const { t, href } = useI18n();
   const stories = t("home.stories");
   if (!Array.isArray(stories)) return null;
   return (
-    <section id="features" className="mx-auto max-w-6xl border-t border-line px-4 py-16 sm:px-6 sm:py-24">
+    <section id="features" className="mx-auto max-w-6xl border-t border-line px-4 py-12 sm:px-6 sm:py-24">
       <h2 className="text-center font-display text-2xl font-bold tracking-tight sm:text-3xl">{t("home.storiesTitle")}</h2>
-      <div className="mt-14 space-y-20">
+      <div className="mt-10 space-y-14 sm:mt-14 sm:space-y-20">
         {stories.map((story, index) => {
           const shot = STORY_SHOTS[index] || STORY_SHOTS[0];
           const flip = index % 2 === 1;
@@ -162,8 +203,7 @@ function Stories() {
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-wide text-accent">{story.eyebrow}</p>
                   <h3 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">{story.title}</h3>
-                  <p className="mt-4 text-muted sm:text-lg">{story.body}</p>
-                  <ul className="mt-6 space-y-2.5">
+                  <ul className="mt-5 space-y-2.5">
                     {story.bullets.map((line) => (
                       <li key={line} className="flex items-start gap-2 text-sm sm:text-base">
                         <Check size={18} className="mt-0.5 shrink-0 text-accent" />
@@ -178,6 +218,11 @@ function Stories() {
           );
         })}
       </div>
+      <div className="mt-12 text-center">
+        <Link href={href("/register")} className="inline-flex min-h-11 items-center justify-center rounded-control bg-accent px-6 py-3 font-medium text-white shadow-card hover:bg-accent-strong">
+          {t("home.heroPrimary")}
+        </Link>
+      </div>
     </section>
   );
 }
@@ -189,7 +234,7 @@ function Modules() {
   const modules = t("home.modules");
   if (!Array.isArray(modules)) return null;
   return (
-    <section id="modules" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+    <section id="modules" className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-24">
       <div className="mx-auto max-w-2xl text-center">
         <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">{t("home.modulesTitle")}</h2>
         <p className="mt-3 text-muted">{t("home.modulesSubtitle")}</p>
@@ -199,17 +244,21 @@ function Modules() {
           const Icon = MODULE_ICONS[module.key] || Package;
           return (
             <Reveal key={module.key} index={index % 4} className="h-full">
+              {/* On a phone the icon sits beside the text (a shorter card, so
+                  the next way to start is closer); from sm up, above it. */}
               <Link
                 href={href(`/product#${module.anchor}`)}
-                className="group flex h-full flex-col rounded-card border border-line bg-surface p-5 shadow-card transition-colors hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                className="group flex h-full gap-4 rounded-card border border-line bg-surface p-4 shadow-card transition-colors hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:flex-col sm:gap-0 sm:p-5"
               >
-                <span className="grid h-10 w-10 place-items-center rounded-control bg-accent/10 text-accent"><Icon size={20} aria-hidden="true" /></span>
-                <h3 className="mt-4 font-display text-lg font-semibold">{module.title}</h3>
-                <p className="mt-2 flex-1 text-sm text-muted">{module.body}</p>
-                <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-accent">
-                  {t("home.modulesMore")}
-                  <ArrowRight size={15} aria-hidden="true" className="transition-transform group-hover:translate-x-0.5 rtl:rotate-180 rtl:group-hover:-translate-x-0.5" />
-                </span>
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-control bg-accent/10 text-accent"><Icon size={20} aria-hidden="true" /></span>
+                <div className="flex flex-1 flex-col">
+                  <h3 className="font-display text-lg font-semibold sm:mt-4">{module.title}</h3>
+                  <p className="mt-1 flex-1 text-sm text-muted sm:mt-2">{module.body}</p>
+                  <span className="mt-4 hidden items-center gap-1 text-sm font-medium text-accent sm:inline-flex">
+                    {t("home.modulesMore")}
+                    <ArrowRight size={15} aria-hidden="true" className="transition-transform group-hover:translate-x-0.5 rtl:rotate-180 rtl:group-hover:-translate-x-0.5" />
+                  </span>
+                </div>
               </Link>
             </Reveal>
           );
@@ -245,12 +294,15 @@ function MultiBranch() {
           <Reveal index={1} className="h-full">
             <div className={card}>
               <h3 className={heading}><Users size={20} aria-hidden="true" className="shrink-0 text-accent" />{t("home.multiRolesTitle")}</h3>
+              <p className="mt-3 text-sm text-muted">{t("home.multiRolesBody")}</p>
               {Array.isArray(roles) && (
-                <ul className="mt-4 flex flex-wrap gap-2">
-                  {roles.map((role) => (
-                    <li key={role} className="rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-ink">{role}</li>
-                  ))}
-                </ul>
+                <Disclosure summary={t("home.multiRolesShow")} className="mt-2">
+                  <ul className="mt-2 flex flex-wrap gap-2">
+                    {roles.map((role) => (
+                      <li key={role} className="rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-ink">{role}</li>
+                    ))}
+                  </ul>
+                </Disclosure>
               )}
             </div>
           </Reveal>
@@ -279,16 +331,18 @@ function SudanFit() {
   const items = t("home.sudan");
   if (!Array.isArray(items)) return null;
   return (
-    <section id="sudan" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+    <section id="sudan" className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-24">
       <h2 className="text-center font-display text-2xl font-bold tracking-tight sm:text-3xl">{t("home.sudanTitle")}</h2>
       <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {items.map(([title, body], index) => {
           const Icon = SUDAN_ICONS[index] || Check;
           return (
             <Reveal key={title} index={index} className="h-full">
-              <div className="h-full rounded-card border border-line bg-paper p-5 shadow-card">
-                <span className="grid h-9 w-9 place-items-center rounded-control bg-accent/10 text-accent"><Icon size={18} aria-hidden="true" /></span>
-                <h3 className="mt-3 font-display font-semibold">{title}</h3>
+              <div className="h-full rounded-card border border-line bg-paper p-4 shadow-card sm:p-5">
+                <div className="flex items-center gap-3 sm:block">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-control bg-accent/10 text-accent"><Icon size={18} aria-hidden="true" /></span>
+                  <h3 className="font-display font-semibold sm:mt-3">{title}</h3>
+                </div>
                 <p className="mt-2 text-sm text-muted">{body}</p>
               </div>
             </Reveal>
@@ -300,7 +354,7 @@ function SudanFit() {
 }
 
 function HowItWorks() {
-  const { t } = useI18n();
+  const { t, href } = useI18n();
   const steps = t("home.how");
   if (!Array.isArray(steps)) return null;
   return (
@@ -317,6 +371,11 @@ function HowItWorks() {
           </Reveal>
         ))}
       </div>
+      <div className="mt-8 text-center">
+        <Link href={href("/register")} className="inline-flex min-h-11 items-center justify-center rounded-control bg-accent px-6 py-3 font-medium text-white shadow-card hover:bg-accent-strong">
+          {t("home.heroPrimary")}
+        </Link>
+      </div>
     </section>
   );
 }
@@ -328,6 +387,7 @@ function HowItWorks() {
 function TrustSupport() {
   const { t } = useI18n();
   const points = t("home.backupPoints");
+  const more = t("home.backupMore");
   return (
     <section id="trust" className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 sm:pb-24">
       <div className="grid gap-5 md:grid-cols-2">
@@ -344,13 +404,24 @@ function TrustSupport() {
               ))}
             </ul>
           )}
+          {Array.isArray(more) && (
+            <Disclosure summary={t("home.backupMoreTitle")} className="mt-3">
+              <ul className="mt-2 space-y-2.5 text-sm text-muted">
+                {more.map((line) => (
+                  <li key={line} className="flex items-start gap-2">
+                    <Check size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-accent" /><span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            </Disclosure>
+          )}
         </div>
         <div className="rounded-card border border-line bg-surface p-6 shadow-card">
           <h2 className="flex items-center gap-2 font-display text-xl font-bold">
             <LifeBuoy size={20} aria-hidden="true" className="text-accent" />{t("home.supportTitle")}
           </h2>
           <p className="mt-4 text-sm">{t("home.supportBody")}</p>
-          <a href="#contact" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-control bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-strong">
+          <a href="#walkthrough" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-control bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-strong">
             {t("home.supportForm")}
           </a>
           <ContactChannels lead={t("home.supportDirect")} className="mt-5" />
@@ -383,24 +454,6 @@ function Faq() {
   );
 }
 
-function FinalCta() {
-  const { t, href } = useI18n();
-  return (
-    <section className="mx-auto max-w-6xl px-4 pb-4 pt-16 sm:px-6">
-      <div className="relative overflow-hidden rounded-card bg-ink px-6 py-12 text-center text-paper shadow-card sm:px-12 sm:py-16">
-        <div className="pointer-events-none absolute -end-24 -top-24 h-72 w-72 rounded-full bg-accent/30 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 -start-24 h-72 w-72 rounded-full bg-accent/20 blur-3xl" />
-        <h2 className="relative font-display text-2xl font-bold tracking-tight sm:text-4xl">{t("home.finalTitle")}</h2>
-        <p className="relative mx-auto mt-3 max-w-xl text-paper/70">{t("home.finalBody")}</p>
-        <div className="relative mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link href={href("/register")} className="w-full rounded-control bg-accent px-6 py-3 font-medium text-white hover:bg-accent-strong sm:w-auto">{t("home.finalPrimary")}</Link>
-          <a href="#contact" className="w-full rounded-control border border-white/20 px-6 py-3 font-medium text-paper hover:bg-white/10 sm:w-auto">{t("home.finalSecondary")}</a>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function PricingPreview() {
   const { t, href } = useI18n();
   return (
@@ -423,18 +476,35 @@ function PricingPreview() {
   );
 }
 
-// The walkthrough request: the form itself (and its error handling) is
-// components/marketing/DemoRequestForm.jsx.
-function ContactCTA() {
-  const { t } = useI18n();
+// The close of the page, in one section: a short choice between starting
+// the trial and asking for a walkthrough, then the walkthrough form under its
+// own heading (the form and its error handling: DemoRequestForm.jsx).
+function GetStarted() {
+  const { t, href } = useI18n();
   return (
-    <section id="contact" className="mx-auto max-w-3xl px-4 py-16 sm:px-6 sm:py-24">
-      <div className="rounded-card border border-line bg-surface p-6 shadow-card sm:p-10">
+    <section id="contact" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+      <div className="relative overflow-hidden rounded-card bg-ink px-6 py-10 text-paper shadow-card sm:px-12 sm:py-14">
+        <div className="pointer-events-none absolute -end-24 -top-24 h-72 w-72 rounded-full bg-accent/30 blur-3xl" />
+        <h2 className="relative text-center font-display text-2xl font-bold tracking-tight sm:text-4xl">{t("home.finalTitle")}</h2>
+        <div className="relative mx-auto mt-8 grid max-w-3xl gap-4 sm:grid-cols-2">
+          <div className="flex flex-col rounded-card border border-paper/15 bg-paper/5 p-5">
+            <p className="flex-1 text-sm text-paper/80">{t("home.startTrialBody")}</p>
+            <Link href={href("/register")} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-control bg-accent px-5 py-3 font-medium text-white hover:bg-accent-strong">
+              {t("home.finalPrimary")}
+            </Link>
+          </div>
+          <div className="flex flex-col rounded-card border border-paper/15 bg-paper/5 p-5">
+            <p className="flex-1 text-sm text-paper/80">{t("home.startWalkBody")}</p>
+            <a href="#walkthrough" className="mt-4 inline-flex min-h-11 items-center justify-center rounded-control border border-paper/25 px-5 py-3 font-medium text-paper hover:bg-paper/10">
+              {t("home.finalSecondary")}
+            </a>
+          </div>
+        </div>
+      </div>
+      <div id="walkthrough" className="mx-auto mt-8 max-w-3xl scroll-mt-20 rounded-card border border-line bg-surface p-6 shadow-card sm:p-10">
         <div className="text-center">
-          <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            {t("landing.ctaTitle")}
-          </h2>
-          <p className="mx-auto mt-3 max-w-xl text-muted">{t("landing.ctaSubtitle")}</p>
+          <h3 className="font-display text-2xl font-bold tracking-tight">{t("home.formTitle")}</h3>
+          <p className="mx-auto mt-2 max-w-xl text-sm text-muted">{t("home.formBody")}</p>
         </div>
         <DemoRequestForm />
       </div>
@@ -443,6 +513,7 @@ function ContactCTA() {
 }
 
 export default function LandingPage() {
+  const { t } = useI18n();
   const mainRef = useRef(null);
   useRevealOnce(mainRef);
   return (
@@ -453,16 +524,17 @@ export default function LandingPage() {
           <Hero />
           <TrustStrip />
           <Modules />
+          <TrialBand text={t("home.bandModules")} />
           <MultiBranch />
           <SudanFit />
+          <TrialBand text={t("home.bandBranches")} />
           <Stories />
           <Showcase />
           <HowItWorks />
           <TrustSupport />
           <PricingPreview />
           <Faq />
-          <FinalCta />
-          <ContactCTA />
+          <GetStarted />
         </main>
         <MarketingFooter />
         <WhatsAppFloat />

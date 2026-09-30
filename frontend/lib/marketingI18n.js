@@ -331,7 +331,7 @@ export const homeEn = {
   // selling through outages. The modules are the subtitle's job.
   heroTitle: "Manage your company and branches together. Keep selling through outages.",
   heroSubtitle: "Sales and POS, inventory, purchasing, customers, staff and payroll, financial management and reports in one system, with access by role and branch.",
-  heroOffline: "Without a connection, sales, payments, returns, counts and attendance carry on and sync later. Sign-in, fresh reports and settings need a connection.",
+  heroOffline: "Offline, sales, payments, returns, counts and attendance carry on and sync later. Sign-in, fresh reports and settings need a connection.",
   heroPrimary: "Start free trial",
   heroSecondary: "See pricing",
   heroNote: "14-day trial · no card · activated the same day after review",
@@ -352,35 +352,35 @@ export const homeEn = {
   modules: [
     {
       key: "sales", anchor: "pos", title: "Sales and point of sale",
-      body: "A fast barcode till that keeps selling offline, quotations and sales orders for larger customers, one bill paid in several tenders (cash and bank apps), and numbered receipts and invoices.",
+      body: "A barcode till that sells offline, quotations and sales orders, split tenders (cash and bank apps), numbered receipts.",
     },
     {
       key: "inventory", anchor: "inventory", title: "Inventory and warehouses",
-      body: "Several warehouses per branch, batches with expiry dates sold first-expiry-first, transfers between warehouses, periodic stock counts and printed barcode labels.",
+      body: "Several warehouses per branch, batches sold first-expiry-first, transfers, stock counts and barcode labels.",
     },
     {
       key: "purchasing", anchor: "purchasing", title: "Purchasing and suppliers",
-      body: "Purchase orders and goods receipts, supplier bills, payments and balances, and purchase returns with numbered debit notes.",
+      body: "Purchase orders, goods receipts, supplier bills and balances, returns with debit notes.",
     },
     {
       key: "crm", anchor: "collections", title: "Customers and CRM",
-      body: "A leads pipeline from first contact to won or lost, follow-ups, and a ledger for every customer with statements, debt ageing and collections.",
+      body: "A leads pipeline with follow-ups, and a ledger per customer with statements, debt ageing and collections.",
     },
     {
       key: "hr", anchor: "people", title: "HR and payroll",
-      body: "Employee files, attendance, leave and salary advances, and payroll runs that finance approves before they reach the expenses.",
+      body: "Employee files, attendance, leave and advances; payroll that finance approves.",
     },
     {
       key: "finance", anchor: "finance", title: "Financial management",
-      body: "Company bank accounts and bank-app statement matching, expenses by category with approval for large amounts, budgets against actuals, profit and loss, cash flow, receivables and payables ageing, and zakat.",
+      body: "Bank accounts and bank-app matching, approved expenses, budgets, profit and loss, cash flow, ageing and zakat.",
     },
     {
       key: "reports", anchor: "reports", title: "Reports and dashboards",
-      body: "A dashboard with the month's revenue, low stock, near-expiry items and overdue debts, and reports on sales, margins, stock value, purchasing, returns and payroll, with CSV export.",
+      body: "The month's revenue, low stock, near expiry and overdue debts at a glance; sales, margin, stock and payroll reports with CSV export.",
     },
     {
       key: "branches", anchor: "people", title: "Branches and permissions",
-      body: "Twelve ready-made roles; each branch works with its own data while head office sees every branch, and every change is kept in an activity log.",
+      body: "Twelve ready-made roles, each branch on its own data, head office over all, and an activity log.",
     },
   ],
   multiTitle: "Built for companies with many branches and many roles",
@@ -393,6 +393,8 @@ export const homeEn = {
   multiBranchTitle: "Every branch sees its own data",
   multiBranchBody: "A branch manager, cashier or stock keeper sees their branch only: its sales, stock, customers and reports. The owner, general manager, CFO and finance team see the whole company.",
   multiRolesTitle: "Twelve roles, each with its own permissions",
+  multiRolesBody: "From the owner and general manager to cashiers and viewers: each role opens only its own screens, in its own branch.",
+  multiRolesShow: "The twelve roles",
   multiRoles: [
     "Business Owner", "General Manager", "Chief Financial Officer", "Finance Department",
     "Branch Manager", "Sales Officer", "Inventory Officer", "Purchasing Officer",
@@ -412,25 +414,24 @@ export const homeEn = {
     ["Arabic and English", "Right-to-left screens, documents and receipts in Arabic, with English one switch away."],
     ["Sudanese pound", "Prices, invoices and reports in SDG by default."],
   ],
+  // The screens beside the module cards: what each one looks like and what
+  // the cards do not already say (no second description of the module).
   storiesTitle: "A closer look at the screens your team works in",
   stories: [
     {
       eyebrow: "Point of sale",
       title: "A till that never stops selling",
-      body: "Scan or search, weigh by the kilo, discount a line or the ticket, take cash or a bank-app transfer recorded with its transaction number. If the connection drops, sales are saved on the device and synced when it is back — exactly once.",
-      bullets: ["Barcodes, packs and weighed goods", "Held carts and cash shifts with a counted drawer", "Works through an outage, no duplicates on sync"],
+      bullets: ["Scan, search or weigh by the kilo; discount a line or the ticket", "Held carts and cash shifts closed on a counted drawer", "Sales made during an outage sync once, with no duplicates"],
     },
     {
       eyebrow: "Inventory",
       title: "Stock you can trust to the unit",
-      body: "Every movement — sale, receipt, transfer, adjustment, return — posts to one ledger, so on-hand is always derivable. Batches and expiry dates sell first-expiry-first, and reorder points warn before the shelf is empty.",
-      bullets: ["Batches, expiry and FEFO", "Multi-warehouse, transfers and periodic counts", "Low-stock and near-expiry lists on the dashboard"],
+      bullets: ["Every sale, receipt, transfer and return posts to one stock ledger", "Reorder points warn before the shelf is empty", "Low-stock and near-expiry lists on the dashboard"],
     },
     {
       eyebrow: "Collections",
       title: "Know who owes you, and since when",
-      body: "Credit sales, partial payments and returns land on one customer ledger. Overdue balances surface on the dashboard, statements print in a click, and every payment needs the right approval.",
-      bullets: ["Customer statements and ageing", "Cash, bank transfer with proof, partial payments", "Approval thresholds for large payments"],
+      bullets: ["Credit sales, partial payments and returns on one customer ledger", "Statements print in a click; overdue balances surface on the dashboard", "Large payments wait for the right approval"],
     },
   ],
   howTitle: "Up and running in three steps",
@@ -448,10 +449,15 @@ export const homeEn = {
     ["Can we start with a single branch?", "Yes. Start with one branch on the smallest plan and turn on what you need; when you open a new branch or warehouse you add it in the settings and upgrade the plan if you go past its capacity, with all your data where it was."],
   ],
   backupTitle: "Backups and restore",
+  // Always shown: what is backed up and the limits of a restore.
   backupPoints: [
-    "Every night each company's core records are backed up automatically: products, customers, suppliers and settings, plus a readable copy of invoices, payments, stock movements and supplier bills.",
+    "Every night each company's core records are backed up automatically, kept for 30 days; the newest one is always kept.",
+    "Restore puts back the master data only — products, customers, suppliers, warehouses and units; sales and money records are never written over live data.",
+  ],
+  backupMoreTitle: "What a backup holds and how to download it",
+  backupMore: [
+    "The nightly backup holds products, customers, suppliers and settings, plus a readable copy of invoices, payments, stock movements and supplier bills.",
     "The owner can take a backup at any time and download it from Settings → Backups as JSON, Excel or CSV.",
-    "Restore puts back the master data only — products, customers, suppliers, warehouses and units; sales and money records are never written over live data. Backups are kept for 30 days, and the newest one is always kept.",
     "The owner can also download a full company export from the same place: every document, payment and stock movement in one file, the same file we use to move a company between hosted and on-server.",
   ],
   supportTitle: "Support",
@@ -464,9 +470,17 @@ export const homeEn = {
   supportPhone: "Phone",
   supportForm: "Request a walkthrough",
   finalTitle: "Ready to see it on your data?",
-  finalBody: "Start the trial today, or ask for a walkthrough and we will tailor it to how your business runs.",
   finalPrimary: "Start free trial",
   finalSecondary: "Request a walkthrough",
+  // The closing section: a short choice, then the walkthrough form.
+  startTrialBody: "Register your company; we review it and activate it the same day. 14 days, no card.",
+  startWalkBody: "Leave your number and we will show Vezano Pro on your own products — 20 minutes on WhatsApp or a call.",
+  formTitle: "Request a walkthrough",
+  formBody: "We will contact you on the channel you choose to set a time.",
+  // Short trial prompts between sections, so a phone never scrolls far
+  // without a way to start.
+  bandModules: "Try every module on your own data. 14 days, no card.",
+  bandBranches: "Built for branches, outages and bank apps. See it on your business.",
   formRequired: "required",
   formOptional: "optional",
   formErrors: {
@@ -505,35 +519,35 @@ export const homeAr = {
   modules: [
     {
       key: "sales", anchor: "pos", title: "المبيعات ونقطة البيع",
-      body: "كاشير سريع بالباركود يواصل البيع بلا اتصال، وعروض أسعار وأوامر بيع للعملاء الكبار، وسداد الفاتورة الواحدة بأكثر من وسيلة (نقد وتطبيقات البنوك)، وإيصالات وفواتير مرقّمة.",
+      body: "كاشير بالباركود يبيع بلا اتصال، وعروض أسعار وأوامر بيع، وسداد بأكثر من وسيلة (نقد وتطبيقات البنوك)، وإيصالات مرقّمة.",
     },
     {
       key: "inventory", anchor: "inventory", title: "المخزون والمستودعات",
-      body: "مستودعات متعددة لكل فرع، ودفعات بتواريخ صلاحية يُباع الأقرب انتهاءً منها أولًا، وتحويلات بين المستودعات، وجرد دوري، وطباعة ملصقات الباركود.",
+      body: "مستودعات لكل فرع، ودفعات يُباع الأقرب انتهاءً منها أولًا، وتحويلات وجرد وملصقات باركود.",
     },
     {
       key: "purchasing", anchor: "purchasing", title: "المشتريات والموردون",
-      body: "أوامر شراء واستلام بضاعة، وفواتير الموردين ودفعاتهم وأرصدتهم، ومرتجعات شراء بإشعارات مدين مرقّمة.",
+      body: "أوامر شراء واستلام بضاعة، وفواتير الموردين وأرصدتهم، ومرتجعات بإشعارات مدين.",
     },
     {
       key: "crm", anchor: "collections", title: "العملاء وإدارة العلاقات",
-      body: "مسار للعملاء المحتملين من أول تواصل حتى الفوز بالصفقة أو خسارتها، ومتابعات، ودفتر حساب لكل عميل بكشوف حساب وأعمار ديون وتحصيل.",
+      body: "مسار للعملاء المحتملين بمتابعات، ودفتر لكل عميل بكشوف حساب وأعمار ديون وتحصيل.",
     },
     {
       key: "hr", anchor: "people", title: "الموارد البشرية والرواتب",
-      body: "ملفات الموظفين والحضور والإجازات والسُّلف، ومسيّرات رواتب تعتمدها الإدارة المالية قبل أن تُسجَّل في المصروفات.",
+      body: "ملفات الموظفين والحضور والإجازات والسُّلف، ورواتب تعتمدها الإدارة المالية.",
     },
     {
       key: "finance", anchor: "finance", title: "الإدارة المالية",
-      body: "حسابات الشركة البنكية ومطابقة كشوف تطبيقات البنوك، ومصروفات بفئات واعتماد للمبالغ الكبيرة، وموازنات مقابل الفعلي، والأرباح والخسائر، والتدفق النقدي، وأعمار الذمم المدينة والدائنة، والزكاة.",
+      body: "حسابات بنكية ومطابقة تطبيقات البنوك، ومصروفات معتمدة، وموازنات، وأرباح وخسائر، وتدفق نقدي، وأعمار ذمم، وزكاة.",
     },
     {
       key: "reports", anchor: "reports", title: "التقارير ولوحات المتابعة",
-      body: "لوحة تعرض إيراد الشهر والنواقص وما قرب انتهاء صلاحيته والديون المتأخرة، وتقارير المبيعات والهامش وقيمة المخزون والمشتريات والمرتجعات والرواتب، مع تصدير CSV.",
+      body: "إيراد الشهر والنواقص وقرب الانتهاء والديون المتأخرة في لمحة، وتقارير المبيعات والهامش والمخزون والرواتب مع تصدير CSV.",
     },
     {
       key: "branches", anchor: "people", title: "الفروع والصلاحيات",
-      body: "اثنا عشر دورًا جاهزًا؛ كل فرع يعمل على بياناته والإدارة العامة ترى كل الفروع، وكل تغيير محفوظ في سجل النشاط.",
+      body: "اثنا عشر دورًا جاهزًا، وكل فرع على بياناته والإدارة العامة فوق الجميع، وسجل نشاط.",
     },
   ],
   multiTitle: "مصمم للشركات متعددة الفروع والأدوار",
@@ -545,6 +559,8 @@ export const homeAr = {
   multiBranchTitle: "كل فرع يرى بياناته",
   multiBranchBody: "مدير الفرع والكاشير وموظف المخزون يرون فرعهم فقط: مبيعاته ومخزونه وعملاءه وتقاريره. أما المالك والمدير العام والمدير المالي والإدارة المالية فيرون الشركة كلها.",
   multiRolesTitle: "اثنا عشر دورًا، لكل دور صلاحياته",
+  multiRolesBody: "من المالك والمدير العام إلى الكاشير والمستعرض: كل دور يفتح شاشاته فقط، في فرعه.",
+  multiRolesShow: "الأدوار الاثنا عشر",
   multiRoles: [
     "مالك الأعمال", "المدير العام", "المدير المالي", "الإدارة المالية",
     "مدير الفرع", "مدير المبيعات", "مدير المخزون", "مدير المشتريات",
@@ -569,20 +585,17 @@ export const homeAr = {
     {
       eyebrow: "نقطة البيع",
       title: "كاشير لا يتوقف عن البيع",
-      body: "امسح أو ابحث، بِع بالكيلو، اخصم على سطر أو على الفاتورة، استلم نقدًا أو تحويلًا من تطبيق البنك تسجّله برقم العملية. إن انقطع الاتصال تُحفظ المبيعات على الجهاز وتُزامَن عند عودته — مرة واحدة فقط.",
-      bullets: ["باركود وعبوات وبضائع موزونة", "تعليق السلة ووردية صندوق بجرد فعلي", "يعمل أثناء الانقطاع بلا تكرار عند المزامنة"],
+      bullets: ["امسح أو ابحث أو بِع بالكيلو، واخصم على سطر أو على الفاتورة", "تعليق السلة ووردية صندوق تُغلق بجرد فعلي", "مبيعات الانقطاع تُزامَن مرة واحدة بلا تكرار"],
     },
     {
       eyebrow: "المخزون",
       title: "مخزون تثق به حتى القطعة",
-      body: "كل حركة — بيع، استلام، تحويل، تسوية، مرتجع — تُسجَّل في دفتر واحد، فالرصيد دائمًا قابل للاشتقاق. الدفعات وتواريخ الصلاحية تُباع الأقرب انتهاءً أولًا، وحدود إعادة الطلب تنبّهك قبل أن يفرغ الرف.",
-      bullets: ["دفعات وصلاحية وFEFO", "مستودعات متعددة وتحويلات وجرد دوري", "قوائم النقص وقرب انتهاء الصلاحية على اللوحة"],
+      bullets: ["كل بيع واستلام وتحويل ومرتجع يُسجَّل في دفتر مخزون واحد", "حدود إعادة الطلب تنبّهك قبل أن يفرغ الرف", "قوائم النقص وقرب انتهاء الصلاحية على اللوحة"],
     },
     {
       eyebrow: "التحصيل",
       title: "اعرف من يدين لك، ومنذ متى",
-      body: "البيع الآجل والدفعات الجزئية والمرتجعات تصب في دفتر عميل واحد. الأرصدة المتأخرة تظهر على اللوحة، وكشف الحساب يُطبع بنقرة، وكل دفعة تمر بالاعتماد الصحيح.",
-      bullets: ["كشوف حساب وأعمار الديون", "نقد، تحويل بنكي بإثبات، دفعات جزئية", "حدود اعتماد للدفعات الكبيرة"],
+      bullets: ["البيع الآجل والدفعات الجزئية والمرتجعات في دفتر عميل واحد", "كشف الحساب بنقرة، والأرصدة المتأخرة تظهر على اللوحة", "الدفعات الكبيرة تنتظر الاعتماد الصحيح"],
     },
   ],
   howTitle: "تبدأ في ثلاث خطوات",
@@ -601,9 +614,13 @@ export const homeAr = {
   ],
   backupTitle: "النسخ الاحتياطي والاستعادة",
   backupPoints: [
-    "كل ليلة تُنسخ السجلات الأساسية لكل شركة تلقائيًا: المنتجات والعملاء والموردون والإعدادات، مع صورة للاطّلاع من الفواتير والدفعات وحركات المخزون وفواتير الموردين.",
+    "كل ليلة تُنسخ السجلات الأساسية لكل شركة تلقائيًا، وتُحفظ النسخ 30 يومًا وتبقى أحدث نسخة دائمًا.",
+    "الاستعادة تعيد البيانات الأساسية فقط — المنتجات والعملاء والموردين والمستودعات والوحدات؛ ولا تُكتب سجلات البيع والأموال فوق بيانات حيّة أبدًا.",
+  ],
+  backupMoreTitle: "ماذا تحوي النسخة وكيف تُنزَّل",
+  backupMore: [
+    "النسخة الليلية تحوي المنتجات والعملاء والموردين والإعدادات، مع صورة للاطّلاع من الفواتير والدفعات وحركات المخزون وفواتير الموردين.",
     "يستطيع المالك أخذ نسخة في أي وقت وتنزيلها من الإعدادات ← النسخ الاحتياطي بصيغة JSON أو Excel أو CSV.",
-    "الاستعادة تعيد البيانات الأساسية فقط — المنتجات والعملاء والموردين والمستودعات والوحدات؛ ولا تُكتب سجلات البيع والأموال فوق بيانات حيّة أبدًا. تُحفظ النسخ 30 يومًا، وتبقى أحدث نسخة دائمًا.",
     "ويستطيع المالك من المكان نفسه تنزيل تصدير الشركة كاملة: كل مستند ودفعة وحركة مخزون في ملف واحد، وهو الملف نفسه الذي ننقل به الشركة بين السحابة والخادم الخاص.",
   ],
   supportTitle: "الدعم",
@@ -614,9 +631,14 @@ export const homeAr = {
   supportPhone: "الهاتف",
   supportForm: "اطلب جولة تعريفية",
   finalTitle: "جاهز لتراه على بياناتك؟",
-  finalBody: "ابدأ التجربة اليوم، أو اطلب عرضًا توضيحيًا نفصّله على طريقة عملك.",
   finalPrimary: "ابدأ التجربة المجانية",
-  finalSecondary: "اطلب عرضًا توضيحيًا",
+  finalSecondary: "اطلب جولة تعريفية",
+  startTrialBody: "سجّل شركتك، نراجع الطلب ونفعّله في نفس اليوم. 14 يومًا بلا بطاقة.",
+  startWalkBody: "اترك رقمك ونعرض لك فيزانو برو على أصنافك — 20 دقيقة على واتساب أو مكالمة.",
+  formTitle: "اطلب جولة تعريفية",
+  formBody: "نتواصل معك عبر القناة التي تختارها لتحديد الموعد.",
+  bandModules: "جرّب كل الوحدات على بياناتك. 14 يومًا بلا بطاقة.",
+  bandBranches: "مصمم للفروع والانقطاع وتطبيقات البنوك. شاهده على نشاطك.",
   formRequired: "مطلوب",
   formOptional: "اختياري",
   formErrors: {
@@ -937,8 +959,6 @@ export const landingEn = {
   navContact: "Contact",
   heroCtaDemo: "Try the live demo",
   heroCtaTrial: "Start your free trial",
-  ctaTitle: "Ready to see it on your data?",
-  ctaSubtitle: "Leave your number and we'll set up a short walkthrough — 20 minutes on WhatsApp or a call — showing Vezano Pro on your own products and the way your business actually runs.",
   contactPhone: "WhatsApp number",
   whatsappFloat: "Chat on WhatsApp",
   footerContact: "Contact",
@@ -968,8 +988,6 @@ export const landingAr = {
   navContact: "تواصل",
   heroCtaDemo: "جرّب النسخة التجريبية",
   heroCtaTrial: "ابدأ تجربتك المجانية",
-  ctaTitle: "جاهز لرؤيته على بياناتك؟",
-  ctaSubtitle: "اترك رقمك وسنرتّب معك جولة قصيرة — 20 دقيقة على واتساب أو مكالمة — نعرض فيها فيزانو برو على أصنافك وطريقة عمل متجرك أو شركتك الفعلية.",
   contactPhone: "رقم الواتساب",
   whatsappFloat: "راسلنا على واتساب",
   footerContact: "التواصل",

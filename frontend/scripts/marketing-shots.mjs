@@ -13,25 +13,58 @@
 // Captures them from a running local copy of the app (never production):
 // BASE_URL (default http://127.0.0.1:8000, Django serving frontend/out) and
 // a seed_demo owner per language, SHOTS_AR_EMAIL / SHOTS_EN_EMAIL with
-// SHOTS_PASSWORD — a local test account, see docs in the PR that added this.
-// 1440×900 CSS pixels at device scale 2, light and dark.
+// SHOTS_PASSWORD. Those are local test accounts in a throwaway SQLite
+// database: create a company (currency SDG) and a Business Owner per
+// language, then
+//   manage.py seed_demo --owner <ar owner> --scale 2500 --sales 60 --yes
+//   manage.py seed_demo --owner <en owner> --lang en --scale 2500 --sales 60 --yes
+// 1440×900 CSS pixels at device scale 2, light and dark; then `encode`.
 import { mkdirSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import sharp from "sharp";
 
-import { SHOTS, SHOT_SIZE, SHOT_WIDTHS, shotFallback, shotFile } from "../lib/marketingShots.js";
+import { SHOTS, SHOT_SIZE, shotFallback, shotFile, shotWidths } from "../lib/marketingShots.js";
 
 const pub = (path) => fileURLToPath(new URL(`../public${path}`, import.meta.url));
 
-// Which screen each shot is, and what to wait for before the picture.
+// Which screen each shot is, what to wait for, and what to do on it first:
+// a cart of five seeded products on the till (their barcodes are
+// seed_demo's 629…), the first customer's statement on the debt ledger.
 const SCREENS = {
-  dashboard: { path: "/dashboard/", ready: "main h1, main h2" },
-  pos: { path: "/sales/?tab=pos", ready: "main" },
-  inventory: { path: "/inventory/", ready: "main table, main [role=table]" },
-  debts: { path: "/debts/", ready: "main" },
-  users: { path: "/users/", ready: "main" },
+  dashboard: {
+    path: "/dashboard/",
+    ready: "main h1",
+    // The first-run checklist is for the owner, not the picture.
+    async prepare(page) {
+      const hide = page.getByRole("button", { name: /Hide for now|إخفاء الآن/ });
+      if (await hide.count()) await hide.first().click();
+      await page.waitForTimeout(400);
+    },
+  },
+  pos: {
+    path: "/sales/",
+    ready: "main input[placeholder]",
+    async prepare(page) {
+      const scan = page.locator("main input[placeholder]").first();
+      for (const index of [2, 3, 6, 1, 12]) {
+        await scan.fill(`629${String(index).padStart(10, "0")}`);
+        await scan.press("Enter");
+        await page.waitForTimeout(350);
+      }
+    },
+  },
+  inventory: { path: "/inventory/", ready: "main table" },
+  debts: {
+    path: "/debts/",
+    ready: "main div.overflow-y-auto > button",
+    async prepare(page) {
+      await page.locator("main div.overflow-y-auto > button").first().click();
+      await page.waitForTimeout(1200);
+    },
+  },
+  users: { path: "/users/", ready: "main table, main li" },
 };
 
 async function encode(rawDir) {
@@ -42,7 +75,7 @@ async function encode(rawDir) {
     if (!SHOTS[name]) { console.warn(`skip ${file}: not in lib/marketingShots.js`); continue; }
     const src = join(rawDir, file);
     const { width } = await sharp(src).metadata();
-    for (const target of SHOT_WIDTHS) {
+    for (const target of shotWidths(name)) {
       if (target > width) { console.warn(`${file}: ${width}px wide, too small for ${target}w`); continue; }
       const out = pub(shotFile(name, language, theme, target));
       const info = await sharp(src).resize({ width: target }).webp({ quality: 80, effort: 6, smartSubsample: true }).toFile(out);
@@ -63,7 +96,7 @@ async function capture(rawDir) {
   const password = process.env.SHOTS_PASSWORD;
   if (!password) throw new Error("SHOTS_PASSWORD is not set (a local seed_demo owner's password)");
   mkdirSync(rawDir, { recursive: true });
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ channel: "chromium" });
   try {
     for (const language of ["ar", "en"]) {
       const email = process.env[`SHOTS_${language.toUpperCase()}_EMAIL`];
@@ -88,6 +121,8 @@ async function capture(rawDir) {
           await page.goto(`${base}${screen.path}`, { waitUntil: "networkidle" });
           await page.locator(screen.ready).first().waitFor({ timeout: 20000 });
           await page.waitForTimeout(800);
+          if (screen.prepare) await screen.prepare(page);
+          await page.mouse.move(0, 0);
           const out = join(rawDir, `${name}.${language}.${theme}.png`);
           await page.screenshot({ path: out });
           console.log(out);
