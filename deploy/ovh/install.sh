@@ -21,6 +21,9 @@ if ! id vezano-deploy >/dev/null 2>&1; then
     usermod --password '*' vezano-deploy
 fi
 install -d -o root -g root -m 0755 /usr/local/libexec/vezano /var/lib/vezano-deploy /var/lib/vezano-deploy/.ssh
+# Existing parent directories retain their modes unless explicitly installed.
+# The deploy account needs traversal, but cannot list or write this parent.
+install -d -o root -g vezano-deploy -m 0710 /srv/vezano-deploy
 install -d -o root -g vezano-deploy -m 0770 /srv/vezano-deploy/incoming
 install -d -o root -g root -m 0700 /srv/vezano-deploy/private /var/log/vezano-deploy /var/lib/vezano-deploy-state
 install -m 0755 "$SOURCE/gateway.py" /usr/local/libexec/vezano/gateway.py

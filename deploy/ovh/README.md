@@ -66,6 +66,17 @@ restart web, install Redis/Celery or change application/database settings. It
 replaces the dedicated account's authorized_keys on reinstallation, providing
 an explicit key-rotation path.
 
+The installer explicitly sets `/srv/vezano-deploy` to root-owned mode `0710`
+with group `vezano-deploy`. This permits the deployment account to traverse
+the parent to its writable `incoming` directory, without listing or writing
+the parent. The `private` staging directory remains root-only mode `0700`.
+On an existing installation with a root-only parent, repair only that directory:
+
+```bash
+sudo install -d -o root -g vezano-deploy -m 0710 /srv/vezano-deploy
+sudo -u vezano-deploy test -w /srv/vezano-deploy/incoming
+```
+
 `/etc/vezano-deploy.json` contains only paths and public deployment settings; it
 does not contain application secrets. Its location is outside the protected
 application configuration directory, so the gateway needs no broader access
