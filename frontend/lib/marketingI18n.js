@@ -331,7 +331,7 @@ export const homeEn = {
   // selling through outages. The modules are the subtitle's job.
   heroTitle: "Manage your company and branches together. Keep selling through outages.",
   heroSubtitle: "Sales and POS, inventory, purchasing, customers, staff and payroll, financial management and reports in one system, with access by role and branch.",
-  heroOffline: "Offline, sales, payments, returns, counts and attendance carry on and sync later. Sign-in, fresh reports and settings need a connection.",
+  heroOffline: "Without a connection, sales, payments, returns, counts and attendance carry on and sync later. Sign-in, fresh reports and settings need a connection.",
   heroPrimary: "Start free trial",
   heroSecondary: "See pricing",
   heroNote: "14-day trial · no card · activated the same day after review",
