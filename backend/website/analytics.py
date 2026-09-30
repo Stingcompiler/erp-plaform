@@ -36,7 +36,7 @@ BOT_MARKERS = (
 )
 
 # Hosts whose referrals are internal navigation, not an acquisition source.
-_OWN_HOSTS = {"vezano.app", "www.vezano.app", "enterprise.vezano.app", "localhost", "127.0.0.1"}
+_OWN_HOSTS = {*settings.VEZANO_PUBLIC_HOSTS, "localhost", "127.0.0.1"}
 
 
 def marketing_kind_for(clean_path):
