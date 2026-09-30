@@ -267,6 +267,9 @@ jobs:
         if: steps.latest.outputs.deploy == 'true'
         with:
           python-version: '3.12'
+      - name: Remove the checkout export before restoring the tested artifact
+        if: steps.latest.outputs.deploy == 'true'
+        run: rm -rf -- frontend/out
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         if: steps.latest.outputs.deploy == 'true'
         with:
