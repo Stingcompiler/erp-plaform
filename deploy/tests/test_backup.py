@@ -31,6 +31,8 @@ if os.environ.get("BACKUP_TEST_AS_APP") != "1":
     raise RuntimeError("Application code/data reader ran with root privileges")
 if name == "app-python":
     if args[0] == "-":
+        # An empty override would mask the protected file's persistent MEDIA_ROOT.
+        assert "MEDIA_ROOT" not in os.environ
         print(s["database_url"] if args[1] == "DATABASE_URL" else s["media"])
     else:
         assert args[0] == "-c"

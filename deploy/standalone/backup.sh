@@ -67,15 +67,13 @@ if [ "$(id -u)" -eq 0 ]; then
     [ "$(id -u "$BACKUP_APP_USER")" -ne 0 ] || fail "backup application user must not be root"
     as_app() {
         runuser -u "$BACKUP_APP_USER" -- env -i PATH="$PATH" \
-            VEZANO_ENV_FILE="$VEZANO_ENV_FILE" MEDIA_ROOT="$VEZANO_MEDIA_ROOT" "$@"
+            VEZANO_ENV_FILE="$VEZANO_ENV_FILE" "$@"
     }
 else
     [ -z "$BACKUP_APP_USER" ] || [ "$(id -u "$BACKUP_APP_USER")" -eq "$(id -u)" ] \
         || fail "non-root backup cannot select another account"
-    as_app() { MEDIA_ROOT="$VEZANO_MEDIA_ROOT" "$@"; }
+    as_app() { "$@"; }
 fi
-# It is populated from the protected file below. Keep this defined for env -i.
-VEZANO_MEDIA_ROOT="${VEZANO_MEDIA_ROOT:-}"
 
 # The protected file is read by Django's own parser (django-environ), not
 # sourced by this shell: a JSON value or a quoted string survives that parser
@@ -119,7 +117,7 @@ log "capturing data fingerprint"
 # descriptor rather than granting the app access to the protected backup tree.
 (
     cd "$VEZANO_HOME/backend"
-    as_app "$VEZANO_PYTHON" -c '
+    as_app env MEDIA_ROOT="$VEZANO_MEDIA_ROOT" "$VEZANO_PYTHON" -c '
 import json, os, sys
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 import django
