@@ -16,7 +16,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Validate shell scripts
-        run: bash -n deploy/standalone/upgrade.sh && bash -n deploy/ovh/install.sh
+        run: bash -n deploy/standalone/upgrade.sh && bash -n deploy/standalone/backup.sh && bash -n deploy/ovh/install.sh
       - name: Test deployment and recovery controls
         run: python3 -m unittest discover -s deploy/tests -v
 

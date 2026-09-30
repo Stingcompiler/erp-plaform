@@ -246,7 +246,8 @@ health_check() {
     [ -z "$HEALTH_HOST" ] || headers+=(-H "Host: $HEALTH_HOST")
     response="$(curl --silent --fail --max-time 5 "${headers[@]}" "$HEALTH_URL" 2>/dev/null)" || return 1
     # Only report success/failure; never print the health payload or exceptions.
-    printf '%s' "$response" | "$NEW_PYTHON" -c \
+    # The candidate venv is app-owned. Never execute its interpreter as root.
+    printf '%s' "$response" | /usr/bin/python3 -I -c \
         'import json,sys
 try:
     data=json.load(sys.stdin)
@@ -288,6 +289,7 @@ else
     log "taking a protected pre-upgrade backup"
     VEZANO_HOME="$OLD_RELEASE" VEZANO_ENV_FILE="$ENV_FILE" VEZANO_BACKUP_DIR="$BACKUP_DIR" \
         VEZANO_PYTHON="${VEZANO_PYTHON:-$OLD_RELEASE/venv/bin/python}" \
+        VEZANO_BACKUP_APP_USER="$APP_USER" \
         bash "$SCRIPT_DIR/backup.sh" --label pre-upgrade
 fi
 # Recheck under the writer pause rather than relying on an earlier plan.

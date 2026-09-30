@@ -2,8 +2,10 @@
 
 Reviewed 2026-09-30 against repository commit `b37fcfd6` in
 [Stingcompiler/erp-plaform](https://github.com/Stingcompiler/erp-plaform).
-The supplied VPS state comes from the user and the referenced conversation.
-This session did not connect to the VPS, alter systemd, or promote production.
+The initial VPS state below comes from the user and the referenced conversation.
+The user subsequently promoted the packaged candidate and confirmed active web,
+the packaged current link and public HTTP 200. The automatic deployment follow-up
+is documented in [OVH deployment](../ovh/README.md).
 
 ## Decision
 
@@ -37,6 +39,7 @@ manifest at the candidate's exact path still need verification.
 | Post-upgrade `preflight` only | Checks application state, but does not prove that systemd serves the promoted release | Require service paths through current; verify web active state and HTTP health JSON after restart |
 | Commands run as the invoking user | Root may pass writable-media checks that fail for `vezano`, or create root-owned collected assets | Run candidate management and venv preparation as the web service user |
 | No deployment lock | Concurrent promotions can interleave | Nonblocking flock on a file alongside the current link |
+| Backup application Python or health parsing can execute an app-owned venv as root | A dedicated deployment key's application-code permissions could become root access | Run all application Python, database and media readers as the application account; use isolated system Python for health parsing and protected backup hashes |
 
 The repository's [README](https://github.com/Stingcompiler/erp-plaform/blob/b37fcfd6/deploy/standalone/README.md)
 explicitly says current features do not need Celery/Redis and that the worker

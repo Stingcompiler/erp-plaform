@@ -22,12 +22,14 @@
 #   VEZANO_BACKUP_DIR destination root             (default /var/backups/vezano)
 #   VEZANO_PYTHON     python interpreter to use    (default $VEZANO_HOME/venv/bin/python)
 #   VEZANO_MEDIA_ROOT media directory              (default: MEDIA_ROOT from the env file)
+#   VEZANO_BACKUP_APP_USER non-root app account    (default: vezano when run as root)
 #
 # Exit codes: 0 success, non-zero on any failure. Nothing is left half-written:
 # the staging directory is removed on failure and only renamed into place on
 # success.
 
 set -euo pipefail
+umask 077
 
 VEZANO_HOME="${VEZANO_HOME:-/opt/vezano/current}"
 VEZANO_ENV_FILE="${VEZANO_ENV_FILE:-/etc/vezano/vezano.env}"
@@ -56,13 +58,32 @@ fail() { printf '[backup] ERROR: %s\n' "$*" >&2; exit 1; }
 [ -d "$VEZANO_HOME/backend" ] || fail "installation not found at: $VEZANO_HOME"
 command -v pg_dump >/dev/null 2>&1 || fail "pg_dump is not on PATH"
 
+# Root owns the backup output, but application interpreters/modules and all
+# database/media readers run without root privileges. Non-root scheduled
+# backups keep running as their existing service account.
+BACKUP_APP_USER="${VEZANO_BACKUP_APP_USER:-}"
+if [ "$(id -u)" -eq 0 ]; then
+    BACKUP_APP_USER="${BACKUP_APP_USER:-vezano}"
+    [ "$(id -u "$BACKUP_APP_USER")" -ne 0 ] || fail "backup application user must not be root"
+    as_app() {
+        runuser -u "$BACKUP_APP_USER" -- env -i PATH="$PATH" \
+            VEZANO_ENV_FILE="$VEZANO_ENV_FILE" MEDIA_ROOT="$VEZANO_MEDIA_ROOT" "$@"
+    }
+else
+    [ -z "$BACKUP_APP_USER" ] || [ "$(id -u "$BACKUP_APP_USER")" -eq "$(id -u)" ] \
+        || fail "non-root backup cannot select another account"
+    as_app() { MEDIA_ROOT="$VEZANO_MEDIA_ROOT" "$@"; }
+fi
+# It is populated from the protected file below. Keep this defined for env -i.
+VEZANO_MEDIA_ROOT="${VEZANO_MEDIA_ROOT:-}"
+
 # The protected file is read by Django's own parser (django-environ), not
 # sourced by this shell: a JSON value or a quoted string survives that parser
 # and does not survive `. file`. Exporting VEZANO_ENV_FILE makes every
 # manage.py call below see the same settings the services run with.
 export VEZANO_ENV_FILE
 env_value() {
-    "$VEZANO_PYTHON" - "$1" <<'PY'
+    as_app "$VEZANO_PYTHON" - "$1" <<'PY'
 import os
 import sys
 
@@ -93,39 +114,49 @@ cleanup() { if [ -d "$STAGE" ]; then rm -rf "$STAGE"; fi; }
 trap cleanup EXIT
 
 log "capturing data fingerprint"
-FINGERPRINT_ARGS=(--output "$STAGE/fingerprint.json")
-[ "$MEDIA_HASH" -eq 1 ] && FINGERPRINT_ARGS+=(--media-hash)
 # The fingerprint must describe the same media tree that gets archived below,
-# so the app is told where media lives explicitly (settings reads MEDIA_ROOT).
+# so the app is told where media lives explicitly. Redirect through a root-opened
+# descriptor rather than granting the app access to the protected backup tree.
 (
     cd "$VEZANO_HOME/backend"
-    MEDIA_ROOT="$VEZANO_MEDIA_ROOT" "$VEZANO_PYTHON" manage.py \
-        backup_snapshot "${FINGERPRINT_ARGS[@]}"
-)
+    as_app "$VEZANO_PYTHON" -c '
+import json, os, sys
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+import django
+django.setup()
+from ops.restore_check import data_fingerprint
+json.dump(data_fingerprint(with_media_hash=sys.argv[1] == "1"), sys.stdout, indent=2, sort_keys=True)
+sys.stdout.write("\n")
+' "$MEDIA_HASH"
+) > "$STAGE/fingerprint.json"
 
 log "dumping database"
-pg_dump --dbname="$DATABASE_URL" --format=custom --no-owner --no-privileges \
-    --file="$STAGE/database.dump"
+as_app pg_dump --dbname="$DATABASE_URL" --format=custom --no-owner --no-privileges \
+    > "$STAGE/database.dump"
 
 if [ -d "$VEZANO_MEDIA_ROOT" ]; then
     log "archiving media"
-    tar -czf "$STAGE/media.tar.gz" -C "$VEZANO_MEDIA_ROOT" .
+    as_app tar -czf - -C "$VEZANO_MEDIA_ROOT" . > "$STAGE/media.tar.gz"
 else
     log "media directory absent; writing an empty archive"
-    tar -czf "$STAGE/media.tar.gz" -T /dev/null
+    as_app tar -czf - -T /dev/null > "$STAGE/media.tar.gz"
 fi
 
 log "protecting a copy of the environment file"
 install -m 0600 "$VEZANO_ENV_FILE" "$STAGE/environment.env"
 
 log "hashing artefacts"
-"$VEZANO_PYTHON" - "$STAGE" <<'PY'
+# Only the root-owned isolated system interpreter touches protected files.
+/usr/bin/python3 -I - "$STAGE" <<'PY'
 import hashlib
 import json
 import sys
 from pathlib import Path
 
 stage = Path(sys.argv[1])
+fingerprint = json.loads((stage / "fingerprint.json").read_text(encoding="utf-8"))
+if not isinstance(fingerprint, dict) or not isinstance(fingerprint.get("counts"), dict):
+    raise ValueError("backup fingerprint must contain table counts")
 
 
 def sha256(path):
