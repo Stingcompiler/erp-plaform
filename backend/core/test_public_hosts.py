@@ -1,11 +1,12 @@
-"""The hosted SaaS answers on the canonical apex domain, its www alias and the
-original enterprise.* subdomain, and the crawler files ship with the export."""
+"""The hosted SaaS answers on the canonical apex domain, its www alias, the
+original enterprise.* subdomain and pro.* (the OVH server), and the crawler
+files ship with the export."""
 from django.conf import settings
 from django.test import RequestFactory, TestCase, override_settings
 
 from core.frontend import FRONTEND_DIST, serve_frontend
 
-HOSTS = ("vezano.app", "www.vezano.app", "enterprise.vezano.app")
+HOSTS = ("vezano.app", "www.vezano.app", "enterprise.vezano.app", "pro.vezano.app")
 
 
 # TestCase, not SimpleTestCase: readiness now really touches the database
@@ -63,6 +64,7 @@ class CrawlerFileTests(TestCase):
             self.assertIn(f"<loc>https://vezano.app/en{path}</loc>", body)
             self.assertIn(f'hreflang="en" href="https://vezano.app/en{path}"', body)
         self.assertNotIn("enterprise.vezano.app", body)
+        self.assertNotIn("pro.vezano.app", body)
         self.assertNotIn("/dashboard/", body)
 
     def test_content_pages_carry_structured_data(self):

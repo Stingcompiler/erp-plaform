@@ -73,6 +73,13 @@ class RecordTests(TestCase):
         )
         self.assertEqual(PageVisit.objects.get().referrer_host, "")
 
+    def test_every_public_host_counts_as_own(self):
+        for host in ("pro.vezano.app", "enterprise.vezano.app"):
+            analytics.record(
+                _get("/", referer=f"https://{host}/pricing/"), "", page_kind="marketing"
+            )
+        self.assertEqual(set(PageVisit.objects.values_list("referrer_host", flat=True)), {""})
+
     def test_phone_is_detected(self):
         analytics.record(_get("/", ua=UA_PHONE), "", page_kind="marketing")
         self.assertEqual(PageVisit.objects.get().device, "phone")

@@ -267,3 +267,48 @@ tree cannot be the cause. "Clear build cache & deploy" (Manual Deploy
 menu) is the reset for anything else that survives between builds. The
 same build command must be copied by hand onto the hand-created
 `erp-api` service; `render.yaml` is only the reference.
+
+## OVH VPS (since 2026-09-30)
+
+The hosted SaaS moved from Render to an OVH VPS (`57.129.162.57`), with Caddy
+in front of gunicorn. The server setup itself is not in this repo; this
+section lists what the code expects from it.
+
+- **Domains.** One server answers on all public hosts:
+  - `vezano.app` (canonical: canonical tags, sitemap and Open Graph point
+    here);
+  - `www.vezano.app`;
+  - `pro.vezano.app`;
+  - `enterprise.vezano.app`.
+
+  All four are in `VEZANO_PUBLIC_HOSTS` (config/settings.py), so
+  `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` include them without any env
+  value. At the DNS provider, `vezano.app` gets an A record to the server
+  (not Render any more), and the other hosts get A records or CNAMEs to it.
+  Caddy lists every host in one site block so each gets its own
+  certificate:
+
+  ```
+  vezano.app, www.vezano.app, pro.vezano.app, enterprise.vezano.app {
+      reverse_proxy 127.0.0.1:8000
+  }
+  ```
+
+  Leave `AUTH_COOKIE_DOMAIN` unset: each host keeps its own sign-in cookie
+  and installed PWA.
+- **Commit on /api/health/.** Export `GIT_COMMIT=$(git rev-parse HEAD)`
+  in the service environment on each deploy (`ops/release.py` reads
+  `RENDER_GIT_COMMIT` or `GIT_COMMIT`). Otherwise `commit` is `null` and a
+  deploy can't be verified from outside.
+- **Jobs that Render ran as separate services** need a systemd unit or
+  timer (or crontab) each:
+  - `celery -A config worker -B --loglevel=info --pool=solo` — the worker
+    plus beat (daily scans in `CELERY_BEAT_SCHEDULE`);
+  - `python manage.py run_scheduled_backup` — daily 02:00 UTC;
+  - `python manage.py run_daily_scans` — daily 03:30 UTC, after the backup.
+- **Media.** `MEDIA_ROOT` must point at a persistent directory that is
+  backed up. Uploads from Render's `/var/data/media/` have to be copied
+  over if the old data is moved.
+- **Build.** The same build as on Render: `npm ci && npm run build` in
+  `frontend/`, then `pip install -r requirements.txt`, `collectstatic` and
+  `migrate`. Fonts are self-hosted, so the build needs no Google access.
