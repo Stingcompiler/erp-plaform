@@ -85,7 +85,9 @@ export function TrialBadge({ plan }) {
   const { t } = useI18n();
   if (!plan.trialDays || !plan.available) return null;
   return (
-    <span className="inline-block w-fit rounded-control bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent">
+    // accent-strong, not accent: 12 px text on accent/10 needs 4.5:1, and the
+    // light accent measured 4.09:1 there (landing review 2026-09-29).
+    <span className="inline-block w-fit rounded-control bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent-strong">
       {t("pricing.trialBadge", { days: plan.trialDays })}
     </span>
   );

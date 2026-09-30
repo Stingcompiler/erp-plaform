@@ -49,9 +49,9 @@ export function Faq({ items }) {
       <h2 className="font-display text-2xl font-bold tracking-tight">{t("content.faqTitle")}</h2>
       <div className="mt-6 divide-y divide-line rounded-card border border-line bg-surface">
         {items.map(([question, answer]) => (
-          <details key={question} className="group px-5 py-4">
-            <summary className="cursor-pointer list-none font-medium marker:hidden">{question}</summary>
-            <p className="mt-2 text-muted">{answer}</p>
+          <details key={question} className="group">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center px-5 py-4 font-medium marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40">{question}</summary>
+            <p className="-mt-2 px-5 pb-4 text-muted">{answer}</p>
           </details>
         ))}
       </div>

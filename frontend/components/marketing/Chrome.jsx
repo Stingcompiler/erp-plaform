@@ -12,7 +12,6 @@ import { Languages, Menu, MoonStar, Sun, SunMoon, X } from "lucide-react";
 import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { DEMO_URL, HAS_LIVE_DEMO } from "@/lib/demo";
-import { publicSite } from "@/lib/api";
 import { GUIDES } from "@/lib/content/guides";
 import { SOLUTIONS } from "@/lib/content/solutions";
 import { cachedDeploymentMode, fetchDeploymentMode } from "@/lib/deploymentMode";
@@ -62,34 +61,15 @@ const NAV_LINKS = [
 // lives in the phone menu and the footer only, so the bar never overflows.
 const TRACK_LINK = ["/track", "track.nav", "hidden xl:inline"];
 
-// The stores directory joins the header as soon as one complete, listed
-// store exists (owner's call: one real example is worth showing). The footer
-// links it always (crawlers and the curious still find it).
-const STORES_NAV_MIN = 1;
+// The company-pages directory (a Django page on the same origin, never
+// language-prefixed) is linked from the footer only: until real customer
+// pages are listed it is a feature showcase, not navigation (owner,
+// 2026-09-29).
 const STORES_PATH = "/s/";
-
-function useStoresNav() {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    let cancelled = false;
-    publicSite
-      .showcase()
-      .then((response) => { if (!cancelled) setCount((response.data.sites || []).length); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
-  return count >= STORES_NAV_MIN;
-}
 
 export function MarketingHeader() {
   const { t, href } = useI18n();
-  const showStores = useStoresNav();
-  // The directory is a Django page on the same origin, not a Next route, so
-  // it is never language-prefixed.
-  const navLinks = [
-    ...NAV_LINKS, ...(showStores ? [[STORES_PATH, "landing.navStores"]] : []), TRACK_LINK,
-  ];
-  const navHref = (path) => (path === STORES_PATH ? path : href(path));
+  const navLinks = [...NAV_LINKS, TRACK_LINK];
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
 
@@ -131,14 +111,21 @@ export function MarketingHeader() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/80 backdrop-blur">
+      {/* First stop for the keyboard: straight past the header to the page. */}
+      <a
+        href="#content"
+        className="sr-only rounded-control bg-accent px-4 py-3 text-sm font-medium text-white shadow-card focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-50 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:ring-offset-2"
+      >
+        {t("landing.skipToContent")}
+      </a>
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-4 sm:px-6">
-        <Link href={href("/")} className="flex shrink-0 items-center gap-2 font-display text-lg font-bold tracking-tight">
+        <Link href={href("/")} className="flex min-h-11 shrink-0 items-center gap-2 font-display text-lg font-bold tracking-tight">
           <LogoMark size={32} decorative />
           <Wordmark />
         </Link>
         <nav className="hidden items-center gap-4 text-sm text-muted lg:flex xl:gap-6">
           {navLinks.map(([path, key, visibility]) => (
-            <a key={path} href={navHref(path)} className={`hover:text-ink ${visibility || ""}`}>{t(key)}</a>
+            <a key={path} href={href(path)} className={`hover:text-ink ${visibility || ""}`}>{t(key)}</a>
           ))}
         </nav>
         {/* Desktop: everything inline. Tablets use the phone menu — seven links
@@ -171,7 +158,7 @@ export function MarketingHeader() {
             {navLinks.map(([path, key]) => (
               <a
                 key={path}
-                href={navHref(path)}
+                href={href(path)}
                 onClick={() => setOpen(false)}
                 className="rounded-control px-2 py-3 text-ink hover:bg-surface"
               >
@@ -282,7 +269,7 @@ export function MarketingPage({ children }) {
     <SiteContactProvider>
       <div className="min-h-screen bg-paper text-ink">
         <MarketingHeader />
-        <main>{children}</main>
+        <main id="content" tabIndex={-1} className="focus:outline-none">{children}</main>
         <MarketingFooter />
         <WhatsAppFloat />
       </div>

@@ -4,7 +4,7 @@
 // /marketing is a real capture of the demo company (Arabic, light and dark),
 // so the copy next to it describes what the visitor is actually looking at.
 
-import { Fragment, useRef, useState, useSyncExternalStore } from "react";
+import { Fragment, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -17,8 +17,6 @@ import {
   DatabaseBackup,
   Languages,
   LifeBuoy,
-  Mail,
-  MessageCircle,
   Package,
   ShieldCheck,
   ShoppingCart,
@@ -33,9 +31,9 @@ import { useI18n } from "../../app/providers/I18nProvider";
 import Showcase from "@/components/landing/Showcase";
 import InstallCard from "@/components/sync/InstallCard";
 
-import { demoRequests } from "@/lib/api";
 import { MarketingFooter, MarketingHeader } from "@/components/marketing/Chrome";
-import { DirectWhatsAppLink, SiteContactProvider, WhatsAppFloat, useSiteContact } from "@/components/marketing/SiteContact";
+import { ContactChannels, SiteContactProvider, WhatsAppFloat } from "@/components/marketing/SiteContact";
+import DemoRequestForm from "@/components/marketing/DemoRequestForm";
 import PlanCards from "@/components/marketing/PlanCards";
 import Shot from "@/components/marketing/Shot";
 import BranchFlow from "@/components/marketing/BranchFlow";
@@ -336,9 +334,7 @@ function HowItWorks() {
 // response-time promise.
 function TrustSupport() {
   const { t } = useI18n();
-  const { email, whatsapp, whatsappHref } = useSiteContact();
   const points = t("home.backupPoints");
-  const linkClass = "inline-flex items-center gap-2 rounded-control border border-line bg-paper px-4 py-2 text-sm font-medium text-ink hover:border-accent";
   return (
     <section id="trust" className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 sm:pb-24">
       <div className="grid gap-5 md:grid-cols-2">
@@ -361,19 +357,10 @@ function TrustSupport() {
             <LifeBuoy size={20} aria-hidden="true" className="text-accent" />{t("home.supportTitle")}
           </h2>
           <p className="mt-4 text-sm">{t("home.supportBody")}</p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            {email && (
-              <a href={`mailto:${email}`} className={linkClass}>
-                <Mail size={15} aria-hidden="true" />{t("home.supportEmail")}: <bdi dir="ltr">{email}</bdi>
-              </a>
-            )}
-            {whatsappHref && (
-              <a href={whatsappHref} target="_blank" rel="noreferrer noopener" className={linkClass}>
-                <MessageCircle size={15} aria-hidden="true" />{t("home.supportWhatsApp")}: <bdi dir="ltr">{whatsapp}</bdi>
-              </a>
-            )}
-            <a href="#contact" className={linkClass}>{t("home.supportForm")}</a>
-          </div>
+          <a href="#contact" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-control bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-strong">
+            {t("home.supportForm")}
+          </a>
+          <ContactChannels lead={t("home.supportDirect")} className="mt-5" />
         </div>
       </div>
     </section>
@@ -390,9 +377,11 @@ function Faq() {
         <h2 className="text-center font-display text-2xl font-bold tracking-tight sm:text-3xl">{t("home.faqTitle")}</h2>
         <div className="mt-8 space-y-3">
           {items.map(([question, answer]) => (
-            <details key={question} className="group rounded-card border border-line bg-paper p-5">
-              <summary className="cursor-pointer list-none font-medium marker:content-none">{question}</summary>
-              <p className="mt-3 text-sm text-muted">{answer}</p>
+            // The padding is on the summary, so the whole card head is the
+            // tap target (44 px and up), not just the line of text.
+            <details key={question} className="group rounded-card border border-line bg-paper">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center rounded-card p-5 font-medium marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40">{question}</summary>
+              <p className="-mt-2 px-5 pb-5 text-sm text-muted">{answer}</p>
             </details>
           ))}
         </div>
@@ -441,32 +430,10 @@ function PricingPreview() {
   );
 }
 
-// Visible labels (not placeholder-only) so a field keeps its name once filled.
-const CONTACT_LABEL = "mb-1.5 block text-sm font-medium text-ink";
-const CONTACT_INPUT = "w-full rounded-control border border-line bg-paper px-3 py-3 text-ink outline-none placeholder:text-muted focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40";
-
+// The walkthrough request: the form itself (and its error handling) is
+// components/marketing/DemoRequestForm.jsx.
 function ContactCTA() {
-  const { t, href } = useI18n();
-  const [sent, setSent] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const requestId = useRef(null);
-  async function onSubmit(e) {
-    e.preventDefault();
-    if (busy) return;
-    const form = new FormData(e.currentTarget);
-    requestId.current ||= crypto.randomUUID();
-    setBusy(true); setError("");
-    try {
-      const res = await demoRequests.create({ request_uuid: requestId.current,
-        name: form.get("name"), phone: form.get("phone"), email: form.get("email"),
-        preferred_channel: form.get("preferred_channel") || "whatsapp",
-        message: form.get("message"), website: form.get("website") });
-      setSent(res.data.public_reference || res.data.reference);
-    } catch (err) { setError(t(err?.response?.status === 503 ? "improvements.contactUnavailable" : "improvements.contactError")); }
-    finally { setBusy(false); }
-  }
-
+  const { t } = useI18n();
   return (
     <section id="contact" className="mx-auto max-w-3xl px-4 py-16 sm:px-6 sm:py-24">
       <div className="rounded-card border border-line bg-surface p-6 shadow-card sm:p-10">
@@ -476,56 +443,7 @@ function ContactCTA() {
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-muted">{t("landing.ctaSubtitle")}</p>
         </div>
-        {sent ? (
-          <p className="mt-8 rounded-control bg-ok/10 px-4 py-6 text-center font-medium text-ok">
-            {t("landing.contactSent")}
-            <span className="mt-3 block text-sm">{t("track.referenceLabel")}</span>
-            <bdi dir="ltr" className="mt-1 block font-mono text-lg font-bold tracking-wide text-ink">{sent}</bdi>
-            <Link href={href("/track")} className="mt-3 inline-block text-sm text-accent hover:underline">{t("track.thankYouTrack")}</Link>
-          </p>
-        ) : (
-          <form onSubmit={onSubmit} className="mt-8 space-y-4">
-            <div className="hidden" aria-hidden="true"><input name="website" tabIndex={-1} autoComplete="off" /></div>
-            {error && <p role="alert" className="text-danger">{error}</p>}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block">
-                <span className={CONTACT_LABEL}>{t("landing.contactName")}</span>
-                <input required name="name" maxLength={255} autoComplete="name" className={CONTACT_INPUT} />
-              </label>
-              <label className="block">
-                <span className={CONTACT_LABEL}>{t("landing.contactPhone")}</span>
-                <input
-                  type="tel" name="phone" maxLength={32} required inputMode="tel" dir="ltr" autoComplete="tel"
-                  className={`${CONTACT_INPUT} text-start`}
-                />
-              </label>
-            </div>
-            <label className="block">
-              <span className={CONTACT_LABEL}>{t("landing.contactEmailOptional")}</span>
-              <input type="email" name="email" maxLength={254} dir="ltr" autoComplete="email" className={`${CONTACT_INPUT} text-start`} />
-            </label>
-            <fieldset className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-              <legend className="mb-2 font-medium text-ink">{t("landing.contactChannel")}</legend>
-              {["whatsapp", "call", "email"].map((channel) => (
-                <label key={channel} className="inline-flex cursor-pointer items-center gap-2">
-                  <input type="radio" name="preferred_channel" value={channel} defaultChecked={channel === "whatsapp"} className="accent-accent" />
-                  {t(`landing.channels.${channel}`)}
-                </label>
-              ))}
-            </fieldset>
-            <label className="block">
-              <span className={CONTACT_LABEL}>{t("landing.contactMessage")}</span>
-              <textarea rows={4} name="message" maxLength={4000} className={CONTACT_INPUT} />
-            </label>
-            <button
-              type="submit" disabled={busy}
-              className="w-full rounded-control bg-accent py-3 font-medium text-white hover:bg-accent-strong"
-            >
-              {busy ? t("improvements.contactSending") : t("landing.contactSend")}
-            </button>
-          </form>
-        )}
-        <DirectWhatsAppLink />
+        <DemoRequestForm />
       </div>
     </section>
   );
@@ -538,7 +456,7 @@ export default function LandingPage() {
     <SiteContactProvider>
       <div className="min-h-screen bg-paper text-ink">
         <MarketingHeader />
-        <main ref={mainRef}>
+        <main ref={mainRef} id="content" tabIndex={-1} className="focus:outline-none">
           <Hero />
           <TrustStrip />
           <Modules />

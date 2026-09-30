@@ -1,8 +1,11 @@
 "use client";
 
-// "Stores on Vezano": complete, listed customer pages, fetched at runtime
-// from the public showcase feed. Renders nothing until there is at least one,
-// so an empty platform never shows an empty strip.
+// "Company page examples": a showcase of the public company page every
+// subscription includes, built from the complete, listed pages in the public
+// showcase feed. A page the platform marks is_demo carries a "Demo" badge on
+// its card (owner, 2026-09-29: sample companies are never presented as
+// customers). Renders nothing until there is at least one page, so an empty
+// platform never shows an empty strip.
 import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
@@ -42,6 +45,11 @@ export default function Showcase() {
           {sites.slice(0, 8).map((site) => (
             <a key={site.url} href={site.path} className="group overflow-hidden rounded-card border border-line bg-paper shadow-card transition-transform hover:-translate-y-0.5">
               <div className="relative aspect-[16/9] bg-ink/90">
+                {site.is_demo && (
+                  <span className="absolute end-2 top-2 z-10 rounded-full border border-warn/40 bg-paper px-2.5 py-0.5 text-xs font-semibold text-ink shadow-card">
+                    {t("home.showcaseDemo")}<span className="sr-only">: {t("home.showcaseDemoLabel")}</span>
+                  </span>
+                )}
                 {site.cover && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={site.cover} alt="" loading="lazy" className="h-full w-full object-cover" />
@@ -52,11 +60,6 @@ export default function Showcase() {
                 )}
               </div>
               <div className="px-4 pb-4 pt-6">
-                {site.is_demo && (
-                  <p className="mb-1.5 inline-block rounded-full border border-warn/40 bg-warn/10 px-2 py-0.5 text-xs font-semibold text-ink">
-                    {t("home.showcaseDemo")}
-                  </p>
-                )}
                 <h3 className="font-display font-semibold group-hover:text-accent">{site.name}</h3>
                 {site.tagline && <p className="mt-1 line-clamp-2 text-sm text-muted">{site.tagline}</p>}
                 <div className="mt-2 flex flex-wrap gap-1.5 text-xs text-muted">
