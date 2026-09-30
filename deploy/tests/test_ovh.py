@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import pwd
+import subprocess
 import sys
 from types import SimpleNamespace
 import tarfile
@@ -92,6 +93,20 @@ class ArchiveTests(unittest.TestCase):
         self.write_archive([(".", tarfile.DIRTYPE, b""), ("./backend", tarfile.DIRTYPE, b""), ("./backend/manage.py", tarfile.REGTYPE, b"source")])
         controller.safe_extract(self.archive, self.destination)
         self.assertEqual((self.destination / "backend/manage.py").read_bytes(), b"source")
+
+    def test_backup_script_remains_executable_without_privileged_mode_bits(self):
+        source = Path(__file__).resolve().parents[1] / "standalone/backup.sh"
+        content = source.read_bytes()
+        with tarfile.open(self.archive, "w:gz") as archive:
+            info = tarfile.TarInfo("deploy/standalone/backup.sh")
+            info.size = len(content)
+            info.mode = 0o6777
+            archive.addfile(info, io.BytesIO(content))
+        controller.safe_extract(self.archive, self.destination)
+        script = self.destination / "deploy/standalone/backup.sh"
+        self.assertEqual(script.stat().st_mode & 0o7777, 0o755)
+        result = subprocess.run([str(script), "--help"], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_traversal_absolute_paths_links_and_devices_rejected_before_writes(self):
         for name, kind in (("../escape", tarfile.REGTYPE), ("/absolute", tarfile.REGTYPE), ("backend/link", tarfile.SYMTYPE), ("hardlink", tarfile.LNKTYPE), ("device", tarfile.CHRTYPE)):

@@ -66,7 +66,9 @@ def safe_extract(archive_path, destination):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 with archive.extractfile(member) as source, path.open("xb") as target:
                     shutil.copyfileobj(source, target)
-                path.chmod(0o644)
+                # Timers execute release scripts directly. Preserve executability
+                # without accepting setuid/setgid or writable archive modes.
+                path.chmod(0o755 if member.mode & 0o111 else 0o644)
 
 
 def copy_upload(incoming, sha, destination, expected_digest):
