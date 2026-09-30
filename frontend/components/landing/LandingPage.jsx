@@ -4,7 +4,7 @@
 // /marketing is a real capture of the demo company (Arabic, light and dark),
 // so the copy next to it describes what the visitor is actually looking at.
 
-import { Fragment, useRef, useSyncExternalStore } from "react";
+import { useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -37,8 +37,8 @@ import DemoRequestForm from "@/components/marketing/DemoRequestForm";
 import PlanCards from "@/components/marketing/PlanCards";
 import Shot from "@/components/marketing/Shot";
 import BranchFlow from "@/components/marketing/BranchFlow";
-import { HERO_ARM, HERO_GO } from "@/components/landing/heroScripts";
-import { headlineLines, heroTiming, revealStyle } from "@/lib/motion";
+import { HERO_ARM } from "@/components/landing/heroScripts";
+import { heroTiming, revealStyle } from "@/lib/motion";
 import { useRevealOnce } from "@/lib/useRevealOnce";
 
 // Icons for the module cards (home.modules[].key); the copy and the /product
@@ -56,11 +56,9 @@ const MODULE_ICONS = {
 
 const SUDAN_ICONS = [WifiOff, Smartphone, Languages, Banknote];
 
-const STORY_SHOTS = [
-  { light: "/marketing/pos.png", dark: "/marketing/pos-dark.png" },
-  { light: "/marketing/inventory.png", dark: "/marketing/inventory.png" },
-  { light: "/marketing/debts.png", dark: "/marketing/debts.png" },
-];
+// The screenshot beside each story (lib/marketingShots.js names).
+const STORY_SHOTS = ["pos", "inventory", "debts"];
+const HALF_WIDTH = "(min-width: 1152px) 524px, (min-width: 1024px) calc(50vw - 52px), (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)";
 
 // A card or block that fades up once as it scrolls into view. Visible in
 // the HTML; useRevealOnce (on <main>) arms it only if it is below the fold.
@@ -73,38 +71,33 @@ function Reveal({ children, index = 0, className = "" }) {
   );
 }
 
-// The headline, subtitle and buttons are plain HTML at first paint; the
-// entrance (masked lines, fades, the screenshot's clip) is CSS started by
-// the two inline scripts in heroScripts.js. See the "Public site motion"
-// block in app/globals.css.
+// The headline, subtitle and buttons are plain HTML at first paint. The
+// headline never moves; the short entrance of the other parts is CSS armed
+// by the inline script in heroScripts.js (the "Public site motion" block in
+// app/globals.css).
 const noSubscribe = () => () => {};
 
 function Hero() {
   const { t, href } = useI18n();
-  const lines = headlineLines(t("home.heroTitle"));
   // True in the exported HTML and while hydrating it, false on a
   // client-side render: the scripts only belong in the page as loaded (a
   // script React creates would never run anyway).
   const fromHtml = useSyncExternalStore(noSubscribe, () => false, () => true);
   return (
     <section className="relative overflow-hidden">
-      {fromHtml && <script dangerouslySetInnerHTML={{ __html: HERO_ARM }} />}
       <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-accent/10 via-transparent to-transparent" />
       <div className="pointer-events-none absolute start-1/2 top-24 -z-10 h-[480px] w-[900px] -translate-x-1/2 rounded-full bg-accent/10 blur-3xl" />
       <div className="mx-auto max-w-6xl px-4 pb-10 pt-14 sm:px-6 sm:pt-20">
         <div className="mx-auto max-w-3xl text-center">
-          <span className="hero-fade inline-flex items-center rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-muted" style={heroTiming("badge")}>
+          <span className="inline-flex items-center rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-muted">
             {t("home.heroBadge")}
           </span>
-          <h1 className="mt-5 font-display text-3xl font-bold leading-[1.2] tracking-tight sm:text-5xl">
-            {lines.map((line, index) => (
-              <Fragment key={line}>
-                {index > 0 && " "}
-                <span className="hero-mask"><span style={heroTiming("line", index)}>{line}</span></span>
-              </Fragment>
-            ))}
+          <h1 className="mt-5 text-balance font-display text-3xl font-bold leading-[1.2] tracking-tight sm:text-5xl">
+            {t("home.heroTitle")}
           </h1>
-          {fromHtml && <script dangerouslySetInnerHTML={{ __html: HERO_GO }} />}
+          {/* After the headline, so the first frame the browser paints while
+              it waits on this script already has the header, badge and h1. */}
+          {fromHtml && <script dangerouslySetInnerHTML={{ __html: HERO_ARM }} />}
           <p className="hero-fade mx-auto mt-5 max-w-2xl text-base text-muted sm:text-lg" style={heroTiming("subtitle")}>{t("home.heroSubtitle")}</p>
           <p className="hero-fade mx-auto mt-4 flex max-w-2xl items-start justify-center gap-2 text-sm text-ink/80" style={heroTiming("offline")}>
             <WifiOff size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-accent" />
@@ -125,7 +118,7 @@ function Hero() {
         </div>
         <div className="mx-auto mt-12 max-w-5xl">
           <div className="hero-shot" style={heroTiming("shot")}>
-            <Shot light="/marketing/dashboard.png" dark="/marketing/dashboard-dark.png" alt={t("home.heroCaption")} priority />
+            <Shot name="dashboard" alt={t("home.heroCaption")} priority sizes="(min-width: 1072px) 1022px, (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)" />
           </div>
           <p className="mt-3 text-center text-xs text-muted">{t("home.heroCaption")}</p>
         </div>
@@ -179,7 +172,7 @@ function Stories() {
                     ))}
                   </ul>
                 </div>
-                <Shot light={shot.light} dark={shot.dark} alt={story.title} />
+                <Shot name={shot} alt={story.title} sizes={HALF_WIDTH} />
               </div>
             </Reveal>
           );

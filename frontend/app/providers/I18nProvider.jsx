@@ -11,7 +11,7 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { DEFAULT_LANGUAGE, LANGUAGES, dirFor, translate } from "@/lib/i18n";
+import { DEFAULT_LANGUAGE, LANGUAGES, dirFor, translateFrom } from "@/lib/i18nCore";
 import { counterpartPath, localizePath, marketingLanguage } from "@/lib/locale";
 import { prefs } from "@/lib/api";
 
@@ -28,6 +28,17 @@ import { prefs } from "@/lib/api";
 // where a returning visitor lands.
 
 const I18nContext = createContext(null);
+
+// The strings themselves come from the nearest <I18nCatalog>: a route group's
+// layout provides its own (components/i18n/AppCatalog.jsx for the app,
+// PublicCatalog.jsx for the marketing pages), so a public page never loads
+// the app's dictionary. This provider, in the root layout, holds only the
+// language and theme.
+const CatalogContext = createContext(null);
+
+export function I18nCatalog({ catalog, children }) {
+  return <CatalogContext.Provider value={catalog}>{children}</CatalogContext.Provider>;
+}
 
 const LANG_KEY = "erp.language";
 const THEME_KEY = "erp.theme";
@@ -198,17 +209,11 @@ export function I18nProvider({ children }) {
     [routeLanguage]
   );
 
-  const t = useCallback(
-    (key, vars) => translate(language, key, vars),
-    [language]
-  );
-
   const value = useMemo(
     () => ({
       language,
       dir: dirFor(language),
       theme,
-      t,
       href,
       setLanguage,
       toggleLanguage,
@@ -216,7 +221,7 @@ export function I18nProvider({ children }) {
       cycleTheme,
       hydrateFromServer,
     }),
-    [language, theme, t, href, setLanguage, toggleLanguage, setTheme, cycleTheme, hydrateFromServer]
+    [language, theme, href, setLanguage, toggleLanguage, setTheme, cycleTheme, hydrateFromServer]
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
@@ -224,6 +229,9 @@ export function I18nProvider({ children }) {
 
 export function useI18n() {
   const ctx = useContext(I18nContext);
+  const catalog = useContext(CatalogContext);
   if (!ctx) throw new Error("useI18n must be used within I18nProvider");
-  return ctx;
+  const { language } = ctx;
+  const t = useCallback((key, vars) => translateFrom(catalog, language, key, vars), [catalog, language]);
+  return useMemo(() => ({ ...ctx, t }), [ctx, t]);
 }

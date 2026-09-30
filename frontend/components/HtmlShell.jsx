@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 
 import { I18nProvider } from "@/app/providers/I18nProvider";
-import { DEFAULT_LANGUAGE, dirFor } from "@/lib/i18n";
+import { DEFAULT_LANGUAGE, dirFor } from "@/lib/i18nCore";
 import { marketingLanguage } from "@/lib/locale";
 
 // The <html> element, rendered on the client side of the root layout so its

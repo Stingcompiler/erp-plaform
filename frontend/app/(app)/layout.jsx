@@ -1,5 +1,7 @@
 import { NOINDEX } from "@/lib/site";
 
+import AppCatalog from "@/components/i18n/AppCatalog";
+
 import AppLayoutClient from "./AppLayoutClient";
 
 // Every signed-in route lives under this group. The shell itself needs the
@@ -9,5 +11,5 @@ import AppLayoutClient from "./AppLayoutClient";
 export const metadata = { title: "مساحة العمل", robots: NOINDEX };
 
 export default function AppLayout({ children }) {
-  return <AppLayoutClient>{children}</AppLayoutClient>;
+  return <AppCatalog><AppLayoutClient>{children}</AppLayoutClient></AppCatalog>;
 }

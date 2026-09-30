@@ -19,8 +19,6 @@ export default function SolutionPage({ slug }) {
   const item = solution(slug);
   if (!item) return null;
   const copy = item[language];
-  const hasDark = ["pos", "dashboard", "store-page"].includes(item.shot);
-  const shot = { light: `/marketing/${item.shot}.png`, dark: `/marketing/${item.shot}${hasDark ? "-dark" : ""}.png` };
 
   return (
     <MarketingPage>
@@ -36,7 +34,7 @@ export default function SolutionPage({ slug }) {
               <Link href={href("/product")} className="rounded-control border border-line bg-surface px-6 py-3 text-center font-medium text-ink hover:border-accent">{t("landing.navFeatures")}</Link>
             </div>
           </div>
-          <Shot light={shot.light} dark={shot.dark} alt={copy.title} priority />
+          <Shot name={item.shot} alt={copy.title} priority sizes="(min-width: 1152px) 524px, (min-width: 1024px) calc(50vw - 52px), (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)" />
         </header>
 
         {/* The branches → head office diagram, drawn at rest here. */}

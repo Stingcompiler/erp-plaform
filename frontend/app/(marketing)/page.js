@@ -11,7 +11,7 @@ import { useI18n } from "@/app/providers/I18nProvider";
 
 import LandingPage from "@/components/landing/LandingPage";
 import JsonLd from "@/components/seo/JsonLd";
-import { homeFaqJsonLd } from "@/lib/seo";
+import { homeFaqJsonLd } from "@/lib/faqJsonLd";
 import { cachedDeploymentMode, fetchDeploymentMode } from "@/lib/deploymentMode";
 
 export default function Home() {

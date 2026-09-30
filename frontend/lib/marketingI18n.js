@@ -327,9 +327,11 @@ export const registerAr = {
 // company; the copy must describe what is in the picture.
 export const homeEn = {
   heroBadge: "For stores and companies with one branch or many · Arabic & English",
-  heroTitle: "One system that runs your business across every branch: sales, inventory, purchasing, customers, people and finance — and keeps working when the network drops.",
-  heroSubtitle: "Point of sale, multi-warehouse inventory, purchasing, CRM, HR and payroll, financial management and reports, with access set by role and branch — start with one branch and add more as you grow.",
-  heroOffline: "Without a connection, sales, customer payments, returns, stock counts and attendance carry on and sync when the network is back; signing in, fresh reports and settings need a connection.",
+  // One message (owner, 2026-09-29): the company and its branches, and
+  // selling through outages. The modules are the subtitle's job.
+  heroTitle: "Manage your company and branches together. Keep selling through outages.",
+  heroSubtitle: "Sales and POS, inventory, purchasing, customers, staff and payroll, financial management and reports in one system, with access by role and branch.",
+  heroOffline: "Without a connection, sales, payments, returns, counts and attendance carry on and sync later. Sign-in, fresh reports and settings need a connection.",
   heroPrimary: "Start free trial",
   heroSecondary: "See pricing",
   heroNote: "14-day trial · no card · activated the same day after review",
@@ -483,9 +485,9 @@ export const homeEn = {
 
 export const homeAr = {
   heroBadge: "للمتاجر والشركات بفرع أو عدة فروع · العربية والإنجليزية",
-  heroTitle: "نظام واحد يدير متجرك بكل فروعه: المبيعات والمخزون والمشتريات والعملاء والموظفون والمالية — ويستمر حتى مع انقطاع الشبكة.",
-  heroSubtitle: "نقطة بيع، ومخزون بمستودعات متعددة، ومشتريات، وإدارة علاقات العملاء، وموارد بشرية ورواتب، وإدارة مالية وتقارير، بصلاحيات لكل دور وفرع — ابدأ بفرع واحد وأضف الفروع حين تكبر.",
-  heroOffline: "بلا اتصال يستمر البيع وتحصيل الدفعات والمرتجعات والجرد وتسجيل الحضور، وتُزامَن عند عودة الشبكة؛ أما تسجيل الدخول والتقارير المحدّثة والإعدادات فتحتاج اتصالًا.",
+  heroTitle: "إدارة متكاملة لشركتك وفروعها. والبيع يستمر عند انقطاع الشبكة.",
+  heroSubtitle: "المبيعات ونقطة البيع والمخزون والمشتريات والعملاء والموظفون والرواتب والإدارة المالية والتقارير في نظام واحد، بصلاحيات لكل دور وفرع.",
+  heroOffline: "بلا اتصال يستمر البيع والتحصيل والمرتجعات والجرد والحضور، ثم تُزامَن. تسجيل الدخول والتقارير المحدّثة والإعدادات تحتاج اتصالًا.",
   heroPrimary: "ابدأ التجربة المجانية",
   heroSecondary: "شاهد الأسعار",
   heroNote: "تجربة 14 يومًا · بلا بطاقة · تفعيل في نفس اليوم بعد المراجعة",
@@ -917,4 +919,250 @@ export const trackAr = {
   privacy: "حفاظاً على خصوصيتك لا نعرض أرقام الهواتف ولا البريد ولا العناوين، ونعرض الأسماء بالأحرف الأولى.",
   thankYouTrack: "تابع حالته في أي وقت من صفحة التتبّع",
   referenceLabel: "رقم طلبك",
+};
+
+// ---- Public chrome, content pages, registration, install card -------------
+// The public pages' namespaces that used to sit in lib/i18n.js. They live
+// here so lib/publicI18n.js can build the public pages' catalog from this
+// file alone, without the app's dictionary; lib/i18n.js imports them too.
+
+export const landingEn = {
+  navFeatures: "Features",
+  navModules: "Modules",
+  navSolutions: "Solutions",
+  navGuides: "Guides",
+  navStores: "Company pages",
+  skipToContent: "Skip to content",
+  navPricing: "Pricing",
+  navContact: "Contact",
+  heroCtaDemo: "Try the live demo",
+  heroCtaTrial: "Start your free trial",
+  ctaTitle: "Ready to see it on your data?",
+  ctaSubtitle: "Leave your number and we'll set up a short walkthrough — 20 minutes on WhatsApp or a call — showing Vezano Pro on your own products and the way your business actually runs.",
+  contactPhone: "WhatsApp number",
+  whatsappFloat: "Chat on WhatsApp",
+  footerContact: "Contact",
+  contactEmail: "Work email",
+  contactChannel: "How should we reach you?",
+  channels: { whatsapp: "WhatsApp", call: "Phone call", email: "Email" },
+  contactName: "Your name",
+  contactMessage: "What would you like to solve?",
+  contactSend: "Request the walkthrough — it's free",
+  contactSent: "Got it. We'll contact you on the channel you chose to set a time.",
+  footerTagline: "Business management that grows with you.",
+  footerProduct: "Product",
+  footerSolutions: "Solutions",
+  footerLearn: "Learn",
+  footerCompany: "Company",
+  footerRights: "All rights reserved.",
+};
+
+export const landingAr = {
+  navFeatures: "المميزات",
+  navModules: "الوحدات",
+  navSolutions: "الحلول",
+  navGuides: "الأدلة",
+  navStores: "صفحات الشركات",
+  skipToContent: "تخطَّ إلى المحتوى",
+  navPricing: "الأسعار",
+  navContact: "تواصل",
+  heroCtaDemo: "جرّب النسخة التجريبية",
+  heroCtaTrial: "ابدأ تجربتك المجانية",
+  ctaTitle: "جاهز لرؤيته على بياناتك؟",
+  ctaSubtitle: "اترك رقمك وسنرتّب معك جولة قصيرة — 20 دقيقة على واتساب أو مكالمة — نعرض فيها فيزانو برو على أصنافك وطريقة عمل متجرك أو شركتك الفعلية.",
+  contactPhone: "رقم الواتساب",
+  whatsappFloat: "راسلنا على واتساب",
+  footerContact: "التواصل",
+  contactEmail: "بريد العمل",
+  contactChannel: "كيف نتواصل معك؟",
+  channels: { whatsapp: "واتساب", call: "مكالمة", email: "بريد" },
+  contactName: "اسمك",
+  contactMessage: "ما الذي تودّ حلّه؟",
+  contactSend: "اطلب الجولة — مجانًا",
+  contactSent: "وصلنا طلبك. سنتواصل معك عبر القناة التي اخترتها لتحديد الموعد.",
+  footerTagline: "إدارة أعمال تنمو معك.",
+  footerProduct: "المنتج",
+  footerSolutions: "الحلول",
+  footerLearn: "تعلّم",
+  footerCompany: "الشركة",
+  footerRights: "جميع الحقوق محفوظة.",
+};
+
+export const contentEn = {
+  solutionsEyebrow: "Solution",
+  guidesEyebrow: "Guide",
+  compareEyebrow: "Comparison",
+  minutes: "{minutes} min read",
+  published: "Published {date}",
+  faqTitle: "Common questions",
+  takeaway: "In short",
+  relatedSolution: "The part of Vezano Pro that does this",
+  moreSolutions: "More solutions",
+  moreGuides: "More guides",
+  allSolutions: "All solutions",
+  allGuides: "All guides",
+  startTrial: "Start your free trial",
+  seePricing: "See pricing",
+  breadcrumbHome: "Home",
+  comparisonNote: "Every cell describes what Vezano Pro does today; nothing here is a promise.",
+};
+
+export const contentAr = {
+  solutionsEyebrow: "حل",
+  guidesEyebrow: "دليل",
+  compareEyebrow: "مقارنة",
+  minutes: "قراءة {minutes} دقائق",
+  published: "نُشر {date}",
+  faqTitle: "أسئلة شائعة",
+  takeaway: "الخلاصة",
+  relatedSolution: "الجزء من فيزانو برو الذي يقوم بهذا",
+  moreSolutions: "حلول أخرى",
+  moreGuides: "أدلة أخرى",
+  allSolutions: "كل الحلول",
+  allGuides: "كل الأدلة",
+  startTrial: "ابدأ التجربة المجانية",
+  seePricing: "شاهد الأسعار",
+  breadcrumbHome: "الرئيسية",
+  comparisonNote: "كل خانة تصف ما يفعله فيزانو برو اليوم؛ لا شيء هنا وعد.",
+};
+
+export const registrationEn = {
+  trialLength: "{days}-day free trial, no card required. Your workspace becomes read-only when it ends until a plan is activated.",
+  companyName: "Company name",
+  contactName: "Contact name",
+  email: "Work email",
+  phone: "Phone with country code",
+  country: "Country code (for example SD)",
+  plan: "Select a plan",
+  estimatedUsers: "Estimated users",
+  estimatedBranches: "Estimated branches",
+  message: "What do you need to manage? (optional)",
+  privacy: "By sending this request, you agree that Vezano Pro may use these details to respond to your registration request.",
+  submit: "Request company trial",
+  sending: "Sending request…",
+  publicError: "We could not save your request. Please check the details and try again.",
+};
+
+export const registrationAr = {
+  trialLength: "تجربة مجانية لمدة {days} يومًا بلا بطاقة. عند انتهائها تصبح مساحة العمل للقراءة فقط حتى تفعيل خطة.",
+  companyName: "اسم الشركة",
+  contactName: "اسم جهة الاتصال",
+  email: "بريد العمل",
+  phone: "الهاتف مع رمز الدولة",
+  country: "رمز الدولة، مثل SD",
+  plan: "اختر الباقة",
+  estimatedUsers: "عدد المستخدمين المتوقع",
+  estimatedBranches: "عدد الفروع المتوقع",
+  message: "ما الذي تحتاج إلى إدارته؟ اختياري",
+  privacy: "بإرسال الطلب، توافق على استخدام فيزانو برو لهذه البيانات للرد على طلب التسجيل.",
+  submit: "اطلب تجربة للشركة",
+  sending: "جارٍ إرسال الطلب…",
+  publicError: "تعذر حفظ طلبك. راجع البيانات وحاول مرة أخرى.",
+};
+
+export const installEn = {
+  button: "Install on this device",
+  cardTitle: "Install Vezano Pro as an app",
+  cardBody: "Opens from your home screen and keeps working when the connection drops.",
+  installed: "Installed as an app on this device",
+  notInstalled: "Running in a browser tab",
+  manualHint: "To install: Safari — Share → Add to Home Screen; Firefox — the browser menu → Install.",
+  route: {
+    chromium: "To install: the install icon in the address bar, or the browser menu → Install app.",
+    "safari-ios": "To install: Share → Add to Home Screen.",
+    "safari-mac": "To install: File → Add to Dock.",
+    "firefox-android": "To install: the browser menu → Add app to Home screen.",
+    "firefox-desktop": "Firefox on a computer cannot install web apps (Mozilla removed that in 2021). Offline sales still work in this tab; to install as an app, open Vezano Pro in Chrome, Edge or Safari.",
+    unknown: "This browser offers no install option; offline sales still work in this tab.",
+  },
+  storageDurable: "Local storage is protected — queued sales will not be evicted by the browser.",
+  storageBestEffort: "Local storage is not protected — the browser may clear queued sales if space runs low. Installing the app fixes this.",
+  storageUnknown: "Checking local storage…",
+  storageLow: "This device is nearly out of storage — free space before working offline, or queued sales may fail to save.",
+};
+
+export const installAr = {
+  button: "تثبيت على هذا الجهاز",
+  cardTitle: "ثبّت فيزانو برو كتطبيق",
+  cardBody: "يُفتح من الشاشة الرئيسية ويواصل العمل عند انقطاع الاتصال.",
+  installed: "مثبَّت كتطبيق على هذا الجهاز",
+  notInstalled: "يعمل داخل تبويب المتصفح",
+  manualHint: "للتثبيت: في Safari — مشاركة ← إضافة إلى الشاشة الرئيسية؛ في Firefox — قائمة المتصفح ← تثبيت.",
+  route: {
+    chromium: "للتثبيت: أيقونة التثبيت في شريط العنوان، أو قائمة المتصفح ← تثبيت التطبيق.",
+    "safari-ios": "للتثبيت: مشاركة ← إضافة إلى الشاشة الرئيسية.",
+    "safari-mac": "للتثبيت: ملف ← إضافة إلى Dock.",
+    "firefox-android": "للتثبيت: قائمة المتصفح ← إضافة التطبيق إلى الشاشة الرئيسية.",
+    "firefox-desktop": "Firefox على الحاسوب لا يثبّت تطبيقات الويب (أزالت Mozilla هذه الميزة عام 2021). البيع دون اتصال يعمل في هذا التبويب؛ للتثبيت كتطبيق افتح فيزانو برو في Chrome أو Edge أو Safari.",
+    unknown: "هذا المتصفح لا يوفّر خيار تثبيت؛ البيع دون اتصال يعمل في هذا التبويب.",
+  },
+  storageDurable: "التخزين المحلي محمي — لن يحذف المتصفح المبيعات المعلّقة.",
+  storageBestEffort: "التخزين المحلي غير محمي — قد يحذف المتصفح المبيعات المعلّقة عند امتلاء المساحة. تثبيت التطبيق يعالج ذلك.",
+  storageUnknown: "جارٍ فحص التخزين المحلي…",
+  storageLow: "مساحة التخزين على هذا الجهاز شبه ممتلئة — أفرغ مساحة قبل العمل دون اتصال، وإلا قد يفشل حفظ المبيعات المعلّقة.",
+};
+
+// Strings the public pages share with the app. lib/i18n.js spreads each group
+// into its namespace (common, shell, nav, platformPlans, improvements), so a
+// key keeps one text; the public catalog takes the groups as they are.
+export const sharedEn = {
+  common: {
+    appName: "Vezano Pro",
+    close: "Close",
+    signIn: "Sign in",
+  },
+  shell: {
+    theme: "Theme",
+    switchLanguage: "Switch language",
+    menu: "Menu",
+  },
+  nav: {
+    dashboard: "Dashboard",
+  },
+  platformPlans: {
+    allModules: "All modules (everything, including future ones)",
+    moduleNames: {
+      inventory: "Inventory", sales: "Sales & POS", purchasing: "Purchasing",
+      sales_returns: "Sales returns", purchase_returns: "Purchase returns",
+      crm: "CRM", hr: "HR", finance: "Finance", reports: "Reports",
+      website: "Public company page", org: "Branches & organization", users: "Users & roles",
+      settings: "Settings",
+    },
+  },
+  improvements: {
+    contactError: "Your request was not saved. Please try again.",
+    contactSending: "Saving your request…",
+    contactUnavailable: "Demo requests are not configured yet. Please try again later.",
+  },
+};
+
+export const sharedAr = {
+  common: {
+    appName: "فيزانو برو",
+    close: "إغلاق",
+    signIn: "تسجيل الدخول",
+  },
+  shell: {
+    theme: "المظهر",
+    switchLanguage: "تغيير اللغة",
+    menu: "القائمة",
+  },
+  nav: {
+    dashboard: "لوحة التحكم",
+  },
+  platformPlans: {
+    allModules: "كل الوحدات (بما فيها ما يُضاف مستقبلًا)",
+    moduleNames: {
+      inventory: "المخزون", sales: "المبيعات ونقطة البيع", purchasing: "المشتريات",
+      sales_returns: "مرتجعات المبيعات", purchase_returns: "مرتجعات المشتريات",
+      crm: "إدارة العملاء", hr: "الموارد البشرية", finance: "المالية", reports: "التقارير",
+      website: "الصفحة العامة للشركة", org: "الفروع والهيكل", users: "المستخدمون والأدوار",
+      settings: "الإعدادات",
+    },
+  },
+  improvements: {
+    contactError: "لم يُحفظ طلبك. أعد المحاولة.",
+    contactSending: "جارٍ حفظ الطلب…",
+    contactUnavailable: "استقبال طلبات العرض غير مُعدّ حاليًا. حاول لاحقًا.",
+  },
 };

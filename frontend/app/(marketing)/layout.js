@@ -1,10 +1,12 @@
+import PublicCatalog from "@/components/i18n/PublicCatalog";
 import { marketingMetadata } from "@/lib/marketingMeta";
 
 // The public pages, Arabic at the root and English under /en/. This layout
 // carries the Arabic home metadata (app/page.js is a client component and
-// cannot export any); every other page overrides it in its own layout.
+// cannot export any); every other page overrides it in its own layout. The
+// strings are the public catalog (lib/publicI18n.js), not the app's.
 export const metadata = marketingMetadata("/", "ar");
 
 export default function MarketingLayout({ children }) {
-  return children;
+  return <PublicCatalog>{children}</PublicCatalog>;
 }

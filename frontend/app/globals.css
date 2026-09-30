@@ -310,29 +310,18 @@ body {
    page is simply there. Timings come from lib/motion.js as --hero-delay /
    --hero-dur on each part. */
 
-/* Hero headline: each line (a phrase, lib/motion.js headlineLines) is a
-   mask; its text rises from below the mask's edge. The mask is a clip-path
-   reaching a little past the line box, so Arabic marks above and below the
-   line are never cut, and nothing about the layout changes. */
-.hero-mask { display: block; }
-.hero-mask > span { display: block; text-wrap: balance; }
-.motion-ok:not(.hero-done) .hero-mask { clip-path: inset(-0.4em -1em -0.3em -1em); }
-.motion-ok:not(.hero-done) .hero-mask > span { transform: translateY(calc(100% + 0.8em)); }
-.motion-ok:not(.hero-done) .hero-fade { opacity: 0; transform: translateY(10px); }
-.motion-ok:not(.hero-done) .hero-shot { clip-path: inset(10% 12% 10% 12% round 18px); transform: scale(0.97); }
-
-.motion-ok.hero-go:not(.hero-done) .hero-mask > span {
-  animation: hero-rise var(--hero-dur) var(--motion-ease) var(--hero-delay) both;
-}
-.motion-ok.hero-go:not(.hero-done) .hero-fade {
+/* Home hero (lib/motion.js HERO): the <h1> has no motion rule at all — it
+   is whole in the first painted frame. The other parts start dimmed (never
+   hidden: HERO_START_OPACITY) and a few pixels low, the screenshot a hair
+   smaller, and settle at once; nothing waits for a font. */
+.motion-ok:not(.hero-done) .hero-fade {
   animation: hero-fade var(--hero-dur) var(--motion-ease) var(--hero-delay) both;
 }
-.motion-ok.hero-go:not(.hero-done) .hero-shot {
-  animation: hero-open var(--hero-dur) var(--motion-ease) var(--hero-delay) both;
+.motion-ok:not(.hero-done) .hero-shot {
+  animation: hero-settle var(--hero-dur) var(--motion-ease) var(--hero-delay) both;
 }
-@keyframes hero-rise { to { transform: translateY(0); } }
-@keyframes hero-fade { to { opacity: 1; transform: translateY(0); } }
-@keyframes hero-open { to { clip-path: inset(0 0 0 0 round 18px); transform: scale(1); } }
+@keyframes hero-fade { from { opacity: 0.4; transform: translateY(8px); } }
+@keyframes hero-settle { from { opacity: 0.4; transform: scale(0.985); } }
 
 /* Section cards (lib/useRevealOnce.js): armed only below the fold. */
 .mk-reveal[data-reveal-state="armed"] { opacity: 0; transform: translateY(12px); }
@@ -352,7 +341,6 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .motion-ok .hero-mask > span,
   .motion-ok .hero-fade,
   .motion-ok .hero-shot,
   .mk-reveal[data-reveal-state],
@@ -366,7 +354,6 @@ body {
   }
 }
 @media print {
-  .motion-ok .hero-mask > span,
   .motion-ok .hero-fade,
   .motion-ok .hero-shot,
   .mk-reveal[data-reveal-state] {
