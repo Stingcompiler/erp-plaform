@@ -4,7 +4,7 @@
 // tags, analytics id, default share image, extra robots lines) and a table
 // of per-path overrides (title, description, noindex, canonical). Django
 // applies both while serving the public pages, so a save is live at once.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ExternalLink, Eye, EyeOff, Globe, Lock, MessageCircle, Pencil, Plus, SearchCheck, Trash2 } from "lucide-react";
 
 import { useAuth } from "../../providers/AuthProvider";
@@ -16,6 +16,10 @@ import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/compone
 import { errorText } from "@/lib/errors";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { SkeletonCard } from "@/components/ui/Skeleton";
+import TabBar from "@/components/ui/TabBar";
+import SeoHealthPanel from "@/components/platform/SeoHealthPanel";
+import { useHashTab } from "@/lib/useHashTab";
+import { overrideDraftFor } from "@/lib/seoHealth";
 
 const SETTINGS_FIELDS = ["google_site_verification", "bing_site_verification", "analytics_id", "robots_extra", "support_whatsapp", "support_phone", "support_email"];
 const EMPTY_OVERRIDE = { path: "/", language: "both", title: "", description: "", noindex: false, canonical: "" };
@@ -71,6 +75,9 @@ export default function PlatformSeoPage() {
   const [editing, setEditing] = useState(null); // null | "new" | id
   const [draft, setDraft] = useState(EMPTY_OVERRIDE);
   const [showPreview, setShowPreview] = useState(false);
+  const [tab, setTab] = useHashTab(["settings", "health"]);
+  const overridesRef = useRef(null);
+  const [scrollToForm, setScrollToForm] = useState(false);
 
   const load = useCallback(async () => {
     if (!canView) { setLoading(false); return; }
@@ -129,6 +136,25 @@ export default function PlatformSeoPage() {
     setError("");
   };
   const cancelEdit = () => { setEditing(null); setDraft(EMPTY_OVERRIDE); };
+
+  // From a health finding: edit the override that already applies to the
+  // page, or start a new one for exactly that path and language edition.
+  const overrideFromHealth = (row) => {
+    const { id, draft: prefill } = overrideDraftFor(row);
+    const existing = id != null && overrides.find((item) => item.id === id);
+    if (existing) startEdit(existing);
+    else {
+      startEdit(null);
+      setDraft(prefill || { ...EMPTY_OVERRIDE, path: row.path, language: row.language });
+    }
+    setTab("settings");
+    setScrollToForm(true);
+  };
+  useEffect(() => {
+    if (!scrollToForm || tab !== "settings") return;
+    setScrollToForm(false);
+    overridesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [scrollToForm, tab]);
 
   const submitOverride = async (event) => {
     event.preventDefault();
@@ -227,7 +253,18 @@ export default function PlatformSeoPage() {
         <p className="mb-4 rounded-control border border-line bg-surface p-3 text-sm text-muted">{t("platformSeo.readOnlyNotice")}</p>
       )}
 
-      {loading || !form ? (
+      <TabBar
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { id: "settings", label: t("platformSeo.tabSettings") },
+          { id: "health", label: t("platformSeo.tabHealth") },
+        ]}
+      />
+
+      {tab === "health" ? (
+        <SeoHealthPanel canManage={canManage} onOverride={overrideFromHealth} />
+      ) : loading || !form ? (
         <SkeletonCard />
       ) : (
         <>
@@ -302,6 +339,7 @@ export default function PlatformSeoPage() {
             </div>
           </Card>
 
+          <div ref={overridesRef} className="scroll-mt-20">
           <Card className="p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
@@ -363,6 +401,7 @@ export default function PlatformSeoPage() {
               </div>
             )}
           </Card>
+          </div>
         </>
       )}
     </div>
