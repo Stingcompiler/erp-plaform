@@ -975,6 +975,8 @@ export const landingEn = {
   footerLearn: "Learn",
   footerCompany: "Company",
   footerRights: "All rights reserved.",
+  footerPoweredBy: "Powered by",
+  footerStudio: "Sting System",
 };
 
 export const landingAr = {
@@ -1004,6 +1006,8 @@ export const landingAr = {
   footerLearn: "تعلّم",
   footerCompany: "الشركة",
   footerRights: "جميع الحقوق محفوظة.",
+  footerPoweredBy: "مدعوم من",
+  footerStudio: "ستينج سيستم",
 };
 
 export const contentEn = {
