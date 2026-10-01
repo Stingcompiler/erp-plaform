@@ -9,12 +9,14 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 from django.http import Http404
-from django.test import RequestFactory, SimpleTestCase
+from django.test import RequestFactory, SimpleTestCase, TestCase
 
 from core import frontend
 
 
-class FrontendPathContainmentTests(SimpleTestCase):
+# TestCase, not SimpleTestCase: serving now consults the SEO redirect map
+# (phase C), which reads the database on a cold cache.
+class FrontendPathContainmentTests(TestCase):
     def setUp(self):
         self.tmp = TemporaryDirectory()
         root = Path(self.tmp.name)

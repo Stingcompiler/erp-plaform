@@ -5,7 +5,7 @@ from website.public_pages import public_showcase
 from website.analytics_views import CompanyVisitsView, PlatformAnalyticsOverview, PlatformFunnelView
 from website.seo_views import (
     PricingDisplayView, PublicPricingDisplayView, PublicSiteContactView, SeoOgImageView,
-    SeoHealthView, SeoPageOverrideViewSet, SeoSettingsView,
+    SeoHealthView, SeoPageOverrideViewSet, SeoRedirectViewSet, SeoSettingsView,
 )
 from website.views import (
     FeaturedProductViewSet,
@@ -41,6 +41,9 @@ router.register(
 )
 router.register(
     "platform/seo/overrides", SeoPageOverrideViewSet, basename="platform-seo-override"
+)
+router.register(
+    "platform/seo/redirects", SeoRedirectViewSet, basename="platform-seo-redirect"
 )
 
 urlpatterns = [

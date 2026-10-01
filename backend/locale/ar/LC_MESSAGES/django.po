@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-01 12:58+0000\n"
+"POT-Creation-Date: 2026-10-01 15:52+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2361,6 +2361,65 @@ msgstr "%(name)s لم يعد متاحًا في قائمة المنتجات. اح
 msgid "Give the reason for rejecting; the customer sees it."
 msgstr "اذكر سبب الرفض؛ سيراه العميل."
 
+msgid "Enter the old path, such as /old-page or /en/old-page."
+msgstr "أدخل المسار القديم، مثل /old-page أو /en/old-page."
+
+msgid "The old address must be on this site; enter only its path."
+msgstr "يجب أن يكون العنوان القديم على هذا الموقع؛ أدخل مساره فقط."
+
+msgid "The old path cannot carry a query (?) or a fragment (#)."
+msgstr "لا يمكن أن يحمل المسار القديم استعلامًا (?) أو جزءًا (#)."
+
+msgid "The path contains characters a URL cannot carry."
+msgstr "يحتوي المسار على أحرف لا يقبلها الرابط."
+
+msgid "The path is too long."
+msgstr "المسار طويل جدًا."
+
+msgid "Enter where the old path should go."
+msgstr "أدخل الوجهة التي يذهب إليها المسار القديم."
+
+msgid "The new address is too long."
+msgstr "العنوان الجديد طويل جدًا."
+
+msgid "The new address contains characters a URL cannot carry."
+msgstr "يحتوي العنوان الجديد على أحرف لا يقبلها الرابط."
+
+msgid "Start an address on this site with a single /."
+msgstr "ابدأ عنوانًا على هذا الموقع بشرطة / واحدة."
+
+msgid "Use a path starting with / or a full https:// address."
+msgstr "استخدم مسارًا يبدأ بـ / أو عنوانًا كاملًا يبدأ بـ https://."
+
+msgid "The new address cannot carry a user name or password."
+msgstr "لا يمكن أن يحمل العنوان الجديد اسم مستخدم أو كلمة مرور."
+
+msgid ""
+"This address is on another site. Tick “allow another site” if that is "
+"intended."
+msgstr "هذا العنوان على موقع آخر. فعّل «السماح بموقع آخر» إن كان ذلك مقصودًا."
+
+msgid ""
+"This path belongs to the app, the API or the site's files and cannot be "
+"redirected."
+msgstr "هذا المسار تابع للتطبيق أو الواجهة البرمجية أو ملفات الموقع، ولا يمكن تحويله."
+
+msgid "This path is a page of the signed-in app and cannot be redirected."
+msgstr "هذا المسار صفحة من التطبيق بعد تسجيل الدخول، ولا يمكن تحويله."
+
+msgid "Use 301 (permanent) or 302 (temporary)."
+msgstr "استخدم 301 (دائم) أو 302 (مؤقت)."
+
+msgid "The new address is the old path itself."
+msgstr "العنوان الجديد هو المسار القديم نفسه."
+
+msgid "The new address is itself redirected; point straight to its final page."
+msgstr "العنوان الجديد محوَّل بدوره؛ وجّه مباشرة إلى صفحته النهائية."
+
+msgid ""
+"Another redirect lands on this path; redirecting it too would make a chain."
+msgstr "يوجد تحويل آخر ينتهي إلى هذا المسار؛ تحويله أيضًا يصنع سلسلة تحويلات."
+
 msgid "Use the measurement id as Google shows it, such as G-XXXXXXXXXX."
 msgstr "أدخل معرّف القياس كما يظهر في Google، مثل G-XXXXXXXXXX."
 
@@ -2378,6 +2437,32 @@ msgstr "يوجد تخصيص مسبق لهذا المسار وهذه اللغة."
 
 msgid "Only the team members who manage SEO can refresh the check."
 msgstr "إعادة الفحص متاحة فقط لأعضاء الفريق الذين يديرون إعدادات SEO."
+
+msgid "There is already a redirect for this path."
+msgstr "يوجد تحويل مسبق لهذا المسار."
+
+#, python-format
+msgid "Import at most %(count)s redirects at a time."
+msgstr "استورد %(count)s تحويل كحد أقصى في المرة الواحدة."
+
+#, python-format
+msgid "This path is already earlier in the file (line %(line)s)."
+msgstr "هذا المسار مذكور سابقًا في الملف (السطر %(line)s)."
+
+msgid "Enter a path or an address on this site."
+msgstr "أدخل مسارًا أو عنوانًا على هذا الموقع."
+
+msgid "The file is too large."
+msgstr "الملف كبير جدًا."
+
+msgid "Save the file as UTF-8 CSV."
+msgstr "احفظ الملف بصيغة CSV بترميز UTF-8."
+
+msgid "The file has no redirect lines."
+msgstr "لا يحتوي الملف على أي سطر تحويل."
+
+msgid "Imported from CSV"
+msgstr "مستورد من ملف CSV"
 
 msgid "Keep each service under 60 characters."
 msgstr "اجعل كل خدمة أقل من 60 حرفًا."

@@ -91,6 +91,14 @@ def _serve_file(candidate, clean, status=200):
 
 
 def serve_frontend(request, path=""):
+    # The platform team's redirects (website.redirects) answer first, so an
+    # old page that still exists in the export can be moved too. Protected
+    # paths (assets, the app, robots/sitemap/sw.js) are never redirected.
+    from website.redirects import redirect_response
+
+    redirected = redirect_response(request)
+    if redirected is not None:
+        return redirected
     clean = path.strip("/")
     # Next's client router fetches each page's RSC payload from
     # <page>/index.txt. When a session from the PREVIOUS deploy navigates

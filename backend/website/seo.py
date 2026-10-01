@@ -4,7 +4,8 @@ Every served page asks for this, so the rows are read once and kept in the
 shared cache for a minute (core.seo_inject does the rewriting; this module
 only fetches). Saving a setting or an override clears the entry, so the
 team sees its change on the next request and everyone else within a
-minute. A missing table (an instance served before its migration ran) is
+minute. The active redirects (website.redirects) ride in the same entry.
+A missing table (an instance served before its migration ran) is
 treated as "nothing set" rather than a broken site.
 """
 import logging
@@ -57,7 +58,14 @@ def _load():
         )
         for row in SeoPageOverride.objects.all()
     }
-    return {"site": site, "pages": pages, "pricing": pricing}
+    from website.redirects import load_map, protected_prefixes
+
+    return {
+        "site": site, "pages": pages, "pricing": pricing,
+        # Active redirects by source path, and the prefixes they may never
+        # cover (website.redirects); read here so a request costs one cache get.
+        "redirects": load_map(), "redirect_guard": protected_prefixes(),
+    }
 
 
 # What /pricing renders when nothing is saved (and what the static export
@@ -91,7 +99,10 @@ def seo_state():
             state = _load()
         except DatabaseError:
             log.warning("SEO settings unavailable; serving pages untouched", exc_info=True)
-            return {"site": SiteSeo(), "pages": {}, "pricing": dict(PRICING_DISPLAY_DEFAULTS)}
+            return {
+                "site": SiteSeo(), "pages": {}, "pricing": dict(PRICING_DISPLAY_DEFAULTS),
+                "redirects": {},
+            }
         cache.set(CACHE_KEY, state, CACHE_SECONDS)
     return state
 

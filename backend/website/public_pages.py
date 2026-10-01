@@ -32,6 +32,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 
 from org.models import Company
 from website.models import Website, normalize_seo_path, service_lines
+from website.redirects import follow_redirects, redirect_response
 from core.public_media import stored_public_url
 from core.seo_inject import analytics_snippet
 from website.seo import page_seo, site_seo
@@ -364,6 +365,7 @@ def render_site(request, site, *, preview=False):
     return response
 
 
+@follow_redirects
 @require_GET
 @cache_control(public=True, max_age=CACHE_SECONDS)
 def public_site_page(request, slug):
@@ -485,6 +487,7 @@ def public_sites_sitemap(request):
     return response
 
 
+@follow_redirects
 @require_GET
 def public_pay_page(request, slug):
     """/s/<slug>/pay/?ref=… — where a visitor declares a bank transfer for
@@ -533,6 +536,7 @@ def _private(response):
     return response
 
 
+@follow_redirects
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 def public_track_page(request, slug):
@@ -569,6 +573,7 @@ def public_track_page(request, slug):
     return _private(render(request, "website/public_track.html", context))
 
 
+@follow_redirects
 @require_GET
 def public_track_order_page(request, slug, token):
     """/s/<slug>/track/<token>/ — the customer's private link to one order."""
@@ -600,3 +605,13 @@ def public_track_order_page(request, slug, token):
         request, "website/public_track.html", context, status=200 if order else 404
     )
     return _private(response)
+
+
+@csrf_exempt
+def public_site_fallback(request, rest):
+    """Any other /s/… address: a redirect the team saved for it (an old
+    shop path, a renamed slug's subpage), or the ordinary 404."""
+    response = redirect_response(request)
+    if response is not None:
+        return response
+    raise Http404
