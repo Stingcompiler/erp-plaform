@@ -53,6 +53,7 @@ function describeHistory(row, t) {
   if (row.action === "unarchive") return t("users.detail.events.reactivated");
   if (row.action === "password_reset_by_admin") return t("users.detail.events.passwordResetByAdmin");
   if (row.action === "password_changed") return t("users.detail.events.passwordChanged");
+  if (row.action === "password_reset_code_by_admin") return t("users.detail.events.passwordResetCodeByAdmin");
   const changes = m.changes && typeof m.changes === "object" ? m.changes : {};
   const active = changes.is_active?.after;
   if (active === "True" || active === true) return t("users.detail.events.reactivated");

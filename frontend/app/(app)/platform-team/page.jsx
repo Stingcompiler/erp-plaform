@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Copy, KeyRound, Lock, ShieldCheck, UserPlus } from "lucide-react";
+import { CheckCircle2, Copy, KeyRound, Lock, MailCheck, Send, ShieldCheck, UserPlus } from "lucide-react";
 
 import { useAuth } from "../../providers/AuthProvider";
 import { useI18n } from "../../providers/I18nProvider";
@@ -27,6 +27,8 @@ export default function PlatformTeamPage() {
   const [saving, setSaving] = useState(null);
   const [error, setError] = useState("");
   const [invite, setInvite] = useState(null);
+  // "A reset code was sent to …": the answer never carries the code.
+  const [codeSent, setCodeSent] = useState("");
   const [form, setForm] = useState({ email: "", full_name: "", role: DEFAULT_ROLE });
 
   const load = useCallback(async () => {
@@ -73,8 +75,13 @@ export default function PlatformTeamPage() {
   const run = async (row, action, arg) => {
     setSaving(`${action}-${row.id}`);
     setError("");
+    setCodeSent("");
     try {
       const response = await platformTeam[action](row.id, arg);
+      if (action === "sendResetCode") {
+        setCodeSent(response.data.email_masked || row.email);
+        return;
+      }
       if (response.data.invitation_token) {
         setInvite({ email: response.data.email, emailSent: !!response.data.invitation_email_sent, link: activationLink(response.data.invitation_token) });
       }
@@ -116,6 +123,12 @@ export default function PlatformTeamPage() {
         actions={<Badge tone="accent">{t("platformTeam.count", { count: rows.length })}</Badge>}
       />
       {error && <p role="alert" className="mb-4 rounded-control bg-danger/10 p-3 text-sm text-danger">{error}</p>}
+      {codeSent && (
+        <p role="status" className="enter-rise mb-4 flex items-start gap-2 rounded-control bg-ok/10 p-3 text-sm text-ok">
+          <MailCheck size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>{t("platformTeam.resetCodeSent", { email: codeSent })}</span>
+        </p>
+      )}
 
       {invite && (
         <Card className="mb-5 border-accent/30 p-5">
@@ -214,6 +227,11 @@ export default function PlatformTeamPage() {
                     {row.is_active && !row.activated && (
                       <Button variant="outline" disabled={saving === `reissue-${row.id}`} onClick={() => run(row, "reissue")}>
                         <KeyRound size={15} />{t("platformTeam.reissue")}
+                      </Button>
+                    )}
+                    {!isMe && row.is_active && row.activated && (
+                      <Button variant="outline" disabled={saving === `sendResetCode-${row.id}`} onClick={() => run(row, "sendResetCode")}>
+                        <Send size={15} />{t("platformTeam.sendResetCode")}
                       </Button>
                     )}
                     {!isMe && row.is_active && (

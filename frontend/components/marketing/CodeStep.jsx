@@ -27,6 +27,7 @@ export function codeErrorText(t, error) {
 
 export default function CodeStep({
   title, sentText, onVerify, onResend, resendAfter = 60, onBack, backLabel, children,
+  className = "bg-paper",
 }) {
   const { t } = useI18n();
   const id = useId();
@@ -98,7 +99,7 @@ export default function CodeStep({
   const dead = error && (error.code === "code_expired" || error.code === "too_many_attempts");
 
   return (
-    <div className="enter-rise rounded-card border border-line bg-paper p-6 shadow-card sm:p-8">
+    <div className={`enter-rise rounded-card border border-line p-6 shadow-card sm:p-8 ${className}`}>
       <div className="flex items-start gap-3">
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-accent/10 text-accent">
           <MailCheck size={22} aria-hidden="true" />

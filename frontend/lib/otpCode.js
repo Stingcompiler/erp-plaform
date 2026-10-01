@@ -1,5 +1,6 @@
-// The email-code steps of the trial form and of vezano.app/track/ (backend:
-// website/otp.py, trial_requests.py, request_tracking.py). Pure helpers, so
+// The email-code steps of the trial form, vezano.app/track/ and password
+// reset (backend: core/otp.py, website/trial_requests.py,
+// website/request_tracking.py, accounts/password_reset.py). Pure helpers, so
 // node tests them (tests/otpCode.test.mjs); the UI is
 // components/marketing/CodeStep.jsx.
 
@@ -36,6 +37,8 @@ export function formatCountdown(seconds) {
 const KNOWN = new Set([
   "code_expired", "wrong_code", "too_many_attempts", "resend_cooldown", "too_many_codes",
   "email_unavailable", "view_expired", "duplicate_request",
+  // Password reset (accounts/password_reset.py).
+  "reset_expired", "link_flow_retired",
 ]);
 
 // An API error of the code flows as { code, attemptsLeft, retryAfter,

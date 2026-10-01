@@ -265,6 +265,31 @@ class PlatformTeamViewSet(
             status=status.HTTP_201_CREATED,
         )
 
+    @action(detail=True, methods=["post"], url_path="send-reset-code")
+    def send_reset_code(self, request, pk=None):
+        """Email an activated member a password reset code; never the code
+        itself in the answer (accounts.password_reset)."""
+        from django.utils.translation import gettext as _
+
+        from accounts.password_reset import admin_reset
+
+        user = self.get_object()
+        if user.pk == request.user.pk:
+            return Response({"detail": _("Use Change password for your own account.")},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if user.is_superuser and not request.user.is_superuser:
+            return Response(
+                {"detail": _("You cannot modify an account with equal or higher authority.")},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not user.has_usable_password():
+            return Response(
+                {"detail": _("This member has not activated the account yet. "
+                             "Send a new invitation instead.")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return admin_reset(user, request)
+
     @action(detail=True, methods=["post"])
     def deactivate(self, request, pk=None):
         user = set_platform_member_active(pk, False, request.user, request)
