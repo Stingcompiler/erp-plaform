@@ -303,6 +303,34 @@ body {
 .bar-track { contain: layout paint; }
 .bar-morph { transition: width var(--motion-chart) var(--motion-ease); }
 
+/* A page's cards rising in on first load (lib/motion.js ENTER/enterStyle):
+   200 ms each, staggered by --enter-delay. Only with no-preference: under
+   reduced motion there is no rule at all, so no delay is left either. */
+@media (prefers-reduced-motion: no-preference) {
+  .enter-rise { animation: enter-rise var(--motion-base) var(--motion-ease) var(--enter-delay, 0ms) both; }
+  /* A value that just changed (a plan, a status badge) glows once. */
+  .change-flash { animation: change-flash var(--motion-slow) var(--motion-ease) 1; }
+}
+@keyframes enter-rise { from { opacity: 0; transform: translateY(6px); } }
+@keyframes change-flash {
+  from { box-shadow: 0 0 0 0 rgb(var(--accent) / .45); background-color: rgb(var(--accent) / .14); }
+  to { box-shadow: 0 0 0 6px rgb(var(--accent) / 0); }
+}
+@media print { .enter-rise, .change-flash { animation: none !important; } }
+
+/* Cards that are links (or marked interactive) lift a hair under a mouse.
+   Phones have no hover, and reduced motion keeps them still. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  a:hover > .workspace-card,
+  a:hover .dashboard-stat,
+  .workspace-card--interactive:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 3px rgba(18,37,59,0.03), 0 14px 28px -16px rgba(18,37,59,0.22);
+  }
+}
+a:focus-visible > .workspace-card,
+a:focus-visible .dashboard-stat { border-color: rgb(var(--accent) / .5); }
+
 /* ---- Public site motion (lib/motion.js, "Public site") -------------------
    Every rule that hides something is keyed to a state a script set: the
    `motion-ok` class the hero's inline script puts on <html>, or a card's
@@ -391,7 +419,8 @@ body { line-height: 1.6; }
   background-image: radial-gradient(ellipse at 95% 0%, rgb(var(--accent) / .055), transparent 45%);
 }
 .workspace-main > * { width: 100%; max-width: 1600px; margin-inline: auto; }
-.workspace-card { transition: border-color 160ms ease, box-shadow 160ms ease; }
+.workspace-card,
+.dashboard-stat { transition: border-color 160ms ease, box-shadow 160ms ease, transform var(--motion-fast) var(--motion-ease); }
 .workspace-main table { border-collapse: separate; border-spacing: 0; }
 .workspace-main thead { background: rgb(var(--paper) / .8); }
 .workspace-main th { font-size: .75rem; font-weight: 600; white-space: nowrap; }
