@@ -57,16 +57,14 @@ FORCE_HTTPS = env.bool("FORCE_HTTPS", default=not DEBUG)
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
 # The hosted SaaS answers on the apex domain (the canonical one: what the
-# marketing pages, sitemap and Open Graph tags advertise), the www alias, the
-# older enterprise.* subdomain that existing customers, their installed PWAs
-# and their cookies still live on, and pro.* on the OVH server (2026-09-30).
+# marketing pages, sitemap and Open Graph tags advertise), the www alias and
+# pro.* on the OVH server (2026-09-30). The old enterprise.* subdomain was
+# retired by the owner on 2026-10-01 (it has no DNS record any more).
 # All of them stay in the effective allow-list even when the server's
 # DJANGO_ALLOWED_HOSTS is older; otherwise Django rejects the custom domain
 # with a 400 before it can serve either the app or the admin panel.
 VEZANO_CANONICAL_HOST = "vezano.app"
-VEZANO_PUBLIC_HOSTS = [
-    VEZANO_CANONICAL_HOST, "www.vezano.app", "enterprise.vezano.app", "pro.vezano.app",
-]
+VEZANO_PUBLIC_HOSTS = [VEZANO_CANONICAL_HOST, "www.vezano.app", "pro.vezano.app"]
 # The hosted SaaS hostnames belong to the hosted SaaS only. A customer's own
 # server must not answer for vezano.app, nor trust it as a CSRF origin.
 _IS_SAAS = env("VEZANO_DEPLOYMENT_MODE", default="saas").strip().lower() != "standalone"

@@ -1,12 +1,12 @@
 """The hosted SaaS answers on the canonical apex domain, its www alias, the
-original enterprise.* subdomain and pro.* (the OVH server), and the crawler
-files ship with the export."""
+pro.* (the OVH server), and the crawler files ship with the export. The old
+enterprise.* subdomain is retired."""
 from django.conf import settings
 from django.test import RequestFactory, TestCase, override_settings
 
 from core.frontend import FRONTEND_DIST, serve_frontend
 
-HOSTS = ("vezano.app", "www.vezano.app", "enterprise.vezano.app", "pro.vezano.app")
+HOSTS = ("vezano.app", "www.vezano.app", "pro.vezano.app")
 
 
 # TestCase, not SimpleTestCase: readiness now really touches the database
@@ -16,6 +16,10 @@ class PublicHostTests(TestCase):
         for host in HOSTS:
             self.assertIn(host, settings.ALLOWED_HOSTS)
             self.assertIn(f"https://{host}", settings.CSRF_TRUSTED_ORIGINS)
+
+    def test_retired_enterprise_host_is_not_trusted(self):
+        self.assertNotIn("enterprise.vezano.app", settings.VEZANO_PUBLIC_HOSTS)
+        self.assertNotIn("https://enterprise.vezano.app", settings.CSRF_TRUSTED_ORIGINS)
 
     def test_canonical_host_is_the_apex_domain(self):
         self.assertEqual(settings.VEZANO_CANONICAL_HOST, "vezano.app")
