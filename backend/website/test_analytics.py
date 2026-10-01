@@ -74,7 +74,7 @@ class RecordTests(TestCase):
         self.assertEqual(PageVisit.objects.get().referrer_host, "")
 
     def test_every_public_host_counts_as_own(self):
-        for host in ("pro.vezano.app", "enterprise.vezano.app"):
+        for host in ("pro.vezano.app", "www.vezano.app"):
             analytics.record(
                 _get("/", referer=f"https://{host}/pricing/"), "", page_kind="marketing"
             )

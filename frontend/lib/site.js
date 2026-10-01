@@ -3,8 +3,8 @@
 // canonical host changes; the Django side keeps the same list in
 // backend/config/settings.py (VEZANO_PUBLIC_HOSTS).
 //
-// The app is served on three hosts (vezano.app, www.vezano.app and the
-// original enterprise.vezano.app). Only the first is advertised: every
+// The app is served on three hosts (vezano.app, www.vezano.app and
+// pro.vezano.app). Only the first is advertised: every
 // marketing page carries a canonical link back to it, so search engines fold
 // the duplicates into one entry instead of splitting ranking between them.
 
