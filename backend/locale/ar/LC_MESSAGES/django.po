@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-01 19:22+0000\n"
+"POT-Creation-Date: 2026-10-01 20:05+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -35,8 +35,36 @@ msgstr "سجّل الدخول مرة أخرى من هذا الجهاز."
 msgid "The system is currently operating in shop mode."
 msgstr "النظام يعمل حاليًا في وضع المتجر."
 
-msgid "This reset link is invalid or has already been used."
-msgstr "رابط إعادة التعيين غير صالح أو استُخدم من قبل."
+msgid "This code has expired. Ask for a new one."
+msgstr "انتهت صلاحية هذا الرمز. اطلب رمزًا جديدًا."
+
+msgid "That code is not right. Check the email and try again."
+msgstr "الرمز غير صحيح. راجع البريد وحاول مرة أخرى."
+
+msgid "Too many wrong codes. Ask for a new one."
+msgstr "محاولات خاطئة كثيرة. اطلب رمزًا جديدًا."
+
+msgid "Wait a moment before asking for another code."
+msgstr "انتظر قليلًا قبل طلب رمز آخر."
+
+msgid "Too many codes were sent. Try again later."
+msgstr "أُرسلت رموز كثيرة. حاول مرة أخرى لاحقًا."
+
+msgid "The code could not be emailed right now."
+msgstr "تعذّر إرسال الرمز بالبريد الآن."
+
+msgid "This reset has expired or was already used. Ask for a new code."
+msgstr "انتهت صلاحية إعادة التعيين أو استُخدمت. اطلب رمزًا جديدًا."
+
+msgid ""
+"Password reset links are no longer used. Ask for a code by email instead."
+msgstr "لم تعد روابط إعادة تعيين كلمة المرور مستخدمة. اطلب رمزًا بالبريد بدلًا منها."
+
+msgid "This account is deactivated."
+msgstr "هذا الحساب معطّل."
+
+msgid "Enter a valid email address."
+msgstr "أدخل بريدًا إلكترونيًا صحيحًا."
 
 msgid "Choose one of the platform roles."
 msgstr "اختر أحد أدوار المنصة."
@@ -81,11 +109,18 @@ msgstr ""
 "سبق لهذا العضو تسجيل الدخول. عطّل الحساب بدلًا من حذفه؛ فذلك يُبقي اسمه على كل "
 "ما قام به."
 
-msgid "Only a platform administrator may assign a platform role."
-msgstr "مدير المنصة فقط يمكنه إسناد أدوار المنصة."
+msgid "Use Change password for your own account."
+msgstr "استخدم «تغيير كلمة المرور» لحسابك أنت."
 
 msgid "You cannot modify an account with equal or higher authority."
 msgstr "لا يمكنك تعديل حساب بصلاحيات مساوية لصلاحياتك أو أعلى منها."
+
+msgid ""
+"This member has not activated the account yet. Send a new invitation instead."
+msgstr "لم يفعّل هذا العضو حسابه بعد. أرسل له دعوة جديدة بدلًا من ذلك."
+
+msgid "Only a platform administrator may assign a platform role."
+msgstr "مدير المنصة فقط يمكنه إسناد أدوار المنصة."
 
 msgid "You cannot assign a role above your own authority."
 msgstr "لا يمكنك إسناد دور أعلى من صلاحياتك."
@@ -2531,21 +2566,6 @@ msgid ""
 "message us on WhatsApp."
 msgstr "لديك طلب قائم لدينا. تابعه من صفحة التتبّع أو راسلنا على واتساب."
 
-msgid "This code has expired. Ask for a new one."
-msgstr "انتهت صلاحية هذا الرمز. اطلب رمزًا جديدًا."
-
-msgid "That code is not right. Check the email and try again."
-msgstr "الرمز غير صحيح. راجع البريد وحاول مرة أخرى."
-
-msgid "Too many wrong codes. Ask for a new one."
-msgstr "محاولات خاطئة كثيرة. اطلب رمزًا جديدًا."
-
-msgid "Wait a moment before asking for another code."
-msgstr "انتظر قليلًا قبل طلب رمز آخر."
-
-msgid "Too many codes were sent. Try again later."
-msgstr "أُرسلت رموز كثيرة. حاول مرة أخرى لاحقًا."
-
 msgid ""
 "We could not send the code right now. Try again later or message us on "
 "WhatsApp."
@@ -2589,15 +2609,3 @@ msgstr "خدمة الإشعارات في هذا المتصفح غير مدعوم
 
 msgid "Enter a reference, a phone number, an email or a name."
 msgstr "اكتب رقم الطلب أو رقم الهاتف أو البريد الإلكتروني أو الاسم."
-
-#, python-format
-#~ msgid "An order that is %(current)s cannot be set to %(target)s."
-#~ msgstr "لا يمكن نقل أمر حالته %(current)s إلى %(target)s."
-
-#~ msgid ""
-#~ "Bank transfer needs receiving account, sender bank, and up-to-4-digit "
-#~ "reference."
-#~ msgstr "التحويل البنكي يحتاج حساب الاستلام وبنك المرسِل ومرجعًا حتى 4 أرقام."
-
-#~ msgid "Cash payment must not carry bank/reference details."
-#~ msgstr "الدفع النقدي لا يحمل بيانات بنك أو مرجع."

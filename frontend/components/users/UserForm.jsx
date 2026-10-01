@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MailCheck, Send } from "lucide-react";
 
 import { users } from "@/lib/api";
 import { useI18n } from "../../app/providers/I18nProvider";
+import { useAuth } from "../../app/providers/AuthProvider";
 import { translateRole } from "@/lib/i18n";
 import { groupRoles, roleHint } from "@/lib/roles";
 import Drawer from "@/components/ui/Drawer";
@@ -22,10 +24,15 @@ export default function UserForm({
   presetRoleName = "",
 }) {
   const { t } = useI18n();
+  const { user: me } = useAuth();
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  // An emailed reset code: the person chooses the password themself
+  // (accounts/password_reset.py). The answer never carries the code.
+  const [codeState, setCodeState] = useState({ busy: false, sent: "", error: "" });
   const editing = Boolean(user);
+  const canSendCode = editing && user.is_active !== false && user.id !== me?.id;
   const selectedRole = roles.find(
     (role) => String(role.id) === String(form.role)
   );
@@ -46,7 +53,18 @@ export default function UserForm({
       setForm({ ...EMPTY, role: presetRole?.id || "" });
     }
     setError("");
+    setCodeState({ busy: false, sent: "", error: "" });
   }, [user, open, presetRoleName, roles]);
+
+  async function sendResetCode() {
+    setCodeState({ busy: true, sent: "", error: "" });
+    try {
+      const { data } = await users.sendResetCode(user.id);
+      setCodeState({ busy: false, sent: data.email_masked || user.email, error: "" });
+    } catch (err) {
+      setCodeState({ busy: false, sent: "", error: errorText(err, t, "users.saveError") });
+    }
+  }
 
   // Explains the selected role in one line, so picking one doesn't require
   // knowing the permission matrix by heart.
@@ -169,6 +187,24 @@ export default function UserForm({
               placeholder={t("users.newPasswordPlaceholder")}
             />
           </Field>
+        )}
+        {canSendCode && (
+          <div className="rounded-control border border-line bg-paper p-3">
+            <p className="text-sm font-medium text-ink">{t("users.resetByCode")}</p>
+            <p className="mt-1 text-xs text-muted">{t("users.sendResetCodeHint")}</p>
+            {codeState.sent ? (
+              <p role="status" className="enter-rise mt-3 flex items-start gap-2 text-sm text-ok">
+                <MailCheck size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <span>{t("users.resetCodeSent", { email: codeState.sent })}</span>
+              </p>
+            ) : (
+              <Button variant="outline" className="mt-3" onClick={sendResetCode} disabled={codeState.busy}>
+                <Send size={15} aria-hidden="true" />
+                {codeState.busy ? t("users.sendingResetCode") : t("users.sendResetCode")}
+              </Button>
+            )}
+            {codeState.error && <p role="alert" className="mt-2 text-sm text-danger">{codeState.error}</p>}
+          </div>
         )}
         <label className="flex items-center gap-2 text-sm text-ink">
           <input type="checkbox" checked={form.is_active} onChange={set("is_active")} />

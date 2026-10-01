@@ -484,6 +484,26 @@ class UserViewSet(ArchiveOnDeleteMixin, CompanyScopedModelViewSet):
         )
         return Response({"removed": True})
 
+    @action(detail=True, methods=["post"], url_path="send-reset-code")
+    def send_reset_code(self, request, pk=None):
+        """Email the person a password reset code (accounts.password_reset):
+        they choose the new password themself, and every session ends. The
+        answer says a code went out — it never carries the code."""
+        from accounts.password_reset import admin_reset
+
+        target = self.get_object()
+        if target.pk == request.user.pk:
+            return Response(
+                {"detail": _("Use Change password for your own account.")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not outranks(request.user, target):
+            return Response(
+                {"detail": _("You cannot modify an account with equal or higher authority.")},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return admin_reset(target, request)
+
     def destroy(self, request, *args, **kwargs):
         # Deactivating yourself would lock you out of the account that has the
         # rights to undo it — in a single-admin company that bricks the tenant,

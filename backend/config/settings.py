@@ -247,8 +247,8 @@ VEZANO_MAX_BACKDATE_DAYS = env.int("VEZANO_MAX_BACKDATE_DAYS", default=31)
 # account is reopened, so a backdated "old" sale cannot keep a locked
 # company trading.
 VEZANO_LOCKED_SYNC_WINDOW_HOURS = env.int("VEZANO_LOCKED_SYNC_WINDOW_HOURS", default=72)
-# The password-reset email goes out on a background thread so the request's
-# timing does not reveal whether the address has an account. Tests send it
+# The password-reset code email goes out on a background thread so the
+# request's timing does not reveal whether the address has an account. Tests send it
 # inline to read the outbox.
 PASSWORD_RESET_EMAIL_BACKGROUND = "test" not in sys.argv and "pytest" not in sys.modules
 # Platform-team notifications (core.team_notify) go out the same way: off the
@@ -328,7 +328,11 @@ REST_FRAMEWORK = {
     # their own rate still exercise the real cache.
     "DEFAULT_THROTTLE_RATES": {
         "login": "10000/min" if "test" in sys.argv else "10/min",
-        "password_reset": "10000/min" if "test" in sys.argv else "5/hour",
+        # Request + resend of a reset code (core.otp adds 3 codes an hour per
+        # account and per address on top).
+        "password_reset": "10000/min" if "test" in sys.argv else "10/hour",
+        # Typing the code (5 tries a challenge) and setting the password.
+        "password_reset_verify": "10000/min" if "test" in sys.argv else "30/hour",
         "public_order": "10000/min" if "test" in sys.argv else "20/hour",
         # The full company export walks every table; a few an hour is plenty.
         "company_export": "10000/min" if "test" in sys.argv else "3/hour",

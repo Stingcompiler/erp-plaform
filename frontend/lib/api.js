@@ -168,9 +168,14 @@ export const auth = {
   me: () => api.get("/auth/me/"),
   changePassword: (current_password, new_password) =>
     api.post("/auth/change-password/", { current_password, new_password }),
+  // Password reset by email code (accounts/password_reset.py): email ->
+  // challenge -> 6-digit code -> 10-minute reset token -> new password.
   requestPasswordReset: (email) => api.post("/auth/password-reset/", { email }),
-  confirmPasswordReset: (uid, token, password) =>
-    api.post("/auth/password-reset/confirm/", { uid, token, password }),
+  resendPasswordReset: (challenge_id) => api.post("/auth/password-reset/resend/", { challenge_id }),
+  verifyPasswordReset: (challenge_id, code) =>
+    api.post("/auth/password-reset/verify/", { challenge_id, code }),
+  confirmPasswordReset: (reset_token, password) =>
+    api.post("/auth/password-reset/confirm/", { reset_token, password }),
 };
 
 export const rbac = {
@@ -481,6 +486,8 @@ export const users = {
   // Owner-only: deletes the account outright when nothing references it,
   // otherwise deactivates it and names what kept it (see accounts/removal.py).
   remove: (id) => api.post(`/users/${id}/remove/`),
+  // Emails the person a reset code; the answer never carries the code.
+  sendResetCode: (id) => api.post(`/users/${id}/send-reset-code/`),
   roles: () => api.get("/roles/"),
   branches: () => api.get("/branches/"),
 };
@@ -623,6 +630,7 @@ export const platformTeam = {
   reissue: (id) => api.post(`/platform/team/${id}/reissue-invitation/`),
   deactivate: (id) => api.post(`/platform/team/${id}/deactivate/`),
   activate: (id) => api.post(`/platform/team/${id}/activate/`),
+  sendResetCode: (id) => api.post(`/platform/team/${id}/send-reset-code/`),
   roles: () => api.get("/platform/team/roles/"),
   setRole: (id, role) => api.post(`/platform/team/${id}/set-role/`, { role }),
   updateProfile: (id, body) => api.patch(`/platform/team/${id}/`, body),

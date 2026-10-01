@@ -4,7 +4,7 @@ Owner decisions (2026-10-01): a 6-digit code, valid 10 minutes, 5 tries,
 a new code after 60 seconds at the earliest, at most 3 codes an hour per
 subject (an email address) and per client address. Used by the trial form
 (website.trial_requests) and vezano.app/track/ (website.request_tracking);
-built to carry password reset next.
+and password reset (accounts.password_reset).
 
     challenge_id = otp.issue("trial", email, payload={...}, request=request,
                              deliver=lambda code: otp.send_code_email(...))
@@ -215,22 +215,30 @@ def _deliver(deliver, code):
         return False
 
 
-def issue(purpose, subject_key, payload=None, *, request=None, deliver=None):
+def issue(purpose, subject_key, payload=None, *, request=None, deliver=None,
+          challenge_id=None, decoy=False):
     """A new challenge for ``subject_key``; ``deliver(code)`` sends the code
     (True when it went out). ``request`` adds the client address's hourly
     budget to the subject's; pass None when the caller counts the address
-    itself. Raises ``TooManySends`` or ``DeliveryFailed`` (nothing kept)."""
+    itself. ``challenge_id`` (from ``new_id()``) lets the caller put the id
+    in what it delivers. ``decoy=True`` keeps a challenge that sends nothing
+    and can never verify, but answers resend and the budgets exactly like a
+    real one — for a flow that must not tell a miss from a match (password
+    reset of an unknown address). Raises ``TooManySends`` or
+    ``DeliveryFailed`` (nothing kept)."""
     subject = _digest(subject_key)
     scopes = _scopes(subject, request)
     check_budget(purpose, scopes)
     code = new_code()
     moment = now()
-    challenge_id = new_id()
+    challenge_id = challenge_id or new_id()
     _save(challenge_id, {
         "purpose": purpose,
         "subject": subject,
         "payload": payload if payload is not None else {},
-        "code_hash": code_hash(purpose, code),
+        # A decoy keeps no hash at all: no typed code can ever match it.
+        "code_hash": "" if decoy else code_hash(purpose, code),
+        "decoy": bool(decoy),
         "attempts": 0,
         "sends": 1,
         "created_at": moment,
@@ -239,7 +247,7 @@ def issue(purpose, subject_key, payload=None, *, request=None, deliver=None):
     })
     for scope in scopes:
         spend(purpose, scope)
-    if not _deliver(deliver, code):
+    if not decoy and not _deliver(deliver, code):
         drop(challenge_id)
         raise DeliveryFailed(DeliveryFailed.code)
     logger.info("otp issued purpose=%s", purpose)
@@ -267,7 +275,8 @@ def verify(challenge_id, code, *, purpose, consume=True):
     if not typed:
         raise WrongCode(MAX_ATTEMPTS - int(entry.get("attempts") or 0))
     entry["attempts"] = int(entry.get("attempts") or 0) + 1
-    right = hmac.compare_digest(str(entry.get("code_hash") or ""), code_hash(purpose, typed))
+    stored_hash = str(entry.get("code_hash") or "")
+    right = bool(stored_hash) and hmac.compare_digest(stored_hash, code_hash(purpose, typed))
     if entry["attempts"] > MAX_ATTEMPTS:
         drop(challenge_id)
         raise TooManyAttempts(TooManyAttempts.code)
@@ -299,7 +308,7 @@ def resend(challenge_id, *, purpose, request=None, deliver=None):
     code = new_code()
     moment = now()
     entry.update({
-        "code_hash": code_hash(purpose, code),
+        "code_hash": "" if entry.get("decoy") else code_hash(purpose, code),
         "attempts": 0,
         "sends": int(entry.get("sends") or 0) + 1,
         "last_sent": moment,
@@ -308,7 +317,7 @@ def resend(challenge_id, *, purpose, request=None, deliver=None):
     _save(challenge_id, entry)
     for scope in scopes:
         spend(purpose, scope)
-    if not _deliver(deliver, code):
+    if not entry.get("decoy") and not _deliver(deliver, code):
         raise DeliveryFailed(DeliveryFailed.code)
     logger.info("otp resent purpose=%s sends=%d", purpose, entry["sends"])
     return entry["payload"]
@@ -322,10 +331,12 @@ def stored(challenge_id):
 # ---------------------------------------------------------------- email
 
 def send_code_email(recipient, code, *, subject_ar, subject_en, ar, en, primary=None,
-                    preheader=None):
+                    preheader=None, link=None, button_label_ar=None, button_label_en=None):
     """The branded bilingual email with ``code`` set large under the first
-    half (core.mailer.send_bilingual). Keep the code out of the subject and
-    the preheader: notification previews and logs show those."""
+    half (core.mailer.send_bilingual), optionally with a ``link`` button to
+    the page that takes it (never a link that carries the code). Keep the
+    code out of the subject and the preheader: notification previews and
+    logs show those."""
     from core import mailer
 
     minutes = CODE_TTL // 60
@@ -334,5 +345,6 @@ def send_code_email(recipient, code, *, subject_ar, subject_en, ar, en, primary=
         preheader=preheader or (
             f"الرمز صالح {minutes} دقائق · The code is valid for {minutes} minutes"
         ),
-        code=code, primary=primary, recipient=recipient,
+        code=code, primary=primary, recipient=recipient, link=link,
+        button_label_ar=button_label_ar, button_label_en=button_label_en,
     )
