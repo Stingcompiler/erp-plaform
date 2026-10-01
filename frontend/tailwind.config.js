@@ -40,6 +40,8 @@ module.exports = {
         wordmark: ["var(--font-readex)", "var(--font-display)", "system-ui", "sans-serif"],
       },
       borderRadius: { card: "18px", control: "10px" },
+      // The app's one curve (lib/motion.js EASE, --motion-ease).
+      transitionTimingFunction: { motion: "var(--motion-ease)" },
       boxShadow: {
         card: "0 2px 3px rgba(18,37,59,0.025), 0 8px 24px -16px rgba(18,37,59,0.14)",
       },

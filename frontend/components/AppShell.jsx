@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { storageKey } from "@/lib/localIdentity";
+import { useRouteEnter } from "@/lib/useRouteEnter";
 import { countLeaves, visibleNav, SHOP_OPTIONAL } from "./nav";
 import AttentionBadge, { badgeFor } from "./attention/AttentionBadge";
 import { useAttention } from "./attention/AttentionProvider";
@@ -338,6 +339,8 @@ export default function AppShell({ children }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [answered, setAnswered] = useState(false);
   const pathname = usePathname();
+  // The page content fades and rises in on navigation (never onto the till).
+  const mainRef = useRouteEnter(pathname);
 
   // Close the mobile drawer on route change.
   useEffect(() => {
@@ -400,7 +403,7 @@ export default function AppShell({ children }) {
         <StaleDataBanner />
         <UpdateBanner />
         <AccessBanner />
-        <main className="workspace-main flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
+        <main ref={mainRef} className="workspace-main flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

@@ -27,7 +27,10 @@ export default function DeviceList({ devices, onLabel, onRevoke, onReactivate, o
       {devices.map((d) => (
         <li key={d.id} className={`flex flex-wrap items-center gap-3 py-3 ${d.is_active ? "" : "opacity-60"}`}>
           <MonitorSmartphone size={18} className="shrink-0 text-muted" />
-          <div className="min-w-0 flex-1">
+          {/* basis-48: the details keep at least 12rem, so on a phone the
+              buttons wrap under them instead of squeezing them to a word
+              per line (flex-1 alone is basis 0, which never wraps). */}
+          <div className="min-w-0 flex-1 basis-48">
             {editing === d.id ? (
               <form className="flex gap-2" onSubmit={async (e) => { e.preventDefault(); await onLabel(d.id, draft); setEditing(null); }}>
                 <Input autoFocus maxLength={80} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={t("devices.labelPlaceholder")} />

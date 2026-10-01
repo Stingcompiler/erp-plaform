@@ -162,6 +162,69 @@ export function ringOffset(fraction, circumference) {
   return circumference * (1 - Math.min(1, Math.max(0, fraction)));
 }
 
+// ---- Moving between app pages -----------------------------------------------
+//
+// The workspace content (the shell's <main>) fades in and rises a few pixels
+// when the route changes (lib/useRouteEnter.js). Enter only: the old page is
+// gone at once, nothing waits for an exit, and the new page takes clicks and
+// keys from its first frame. Transform and opacity only, so no layout shift.
+export const ROUTE_ENTER = { duration: 180, distance: 6 };
+
+// Routes whose content never moves on arrival: the till (/sales opens on the
+// POS), where nothing may move between a scan and the next.
+export const ROUTE_ENTER_SKIP = ["/sales"];
+
+function routeOf(pathname) {
+  if (typeof pathname !== "string" || !pathname) return "";
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  return path || "/";
+}
+
+// Whether arriving at `to` from `from` plays the route entrance: not on
+// first paint (no `from`), not for the same page (a trailing slash, a query
+// or hash change), and never onto a skipped route.
+export function routeEnterApplies(from, to) {
+  const a = routeOf(from);
+  const b = routeOf(to);
+  if (!a || !b || a === b) return false;
+  return !ROUTE_ENTER_SKIP.some((skip) => b === skip || b.startsWith(`${skip}/`));
+}
+
+// Web Animations keyframes for the entrance.
+export function routeEnterKeyframes(distance = ROUTE_ENTER.distance) {
+  return [
+    { opacity: 0, transform: `translateY(${distance}px)` },
+    { opacity: 1, transform: "none" },
+  ];
+}
+
+// ---- Cards entering a page ---------------------------------------------------
+//
+// A page's cards rise in on first load with a short stagger (.enter-rise in
+// globals.css). The stagger stops growing, so the last card is in place
+// within ENTER.duration + ENTER.step × ENTER.maxSteps.
+export const ENTER = { duration: 200, step: 40, maxSteps: 5 };
+
+export function enterDelay(index) {
+  const i = Math.max(0, Math.min(Math.floor(Number(index)) || 0, ENTER.maxSteps));
+  return i * ENTER.step;
+}
+
+export function enterStyle(index) {
+  return { "--enter-delay": `${enterDelay(index)}ms` };
+}
+
+// ---- A value that changed ----------------------------------------------------
+//
+// The next { value, count } when a watched value becomes `value`: the count
+// goes up only for a real change between two known values, so a value that
+// arrives with the first load (nothing → "Pro") or goes away is not one.
+export function countChange(state, value) {
+  const known = (v) => v !== null && v !== undefined && v !== "";
+  const changed = known(state.value) && known(value) && !Object.is(state.value, value);
+  return { value, count: state.count + (changed ? 1 : 0) };
+}
+
 // ---- Public site (marketing pages) -----------------------------------------
 //
 // The marketing pages use the same curve (--motion-ease) with a little more
