@@ -1,0 +1,129 @@
+{% comment %}
+The one HTML layout of every transactional email (core.mailer.send_bilingual).
+
+Email HTML is not web HTML: tables for layout, every style inline (Gmail drops
+<style> in some clients), the <style> block only adds the narrow-screen and
+dark-mode refinements that clients supporting it can use. Every paragraph is
+autoescaped text from the caller; nothing here is marked safe.
+
+The logo is a PNG on an opaque white plate (frontend/scripts/email-logos.mjs):
+clients that darken the email in dark mode recolour backgrounds, never images,
+so it stays legible; with images blocked its alt text is styled as the
+wordmark.
+{% endcomment %}<!doctype html>
+<html lang="{{ primary.code }}" dir="{{ primary.dir }}" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>{{ subject }}</title>
+<!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+<style>body, table, td, p, a, span { font-family: Tahoma, Arial, sans-serif !important; }</style><![endif]-->
+<!--[if !mso]><!--><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Readex+Pro:wght@600&amp;family=Tajawal:wght@400;700&amp;display=swap" rel="stylesheet"><!--<![endif]-->
+<style>
+body { margin: 0 !important; padding: 0 !important; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; border-collapse: collapse; }
+img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
+@media only screen and (max-width: 480px) {
+  .vz-shell { padding: 0 !important; }
+  .vz-card { border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important; }
+  .vz-band { padding: 24px 16px !important; border-radius: 0 !important; }
+  .vz-pad { padding-left: 20px !important; padding-right: 20px !important; }
+  .vz-btn-table { width: 100% !important; }
+  .vz-btn { display: block !important; padding-left: 12px !important; padding-right: 12px !important; }
+  .vz-foot { padding-left: 20px !important; padding-right: 20px !important; }
+}
+@media (prefers-color-scheme: dark) {
+  .vz-bg { background: #0b141c !important; }
+  .vz-card { background: #111d27 !important; border-color: #1f2f3c !important; }
+  .vz-band { background: #0f3238 !important; }
+  .vz-text { color: #e8eef3 !important; }
+  .vz-muted { color: #9db0c0 !important; }
+  .vz-panel { background: #0d1821 !important; border-color: #22323e !important; }
+  .vz-rule { border-color: #22323e !important; }
+  .vz-link { color: #5cc6cd !important; }
+}
+</style>
+<style>
+:root { color-scheme: light dark; supported-color-schemes: light dark; }
+[data-ogsc] .vz-text { color: #e8eef3 !important; }
+[data-ogsc] .vz-muted { color: #9db0c0 !important; }
+[data-ogsc] .vz-link { color: #5cc6cd !important; }
+</style>
+</head>
+<body class="vz-bg" style="margin:0;padding:0;background:#eef3f5;" bgcolor="#eef3f5">
+<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;color:transparent;">{{ preheader }}&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;</div>
+<table role="presentation" class="vz-bg" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eef3f5" style="width:100%;background:#eef3f5;">
+<tr>
+<td class="vz-shell" align="center" style="padding:32px 12px;">
+<!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center"><tr><td><![endif]-->
+<table role="presentation" class="vz-card" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #dfe8ec;border-radius:16px;border-collapse:separate;overflow:hidden;">
+
+<tr>
+<td class="vz-band" align="center" bgcolor="#e3f4f5" style="padding:28px 24px;background:#e3f4f5;border-radius:16px 16px 0 0;">
+<a href="{{ site_url }}" target="_blank" style="text-decoration:none;"><img class="vz-link" src="{{ logo.url }}" width="{{ logo.width }}" height="{{ logo.height }}" alt="{{ logo.alt }}" style="display:block;margin:0 auto;width:{{ logo.width }}px;max-width:100%;height:auto;border:0;font-family:Readex Pro,{{ primary.font }};font-size:24px;font-weight:700;line-height:{{ logo.height }}px;color:#0e7c86;text-align:center;"></a>
+</td>
+</tr>
+
+<tr>
+<td class="vz-pad" dir="{{ primary.dir }}" lang="{{ primary.code }}" align="{{ primary.align }}" style="padding:32px 36px 8px;text-align:{{ primary.align }};direction:{{ primary.dir }};">
+{% for line in primary.paragraphs %}<p class="vz-text" style="margin:0 0 14px;font-family:{{ primary.font }};font-size:16px;line-height:1.75;color:#12253b;word-break:break-word;overflow-wrap:anywhere;">{{ line }}</p>
+{% endfor %}</td>
+</tr>
+{% if link %}
+<tr>
+<td class="vz-pad" align="center" style="padding:14px 36px 6px;">
+<table role="presentation" class="vz-btn-table" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto;">
+<tr>
+<td align="center" bgcolor="#0e7c86" style="border-radius:10px;background:#0e7c86;mso-padding-alt:14px 32px;">
+<a class="vz-btn" href="{{ link }}" target="_blank" dir="{{ primary.dir }}" style="display:inline-block;padding:14px 32px;font-family:{{ primary.font }};font-size:16px;font-weight:700;line-height:1.4;color:#ffffff;text-decoration:none;text-align:center;border-radius:10px;white-space:normal;"><span lang="{{ primary.code }}" dir="{{ primary.dir }}" style="color:#ffffff;">{{ primary.button }}</span><span style="color:#a3e3e6;">&nbsp;·&nbsp;</span><span lang="{{ secondary.code }}" dir="{{ secondary.dir }}" style="color:#ffffff;font-family:{{ secondary.font }};font-weight:600;">{{ secondary.button }}</span></a>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td class="vz-pad" dir="{{ primary.dir }}" align="center" style="padding:10px 36px 8px;text-align:center;">
+<p class="vz-muted" style="margin:0 0 4px;font-family:{{ primary.font }};font-size:12px;line-height:1.6;color:#5b6b7b;">{{ primary.link_hint }}</p>
+<p style="margin:0;font-family:{{ secondary.font }};font-size:12px;line-height:1.6;word-break:break-all;" dir="ltr"><a class="vz-link" href="{{ link }}" target="_blank" style="color:#0e7c86;text-decoration:underline;">{{ link }}</a></p>
+</td>
+</tr>
+{% endif %}
+<tr>
+<td class="vz-pad" style="padding:24px 36px 32px;">
+<table role="presentation" class="vz-panel" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f5f8f9" style="width:100%;background:#f5f8f9;border:1px solid #e5ecef;border-radius:12px;border-collapse:separate;">
+<tr>
+<td dir="{{ secondary.dir }}" lang="{{ secondary.code }}" align="{{ secondary.align }}" style="padding:18px 20px 6px;text-align:{{ secondary.align }};direction:{{ secondary.dir }};">
+<p class="vz-muted" style="margin:0 0 10px;font-family:{{ secondary.font }};font-size:11px;font-weight:700;letter-spacing:{% if secondary.code == 'en' %}0.08em{% else %}0{% endif %};text-transform:uppercase;color:#5b6b7b;">{{ secondary.label }}</p>
+{% for line in secondary.paragraphs %}<p class="vz-text" style="margin:0 0 12px;font-family:{{ secondary.font }};font-size:14px;line-height:1.7;color:#33475b;word-break:break-word;overflow-wrap:anywhere;">{{ line }}</p>
+{% endfor %}</td>
+</tr>
+</table>
+</td>
+</tr>
+
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;margin:0 auto;">
+<tr>
+<td class="vz-foot" align="center" style="padding:24px 24px 8px;text-align:center;">
+<p class="vz-muted" dir="{{ primary.dir }}" lang="{{ primary.code }}" style="margin:0 0 2px;font-family:{{ primary.font }};font-size:13px;line-height:1.6;color:#5b6b7b;">{{ primary.tagline }}</p>
+<p class="vz-muted" dir="{{ secondary.dir }}" lang="{{ secondary.code }}" style="margin:0 0 10px;font-family:{{ secondary.font }};font-size:13px;line-height:1.6;color:#5b6b7b;">{{ secondary.tagline }}</p>
+<p style="margin:0 0 12px;font-family:{{ en_font }};font-size:13px;line-height:1.6;"><a class="vz-link" href="{{ site_url }}" target="_blank" style="color:#0e7c86;font-weight:600;text-decoration:none;">{{ site_label }}</a></p>
+<p class="vz-muted" dir="{{ primary.dir }}" lang="{{ primary.code }}" style="margin:0;font-family:{{ primary.font }};font-size:11px;line-height:1.6;color:#7a8a99;">{{ primary.automated }}</p>
+<p class="vz-muted" dir="{{ secondary.dir }}" lang="{{ secondary.code }}" style="margin:0;font-family:{{ secondary.font }};font-size:11px;line-height:1.6;color:#7a8a99;">{{ secondary.automated }}</p>
+</td>
+</tr>
+</table>
+
+</td>
+</tr>
+</table>
+</body>
+</html>

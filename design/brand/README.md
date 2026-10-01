@@ -105,7 +105,14 @@ From `frontend/`:
 node scripts/brand-icons.mjs            # masters here + app icons + PNG exports
 node scripts/brand-icons.mjs --lockups  # also the lockup PNGs (Playwright Chromium)
 node scripts/brand-icons.mjs --og       # also public/marketing/og.png (the social card)
+node scripts/email-logos.mjs            # public/email/logo-{ar,en}.png (email header)
 ```
+
+The email logos are the light lockup PNGs on an opaque white rounded plate,
+240×60 shown, drawn at 2×: email clients drop SVG, and the plate keeps the
+dark wordmark legible when a client darkens the email in dark mode. They are
+served from `PUBLIC_APP_ORIGIN/email/` by `backend/core/mailer.py`; rerun the
+script after `--lockups` changes the lockups, then rebuild `out/`.
 
 `--lockups` and `--og` need Playwright's Chromium and a network connection
 (Readex Pro comes from Google Fonts).

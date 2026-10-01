@@ -13,10 +13,10 @@ and this module reports the send as not-sent without touching the backend.
 """
 
 import logging
-from html import escape
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives, send_mail
+from django.template.loader import render_to_string
 from django.utils import translation
 
 logger = logging.getLogger(__name__)
@@ -60,20 +60,100 @@ def primary_language():
     return code if code in ("ar", "en") else "ar"
 
 
-def _paragraphs(lines):
-    return "".join(
-        f'<p style="margin:0 0 12px">{escape(line)}</p>' for line in lines if line
-    )
+# The header logo: a 2x PNG lockup on a white plate, made for email by
+# frontend/scripts/email-logos.mjs (480x120) and served by the frontend.
+LOGO_PATH = "/email/logo-{code}.png"
+LOGO_WIDTH, LOGO_HEIGHT = 240, 60
+
+FONTS = {
+    "ar": "Tajawal, Readex Pro, Segoe UI, Geeza Pro, Noto Naskh Arabic, "
+          "Noto Sans Arabic, Tahoma, Arial, sans-serif",
+    "en": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, "
+          "Helvetica Neue, Arial, sans-serif",
+}
+LANGUAGE_COPY = {
+    "ar": {
+        "dir": "rtl",
+        "align": "right",
+        "logo_alt": "فيزانو برو",
+        "button": "فتح الرابط",
+        "label": "بالعربية",
+        "link_hint": "إن لم يعمل الزر فانسخ هذا الرابط إلى المتصفح:",
+        "tagline": "فيزانو برو — إدارة متكاملة لشركتك وفروعها",
+        "automated": "رسالة آلية، لا تحتاج إلى رد.",
+    },
+    "en": {
+        "dir": "ltr",
+        "align": "left",
+        "logo_alt": "Vezano Pro",
+        "button": "Open the link",
+        "label": "English",
+        "link_hint": "If the button doesn't work, paste this link into your browser:",
+        "tagline": "Vezano Pro — integrated management for companies and branches",
+        "automated": "This is an automated message; no reply is needed.",
+    },
+}
 
 
-def send_bilingual(*, subject_ar, subject_en, ar, en, recipient, link=None, primary=None):
+def _asset_origin():
+    """Where the email's images live: the app's public origin, else the
+    product's canonical host, so a standalone install that has not set
+    PUBLIC_APP_ORIGIN still shows the logo (from vezano.app)."""
+    origin = (getattr(settings, "PUBLIC_APP_ORIGIN", "") or "").rstrip("/")
+    return origin or f"https://{settings.VEZANO_CANONICAL_HOST}"
+
+
+def render_bilingual_html(*, subject, blocks, order, link=None, preheader=None,
+                          button_labels=None):
+    """The HTML body of a bilingual email (templates/emails/bilingual.html).
+
+    ``blocks`` maps "ar"/"en" to plain-text paragraphs, which the template
+    autoescapes; ``order`` is (primary, secondary). The preheader (the
+    inbox preview line) defaults to the first line of the primary block."""
+    labels = button_labels or {}
+    sides = []
+    for code in order:
+        copy = LANGUAGE_COPY[code]
+        sides.append({
+            **copy,
+            "code": code,
+            "font": FONTS[code],
+            "paragraphs": [line for line in blocks[code] if line],
+            "button": labels.get(code) or copy["button"],
+        })
+    primary, secondary = sides
+    if preheader is None:
+        preheader = primary["paragraphs"][0] if primary["paragraphs"] else ""
+    host = settings.VEZANO_CANONICAL_HOST
+    return render_to_string("emails/bilingual.html", {
+        "subject": subject,
+        "primary": primary,
+        "secondary": secondary,
+        "link": link,
+        "preheader": preheader,
+        "logo": {
+            "url": _asset_origin() + LOGO_PATH.format(code=order[0]),
+            "width": LOGO_WIDTH,
+            "height": LOGO_HEIGHT,
+            "alt": primary["logo_alt"],
+        },
+        "site_url": f"https://{host}",
+        "site_label": host,
+        "en_font": FONTS["en"],
+    })
+
+
+def send_bilingual(*, subject_ar, subject_en, ar, en, recipient, link=None, primary=None,
+                   preheader=None, button_label_ar=None, button_label_en=None):
     """One email that reads correctly for either audience: the Arabic block
     is right-to-left, the English block left-to-right, and whichever matches
     the reader's screen language comes first — in the subject too. A plain
     text twin carries the same words for clients that drop HTML.
 
-    ``link`` is rendered once as a button between the two halves so nobody
-    has to hunt for it inside a paragraph."""
+    ``link`` is rendered once as a button after the first half so nobody
+    has to hunt for it inside a paragraph; ``button_label_ar``/``_en``
+    replace its generic "Open the link" label. ``preheader`` overrides the
+    inbox preview line (by default the first line of the first half)."""
     primary = primary or primary_language()
     order = ("ar", "en") if primary == "ar" else ("en", "ar")
     subjects = {"ar": subject_ar, "en": subject_en}
@@ -88,33 +168,9 @@ def send_bilingual(*, subject_ar, subject_en, ar, en, recipient, link=None, prim
     text_parts.append(f"— {BRAND}")
     text = "\n\n".join(text_parts)
 
-    html_blocks = {
-        "ar": '<div dir="rtl" lang="ar" style="text-align:right">'
-              f'{_paragraphs(blocks["ar"])}</div>',
-        "en": '<div dir="ltr" lang="en" style="text-align:left">'
-              f'{_paragraphs(blocks["en"])}</div>',
-    }
-    labels = {"ar": "فتح الرابط", "en": "Open the link"}
-    button = (
-        f'<p style="margin:20px 0;text-align:center"><a href="{escape(link)}" '
-        'style="display:inline-block;padding:12px 28px;background:#0f766e;color:#fff;'
-        'border-radius:8px;text-decoration:none;font-weight:600">'
-        f'{labels[order[0]]} · {labels[order[1]]}</a><br>'
-        f'<a href="{escape(link)}" style="font-size:12px;color:#6b7280;word-break:break-all">'
-        f'{escape(link)}</a></p>'
-        if link else ""
-    )
-    html = (
-        '<!doctype html><html><head><meta charset="utf-8"></head>'
-        '<body style="margin:0;background:#f4f5f7;padding:24px">'
-        '<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;'
-        'padding:28px;font-family:-apple-system,Segoe UI,Tahoma,Arial,sans-serif;'
-        'font-size:15px;line-height:1.7;color:#111">'
-        f'<div style="font-weight:700;font-size:18px;margin-bottom:16px">{BRAND}</div>'
-        f'{html_blocks[order[0]]}{button}'
-        '<hr style="border:0;border-top:1px solid #e5e7eb;margin:20px 0">'
-        f'{html_blocks[order[1]]}'
-        '</div></body></html>'
+    html = render_bilingual_html(
+        subject=subject, blocks=blocks, order=order, link=link, preheader=preheader,
+        button_labels={"ar": button_label_ar, "en": button_label_en},
     )
 
     if not recipient:
