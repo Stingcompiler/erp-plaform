@@ -138,7 +138,10 @@ class BilingualEmailTests(SimpleTestCase):
         self._send()
         message = mail.outbox[0]
         self.assertIn("— Vezano Pro · فيزانو برو", message.body)
-        self.assertIn("Vezano Pro · فيزانو برو</div>", message.alternatives[0][0])
+        html = message.alternatives[0][0]
+        self.assertIn("فيزانو برو — إدارة متكاملة لشركتك وفروعها", html)
+        self.assertIn("Vezano Pro — integrated management for companies and branches", html)
+        self.assertIn('href="https://vezano.app"', html)
 
     def test_explicit_primary_wins(self):
         self._send(primary="en")
@@ -154,3 +157,135 @@ class BilingualEmailTests(SimpleTestCase):
         html = mail.outbox[0].alternatives[0][0]
         self.assertIn("&lt;b&gt;x&lt;/b&gt;", html)
         self.assertNotIn("<b>x</b>", html)
+
+
+@override_settings(
+    EMAIL_ENABLED=True,
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    PUBLIC_APP_ORIGIN="https://app.example.test/",
+)
+class BilingualTemplateTests(SimpleTestCase):
+    """The branded layout (templates/emails/bilingual.html)."""
+
+    LINK = "https://vezano.app/activate-owner/?token=abc&kind=owner"
+
+    def _html(self, **overrides):
+        kwargs = dict(
+            subject_ar="عنوان", subject_en="Subject",
+            ar=["مرحباً سارة،", "سطر عربي ثانٍ"], en=["Hello Sara,", "Second English line"],
+            link=self.LINK, recipient="to@example.com", primary="ar",
+        )
+        kwargs.update(overrides)
+        self.assertTrue(mailer.send_bilingual(**kwargs))
+        message = mail.outbox[-1]
+        html, mimetype = message.alternatives[0]
+        self.assertEqual(mimetype, "text/html")
+        return message, html
+
+    def test_primary_block_first_with_its_direction(self):
+        _, html = self._html(primary="ar")
+        self.assertIn('<html lang="ar" dir="rtl"', html)
+        arabic = html.index('dir="rtl" lang="ar" align="right"')
+        english = html.index('dir="ltr" lang="en" align="left"')
+        self.assertLess(arabic, english)
+        self.assertLess(html.index("سطر عربي ثانٍ"), html.index("Second English line"))
+
+        _, html = self._html(primary="en")
+        self.assertIn('<html lang="en" dir="ltr"', html)
+        self.assertLess(
+            html.index('dir="ltr" lang="en" align="left"'),
+            html.index('dir="rtl" lang="ar" align="right"'),
+        )
+        self.assertLess(html.index("Second English line"), html.index("سطر عربي ثانٍ"))
+
+    def test_button_and_raw_link_only_with_a_link(self):
+        _, html = self._html()
+        escaped = "https://vezano.app/activate-owner/?token=abc&amp;kind=owner"
+        self.assertEqual(html.count(f'href="{escaped}"'), 2)  # button + raw link
+        self.assertIn('class="vz-btn"', html)
+        self.assertIn("فتح الرابط", html)
+        self.assertIn("Open the link", html)
+
+        _, html = self._html(link=None)
+        self.assertNotIn('class="vz-btn"', html)
+        self.assertNotIn("activate-owner", html)
+        self.assertNotIn("فتح الرابط", html)
+
+    def test_custom_button_labels(self):
+        _, html = self._html(button_label_ar="تفعيل الحساب", button_label_en="Activate")
+        self.assertIn("تفعيل الحساب", html)
+        self.assertIn(">Activate</span>", html)
+        self.assertNotIn("Open the link", html)
+
+    def test_user_text_is_escaped(self):
+        _, html = self._html(
+            ar=['<script>alert("x")</script>'], en=['<img src=x onerror="y">'],
+        )
+        self.assertNotIn("<script>alert", html)
+        self.assertIn("&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;", html)
+        self.assertNotIn("<img src=x", html)
+        self.assertIn("&lt;img src=x onerror=&quot;y&quot;&gt;", html)
+
+    def test_logo_is_an_absolute_png_from_the_public_origin(self):
+        _, html = self._html(primary="ar")
+        self.assertIn('src="https://app.example.test/email/logo-ar.png"', html)
+        self.assertIn('width="240" height="60" alt="فيزانو برو"', html)
+        _, html = self._html(primary="en")
+        self.assertIn('src="https://app.example.test/email/logo-en.png"', html)
+        self.assertIn('alt="Vezano Pro"', html)
+
+    @override_settings(PUBLIC_APP_ORIGIN="")
+    def test_logo_falls_back_to_the_canonical_host(self):
+        _, html = self._html()
+        self.assertIn('src="https://vezano.app/email/logo-ar.png"', html)
+
+    def test_preheader_defaults_to_the_first_primary_line(self):
+        _, html = self._html(primary="en")
+        preheader = html.index("mso-hide:all")
+        self.assertEqual(html.index("Hello Sara,", preheader), html.index("Hello Sara,"))
+        self.assertLess(html.index("Hello Sara,") - preheader, 200)
+        _, html = self._html(preheader="Your account is ready")
+        self.assertIn("Your account is ready&#8204;", html)
+
+    def test_email_client_essentials(self):
+        _, html = self._html()
+        self.assertIn('<meta name="color-scheme" content="light dark">', html)
+        self.assertIn("max-width:600px", html)
+        self.assertIn("@media only screen and (max-width: 480px)", html)
+        self.assertIn("@media (prefers-color-scheme: dark)", html)
+        self.assertNotIn("<svg", html)
+        self.assertIn("<title>عنوان | Subject</title>", html)
+
+    def test_plain_text_twin_is_kept(self):
+        message, _ = self._html(primary="en")
+        self.assertEqual(
+            message.body,
+            "Hello Sara,\nSecond English line\n\n" + self.LINK
+            + "\n\nمرحباً سارة،\nسطر عربي ثانٍ\n\n— Vezano Pro · فيزانو برو",
+        )
+
+    def test_signature_is_backward_compatible(self):
+        import inspect
+
+        params = inspect.signature(mailer.send_bilingual).parameters
+        self.assertEqual(
+            list(params)[:7],
+            ["subject_ar", "subject_en", "ar", "en", "recipient", "link", "primary"],
+        )
+        for name, param in params.items():
+            self.assertEqual(param.kind, param.KEYWORD_ONLY, name)
+            if name not in ("subject_ar", "subject_en", "ar", "en", "recipient"):
+                self.assertIsNone(param.default, name)
+
+    def test_logo_files_exist_at_2x(self):
+        import struct
+        from pathlib import Path
+
+        public = Path(__file__).resolve().parents[2] / "frontend" / "public" / "email"
+        for code in ("ar", "en"):
+            data = (public / f"logo-{code}.png").read_bytes()
+            self.assertEqual(data[:8], b"\x89PNG\r\n\x1a\n")
+            width, height = struct.unpack(">II", data[16:24])
+            self.assertEqual(
+                (width, height), (mailer.LOGO_WIDTH * 2, mailer.LOGO_HEIGHT * 2), code
+            )
