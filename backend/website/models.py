@@ -543,6 +543,66 @@ class SeoPageOverride(models.Model):
         return f"{self.path} [{self.language}]"
 
 
+class SeoRedirect(models.Model):
+    """One old public address sent to a new one, managed by the platform
+    team from /platform-seo (website.redirects has the rules and serving).
+
+    `source_path` is an exact path in its stored form (lowercase, leading
+    slash, no trailing slash, no host or query), optionally a language path
+    such as /en/old. `target` is a path on this site or an https address;
+    another site needs `allow_external`. `hits` / `last_hit_at` are bumped
+    with a single UPDATE when a visitor is redirected."""
+
+    STATUS_PERMANENT = 301
+    STATUS_TEMPORARY = 302
+    STATUS_CHOICES = [
+        (STATUS_PERMANENT, "301 permanent"),
+        (STATUS_TEMPORARY, "302 temporary"),
+    ]
+
+    source_path = models.CharField(max_length=255, unique=True)
+    target = models.CharField(max_length=500)
+    allow_external = models.BooleanField(default=False)
+    status_code = models.PositiveSmallIntegerField(
+        choices=STATUS_CHOICES, default=STATUS_PERMANENT
+    )
+    is_active = models.BooleanField(default=True)
+    note = models.CharField(max_length=255, blank=True)
+    hits = models.PositiveBigIntegerField(default=0)
+    last_hit_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["source_path"]
+
+    def save(self, *args, **kwargs):
+        from website.redirects import RedirectPathError, normalize_source
+
+        try:
+            self.source_path = normalize_source(self.source_path)
+        except RedirectPathError:
+            pass  # the API validates first; a raw save keeps what it was given
+        super().save(*args, **kwargs)
+        from website.seo import invalidate_seo_cache
+
+        invalidate_seo_cache()
+
+    def delete(self, *args, **kwargs):
+        result = super().delete(*args, **kwargs)
+        from website.seo import invalidate_seo_cache
+
+        invalidate_seo_cache()
+        return result
+
+    def __str__(self):
+        return f"{self.source_path} -> {self.target} ({self.status_code})"
+
+
 class PageVisit(models.Model):
     """One public page view, recorded server-side (website/analytics.py).
 

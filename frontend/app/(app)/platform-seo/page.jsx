@@ -1,9 +1,10 @@
 "use client";
 
 // The platform team's SEO control page: site-wide settings (verification
-// tags, analytics id, default share image, extra robots lines) and a table
-// of per-path overrides (title, description, noindex, canonical). Django
-// applies both while serving the public pages, so a save is live at once.
+// tags, analytics id, default share image, extra robots lines), a table
+// of per-path overrides (title, description, noindex, canonical), the SEO
+// health check and the redirects. Django applies all of it while serving
+// the public pages, so a save is live at once.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ExternalLink, Eye, EyeOff, Globe, Lock, MessageCircle, Pencil, Plus, SearchCheck, Trash2 } from "lucide-react";
 
@@ -18,6 +19,7 @@ import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { SkeletonCard } from "@/components/ui/Skeleton";
 import TabBar from "@/components/ui/TabBar";
 import SeoHealthPanel from "@/components/platform/SeoHealthPanel";
+import SeoRedirectsPanel from "@/components/platform/SeoRedirectsPanel";
 import { useHashTab } from "@/lib/useHashTab";
 import { overrideDraftFor } from "@/lib/seoHealth";
 
@@ -75,7 +77,7 @@ export default function PlatformSeoPage() {
   const [editing, setEditing] = useState(null); // null | "new" | id
   const [draft, setDraft] = useState(EMPTY_OVERRIDE);
   const [showPreview, setShowPreview] = useState(false);
-  const [tab, setTab] = useHashTab(["settings", "health"]);
+  const [tab, setTab] = useHashTab(["settings", "health", "redirects"]);
   const overridesRef = useRef(null);
   const [scrollToForm, setScrollToForm] = useState(false);
 
@@ -259,11 +261,14 @@ export default function PlatformSeoPage() {
         tabs={[
           { id: "settings", label: t("platformSeo.tabSettings") },
           { id: "health", label: t("platformSeo.tabHealth") },
+          { id: "redirects", label: t("platformSeo.tabRedirects") },
         ]}
       />
 
       {tab === "health" ? (
-        <SeoHealthPanel canManage={canManage} onOverride={overrideFromHealth} />
+        <SeoHealthPanel canManage={canManage} onOverride={overrideFromHealth} onRedirects={() => setTab("redirects")} />
+      ) : tab === "redirects" ? (
+        <SeoRedirectsPanel canManage={canManage} />
       ) : loading || !form ? (
         <SkeletonCard />
       ) : (
