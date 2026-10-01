@@ -40,6 +40,9 @@ export function AttentionProvider({ children }) {
   const userId = user?.id ?? null;
   const pathname = usePathname();
   const [payload, setPayload] = useState(EMPTY);
+  // True once the first numbers (cached or fetched) are in: a badge pops
+  // only for a rise after that, never for the counts arriving with the page.
+  const [settled, setSettled] = useState(false);
   const inflight = useRef(null);
   // Clicking a tab and landing on its page happen within the same second, and
   // the landing triggers a refresh. If that GET raced ahead of the POST that
@@ -56,9 +59,10 @@ export function AttentionProvider({ children }) {
 
   // Show the last known numbers immediately after a reload or while offline.
   useEffect(() => {
+    setSettled(false);
     if (!userId) { setPayload(EMPTY); return; }
     const cached = readCached(userId);
-    if (cached) setPayload(cached);
+    if (cached) { setPayload(cached); setSettled(true); }
   }, [userId]);
 
   const refresh = useCallback(() => {
@@ -75,6 +79,7 @@ export function AttentionProvider({ children }) {
           total: Number(response.data?.total) || 0,
         };
         setPayload(next);
+        setSettled(true);
         writeCached(userId, next);
       })
       .catch(() => { /* offline or transient: keep what we have */ })
@@ -125,7 +130,7 @@ export function AttentionProvider({ children }) {
     seenInflight.current = seenInflight.current.then(() => call, () => call);
   }, [userId, refresh]);
 
-  const value = useMemo(() => ({ ...payload, refresh, markSeen }), [payload, refresh, markSeen]);
+  const value = useMemo(() => ({ ...payload, settled, refresh, markSeen }), [payload, settled, refresh, markSeen]);
 
   // The browser tab carries the total, the way mail clients do. Pages set
   // their own titles on navigation, so the prefix is re-applied per route.

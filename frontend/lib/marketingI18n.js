@@ -954,6 +954,8 @@ export const landingEn = {
   navSolutions: "Solutions",
   navGuides: "Guides",
   navStores: "Company pages",
+  // The header's link to the same directory (/s/), named like its page.
+  navCompanies: "Companies & stores",
   skipToContent: "Skip to content",
   navPricing: "Pricing",
   navContact: "Contact",
@@ -985,6 +987,7 @@ export const landingAr = {
   navSolutions: "الحلول",
   navGuides: "الأدلة",
   navStores: "صفحات الشركات",
+  navCompanies: "الشركات والمتاجر",
   skipToContent: "تخطَّ إلى المحتوى",
   navPricing: "الأسعار",
   navContact: "تواصل",

@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { ChartColumn, CreditCard, FileCheck2, Inbox, Languages, LayoutDashboard, LogOut, MoonStar, ScrollText, SearchCheck, ShieldAlert, SlidersHorizontal, Sun, SunMoon, UsersRound, Building2, Banknote, Menu, X } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { ChartColumn, CreditCard, FileCheck2, Inbox, Languages, LayoutDashboard, LogOut, MoonStar, ScrollText, SearchCheck, ShieldAlert, SlidersHorizontal, Sun, SunMoon, UsersRound, Building2, Banknote, Menu } from "lucide-react";
 
 import LogoMark from "@/components/brand/LogoMark";
 import Wordmark from "@/components/brand/Wordmark";
@@ -12,6 +12,8 @@ import { useAttention } from "@/components/attention/AttentionProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useI18n } from "@/app/providers/I18nProvider";
 import { useRouteEnter } from "@/lib/useRouteEnter";
+import { useScrolledPast } from "@/lib/useScrolledPast";
+import { MobileDrawer, NavIndicator, useNavIndicator } from "@/components/ui/NavMotion";
 
 // Each area names the view capability a member needs (core/platform_roles.py);
 // the overview has none and is open to every member. The API refuses reads
@@ -102,8 +104,11 @@ function PlatformNav({ onNavigate }) {
   const { can } = useAuth();
   const { t } = useI18n();
   const { counts, tones, markSeen } = useAttention();
+  const { listRef, indicatorRef } = useNavIndicator(pathname);
   return (
-    <nav className="flex-1 space-y-4 overflow-y-auto px-3 pb-4" aria-label={t("shell.platformWorkspace")}>
+    <nav className="flex-1 overflow-y-auto px-3 pb-4" aria-label={t("shell.platformWorkspace")}>
+      <div ref={listRef} className="nav-list relative flex flex-col gap-4">
+      <NavIndicator ref={indicatorRef} />
       {visiblePlatformGroups(can).map((group) => (
         <div key={group.id}>
           {group.label && (
@@ -121,13 +126,13 @@ function PlatformNav({ onNavigate }) {
                   href={href}
                   onClick={() => { if (attentionKey) markSeen(attentionKey); onNavigate?.(); }}
                   aria-current={active ? "page" : undefined}
-                  className={`tap relative flex items-center gap-3 rounded-control px-3 py-2.5 text-sm transition-colors ${
+                  className={`nav-item tap relative flex items-center gap-3 rounded-control px-3 py-2.5 text-sm ${
                     active
-                      ? "bg-accent/20 font-semibold text-sidebarText ring-1 ring-inset ring-white/10"
+                      ? "font-semibold text-sidebarText"
                       : "text-sidebarText/70 hover:bg-white/5 hover:text-sidebarText"
                   }`}
                 >
-                  {active && <span className="absolute inset-y-1 start-0 w-1 rounded-full bg-accent" />}
+                  {active && <span className="nav-item__bar" />}
                   <Icon size={18} strokeWidth={2} className="shrink-0" />
                   <span className="flex-1 truncate">{t(label)}</span>
                   <AttentionBadge count={badge.count} tone={badge.tone} />
@@ -137,6 +142,7 @@ function PlatformNav({ onNavigate }) {
           </div>
         </div>
       ))}
+      </div>
     </nav>
   );
 }
@@ -168,6 +174,8 @@ export default function PlatformShell({ children }) {
   const roleLabel = usePlatformRoleLabel();
   const ThemeIcon = theme === "dark" ? MoonStar : theme === "light" ? Sun : SunMoon;
   const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  const scrolled = useScrolledPast();
   const mainRef = useRouteEnter(pathname);
 
   // A new page closes the phone drawer.
@@ -180,25 +188,16 @@ export default function PlatformShell({ children }) {
         <PlatformSidebar />
       </aside>
 
-      {/* Phone and tablet: the same sidebar, as a drawer. */}
-      {menuOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMenuOpen(false)} />
-          <aside className="absolute inset-y-0 start-0 flex w-72 max-w-[85%] flex-col bg-sidebar shadow-xl">
-            <button
-              onClick={() => setMenuOpen(false)}
-              aria-label={t("common.close")}
-              className="tap absolute end-3 top-4 grid h-9 w-9 place-items-center rounded-control text-sidebarText/70 hover:bg-white/10"
-            >
-              <X size={18} />
-            </button>
-            <PlatformSidebar onNavigate={() => setMenuOpen(false)} />
-          </aside>
-        </div>
-      )}
+      {/* Phone and tablet: the same sidebar, as a drawer from the start edge. */}
+      <MobileDrawer open={menuOpen} onClose={closeMenu} closeLabel={t("common.close")}>
+        <PlatformSidebar onNavigate={closeMenu} />
+      </MobileDrawer>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-2 border-b border-line/80 bg-surface/95 px-3 backdrop-blur-md sm:px-8">
+        <header
+          data-scrolled={scrolled ? "true" : "false"}
+          className="shell-topbar sticky top-0 z-20 flex h-16 items-center justify-between gap-2 border-b bg-surface/95 px-3 backdrop-blur-md sm:px-8"
+        >
           <div className="flex min-w-0 items-center gap-2">
             <button
               onClick={() => setMenuOpen(true)}

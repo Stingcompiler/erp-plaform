@@ -4,43 +4,53 @@
 // language/theme toggles, the footer, and the wrapper that sends visitors of
 // a standalone server to sign-in — there is nothing to market there.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Languages, Menu, MoonStar, Sun, SunMoon, X } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Languages, MoonStar, Sun, SunMoon } from "lucide-react";
 
 import { useAuth } from "../../app/providers/AuthProvider";
 import { useI18n } from "../../app/providers/I18nProvider";
 import { DEMO_URL, HAS_LIVE_DEMO } from "@/lib/demo";
+import { publicSite } from "@/lib/api";
 import { GUIDE_TITLES, SOLUTION_TITLES } from "@/lib/content/titles";
 import { cachedDeploymentMode, fetchDeploymentMode } from "@/lib/deploymentMode";
+import { NAV_MOTION, isCurrentMarketingLink, menuItemStyle } from "@/lib/navMotion";
+import { usePresence } from "@/lib/usePresence";
+import { useScrolledPast } from "@/lib/useScrolledPast";
+import { turnIcon } from "@/components/ui/NavMotion";
 import LogoMark from "@/components/brand/LogoMark";
 import Wordmark from "@/components/brand/Wordmark";
 import { SiteContactLines, SiteContactProvider, WhatsAppFloat } from "@/components/marketing/SiteContact";
 
+// The toggles' icons turn in when pressed (components/ui/NavMotion.jsx
+// turnIcon): the theme's new icon from a quarter turn back, the language
+// globe as the page switches. Only on a press, never on a page load.
 function ThemeToggle() {
   const { t, theme, cycleTheme } = useI18n();
+  const icon = useRef(null);
   const Icon = theme === "dark" ? MoonStar : theme === "light" ? Sun : SunMoon;
   return (
     <button
-      onClick={cycleTheme}
+      onClick={() => { cycleTheme(); turnIcon(icon.current); }}
       aria-label={t("shell.theme")}
       className="tap grid h-10 w-10 place-items-center rounded-control text-muted hover:bg-surface hover:text-ink"
     >
-      <Icon size={18} />
+      <span ref={icon} className="grid place-items-center"><Icon size={18} /></span>
     </button>
   );
 }
 
 function LangToggle() {
   const { language, toggleLanguage, t } = useI18n();
+  const icon = useRef(null);
   return (
     <button
-      onClick={toggleLanguage}
+      onClick={() => { turnIcon(icon.current); toggleLanguage(); }}
       title={t("shell.switchLanguage")}
       className="tap flex h-10 items-center gap-1.5 rounded-control px-2.5 text-sm font-medium text-muted hover:bg-surface hover:text-ink"
     >
-      <Languages size={16} />
+      <span ref={icon} className="grid place-items-center"><Languages size={16} /></span>
       {language === "ar" ? "العربية" : "EN"}
     </button>
   );
@@ -61,19 +71,58 @@ const NAV_LINKS = [
 const TRACK_LINK = ["/track", "track.nav", "hidden xl:inline"];
 
 // The company-pages directory (a Django page on the same origin, never
-// language-prefixed) is linked from the footer only: until real customer
-// pages are listed it is a feature showcase, not navigation (owner,
-// 2026-09-29).
+// language-prefixed). The footer links it always; the header names it
+// «الشركات والمتاجر» / "Companies & stores" as soon as the showcase lists
+// STORES_NAV_MIN sites (owner, 2026-10-01; #221 had kept it to the footer).
 const STORES_PATH = "/s/";
+const STORES_NAV_MIN = 1;
+const STORES_LINK = [STORES_PATH, "landing.navCompanies"];
+
+// One showcase request per page load, shared by every header that mounts.
+let showcaseCount = null;
+function fetchShowcaseCount() {
+  if (!showcaseCount) {
+    showcaseCount = publicSite
+      .showcase()
+      .then((response) => (response.data?.sites || []).length)
+      .catch(() => {
+        showcaseCount = null;
+        return 0;
+      });
+  }
+  return showcaseCount;
+}
+
+// null while the showcase is being read, then whether to show the link. The
+// header keeps the link's place (invisible) while it is null, so the links
+// beside it do not move when it appears.
+function useStoresNav() {
+  const [show, setShow] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchShowcaseCount().then((count) => { if (!cancelled) setShow(count >= STORES_NAV_MIN); });
+    return () => { cancelled = true; };
+  }, []);
+  return show;
+}
 
 // The studio that builds Vezano Pro, credited in the footer (owner's request).
 const STING_URL = "https://stingdev.pro";
 
 export function MarketingHeader() {
   const { t, href } = useI18n();
-  const navLinks = [...NAV_LINKS, TRACK_LINK];
+  const showStores = useStoresNav();
+  const navLinks = [...NAV_LINKS, ...(showStores === false ? [] : [STORES_LINK]), TRACK_LINK];
+  // The directory is a Django page, never language-prefixed.
+  const navHref = (path) => (path === STORES_PATH ? path : href(path));
+  const pending = (path) => path === STORES_PATH && showStores === null;
   const { user } = useAuth();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  // The phone menu stays mounted (inert) while it folds back up.
+  const menu = usePresence(open, NAV_MOTION.menuOut);
+  // See-through at the top; blurred paper and a hairline once scrolled.
+  const scrolled = useScrolledPast();
 
   // The phone menu is a plain disclosure: no focus trap, but it closes on
   // Escape and whenever the viewport grows past the breakpoint that shows
@@ -117,7 +166,11 @@ export function MarketingHeader() {
   );
 
   return (
-    <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/80 backdrop-blur">
+    <header
+      data-scrolled={scrolled ? "true" : "false"}
+      data-menu={open ? "open" : "closed"}
+      className="mk-header sticky top-0 z-30 border-b"
+    >
       {/* First stop for the keyboard: straight past the header to the page. */}
       <a
         href="#content"
@@ -130,9 +183,22 @@ export function MarketingHeader() {
           <LogoMark size={32} decorative />
           <Wordmark />
         </Link>
-        <nav className="hidden items-center gap-4 text-sm text-muted lg:flex xl:gap-6">
+        {/* gap-3 below 1280: with «الشركات والمتاجر» / "Companies & stores"
+            the English bar measured 15px clear of the logo and the controls at
+            1024 (gap-4 left none, and the link wrapped). */}
+        <nav className="hidden items-center gap-3 whitespace-nowrap text-sm text-muted lg:flex xl:gap-6">
           {navLinks.map(([path, key, visibility]) => (
-            <a key={path} href={href(path)} className={`hover:text-ink ${visibility || ""}`}>{t(key)}</a>
+            <a
+              key={path}
+              href={navHref(path)}
+              aria-current={isCurrentMarketingLink(pathname, path) ? "page" : undefined}
+              /* Held in place, unseen and unfocusable, until the showcase answers. */
+              aria-hidden={pending(path) || undefined}
+              tabIndex={pending(path) ? -1 : undefined}
+              className={`mk-navlink hover:text-ink ${pending(path) ? "invisible" : ""} ${visibility || ""}`}
+            >
+              {t(key)}
+            </a>
           ))}
         </nav>
         {/* Desktop: everything inline. Tablets use the phone menu — seven links
@@ -155,30 +221,44 @@ export function MarketingHeader() {
             onClick={() => setOpen((value) => !value)}
             className="tap grid h-10 w-10 place-items-center rounded-control border border-line bg-surface p-2 text-ink hover:border-accent"
           >
-            {open ? <X size={20} /> : <Menu size={20} />}
+            {/* Three lines that fold into an X. */}
+            <span className="mk-burger" data-open={open ? "true" : "false"} aria-hidden="true">
+              <span /><span /><span />
+            </span>
           </button>
         </div>
       </div>
-      {open && (
-        <div id="landing-menu" className="border-t border-line/70 bg-paper lg:hidden">
-          <nav className="mx-auto flex max-w-6xl flex-col px-4 py-2 text-base">
-            {navLinks.map(([path, key]) => (
-              <a
-                key={path}
-                href={href(path)}
-                onClick={() => setOpen(false)}
-                className="rounded-control px-2 py-3 text-ink hover:bg-surface"
-              >
-                {t(key)}
-              </a>
-            ))}
-            <div className="my-2 border-t border-line/70" />
-            {trial("rounded-control border border-line bg-surface px-4 py-3 text-center font-medium text-ink hover:border-accent")}
-            <div className="mt-2 flex items-center justify-between px-1 pb-2">
-              <LangToggle />
-              <ThemeToggle />
-            </div>
-          </nav>
+      {menu.mounted && (
+        <div
+          id="landing-menu"
+          data-state={menu.state}
+          inert={!open}
+          className="mk-menu border-t border-line/70 bg-paper lg:hidden"
+        >
+          <div className="mk-menu__clip">
+            <nav className="mx-auto flex max-w-6xl flex-col px-4 py-2 text-base">
+              {navLinks.filter(([path]) => !pending(path)).map(([path, key], index) => (
+                <a
+                  key={path}
+                  href={navHref(path)}
+                  onClick={() => setOpen(false)}
+                  aria-current={isCurrentMarketingLink(pathname, path) ? "page" : undefined}
+                  style={menuItemStyle(index)}
+                  className="mk-menu__item rounded-control px-2 py-3 text-ink hover:bg-surface aria-[current=page]:font-semibold aria-[current=page]:text-accent"
+                >
+                  {t(key)}
+                </a>
+              ))}
+              <div className="my-2 border-t border-line/70" />
+              <div className="mk-menu__item grid" style={menuItemStyle(navLinks.length)}>
+                {trial("rounded-control border border-line bg-surface px-4 py-3 text-center font-medium text-ink hover:border-accent")}
+              </div>
+              <div className="mk-menu__item mt-2 flex items-center justify-between px-1 pb-2" style={menuItemStyle(navLinks.length + 1)}>
+                <LangToggle />
+                <ThemeToggle />
+              </div>
+            </nav>
+          </div>
         </div>
       )}
     </header>

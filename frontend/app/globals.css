@@ -331,6 +331,180 @@ body {
 a:focus-visible > .workspace-card,
 a:focus-visible .dashboard-stat { border-color: rgb(var(--accent) / .5); }
 
+/* ---- Navigation motion (lib/navMotion.js, components/ui/NavMotion.jsx) ----
+   The sidebar's active item is marked by one pill (.nav-indicator) that a
+   transform moves to the page opened. Until the pill is placed
+   (data-indicator on the list) the active item draws the same tint and
+   bar itself. Transitions arm on [data-nav-ready], two frames after the
+   list's first layout, so a page load never plays one. */
+.nav-item {
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease);
+}
+.nav-item[aria-current="page"] {
+  background-color: rgb(var(--accent) / .2);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / .1);
+}
+.nav-item__bar,
+.nav-indicator__bar {
+  position: absolute;
+  inset-block: 0.25rem;
+  inset-inline-start: 0;
+  width: 0.25rem;
+  border-radius: 9999px;
+  background: rgb(var(--accent));
+}
+.nav-list[data-indicator="on"] .nav-item[aria-current="page"] { background-color: transparent; box-shadow: none; }
+.nav-list[data-indicator="on"] .nav-item__bar { display: none; }
+.nav-indicator {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  border-radius: 10px;
+  background-color: rgb(var(--accent) / .2);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / .1);
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform;
+}
+.nav-indicator[data-state="on"] { opacity: 1; }
+.nav-list[data-nav-ready] .nav-indicator { transition: opacity var(--motion-fast) var(--motion-ease); }
+/* An item's icon leans a hair toward the reading direction under a mouse. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .nav-item > svg:first-child { transition: transform var(--motion-fast) var(--motion-ease); }
+  .nav-item:not([aria-current]):hover > svg:first-child { transform: translateX(2px); }
+  [dir="rtl"] .nav-item:not([aria-current]):hover > svg:first-child { transform: translateX(-2px); }
+}
+/* A group folds by its height: grid rows 0fr <-> 1fr, the clip hiding what
+   is folded, and the chevron turning with it. Focus rings inside the clip
+   are drawn inset so it cannot cut them. */
+.nav-collapse { display: grid; grid-template-rows: 0fr; }
+.nav-collapse[data-open="true"] { grid-template-rows: 1fr; }
+.nav-collapse__clip { min-height: 0; overflow: hidden; }
+.nav-collapse .nav-item:focus-visible { outline-offset: -2px; }
+.nav-chevron { transition: transform var(--motion-base) var(--motion-ease); }
+.nav-list[data-nav-ready] .nav-collapse { transition: grid-template-rows var(--motion-base) var(--motion-ease); }
+
+/* The phone drawer slides in from the start edge (the right in Arabic) over
+   a fading backdrop, and back out while inert. Under reduced motion there
+   is no rule: it is simply there, and unmounts at once. */
+.shell-drawer { --drawer-from: -100%; }
+[dir="rtl"] .shell-drawer { --drawer-from: 100%; }
+.shell-drawer[data-state="closed"] { pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .shell-drawer[data-state="open"] .shell-drawer__panel { animation: drawer-in 220ms var(--motion-ease) both; }
+  .shell-drawer[data-state="open"] .shell-drawer__scrim { animation: scrim-in var(--motion-base) var(--motion-ease) both; }
+  .shell-drawer[data-state="closed"] .shell-drawer__panel { animation: drawer-out 180ms var(--motion-ease) both; }
+  .shell-drawer[data-state="closed"] .shell-drawer__scrim { animation: scrim-out 180ms var(--motion-ease) both; }
+}
+@keyframes drawer-in { from { transform: translateX(var(--drawer-from)); } }
+@keyframes drawer-out { to { transform: translateX(var(--drawer-from)); } }
+@keyframes scrim-in { from { opacity: 0; } }
+@keyframes scrim-out { to { opacity: 0; } }
+
+/* The top bar: once content scrolls under it, its hairline firms up and a
+   soft shadow fades in below it (opacity only). */
+.shell-topbar {
+  border-bottom-color: rgb(var(--line) / .55);
+  transition: border-color var(--motion-base) var(--motion-ease);
+}
+.shell-topbar::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  height: 12px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgb(18 37 59 / .08), rgb(18 37 59 / 0));
+  opacity: 0;
+  transition: opacity var(--motion-base) var(--motion-ease);
+}
+.dark .shell-topbar::after { background: linear-gradient(to bottom, rgb(0 0 0 / .35), rgb(0 0 0 / 0)); }
+.shell-topbar[data-scrolled="true"] { border-bottom-color: rgb(var(--line)); }
+.shell-topbar[data-scrolled="true"]::after { opacity: 1; }
+@media print { .shell-topbar::after { display: none; } }
+
+/* An attention count that went up pops once (components/attention). */
+@media (prefers-reduced-motion: no-preference) {
+  .badge-pop { animation: badge-pop 240ms var(--motion-ease) 1; }
+}
+@keyframes badge-pop {
+  0% { transform: scale(0.6); }
+  60% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+/* ---- Marketing header (components/marketing/Chrome.jsx) -----------------
+   Rendered as it is, with nothing waiting: at the top it is see-through
+   over the page; scrolled, it gains the blurred paper and a hairline. */
+.mk-header {
+  background-color: rgb(var(--paper) / 0);
+  border-bottom-color: rgb(var(--line) / 0);
+  transition:
+    background-color var(--motion-base) var(--motion-ease),
+    border-color var(--motion-base) var(--motion-ease);
+}
+.mk-header[data-scrolled="true"] {
+  background-color: rgb(var(--paper) / .8);
+  border-bottom-color: rgb(var(--line) / .7);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.mk-header[data-menu="open"] { background-color: rgb(var(--paper)); }
+/* A link's underline grows from the start edge (the right in Arabic) under
+   the pointer or keyboard focus; the page being read keeps it. */
+.mk-navlink { position: relative; transition: color var(--motion-fast) var(--motion-ease); }
+.mk-navlink::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: -6px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgb(var(--accent));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--motion-base) var(--motion-ease);
+}
+[dir="rtl"] .mk-navlink::after { transform-origin: right; }
+.mk-navlink:hover::after,
+.mk-navlink:focus-visible::after,
+.mk-navlink[aria-current="page"]::after { transform: scaleX(1); }
+.mk-navlink[aria-current="page"] { color: rgb(var(--ink)); }
+/* The phone menu opens by its height and fades, its links following one
+   after another (lib/navMotion.js menuItemStyle); it folds back while
+   inert. */
+.mk-menu { display: grid; grid-template-rows: 1fr; }
+.mk-menu__clip { min-height: 0; overflow: hidden; }
+.mk-menu[data-state="closed"] { pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .mk-menu[data-state="open"] { animation: mk-menu-open 220ms var(--motion-ease) both; }
+  .mk-menu[data-state="closed"] { animation: mk-menu-close 160ms var(--motion-ease) both; }
+  .mk-menu[data-state="open"] .mk-menu__item { animation: mk-menu-item var(--motion-base) var(--motion-ease) var(--menu-delay, 0ms) both; }
+}
+@keyframes mk-menu-open { from { grid-template-rows: 0fr; opacity: 0; } }
+@keyframes mk-menu-close { to { grid-template-rows: 0fr; opacity: 0; } }
+@keyframes mk-menu-item { from { opacity: 0; transform: translateY(-6px); } }
+/* The menu button's three lines fold into an X. */
+.mk-burger { position: relative; display: block; width: 18px; height: 14px; }
+.mk-burger > span {
+  position: absolute;
+  inset-inline: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transition:
+    transform var(--motion-base) var(--motion-ease),
+    opacity var(--motion-fast) var(--motion-ease);
+}
+.mk-burger > span:nth-child(1) { top: 0; }
+.mk-burger > span:nth-child(2) { top: 6px; }
+.mk-burger > span:nth-child(3) { top: 12px; }
+.mk-burger[data-open="true"] > span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+.mk-burger[data-open="true"] > span:nth-child(2) { opacity: 0; transform: scaleX(0.3); }
+.mk-burger[data-open="true"] > span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
 /* ---- Public site motion (lib/motion.js, "Public site") -------------------
    Every rule that hides something is keyed to a state a script set: the
    `motion-ok` class the hero's inline script puts on <html>, or a card's
