@@ -5,7 +5,7 @@ from website.public_pages import public_showcase
 from website.analytics_views import CompanyVisitsView, PlatformAnalyticsOverview, PlatformFunnelView
 from website.seo_views import (
     PricingDisplayView, PublicPricingDisplayView, PublicSiteContactView, SeoOgImageView,
-    SeoPageOverrideViewSet, SeoSettingsView,
+    SeoHealthView, SeoPageOverrideViewSet, SeoSettingsView,
 )
 from website.views import (
     FeaturedProductViewSet,
@@ -55,6 +55,7 @@ urlpatterns = [
         name="platform-analytics-funnel",
     ),
     path("platform/seo/settings/", SeoSettingsView.as_view(), name="platform-seo-settings"),
+    path("platform/seo/health/", SeoHealthView.as_view(), name="platform-seo-health"),
     path(
         "platform/seo/settings/image/", SeoOgImageView.as_view(),
         name="platform-seo-settings-image",

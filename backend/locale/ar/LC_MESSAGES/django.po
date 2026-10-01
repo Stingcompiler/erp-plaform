@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-29 09:50+0000\n"
+"POT-Creation-Date: 2026-10-01 12:58+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2375,6 +2375,9 @@ msgstr "أدخل مسارًا مثل /pricing أو /s/shop."
 
 msgid "There is already an override for this path and language."
 msgstr "يوجد تخصيص مسبق لهذا المسار وهذه اللغة."
+
+msgid "Only the team members who manage SEO can refresh the check."
+msgstr "إعادة الفحص متاحة فقط لأعضاء الفريق الذين يديرون إعدادات SEO."
 
 msgid "Keep each service under 60 characters."
 msgstr "اجعل كل خدمة أقل من 60 حرفًا."

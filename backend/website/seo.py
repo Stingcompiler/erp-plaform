@@ -23,6 +23,11 @@ CACHE_SECONDS = 60
 
 def invalidate_seo_cache():
     cache.delete(CACHE_KEY)
+    # The health report judges pages after their overrides; a saved change
+    # must show there on the next look too.
+    from website.seo_health import invalidate_health_cache
+
+    invalidate_health_cache()
 
 
 def _load():

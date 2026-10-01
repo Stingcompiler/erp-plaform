@@ -6,6 +6,7 @@ platform_roles). Every change is written to the activity log under the
 model's name, so the platform activity page shows who changed what.
 """
 from rest_framework import serializers, viewsets
+from rest_framework.exceptions import PermissionDenied
 from django.utils.translation import gettext as _
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -22,6 +23,7 @@ from website.models import (
     PRICING_CYCLES, PRICING_TEMPLATES, SeoPageOverride, SeoSettings, normalize_seo_path,
 )
 from website.seo import pricing_display, pricing_display_of, site_seo
+from website.seo_health import health_report
 
 # A share image is 1200×630 by convention; the longest side is bounded here
 # and the file re-encoded like every other public image.
@@ -243,6 +245,28 @@ class SeoOgImageView(APIView):
             entity_id=settings_row.pk, metadata={"image": "default_og_image", "removed": True},
         )
         return Response(SeoSettingsSerializer(settings_row).data)
+
+
+class SeoHealthView(APIView):
+    """GET the SEO health report (website.seo_health): the exported pages,
+    the sitemap, the company pages and the site-wide settings, checked.
+    Read with `platform.seo.view`; cached for five minutes, and `?refresh=1`
+    recomputes it for those who may change things (`platform.seo.manage`)."""
+
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    platform_view_capability = platform_roles.SEO_VIEW
+    platform_capability = platform_roles.SEO_MANAGE
+    entitlement_exempt = True
+
+    def get(self, request):
+        refresh = request.query_params.get("refresh") in {"1", "true"}
+        if refresh and not platform_roles.user_has_platform_capability(
+            request.user, platform_roles.SEO_MANAGE
+        ):
+            raise PermissionDenied(
+                _("Only the team members who manage SEO can refresh the check.")
+            )
+        return Response(health_report(refresh=refresh))
 
 
 class SeoPageOverrideViewSet(viewsets.ModelViewSet):

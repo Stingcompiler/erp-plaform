@@ -643,6 +643,8 @@ export const platformSeo = {
   createOverride: (body) => api.post("/platform/seo/overrides/", body),
   updateOverride: (id, body) => api.patch(`/platform/seo/overrides/${id}/`, body),
   deleteOverride: (id) => api.delete(`/platform/seo/overrides/${id}/`),
+  // The health report; `refresh` recomputes it (managers only).
+  health: (refresh = false) => api.get("/platform/seo/health/", { params: refresh ? { refresh: 1 } : {} }),
 };
 
 export const platformLeads = {
