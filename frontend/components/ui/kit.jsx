@@ -5,9 +5,16 @@ import { cloneElement, forwardRef, isValidElement, useId } from "react";
 import { figureFitStyle, splitFigure } from "../../lib/figureFit";
 import { useCountUp } from "../../lib/useCountUp";
 
+// Press feedback: the button gives a little (scale 0.98 in 100 ms) while it
+// is held, and its colours, border and focus halo ease in over 150 ms. The
+// scale is `motion-safe:` only, and the reduced-motion rule in globals.css
+// cuts the colour transition to nothing; the click itself is never delayed.
+const BUTTON_MOTION =
+  "transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 ease-motion active:duration-100 motion-safe:active:scale-[0.98] focus-visible:shadow-[0_0_0_4px_rgb(var(--accent)/0.15)]";
+
 export function Button({ variant = "primary", className = "", ...props }) {
   const base =
-    "tap inline-flex items-center justify-center gap-2 min-h-10 rounded-control px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 disabled:pointer-events-none";
+    `tap inline-flex items-center justify-center gap-2 min-h-10 rounded-control px-4 py-2 text-sm font-semibold ${BUTTON_MOTION} disabled:opacity-50 disabled:pointer-events-none`;
   const variants = {
     primary: "bg-accent text-white shadow-sm hover:bg-accent-strong",
     ghost: "text-muted hover:bg-paper hover:text-ink",
@@ -75,7 +82,7 @@ export function Select({ className = "", children, ...props }) {
   );
 }
 
-export function Badge({ tone = "muted", children }) {
+export function Badge({ tone = "muted", className = "", children }) {
   const tones = {
     muted: "bg-paper text-muted",
     ok: "bg-ok/10 text-ok",
@@ -85,7 +92,7 @@ export function Badge({ tone = "muted", children }) {
   };
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${tones[tone]}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${tones[tone]} ${className}`}
     >
       {children}
     </span>
@@ -130,11 +137,37 @@ export function Figure({ value, size = "lg", className = "", valueClassName = ""
   );
 }
 
-export function Card({ className = "", children }) {
+// `interactive`: the card is a click target that is not a link (a card in a
+// <button> or <label>), so it lifts a hair on hover as a card in a link does
+// (.workspace-card--interactive / `a > .workspace-card` in globals.css).
+// `style` passes through, e.g. an entrance delay (lib/motion.js enterStyle).
+export function Card({ className = "", interactive = false, style, children }) {
   return (
-    <div className={`workspace-card rounded-card border border-line bg-surface shadow-card ${className}`}>
+    <div
+      className={`workspace-card rounded-card border border-line bg-surface shadow-card ${interactive ? "workspace-card--interactive" : ""} ${className}`}
+      style={style}
+    >
       {children}
     </div>
+  );
+}
+
+// A small whole number that counts up from zero when it appears and to its
+// new value when it changes (the days left in a ring). Same mechanism as
+// <Figure>: the final text stays in the layout and sizes the box, and the
+// count is drawn over it. Reduced motion and printing show the number.
+export function CountUp({ value, className = "" }) {
+  const text = value === null || value === undefined ? "" : String(value);
+  const { counting, overlay, numberRef } = useCountUp(text);
+  return (
+    <span className={`${counting ? "figure-count" : ""} ${className}`}>
+      {text}
+      {counting && (
+        <span className="figure-count__overlay" aria-hidden="true">
+          <span ref={numberRef}>{overlay}</span>
+        </span>
+      )}
+    </span>
   );
 }
 

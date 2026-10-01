@@ -6,10 +6,13 @@ import { useAuth } from "../../providers/AuthProvider";
 import { errorText } from "@/lib/errors";
 import { useI18n } from "../../providers/I18nProvider";
 import { subscription as subscriptionApi } from "@/lib/api";
-import { Badge, Button, Card, Input, PageHeader, Select } from "@/components/ui/kit";
+import { Badge, Button, Card, CountUp, Input, PageHeader, Select } from "@/components/ui/kit";
 import UsageMeter from "@/components/subscription/UsageMeter";
 import ProgressRing from "@/components/ui/ProgressRing";
+import SuccessCheck from "@/components/ui/SuccessCheck";
 import { subscriptionWindow } from "@/lib/progress";
+import { enterStyle } from "@/lib/motion";
+import { useChangeCount } from "@/lib/useChangeCount";
 import DeviceList from "@/components/subscription/DeviceList";
 import PlanChangePanel from "@/components/subscription/PlanChangePanel";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -69,6 +72,10 @@ export default function SubscriptionPage() {
   const [payment, setPayment] = useState({ amount: "", currency: "", method: "bank_transfer", transfer_reference: "", proof: null });
   const [devices, setDevices] = useState(null);
   const [deviceBusy, setDeviceBusy] = useState(null);
+  // Bumped by every accepted payment: the notice then carries a check that
+  // plays once (a new key replays it for the next payment).
+  const [paymentsSent, setPaymentsSent] = useState(0);
+  const [paymentNotice, setPaymentNotice] = useState(false);
 
   const loadDevices = useCallback(async () => {
     try { const res = await subscriptionApi.devices(); setDevices(res.data); } catch { /* standalone or not owner */ }
@@ -95,7 +102,7 @@ export default function SubscriptionPage() {
   useEffect(() => { if (user?.role_name === "Business Owner") { load(); loadDevices(); } }, [load, loadDevices, user?.role_name]);
 
   const importLicense = async () => {
-    setError(""); setNotice("");
+    setError(""); setNotice(""); setPaymentNotice(false);
     let envelope;
     try { envelope = JSON.parse(licenseText); } catch { setError(t("subscription.invalidLicenseFile")); return; }
     try {
@@ -114,7 +121,7 @@ export default function SubscriptionPage() {
     reader.readAsText(file);
   };
   const submitPayment = async (event) => {
-    event.preventDefault(); setError(""); setNotice("");
+    event.preventDefault(); setError(""); setNotice(""); setPaymentNotice(false);
     try {
       const body = new FormData();
       Object.entries(payment).forEach(([key, value]) => {
@@ -122,6 +129,7 @@ export default function SubscriptionPage() {
       });
       await subscriptionApi.submitPayment(body);
       setNotice(t("subscription.paymentSent"));
+      setPaymentNotice(true); setPaymentsSent((n) => n + 1);
       setPayment((current) => ({ ...current, amount: "", transfer_reference: "", proof: null })); await load();
     } catch (requestError) { setError(errorText(requestError, t, "subscription.paymentError")); }
   };
@@ -148,6 +156,11 @@ export default function SubscriptionPage() {
       setPayment((p) => (p.amount ? p : { ...p, amount: renewalAmount }));
     }
   }, [renewalAmount]);
+  // The plan and the access state glow once when a reload changes them (a
+  // payment approved, a plan change applied) — never on first load.
+  const isStandalone = data?.deployment_mode === "standalone";
+  const planFlash = useChangeCount(isStandalone ? data?.license?.organisation_name : data?.subscription?.plan?.plan_name);
+  const stateFlash = useChangeCount(data?.entitlements?.state);
 
   if (user?.role_name !== "Business Owner") return <Card className="mx-auto mt-16 max-w-md p-8 text-center"><Lock className="mx-auto text-muted"/><p className="mt-3 text-muted">{t("subscription.ownerOnly")}</p></Card>;
   if (!data && !error) return <SkeletonCard />;
@@ -162,14 +175,18 @@ export default function SubscriptionPage() {
   return <div>
     <PageHeader title={t("subscription.title")} subtitle={t("subscription.subtitle")} />
     {error && <div role="alert" className="mb-4 rounded-control bg-danger/10 p-3 text-sm text-danger">{error}</div>}
-    {notice && <div role="status" className="mb-4 rounded-control bg-ok/10 p-3 text-sm text-ok">{notice}</div>}
+    {notice && <div role="status" className="mb-4 flex items-center gap-2 rounded-control bg-ok/10 p-3 text-sm text-ok">
+      {paymentNotice && <SuccessCheck key={paymentsSent} size={22} />}
+      <span className="min-w-0">{notice}</span>
+    </div>}
     {data && <>
+      {/* Cards rise in once, in reading order (.enter-rise, lib/motion.js ENTER). */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="p-5"><div className="flex items-center gap-2 text-muted">{standalone ? <KeyRound size={18}/> : <CreditCard size={18}/>} {t("subscription.deployment")}</div><div className="mt-3 font-display text-xl font-semibold">{t(standalone ? "subscription.standalone" : "subscription.saas")}</div></Card>
-        <Card className="p-5"><div className="text-sm text-muted">{t("subscription.plan")}</div><div className="mt-3 font-display text-xl font-semibold">{planName || t("subscription.legacy")}</div></Card>
-        <Card className="p-5"><div className="text-sm text-muted">{t("subscription.state")}</div><div className="mt-3"><Badge tone={entitlements.allow_writes ? "ok" : "warn"}>{subscriptionStateLabel(t, entitlements.state)}</Badge></div></Card>
+        <Card className="enter-rise p-5" style={enterStyle(0)}><div className="flex items-center gap-2 text-muted">{standalone ? <KeyRound size={18}/> : <CreditCard size={18}/>} {t("subscription.deployment")}</div><div className="mt-3 font-display text-xl font-semibold">{t(standalone ? "subscription.standalone" : "subscription.saas")}</div></Card>
+        <Card className="enter-rise p-5" style={enterStyle(1)}><div className="text-sm text-muted">{t("subscription.plan")}</div><div className="mt-3 font-display text-xl font-semibold"><span key={planFlash} className={planFlash ? "change-flash rounded-md" : ""}>{planName || t("subscription.legacy")}</span></div></Card>
+        <Card className="enter-rise p-5" style={enterStyle(2)}><div className="text-sm text-muted">{t("subscription.state")}</div><div className="mt-3"><Badge key={stateFlash} className={stateFlash ? "change-flash" : ""} tone={entitlements.allow_writes ? "ok" : "warn"}>{subscriptionStateLabel(t, entitlements.state)}</Badge></div></Card>
       </div>
-      {standalone && <Card className="mt-5 p-5">
+      {standalone && <Card className="enter-rise mt-5 p-5" style={enterStyle(3)}>
         <h2 className="font-display font-semibold">{t("subscription.licenceDetails")}</h2>
         {record ? (
           <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -192,27 +209,38 @@ export default function SubscriptionPage() {
           {data.installation.application_version && <div className="mt-1">{t("subscription.appVersion")}: {data.installation.application_version}</div>}
         </div>}
       </Card>}
-      {!standalone && record && <Card className="mt-5 p-5"><div className="flex flex-wrap items-center gap-5">
+      {/* Days left + the three end dates. On a phone the ring and its label
+          share the top row and the dates are a label/value list under a
+          rule; from `sm` up they sit side by side as before. The old phone
+          layout kept one flex row whose date grid was `flex-1` (basis 0) +
+          `min-w-0`: it never wrapped, it shrank to the ~50 px the ring left
+          and the dates ran out of the card (and the screen, in Arabic). */}
+      {!standalone && record && <Card className="enter-rise mt-5 p-5" style={enterStyle(3)}><div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-5">
         {timeLeft && <div className="flex items-center gap-3">
           <ProgressRing value={timeLeft.daysLeft} max={timeLeft.totalDays} size={72} stroke={7}
             tone={timeLeft.daysLeft <= 3 ? "danger" : timeLeft.daysLeft <= 7 || timeLeft.kind === "grace" ? "warn" : "accent"}
             label={t(`subscription.ringLabel.${timeLeft.kind}`)}
             valueText={t("subscription.ringValueText", { left: timeLeft.daysLeft, total: timeLeft.totalDays })}>
-            <span className="tabular block text-lg font-semibold text-ink">{timeLeft.daysLeft}</span>
+            <CountUp value={timeLeft.daysLeft} className="tabular block text-lg font-semibold text-ink" />
           </ProgressRing>
-          <div className="text-sm">
+          <div className="min-w-0 text-sm">
             <div className="font-medium text-ink">{t(`subscription.ringLabel.${timeLeft.kind}`)}</div>
             <div className="text-muted">{t("subscription.ringOf", { total: timeLeft.totalDays })}</div>
           </div>
         </div>}
-        <div className="grid min-w-0 flex-1 gap-4 sm:grid-cols-3">{[["periodEnd", record.period_ends_at], ["trialEnd", record.trial_ends_at], ["graceEnd", record.grace_ends_at]].map(([key, value]) => <div key={key}><div className="text-xs text-muted">{t(`subscription.${key}`)}</div><div className="mt-1">{showDate(value)}</div></div>)}</div>
+        <dl className={`grid min-w-0 gap-2 sm:flex-1 sm:grid-cols-3 sm:gap-4 ${timeLeft ? "border-t border-line pt-3 sm:border-0 sm:pt-0" : ""}`}>{[["periodEnd", record.period_ends_at], ["trialEnd", record.trial_ends_at], ["graceEnd", record.grace_ends_at]].map(([key, value]) => (
+          <div key={key} className="flex items-baseline justify-between gap-3 sm:block">
+            <dt className="min-w-0 text-xs text-muted">{t(`subscription.${key}`)}</dt>
+            <dd className="shrink-0 whitespace-nowrap max-sm:text-sm sm:mt-1">{showDate(value)}</dd>
+          </div>
+        ))}</dl>
       </div></Card>}
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        <Card className="p-5"><h2 className="font-display font-semibold">{t("subscription.modules")}</h2><div className="mt-3 flex flex-wrap gap-2">{(entitlements.modules || []).map((item) => <Badge key={item} tone="accent">{moduleLabel(item, t)}</Badge>)}</div></Card>
-        <Card className="p-5"><h2 className="font-display font-semibold">{t("subscription.limits")}</h2><p className="mt-1 text-sm text-muted">{t("usage.hint")}</p><div className="mt-4"><UsageMeter usage={data.usage} /></div></Card>
+        <Card className="enter-rise p-5" style={enterStyle(4)}><h2 className="font-display font-semibold">{t("subscription.modules")}</h2><div className="mt-3 flex flex-wrap gap-2">{(entitlements.modules || []).map((item) => <Badge key={item} tone="accent">{moduleLabel(item, t)}</Badge>)}</div></Card>
+        <Card className="enter-rise p-5" style={enterStyle(5)}><h2 className="font-display font-semibold">{t("subscription.limits")}</h2><p className="mt-1 text-sm text-muted">{t("usage.hint")}</p><div className="mt-4"><UsageMeter usage={data.usage} /></div></Card>
       </div>
-      {!standalone && <PlanChangePanel onChanged={load} />}
-      {!standalone && <Card className="mt-5 p-5">
+      {!standalone && <div className="enter-rise" style={enterStyle(5)}><PlanChangePanel onChanged={load} /></div>}
+      {!standalone && <Card className="enter-rise mt-5 p-5" style={enterStyle(5)}>
         <h2 className="font-display font-semibold">{t("devices.title")}</h2>
         <p className="mt-1 text-sm text-muted">{t("devices.hint")}</p>
         <div className="mt-4">
@@ -226,8 +254,8 @@ export default function SubscriptionPage() {
           />
         </div>
       </Card>}
-      {standalone ? <Card className="mt-5 p-5"><h2 className="font-display font-semibold">{t("subscription.importLicense")}</h2><label className="mt-3 block text-sm text-muted">{t("subscription.licenceUpload")}<Input className="mt-1" type="file" accept=".json,application/json" onChange={(event) => readLicenseFile(event.target.files?.[0])}/></label><textarea className="mt-3 min-h-40 w-full rounded-control border border-line bg-surface p-3 font-mono text-xs" value={licenseText} onChange={(event) => setLicenseText(event.target.value)} placeholder={t("subscription.licenseFile")}/><Button className="mt-3" onClick={importLicense} disabled={!licenseText.trim()}>{t("subscription.importLicense")}</Button></Card> : <>
-        {record?.next_renewal && <Card className="mt-5 p-5">
+      {standalone ? <Card className="enter-rise mt-5 p-5" style={enterStyle(5)}><h2 className="font-display font-semibold">{t("subscription.importLicense")}</h2><label className="mt-3 block text-sm text-muted">{t("subscription.licenceUpload")}<Input className="mt-1" type="file" accept=".json,application/json" onChange={(event) => readLicenseFile(event.target.files?.[0])}/></label><textarea className="mt-3 min-h-40 w-full rounded-control border border-line bg-surface p-3 font-mono text-xs" value={licenseText} onChange={(event) => setLicenseText(event.target.value)} placeholder={t("subscription.licenseFile")}/><Button className="mt-3" onClick={importLicense} disabled={!licenseText.trim()}>{t("subscription.importLicense")}</Button></Card> : <>
+        {record?.next_renewal && <Card className="enter-rise mt-5 p-5" style={enterStyle(5)}>
           <h2 className="font-display font-semibold">{t("subscription.nextRenewal")}</h2>
           <p className="mt-2 text-sm">{t("subscription.nextRenewalBody", {
             amount: record.next_renewal.amount, currency: record.next_renewal.currency,
@@ -239,7 +267,7 @@ export default function SubscriptionPage() {
             </p>
           )}
         </Card>}
-        <Card className="mt-5 p-5">
+        <Card className="enter-rise mt-5 p-5" style={enterStyle(5)}>
           <h2 className="font-display font-semibold">{t("subscription.invoices")}</h2>
           {data.invoices?.length ? <div className="mt-3 divide-y divide-line">{data.invoices.map((row) => (
             <div key={row.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
@@ -257,7 +285,7 @@ export default function SubscriptionPage() {
             </div>
           ))}</div> : <p className="mt-3 text-sm text-muted">{t("subscription.noInvoices")}</p>}
         </Card>
-        <Card className="mt-5 p-5">
+        <Card className="enter-rise mt-5 p-5" style={enterStyle(5)}>
           <h2 className="font-display font-semibold">{t("subscription.payments")}</h2>
           <form onSubmit={submitPayment} className="mt-3 grid gap-3 sm:grid-cols-4">
             <Input required type="number" min="0.01" step="0.01" dir="ltr" placeholder={t("subscription.amount")} value={payment.amount} onChange={(event) => setPayment({...payment, amount: event.target.value})}/>
@@ -270,9 +298,11 @@ export default function SubscriptionPage() {
           </form>
           {data.payments?.length > 0 && <div className="mt-4 divide-y divide-line">{data.payments.map((row) => (
             <div key={row.id} className="py-2 text-sm">
-              <div className="flex justify-between gap-3">
-                <span className="tabular">{formatMoney(row.amount, { currency: row.currency, language })} · {showDate(row.created_at)}</span>
-                <Badge tone={row.status === "verified" ? "ok" : row.status === "rejected" ? "danger" : "warn"}>{t(`subscription.paymentStatus.${row.status}`)}</Badge>
+              {/* The status never breaks over two lines; on a phone the date
+                  goes under the amount instead of splitting it. */}
+              <div className="flex items-start justify-between gap-3">
+                <span className="tabular min-w-0"><span className="whitespace-nowrap">{formatMoney(row.amount, { currency: row.currency, language })}</span> <span className="whitespace-nowrap">· {showDate(row.created_at)}</span></span>
+                <Badge className="shrink-0 whitespace-nowrap" tone={row.status === "verified" ? "ok" : row.status === "rejected" ? "danger" : "warn"}>{t(`subscription.paymentStatus.${row.status}`)}</Badge>
               </div>
               {row.status === "rejected" && row.rejection_reason && <div className="mt-1 text-xs text-danger">{row.rejection_reason}</div>}
               {(row.allocations || []).map((line) => (
@@ -284,7 +314,7 @@ export default function SubscriptionPage() {
             </div>
           ))}</div>}
         </Card>
-        <Card className="mt-5 p-5"><h2 className="font-display font-semibold">{t("subscription.events")}</h2>{data.events?.length ? <div className="mt-3 divide-y divide-line">{data.events.map((row) => <EventRow key={row.id} row={row} t={t} />)}</div> : <p className="mt-3 text-sm text-muted">{t("subscription.noEvents")}</p>}</Card>
+        <Card className="enter-rise mt-5 p-5" style={enterStyle(5)}><h2 className="font-display font-semibold">{t("subscription.events")}</h2>{data.events?.length ? <div className="mt-3 divide-y divide-line">{data.events.map((row) => <EventRow key={row.id} row={row} t={t} />)}</div> : <p className="mt-3 text-sm text-muted">{t("subscription.noEvents")}</p>}</Card>
       </>}
     </>}
   </div>;

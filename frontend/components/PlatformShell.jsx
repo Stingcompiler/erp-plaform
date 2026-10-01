@@ -11,6 +11,7 @@ import AttentionBadge, { badgeFor } from "@/components/attention/AttentionBadge"
 import { useAttention } from "@/components/attention/AttentionProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useI18n } from "@/app/providers/I18nProvider";
+import { useRouteEnter } from "@/lib/useRouteEnter";
 
 // Each area names the view capability a member needs (core/platform_roles.py);
 // the overview has none and is open to every member. The API refuses reads
@@ -167,6 +168,7 @@ export default function PlatformShell({ children }) {
   const roleLabel = usePlatformRoleLabel();
   const ThemeIcon = theme === "dark" ? MoonStar : theme === "light" ? Sun : SunMoon;
   const [menuOpen, setMenuOpen] = useState(false);
+  const mainRef = useRouteEnter(pathname);
 
   // A new page closes the phone drawer.
   useEffect(() => { setMenuOpen(false); }, [pathname]);
@@ -223,7 +225,7 @@ export default function PlatformShell({ children }) {
             </button>
           </div>
         </header>
-        <main className="workspace-main min-w-0 flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
+        <main ref={mainRef} className="workspace-main min-w-0 flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );
