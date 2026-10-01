@@ -10,6 +10,7 @@ import { registration } from "@/lib/api";
 import { usePlatformRoleLabel } from "@/components/PlatformShell";
 import { Badge, Card, PageHeader } from "@/components/ui/kit";
 import { subscriptionStateLabel } from "@/lib/labels";
+import PushPrompt from "@/components/orders/PushPrompt";
 
 function MetricCard({ href, icon: Icon, value, title, hint }) {
   return <Link href={href}><Card className="h-full p-4 transition-transform hover:-translate-y-0.5 sm:p-6"><Icon className="text-accent" size={20} /><div className="mt-3 text-2xl font-bold tabular-nums sm:mt-5 sm:text-3xl">{value ?? "…"}</div><h2 className="mt-1 font-display text-sm font-semibold sm:mt-2 sm:text-base">{title}</h2><p className="mt-1 text-xs text-muted sm:text-sm">{hint}</p></Card></Link>;
@@ -41,6 +42,7 @@ export default function PlatformPage() {
   return <div>
     <PageHeader title={t("platform.title")} subtitle={t("platform.subtitle")} actions={<Badge tone="accent"><ShieldCheck size={14} /> {roleLabel}</Badge>} />
     {error && <p role="alert" className="mb-5 rounded-control bg-danger/10 p-3 text-sm text-danger">{error}</p>}
+    <PushPrompt onKey="platform.pushOn" offKey="platform.pushOff" />
     <Card className="mb-5 border-accent/25 p-5">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div className="flex items-start gap-3">

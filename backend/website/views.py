@@ -281,6 +281,9 @@ class PublicRegistrationRequestView(APIView):
         )
         if created:
             _email_request_received(registration)
+            from core import team_notify
+
+            team_notify.registration_submitted(registration)
         return Response(
             {
                 "reference": str(registration.request_uuid),
@@ -860,6 +863,12 @@ class DemoRequestView(APIView):
                     "message": data.get("message", ""),
                 },
             )
+            if _created:
+                # Queued for after the commit; a replay of the same
+                # request_uuid finds the lead and announces nothing.
+                from core import team_notify
+
+                team_notify.lead_submitted(lead)
         return Response({
             "reference": reference, "public_reference": lead.public_reference,
             "track_url": _track_url(), "status": "saved",
