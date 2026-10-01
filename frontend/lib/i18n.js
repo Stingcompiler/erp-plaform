@@ -356,6 +356,8 @@ const en = {
   },
   platform: {
     inviteEmailed: "The activation link was emailed to the recipient. You can still copy it below.",
+    pushOn: "This device gets a notification for new registrations, demo requests, payments and plan changes your role handles.",
+    pushOff: "Get a notification on this device for new registrations, demo requests, payments and plan changes — even with the app closed. Email arrives either way.",
     title: "Vezano Pro platform operations",
     subtitle: "Manage prospective customers, company subscriptions, and collections separately from customer workspaces.",
     leadsDescription: "Review organizations requesting a Vezano Pro demonstration.",
@@ -3244,6 +3246,8 @@ const ar = {
   },
   platform: {
     inviteEmailed: "أُرسل رابط التفعيل بالبريد الإلكتروني إلى صاحبه، ويمكنك نسخه أدناه أيضًا.",
+    pushOn: "يصل هذا الجهاز إشعار بطلبات التسجيل وطلبات العرض والدفعات وتغييرات الباقات التي يتولاها دورك.",
+    pushOff: "احصل على إشعار على هذا الجهاز بطلبات التسجيل وطلبات العرض والدفعات وتغييرات الباقات — حتى والتطبيق مغلق. البريد يصلك في الحالتين.",
     title: "إدارة منصة فيزانو برو",
     subtitle: "إدارة العملاء المحتملين واشتراكات الشركات والتحصيل بصورة منفصلة عن مساحات عمل الشركات.",
     leadsDescription: "مراجعة الشركات التي طلبت عرضًا تجريبيًا لفيزانو برو.",

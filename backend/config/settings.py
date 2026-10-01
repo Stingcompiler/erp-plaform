@@ -253,6 +253,9 @@ VEZANO_LOCKED_SYNC_WINDOW_HOURS = env.int("VEZANO_LOCKED_SYNC_WINDOW_HOURS", def
 # timing does not reveal whether the address has an account. Tests send it
 # inline to read the outbox.
 PASSWORD_RESET_EMAIL_BACKGROUND = "test" not in sys.argv and "pytest" not in sys.modules
+# Platform-team notifications (core.team_notify) go out the same way: off the
+# request thread in production, inline under tests.
+TEAM_NOTIFY_BACKGROUND = PASSWORD_RESET_EMAIL_BACKGROUND
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
@@ -426,6 +429,14 @@ PUBLIC_APP_ORIGIN = env(
     "PUBLIC_APP_ORIGIN",
     default=f"https://{VEZANO_CANONICAL_HOST}" if _IS_SAAS else "",
 )
+# Extra inboxes told about new business (registrations, demo requests,
+# subscription payments, plan changes, trials about to end) on top of the
+# platform-team members who hold the matching capability. Comma-separated;
+# empty by default. core.team_notify sends them.
+PLATFORM_NOTIFY_EMAILS = [
+    address.strip() for address in env("PLATFORM_NOTIFY_EMAILS", default="").split(",")
+    if "@" in address
+]
 
 # --- Celery (erp-worker) ---
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")

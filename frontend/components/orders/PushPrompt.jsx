@@ -9,8 +9,9 @@ import { useI18n } from "../../app/providers/I18nProvider";
 
 // One line above the orders list: turn phone notifications for new orders
 // on or off for this browser. Silent when the browser cannot do push or the
-// server has no VAPID key — the badge and the email still work.
-export default function PushPrompt() {
+// server has no VAPID key — the badge and the email still work. `onKey` /
+// `offKey` reword it for another page (the platform overview).
+export default function PushPrompt({ onKey = "webOrders.pushOn", offKey = "webOrders.pushOff" }) {
   const { t } = useI18n();
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -35,7 +36,7 @@ export default function PushPrompt() {
   return (
     <div className="mb-4 flex flex-wrap items-center gap-3 rounded-control border border-line bg-surface px-4 py-3 text-sm">
       {status.subscribed ? <BellRing size={18} className="text-ok" /> : <BellOff size={18} className="text-muted" />}
-      <span className="flex-1">{status.subscribed ? t("webOrders.pushOn") : t("webOrders.pushOff")}</span>
+      <span className="flex-1">{status.subscribed ? t(onKey) : t(offKey)}</span>
       {error && <span className="text-danger">{error}</span>}
       <Button variant={status.subscribed ? "outline" : "primary"} disabled={busy} onClick={toggle}>
         {status.subscribed ? t("webOrders.pushDisable") : t("webOrders.pushEnable")}

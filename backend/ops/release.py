@@ -43,20 +43,35 @@ def application_version(root=None):
 
 
 # Render exports the deployed commit on every service; a self-hosted
-# operator can set GIT_COMMIT from their deploy script. Nothing shells out
-# to git: a standalone install is unpacked from an archive with no .git.
+# operator can set GIT_COMMIT from their deploy script. The OVH deployment
+# (deploy/ovh/deploy_release.py) writes DEPLOYMENT.json into the release root
+# instead, so that is read when no variable is set. Nothing shells out to git:
+# a standalone install is unpacked from an archive with no .git.
 COMMIT_ENV_VARS = ("RENDER_GIT_COMMIT", "GIT_COMMIT")
+DEPLOYMENT_FILE = "DEPLOYMENT.json"
 SHORT_COMMIT_LENGTH = 8
+_HEX = frozenset("0123456789abcdef")
 
 
-def deployed_commit(environ=None):
+def deployed_commit(environ=None, root=None):
     """The short git commit this process was deployed from, or None."""
     environ = os.environ if environ is None else environ
     for name in COMMIT_ENV_VARS:
         value = (environ.get(name) or "").strip()
         if value:
             return value[:SHORT_COMMIT_LENGTH]
-    return None
+    return _commit_from_deployment_file(root or repository_root())
+
+
+def _commit_from_deployment_file(root):
+    try:
+        data = json.loads((Path(root) / DEPLOYMENT_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    commit = str(data.get("commit") or "").strip().lower() if isinstance(data, dict) else ""
+    if len(commit) < SHORT_COMMIT_LENGTH or not set(commit) <= _HEX:
+        return None
+    return commit[:SHORT_COMMIT_LENGTH]
 
 
 def sha256_file(path, chunk_size=HASH_CHUNK_BYTES):

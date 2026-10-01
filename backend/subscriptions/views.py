@@ -149,6 +149,11 @@ class CompanySubscriptionPaymentViewSet(
             entity_type="SubscriptionPayment",
             entity_id=payment.pk,
         )
+        # Replays of the same client_uuid return before reaching here, so
+        # the team hears about each payment once.
+        from core import team_notify
+
+        team_notify.payment_submitted(payment)
 
     @action(detail=True, methods=["get"])
     def proof(self, request, pk=None):
@@ -556,6 +561,11 @@ class CompanyPlanChangeViewSet(viewsets.GenericViewSet):
                 "extra_delta": change.extra_delta,
             },
         )
+        # One open request per company (request_change refuses a second),
+        # so a double submit cannot announce twice.
+        from core import team_notify
+
+        team_notify.plan_change_requested(change)
         return Response(self.get_serializer(change).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["post"])
