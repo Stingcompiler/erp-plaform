@@ -66,6 +66,9 @@ const TRACK_LINK = ["/track", "track.nav", "hidden xl:inline"];
 // 2026-09-29).
 const STORES_PATH = "/s/";
 
+// The studio that builds Vezano Pro, credited in the footer (owner's request).
+const STING_URL = "https://stingdev.pro";
+
 export function MarketingHeader() {
   const { t, href } = useI18n();
   const navLinks = [...NAV_LINKS, TRACK_LINK];
@@ -243,8 +246,19 @@ export function MarketingFooter() {
             </div>
           </div>
         </div>
-        <div className="mt-10 border-t border-white/10 pt-6 text-sm text-paper/70">
-          © {year} {t("common.appName")}. {t("landing.footerRights")}
+        <div className="mt-10 flex flex-col gap-2 border-t border-white/10 pt-6 text-sm text-paper/70 sm:flex-row sm:items-center sm:justify-between">
+          <span>© {year} {t("common.appName")}. {t("landing.footerRights")}</span>
+          <span>
+            {t("landing.footerPoweredBy")}{" "}
+            <a
+              href={STING_URL}
+              target="_blank"
+              rel="noopener"
+              className="font-medium text-paper hover:underline"
+            >
+              {t("landing.footerStudio")}
+            </a>
+          </span>
         </div>
       </div>
     </footer>
