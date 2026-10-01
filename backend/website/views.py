@@ -255,45 +255,180 @@ class PublicPlanListView(APIView):
         return Response(rows)
 
 
+def _public_throttle(scope_name, rate_value):
+    """A per-address throttle for one public endpoint (its own budget)."""
+    from rest_framework.throttling import AnonRateThrottle
+
+    return type(
+        f"{scope_name.title().replace('_', '')}Throttle", (AnonRateThrottle,),
+        {"scope": scope_name, "rate": rate_value},
+    )
+
+
+TrialStartThrottle = _public_throttle("trial_start", "10/hour")
+TrialVerifyThrottle = _public_throttle("trial_verify", "30/hour")
+TrialResendThrottle = _public_throttle("trial_resend", "10/hour")
+TrackRequestThrottle = _public_throttle("track_request", "20/hour")
+TrackVerifyThrottle = _public_throttle("track_verify", "30/hour")
+TrackResendThrottle = _public_throttle("track_resend", "10/hour")
+TrackViewThrottle = _public_throttle("track_view", "120/hour")
+
+
+def _otp_error(code, http_status, **extra):
+    """One shape for every refusal of the code flows: a stable ``code`` the
+    page translates, a server-side ``detail`` and any numbers it needs."""
+    messages = {
+        "code_expired": _("This code has expired. Ask for a new one."),
+        "wrong_code": _("That code is not right. Check the email and try again."),
+        "too_many_attempts": _("Too many wrong codes. Ask for a new one."),
+        "resend_cooldown": _("Wait a moment before asking for another code."),
+        "too_many_codes": _("Too many codes were sent. Try again later."),
+        "email_unavailable": _(
+            "We could not send the code right now. Try again later or message us on WhatsApp."
+        ),
+        "view_expired": _("This view has expired. Search again to get a new code."),
+    }
+    body = {"code": code, "detail": messages.get(code, code), **extra}
+    response = Response(body, status=http_status)
+    if extra.get("retry_after"):
+        response["Retry-After"] = str(extra["retry_after"])
+    return response
+
+
+def _registration_payload(registration):
+    return {
+        "reference": str(registration.request_uuid),
+        # What the applicant quotes and searches on vezano.app/track/.
+        "public_reference": registration.public_reference,
+        "track_url": _track_url(),
+        "status": registration.status,
+    }
+
+
+def _code_sent(pending_id, email):
+    from core import otp
+
+    return Response({
+        "pending_id": pending_id,
+        "email_masked": otp.mask_email(email),
+        "resend_after": otp.RESEND_AFTER,
+        "expires_in": otp.CODE_TTL,
+    }, status=status.HTTP_202_ACCEPTED)
+
+
+def _otp_failure(exc):
+    """The answer for a core.otp error, or None when ``exc`` is not one."""
+    from core import otp
+
+    if isinstance(exc, (otp.Cooldown, otp.TooManySends)):
+        return _otp_error(exc.code, 429, retry_after=exc.retry_after)
+    if isinstance(exc, otp.WrongCode):
+        return _otp_error(exc.code, 400, attempts_left=exc.attempts_left)
+    if isinstance(exc, (otp.Expired, otp.TooManyAttempts)):
+        return _otp_error(exc.code, 400)
+    if isinstance(exc, otp.DeliveryFailed):
+        from website.trial_requests import support_whatsapp
+
+        return _otp_error(exc.code, 503, whatsapp=support_whatsapp())
+    return None
+
+
 class PublicRegistrationRequestView(APIView):
-    """Accept a SaaS or standalone enquiry without exposing tenant accounts."""
+    """POST /api/public/registration-requests/ — the public trial form.
+
+    Validates, refuses a duplicate of an open or provisioned request (409),
+    then emails a 6-digit code and keeps the form in the cache (202); the
+    request itself is created by ``…/verify/`` (website.trial_requests)."""
 
     permission_classes = [AllowAny]
     authentication_classes = []
-
-    def get_throttles(self):
-        from rest_framework.throttling import AnonRateThrottle
-
-        class RegistrationThrottle(AnonRateThrottle):
-            scope = "registration_request"
-            rate = "3/hour"
-
-        return [RegistrationThrottle()]
+    throttle_classes = [TrialStartThrottle]
 
     def post(self, request):
+        from core import otp
+        from website import trial_requests
+
         serializer = RegistrationRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        request_uuid = data.get("request_uuid") or uuid.uuid4()
-        data["request_uuid"] = request_uuid
-        registration, created = RegistrationRequest.objects.get_or_create(
-            request_uuid=request_uuid, defaults=data
-        )
-        if created:
-            _email_request_received(registration)
-            from core import team_notify
+        data["request_uuid"] = data.get("request_uuid") or uuid.uuid4()
+        # A replay of a request already created answers as it did then.
+        existing = RegistrationRequest.objects.filter(request_uuid=data["request_uuid"]).first()
+        if existing is not None:
+            return Response(_registration_payload(existing), status=status.HTTP_200_OK)
+        duplicate = trial_requests.find_duplicate(data)
+        if duplicate is not None:
+            trial_requests.notify_existing(duplicate)
+            return Response(trial_requests.duplicate_payload(), status=status.HTTP_409_CONFLICT)
+        email = data["email"].strip()
+        try:
+            pending_id = trial_requests.start(trial_requests.stored_form(data), email, request)
+        except otp.OtpError as exc:
+            return _otp_failure(exc)
+        return _code_sent(pending_id, email)
 
-            team_notify.registration_submitted(registration)
+
+class PublicRegistrationVerifyView(APIView):
+    """POST …/verify/ {pending_id, code} — creates the request (201) once
+    the emailed code matches; 5 tries, then the pending form is gone."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [TrialVerifyThrottle]
+
+    def post(self, request):
+        from core import otp
+        from website import trial_requests
+
+        data = request.data if isinstance(request.data, dict) else {}
+        pending_id = str(data.get("pending_id") or "")
+        try:
+            # Kept until it expires, so a replayed verify (the first answer
+            # lost on the way back) still finds its request.
+            payload = otp.verify(pending_id, data.get("code"), purpose=trial_requests.PURPOSE,
+                                 consume=False)
+        except otp.OtpError as exc:
+            return _otp_failure(exc)
+        form = payload["form"]
+        existing = RegistrationRequest.objects.filter(request_uuid=form["request_uuid"]).first()
+        if existing is not None:
+            return Response(_registration_payload(existing), status=status.HTTP_200_OK)
+        serializer = RegistrationRequestSerializer(data=form)
+        if not serializer.is_valid():
+            otp.drop(pending_id)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        validated = serializer.validated_data
+        validated["request_uuid"] = uuid.UUID(str(form["request_uuid"]))
+        duplicate = trial_requests.find_duplicate(validated)
+        if duplicate is not None:
+            otp.drop(pending_id)
+            trial_requests.notify_existing(duplicate)
+            return Response(trial_requests.duplicate_payload(), status=status.HTTP_409_CONFLICT)
+        registration, created = trial_requests.create(validated)
         return Response(
-            {
-                "reference": str(registration.request_uuid),
-                # What the applicant quotes and searches on vezano.app/track/.
-                "public_reference": registration.public_reference,
-                "track_url": _track_url(),
-                "status": registration.status,
-            },
+            _registration_payload(registration),
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
+
+
+class PublicRegistrationResendView(APIView):
+    """POST …/resend/ {pending_id} — a new code after 60 s, 3 an hour."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [TrialResendThrottle]
+
+    def post(self, request):
+        from core import otp
+        from website import trial_requests
+
+        data = request.data if isinstance(request.data, dict) else {}
+        pending_id = str(data.get("pending_id") or "")
+        try:
+            payload = trial_requests.resend(pending_id, request)
+        except otp.OtpError as exc:
+            return _otp_failure(exc)
+        return _code_sent(pending_id, payload["email"])
 
 
 def _track_url():
@@ -1170,3 +1305,108 @@ class PlatformTrackView(APIView):
         return self._private(Response({
             "limited": False, "results": items, "lookup_days": tracking.LOOKUP_DAYS,
         }))
+
+
+def _track_language(data):
+    return "en" if str(data.get("language") or "").startswith("en") else "ar"
+
+
+class _TrackRequestBase(APIView):
+    """Shared by the code-gated trial/demo tracking endpoints: public, no
+    session, never cached or indexed (website.request_tracking)."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        return PlatformTrackView._private(response)
+
+
+class TrackRequestStartView(_TrackRequestBase):
+    """POST /api/public/track/requests/ {q, language} — always 202 with a
+    fresh challenge, whether or not a request matched (see the module)."""
+
+    throttle_classes = [TrackRequestThrottle]
+
+    def post(self, request):
+        from core import otp
+        from website import request_tracking
+
+        data = request.data if isinstance(request.data, dict) else None
+        query = str((data or {}).get("q") or "").strip()[:254]
+        if not query:
+            return Response(
+                {"detail": _("Enter a reference, a phone number, an email or a name.")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            _search, body = request_tracking.start(query, _track_language(data), request)
+        except otp.OtpError as exc:
+            return _otp_failure(exc)
+        return Response(body, status=status.HTTP_202_ACCEPTED)
+
+
+class TrackRequestResendView(_TrackRequestBase):
+    """POST /api/public/track/requests/resend/ {challenge_id}."""
+
+    throttle_classes = [TrackResendThrottle]
+
+    def post(self, request):
+        from core import otp
+        from website import request_tracking
+
+        data = request.data if isinstance(request.data, dict) else {}
+        try:
+            body = request_tracking.resend(str(data.get("challenge_id") or ""), request)
+        except otp.OtpError as exc:
+            return _otp_failure(exc)
+        return Response(body, status=status.HTTP_202_ACCEPTED)
+
+
+class TrackRequestVerifyView(_TrackRequestBase):
+    """POST /api/public/track/requests/verify/ {challenge_id, code} — the
+    requests stored with the email the code went to, and a 30-minute view
+    token. 5 tries per search."""
+
+    throttle_classes = [TrackVerifyThrottle]
+
+    def post(self, request):
+        from core import otp
+        from website import request_tracking
+
+        data = request.data if isinstance(request.data, dict) else {}
+        try:
+            email = request_tracking.verify(str(data.get("challenge_id") or ""),
+                                            data.get("code"))
+        except otp.OtpError as exc:
+            return _otp_failure(exc)
+        return Response({
+            "token": request_tracking.view_token(email),
+            "expires_in": request_tracking.VIEW_TTL,
+            "email_masked": otp.mask_email(email),
+            "results": request_tracking.results(email, _track_language(data)),
+        })
+
+
+class TrackRequestView(_TrackRequestBase):
+    """POST /api/public/track/requests/view/ {token, language} — the same
+    results again while the view token lasts (a reload, a language switch)."""
+
+    throttle_classes = [TrackViewThrottle]
+
+    def post(self, request):
+        from core import otp
+        from website import request_tracking
+
+        data = request.data if isinstance(request.data, dict) else {}
+        token = str(data.get("token") or "")
+        email = request_tracking.email_from_token(token)
+        if email is None:
+            return _otp_error("view_expired", 403)
+        return Response({
+            "token": token,
+            "expires_in": request_tracking.token_expires_in(token),
+            "email_masked": otp.mask_email(email),
+            "results": request_tracking.results(email, _track_language(data)),
+        })

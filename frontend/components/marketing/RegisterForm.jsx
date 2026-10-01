@@ -4,16 +4,28 @@
 // hosted plan (from the pricing cards); `mode=standalone` turns the same form
 // into an on-server quote request, which the platform inbox already knows
 // how to handle (delivery_mode on RegistrationRequest).
+//
+// Since 2026-10-01 the form is checked for a duplicate of an open request
+// first (409: a friendly panel, the reference goes to that request's own
+// email), then a 6-digit code goes to the email typed here (202), and the
+// request is created when that code verifies (backend:
+// website/trial_requests.py). The form keeps its values while the code step
+// is open, so "change email" goes back without retyping anything.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, Mail } from "lucide-react";
+import { Mail, MessageCircle, PackageSearch, PencilLine, UserRoundCheck } from "lucide-react";
 
 import { useI18n } from "../../app/providers/I18nProvider";
+import SuccessCheck from "@/components/ui/SuccessCheck";
 import { registration } from "@/lib/api";
+import { codeError, fieldErrors } from "@/lib/otpCode";
+import { whatsappUrl } from "@/lib/phone";
 import { offerRows } from "@/lib/planCatalog";
+import CodeStep, { codeErrorText } from "./CodeStep";
 import { formatPrice, usePublicPlans } from "./PlanCards";
+import { useSiteContact } from "./SiteContact";
 
 // Placeholders use the muted token (≥ 4.5:1 on the field in light and dark),
 // never the browser's pale default; every field also has a visible label.
@@ -31,11 +43,47 @@ function countryName(code, language) {
   }
 }
 
-function Field({ id, label, children }) {
+// The server's message for this field sits right under it.
+function Field({ id, label, error, children }) {
   return (
     <div>
       <label htmlFor={id} className={labelClass}>{label}</label>
       {children}
+      {error && <p id={`${id}-error`} role="alert" className="mt-1 text-sm text-danger">{error}</p>}
+    </div>
+  );
+}
+
+function fieldProps(id, error) {
+  return error ? { "aria-invalid": "true", "aria-describedby": `${id}-error` } : {};
+}
+
+// A request is already open for these details: no reference here (it went
+// to the email on that request), a way to follow it and a person to ask.
+function DuplicatePanel({ whatsapp, onEdit }) {
+  const { t, href } = useI18n();
+  const contact = useSiteContact();
+  const waHref = whatsapp ? whatsappUrl(whatsapp) : contact.whatsappHref;
+  return (
+    <div role="status" className="enter-rise mx-auto max-w-lg rounded-card border border-line bg-paper p-6 text-center shadow-card sm:p-8">
+      <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-accent/10 text-accent">
+        <UserRoundCheck size={24} aria-hidden="true" />
+      </span>
+      <h2 className="mt-4 font-display text-xl font-semibold">{t("register.duplicateTitle")}</h2>
+      <p className="mt-2 text-sm text-muted">{t("register.duplicateBody")}</p>
+      <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
+        <Link href={`${href("/track")}#requests`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-control bg-accent px-5 py-2.5 font-medium text-white hover:bg-accent-strong">
+          <PackageSearch size={17} aria-hidden="true" />{t("register.duplicateTrack")}
+        </Link>
+        {waHref && (
+          <a href={waHref} target="_blank" rel="noreferrer noopener" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-control border border-line bg-surface px-5 py-2.5 font-medium text-ink hover:border-accent">
+            <MessageCircle size={17} aria-hidden="true" />{t("register.duplicateWhatsApp")}
+          </a>
+        )}
+      </div>
+      <button type="button" onClick={onEdit} className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-muted hover:text-ink hover:underline">
+        <PencilLine size={15} aria-hidden="true" />{t("register.duplicateEdit")}
+      </button>
     </div>
   );
 }
@@ -75,9 +123,28 @@ export default function RegisterForm() {
   const [planId, setPlanId] = useState(params.get("plan") || "");
   // { reference, email } once the request is accepted.
   const [sent, setSent] = useState(null);
+  // { pendingId, emailMasked, resendAfter } while the emailed code is awaited.
+  const [pending, setPending] = useState(null);
+  // { whatsapp } when an open request already has these details.
+  const [duplicate, setDuplicate] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
+  // What was typed, so going back from the code step loses nothing.
+  const [draft, setDraft] = useState({});
   const requestId = useRef(null);
+  const formRef = useRef(null);
+  const contact = useSiteContact();
+  // Each step (code, duplicate, done) replaces the form where it stood: bring
+  // its top into view, below the sticky header, or a phone stays scrolled
+  // at the old submit button.
+  const stage = duplicate ? "duplicate" : pending ? `code-${pending.pendingId}` : sent ? "sent" : "form";
+  const firstStage = useRef(true);
+  useEffect(() => {
+    if (firstStage.current) { firstStage.current = false; return; }
+    if (stage === "form") return;
+    document.getElementById("register-step")?.scrollIntoView({ block: "start" });
+  }, [stage]);
 
   // A preselected plan that is not (or no longer) public falls back to the
   // first published one rather than an empty select.
@@ -89,41 +156,117 @@ export default function RegisterForm() {
   const selected = useMemo(() => (plans || []).find((plan) => String(plan.id) === String(planId)), [plans, planId]);
   const standalone = mode === "standalone";
 
+  function backToForm(focusEmail) {
+    setPending(null); setDuplicate(null); setError("");
+    if (focusEmail) {
+      requestAnimationFrame(() => {
+        const field = formRef.current?.elements?.namedItem("email");
+        field?.focus(); field?.select?.();
+      });
+    }
+  }
+
+  function accepted(response, email) {
+    setPending(null);
+    setSent({ reference: response.data.public_reference || response.data.reference, email });
+  }
+
   async function onSubmit(event) {
     event.preventDefault();
     if (busy) return;
     const form = new FormData(event.currentTarget);
+    const values = Object.fromEntries(form.entries());
+    setDraft(values);
     requestId.current ||= crypto.randomUUID();
-    setBusy(true); setError("");
+    setBusy(true); setError(""); setErrors({});
+    const email = String(values.email || "").trim();
     try {
       const response = await registration.create({
         request_uuid: requestId.current,
-        company_name: form.get("company_name"),
-        contact_name: form.get("contact_name"),
-        email: form.get("email"),
-        phone: form.get("phone"),
-        country: String(form.get("country") || "SD").toUpperCase(),
+        company_name: values.company_name,
+        contact_name: values.contact_name,
+        email,
+        phone: values.phone,
+        country: String(values.country || "SD").toUpperCase(),
         timezone_name: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-        estimated_users: Number(form.get("estimated_users")) || undefined,
-        estimated_branches: Number(form.get("estimated_branches")) || undefined,
+        estimated_users: Number(values.estimated_users) || undefined,
+        estimated_branches: Number(values.estimated_branches) || undefined,
         delivery_mode: mode,
         plan_version: standalone ? undefined : Number(planId),
-        message: form.get("message"),
+        message: values.message,
         privacy_version: "2026-09",
       });
-      setSent({
-        reference: response.data.public_reference || response.data.reference,
-        email: String(form.get("email") || "").trim(),
-      });
-    } catch {
-      setError(t("registration.publicError"));
+      if (response.status === 202) {
+        setPending({
+          pendingId: response.data.pending_id,
+          emailMasked: response.data.email_masked || email,
+          resendAfter: response.data.resend_after || 60,
+          email,
+        });
+      } else {
+        // A replay of a request that already exists answers with it.
+        accepted(response, email);
+      }
+    } catch (failure) {
+      const parsed = codeError(failure);
+      if (parsed.code === "duplicate_request") setDuplicate({ whatsapp: parsed.whatsapp });
+      else if (parsed.code === "invalid") {
+        const found = fieldErrors(parsed.fields);
+        setErrors(found);
+        setError(found.non_field_errors || t(Object.keys(found).length ? "otp.errors.invalid" : "registration.publicError"));
+      } else {
+        setError(codeErrorText(t, parsed));
+      }
     } finally { setBusy(false); }
+  }
+
+  async function verifyCode(code) {
+    const response = await registration.verifyCode({ pending_id: pending.pendingId, code }).catch((failure) => {
+      if (codeError(failure).code === "duplicate_request") {
+        setDuplicate({ whatsapp: failure.response.data.whatsapp || "" });
+        setPending(null);
+        return null;
+      }
+      throw failure;
+    });
+    if (response) accepted(response, pending.email);
+  }
+
+  async function resendCode() {
+    const response = await registration.resendCode({ pending_id: pending.pendingId });
+    return response.data.resend_after;
+  }
+
+  if (duplicate) {
+    return (
+      <div id="register-step" className="scroll-mt-24">
+        <DuplicatePanel whatsapp={duplicate.whatsapp} onEdit={() => backToForm(false)} />
+      </div>
+    );
+  }
+
+  if (pending) {
+    // The address is isolated (FSI…PDI) so it reads left-to-right in Arabic.
+    return (
+      <div id="register-step" className="mx-auto max-w-lg scroll-mt-24">
+        <CodeStep
+          key={pending.pendingId}
+          title={t("register.codeTitle")}
+          sentText={t("register.codeSentTo", { email: `\u2068${pending.emailMasked}\u2069` })}
+          resendAfter={pending.resendAfter}
+          onVerify={verifyCode}
+          onResend={resendCode}
+          onBack={() => backToForm(true)}
+          backLabel={t("register.changeEmail")}
+        />
+      </div>
+    );
   }
 
   if (sent) {
     return (
-      <div className="mx-auto max-w-lg rounded-card border border-line bg-paper p-8 text-center shadow-card">
-        <CheckCircle2 className="mx-auto text-ok" size={40} />
+      <div id="register-step" className="mx-auto max-w-lg scroll-mt-24 rounded-card border border-line bg-paper p-8 text-center shadow-card">
+        <SuccessCheck size={56} className="mx-auto block" label={t("register.sentTitle")} />
         <h2 className="mt-4 font-display text-xl font-semibold">{t("register.sentTitle")}</h2>
         <div role="status" className="mt-4 flex items-start gap-3 rounded-control border border-accent/30 bg-accent/5 p-4 text-start">
           <Mail size={20} className="mt-0.5 shrink-0 text-accent" />
@@ -138,7 +281,7 @@ export default function RegisterForm() {
         </div>
         <p className="mt-4 text-sm text-muted">{t("register.sentBody")}</p>
         <p className="tabular mt-2 rounded-control bg-surface px-3 py-2 font-mono text-lg font-bold tracking-wide" dir="ltr">{sent.reference}</p>
-        <Link href={href("/track")} className="mt-3 inline-block text-sm font-medium text-accent hover:underline">
+        <Link href={`${href("/track")}#requests`} className="mt-3 inline-block text-sm font-medium text-accent hover:underline">
           {t("track.thankYouTrack")}
         </Link>
         <br />
@@ -153,8 +296,17 @@ export default function RegisterForm() {
     <>
     <Flow standalone={standalone} />
     <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[1fr_320px]">
-      <form onSubmit={onSubmit} className="rounded-card border border-line bg-paper p-6 shadow-card sm:p-8">
-        {error && <p role="alert" className="mb-4 rounded-control bg-danger/10 p-3 text-sm text-danger">{error}</p>}
+      <form ref={formRef} onSubmit={onSubmit} className="rounded-card border border-line bg-paper p-6 shadow-card sm:p-8">
+        {error && (
+          <div role="alert" className="mb-4 rounded-control bg-danger/10 p-3 text-sm text-danger">
+            <p>{error}</p>
+            {contact.whatsappHref && (
+              <a href={contact.whatsappHref} target="_blank" rel="noreferrer noopener" className="mt-1 inline-flex min-h-11 items-center gap-2 font-medium underline">
+                <MessageCircle size={15} aria-hidden="true" />{t("register.duplicateWhatsApp")}
+              </a>
+            )}
+          </div>
+        )}
 
         <fieldset className="mb-6">
           <legend className="mb-2 text-sm font-medium">{t("register.deliveryLabel")}</legend>
@@ -181,25 +333,25 @@ export default function RegisterForm() {
 
         <p className="mb-4 text-sm text-muted">{t("register.requiredNote")}</p>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field id="reg-company" label={t("registration.companyName")}>
-            <input id="reg-company" required name="company_name" maxLength={255} autoComplete="organization" className={inputClass} />
+          <Field id="reg-company" label={t("registration.companyName")} error={errors.company_name}>
+            <input id="reg-company" required name="company_name" maxLength={255} autoComplete="organization" defaultValue={draft.company_name} {...fieldProps("reg-company", errors.company_name)} className={inputClass} />
           </Field>
-          <Field id="reg-contact" label={t("registration.contactName")}>
-            <input id="reg-contact" required name="contact_name" maxLength={255} autoComplete="name" className={inputClass} />
+          <Field id="reg-contact" label={t("registration.contactName")} error={errors.contact_name}>
+            <input id="reg-contact" required name="contact_name" maxLength={255} autoComplete="name" defaultValue={draft.contact_name} {...fieldProps("reg-contact", errors.contact_name)} className={inputClass} />
           </Field>
-          <Field id="reg-email" label={t("registration.email")}>
-            <input id="reg-email" required type="email" name="email" maxLength={254} autoComplete="email" dir="ltr" className={`${inputClass} text-start`} />
+          <Field id="reg-email" label={t("registration.email")} error={errors.email}>
+            <input id="reg-email" required type="email" name="email" maxLength={254} autoComplete="email" dir="ltr" defaultValue={draft.email} {...fieldProps("reg-email", errors.email)} className={`${inputClass} text-start`} />
           </Field>
-          <Field id="reg-phone" label={t("registration.phone")}>
-            <input id="reg-phone" required type="tel" inputMode="tel" name="phone" maxLength={64} autoComplete="tel" dir="ltr" placeholder="+249 9…" className={`${inputClass} text-start`} />
+          <Field id="reg-phone" label={t("registration.phone")} error={errors.phone}>
+            <input id="reg-phone" required type="tel" inputMode="tel" name="phone" maxLength={64} autoComplete="tel" dir="ltr" placeholder="+249 9…" defaultValue={draft.phone} {...fieldProps("reg-phone", errors.phone)} className={`${inputClass} text-start`} />
           </Field>
-          <Field id="reg-country" label={t("register.countryLabel")}>
-            <select id="reg-country" required name="country" defaultValue="SD" autoComplete="country" className={inputClass}>
+          <Field id="reg-country" label={t("register.countryLabel")} error={errors.country}>
+            <select id="reg-country" required name="country" defaultValue={draft.country || "SD"} autoComplete="country" className={inputClass}>
               {COUNTRIES.map((code) => <option key={code} value={code}>{countryName(code, language)}</option>)}
             </select>
           </Field>
           {!standalone && (
-            <Field id="reg-plan" label={t("register.planLabel")}>
+            <Field id="reg-plan" label={t("register.planLabel")} error={errors.plan_version}>
               <select id="reg-plan" required value={planId} onChange={(event) => setPlanId(event.target.value)} className={inputClass}>
                 <option value="" disabled>{t("registration.plan")}</option>
                 {(plans || []).map((plan) => (
@@ -218,15 +370,15 @@ export default function RegisterForm() {
           <p className="mt-2 text-xs text-muted">{t("register.moreDetailsHint")}</p>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Field id="reg-users" label={t("registration.estimatedUsers")}>
-              <input id="reg-users" type="number" min="1" name="estimated_users" className={inputClass} />
+              <input id="reg-users" type="number" min="1" name="estimated_users" defaultValue={draft.estimated_users} className={inputClass} />
             </Field>
             <Field id="reg-branches" label={t("registration.estimatedBranches")}>
-              <input id="reg-branches" type="number" min="1" name="estimated_branches" className={inputClass} />
+              <input id="reg-branches" type="number" min="1" name="estimated_branches" defaultValue={draft.estimated_branches} className={inputClass} />
             </Field>
           </div>
           <div className="mt-4">
             <Field id="reg-message" label={t(standalone ? "register.serverNote" : "registration.message")}>
-              <textarea id="reg-message" rows={3} name="message" maxLength={4000} className={inputClass} />
+              <textarea id="reg-message" rows={3} name="message" maxLength={4000} defaultValue={draft.message} className={inputClass} />
             </Field>
           </div>
         </details>

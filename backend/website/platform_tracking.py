@@ -8,7 +8,10 @@ It finds, with the matching rules and limits of the store tracking page
   with the store and linked to that store's tracking page. Never the private
   token link: the store page does not show it for a search either, and here
   a name, email or phone search would hand anyone the full order;
-- registration requests (R…) and demo requests (D…) sent to Vezano;
+- registration requests (R…) and demo requests (D…) sent to Vezano — NOT
+  here since 2026-10-01: those open only with a code emailed to the
+  request's own address (website.request_tracking, which reuses the item
+  builders below);
 - subscription payments a company recorded, by the full transfer reference
   from the bank app (the only reference a company can quote for one).
 
@@ -256,13 +259,9 @@ def _by_reference(value, language):
     if value.startswith("W"):
         order = _orders().filter(reference__iexact=value).first()
         return [_order_item(order, language, "first")] if order else None
-    rows = _registrations() if value.startswith("R") else _demos()
-    row = rows.filter(public_reference__iexact=value).first()
-    if row is None:
-        return None
-    if value.startswith("R"):
-        return [_registration_item(row, language, True)]
-    return [_demo_item(row, language, True)]
+    # Trial (R) and demo (D) requests open only with an email code
+    # (website.request_tracking); here they read as a miss.
+    return None
 
 
 def _by_contact(kind, value, language):
@@ -271,25 +270,11 @@ def _by_contact(kind, value, language):
         return []
     if kind == "email":
         orders = _orders().filter(email__iexact=value)
-        registrations = _registrations().filter(email__iexact=value)
-        demos = _demos().filter(email__iexact=value)
     elif kind == "phone":
         orders = _orders().filter(lookup_phone=value)
-        registrations = _registrations().filter(lookup_phone=value)
-        demos = _demos().filter(lookup_phone=value)
     else:
-        from django.db.models import Q
-
         orders = _orders().filter(lookup_name=value)
-        registrations = _registrations().filter(
-            Q(lookup_name=value) | Q(lookup_company=value)
-        )
-        demos = _demos().filter(lookup_name=value)
-    return (
-        [_order_item(order, language, "initials") for order in orders[:limit]]
-        + [_registration_item(row, language, False) for row in registrations[:limit]]
-        + [_demo_item(row, language, False) for row in demos[:limit]]
-    )
+    return [_order_item(order, language, "initials") for order in orders[:limit]]
 
 
 def lookup(query, language):

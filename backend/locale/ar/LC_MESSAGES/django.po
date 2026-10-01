@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-01 15:52+0000\n"
+"POT-Creation-Date: 2026-10-01 19:22+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2402,7 +2402,8 @@ msgstr "هذا العنوان على موقع آخر. فعّل «السماح ب
 msgid ""
 "This path belongs to the app, the API or the site's files and cannot be "
 "redirected."
-msgstr "هذا المسار تابع للتطبيق أو الواجهة البرمجية أو ملفات الموقع، ولا يمكن تحويله."
+msgstr ""
+"هذا المسار تابع للتطبيق أو الواجهة البرمجية أو ملفات الموقع، ولا يمكن تحويله."
 
 msgid "This path is a page of the signed-in app and cannot be redirected."
 msgstr "هذا المسار صفحة من التطبيق بعد تسجيل الدخول، ولا يمكن تحويله."
@@ -2524,6 +2525,34 @@ msgstr "لا يمكن نقل هذا الطلب إلى هذه المرحلة ال
 
 msgid "Give the reason for cancelling; the customer sees it."
 msgstr "اذكر سبب الإلغاء؛ سيراه العميل."
+
+msgid ""
+"You already have a request with us. Track it on the tracking page, or "
+"message us on WhatsApp."
+msgstr "لديك طلب قائم لدينا. تابعه من صفحة التتبّع أو راسلنا على واتساب."
+
+msgid "This code has expired. Ask for a new one."
+msgstr "انتهت صلاحية هذا الرمز. اطلب رمزًا جديدًا."
+
+msgid "That code is not right. Check the email and try again."
+msgstr "الرمز غير صحيح. راجع البريد وحاول مرة أخرى."
+
+msgid "Too many wrong codes. Ask for a new one."
+msgstr "محاولات خاطئة كثيرة. اطلب رمزًا جديدًا."
+
+msgid "Wait a moment before asking for another code."
+msgstr "انتظر قليلًا قبل طلب رمز آخر."
+
+msgid "Too many codes were sent. Try again later."
+msgstr "أُرسلت رموز كثيرة. حاول مرة أخرى لاحقًا."
+
+msgid ""
+"We could not send the code right now. Try again later or message us on "
+"WhatsApp."
+msgstr "تعذّر إرسال الرمز الآن. حاول لاحقًا أو راسلنا على واتساب."
+
+msgid "This view has expired. Search again to get a new code."
+msgstr "انتهت صلاحية هذا العرض. ابحث مجددًا ليصلك رمز جديد."
 
 msgid ""
 "This request was activated into a company. Delete the company from the "

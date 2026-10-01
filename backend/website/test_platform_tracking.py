@@ -9,12 +9,10 @@ contacts, one miss message, a shared per-address budget, no caching."""
 import importlib
 from datetime import timedelta
 from decimal import Decimal
-from uuid import uuid4
 
 from django.apps import apps as global_apps
 from django.core.cache import cache
 from django.test import TestCase, override_settings
-from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -144,8 +142,8 @@ class CrossStoreOrderTests(PlatformTrackingTestBase):
         for index in range(7):
             self._order(self.bakery if index % 2 else self.shop, email="many@example.com",
                         days_ago=index + 1)
-        for _index in range(6):
-            self._registration(email="many@example.com")
+        for index in range(6):
+            self._order(self.shop, email="many@example.com", days_ago=index + 10)
         results = self._results("many@example.com")
         self.assertEqual(len(results), tracking.LOOKUP_LIMIT)
         stamps = [item["created_at"] for item in results]
@@ -191,86 +189,22 @@ class CrossStoreOrderTests(PlatformTrackingTestBase):
 
 
 class PlatformRequestTests(PlatformTrackingTestBase):
-    def test_registration_found_by_reference_phone_email_and_names(self):
+    def test_trial_and_demo_requests_never_show_in_the_open_search(self):
+        """Since 2026-10-01 they open only with an email code
+        (website.test_request_tracking); here every key reads as a miss."""
         row = self._registration()
-        self.assertRegex(row.public_reference, r"^R[A-Z0-9]{6}$")
-        by_ref = self._results(row.public_reference.lower())
-        self.assertEqual(len(by_ref), 1)
-        self.assertEqual(by_ref[0]["kind"], "registration")
-        # The company is named only for the exact reference.
-        self.assertEqual(by_ref[0]["customer"], "Northwind Trading")
-        for query in ("AMINA@northwind.test", "0912345678", "amina  owner", "northwind trading"):
-            results = self._results(query)
-            self.assertEqual([item["reference"] for item in results], [row.public_reference])
-            self.assertEqual(results[0]["customer"], "N. T.")
-            body = self._search(query).content.decode()
-            for secret in ("Northwind Trading", "Amina Owner", "amina@northwind.test",
-                           "912 345 678", "912345678"):
+        lead = PlatformLead.objects.create(
+            name="Sara Musa", phone="0912 345 678", email="sara@example.test",
+        )
+        for query in (row.public_reference, row.public_reference.lower(), lead.public_reference,
+                      "AMINA@northwind.test", "sara@example.test", "0912345678",
+                      "amina  owner", "northwind trading", "sara musa"):
+            response = self._search(query)
+            self.assertEqual(response.status_code, 200, query)
+            self.assertEqual(response.json()["results"], [], query)
+            body = response.content.decode()
+            for secret in (row.public_reference, lead.public_reference, "N. T.", "S. M."):
                 self.assertNotIn(secret, body, query)
-
-    def test_registration_states_in_plain_words_with_next_steps(self):
-        row = self._registration()
-        item = self._results(row.public_reference)[0]
-        self.assertEqual(item["status_label"], "استلمنا طلبك — قيد المراجعة")
-        self.assertIn("نفس اليوم", item["next"])
-        row.status = RegistrationRequest.PROVISIONED
-        row.save()
-        item = self._results(row.public_reference, language="en")[0]
-        self.assertEqual(item["status_label"], "Activated — check your email")
-        row.status = RegistrationRequest.REJECTED
-        row.public_note = "Duplicate of an existing company"
-        row.internal_note = "spam-ish, do not tell them"
-        row.save()
-        body = self._search(row.public_reference).content.decode()
-        item = self._results(row.public_reference)[0]
-        self.assertEqual(item["status_label"], "مرفوض")
-        self.assertEqual(item["reason"], "Duplicate of an existing company")
-        self.assertNotIn("spam-ish", body)
-
-    def test_platform_review_sets_the_note_the_applicant_reads(self):
-        row = self._registration()
-        admin = User.objects.create_superuser(email="root@vezano.test", password="Root-passw0rd!x")
-        staff = APIClient()
-        staff.force_authenticate(admin)
-        response = staff.post(
-            f"/api/platform/registration-requests/{row.pk}/review/",
-            {"status": "needs_information", "public_note": "Send the trade licence"},
-            format="json",
-        )
-        self.assertEqual(response.status_code, 200, response.content)
-        self.assertEqual(response.data["public_note"], "Send the trade licence")
-        item = self._results(row.public_reference)[0]
-        self.assertEqual(item["status_label"], "نحتاج معلومات إضافية")
-        self.assertEqual(item["reason"], "Send the trade licence")
-
-    def test_demo_request_found_by_reference_phone_email_and_name(self):
-        response = self.client.post(reverse("demo-request"), {
-            "request_uuid": str(uuid4()), "name": "Sara Musa", "phone": "0912 345 678",
-            "email": "sara@example.test", "preferred_channel": "whatsapp",
-        }, format="json")
-        reference = response.data["public_reference"]
-        self.assertEqual(PlatformLead.objects.get().public_reference, reference)
-        item = self._results(reference)[0]
-        self.assertEqual((item["kind"], item["customer"]), ("demo", "Sara"))
-        self.assertIn("واتساب", item["next"])
-        for query in ("sara@EXAMPLE.test", "+249912345678", "sara musa"):
-            results = self._results(query)
-            self.assertEqual([i["reference"] for i in results], [reference], query)
-            self.assertEqual(results[0]["customer"], "S. M.")
-
-    def test_requests_older_than_90_days_are_left_out(self):
-        row = self._registration()
-        RegistrationRequest.objects.filter(pk=row.pk).update(
-            created_at=timezone.now() - timedelta(days=tracking.LOOKUP_DAYS + 1)
-        )
-        self.assertEqual(self._results(row.public_reference), [])
-        self.assertEqual(self._results("amina@northwind.test"), [])
-
-    def test_a_name_that_looks_like_a_reference_still_matches_the_name(self):
-        row = self._registration(contact_name="Rashida", company_name="Kosti Mart")
-        self.assertEqual(
-            [item["reference"] for item in self._results("rashida")], [row.public_reference]
-        )
 
     def test_subscription_payment_by_full_transfer_reference_only(self):
         company = Company.objects.create(name="Blue Nile Stores", slug="bns", currency="SDG")

@@ -566,7 +566,17 @@ export default api;
 
 export const demoRequests = { create: (body) => api.post("/public/demo-requests/", body) };
 // vezano.app/track/: a POST so the query never lands in a URL.
-export const publicTrack = { search: (body) => api.post("/public/track/", body) };
+export const publicTrack = {
+  search: (body) => api.post("/public/track/", body),
+  // Trial (R) and demo (D) requests open only with a code emailed to the
+  // address on the request (backend: website/request_tracking.py).
+  requests: {
+    start: (body) => api.post("/public/track/requests/", body),
+    verify: (body) => api.post("/public/track/requests/verify/", body),
+    resend: (body) => api.post("/public/track/requests/resend/", body),
+    view: (body) => api.post("/public/track/requests/view/", body),
+  },
+};
 
 // Unauthenticated reads of the public company pages.
 export const publicSite = {
@@ -579,7 +589,11 @@ export const publicSite = {
 export const registration = {
   overview: () => api.get("/platform/overview/"),
   publicPlans: () => api.get("/public/plans/"),
+  // The trial form answers 202 {pending_id, email_masked}; the request
+  // exists once the emailed code verifies (website/trial_requests.py).
   create: (body) => api.post("/public/registration-requests/", body),
+  verifyCode: (body) => api.post("/public/registration-requests/verify/", body),
+  resendCode: (body) => api.post("/public/registration-requests/resend/", body),
   list: (params) => listAll("/platform/registration-requests/", params),
   review: (id, body) => api.post(`/platform/registration-requests/${id}/review/`, body),
   approve: (id, body) => api.post(`/platform/registration-requests/${id}/approve/`, body),

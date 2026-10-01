@@ -123,6 +123,15 @@ def _in_background(work, name):
     threading.Thread(target=run, name=name, daemon=True).start()
 
 
+def run_in_background(work, name):
+    """Run ``work`` off the request thread (inline in tests); never raises.
+    For other best-effort emails that must not slow a public form down."""
+    try:
+        _in_background(work, name)
+    except Exception:  # noqa: BLE001
+        logger.exception("%s could not be started", name)
+
+
 def notify_platform_team(event, *, subject_ar, subject_en, ar, en, link_path, capability,
                          push_title="", push_body="", tag="", background=None):
     """Queue a notice for after the current transaction commits.

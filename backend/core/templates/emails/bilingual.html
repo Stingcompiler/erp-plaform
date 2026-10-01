@@ -75,6 +75,17 @@ a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !im
 {% for line in primary.paragraphs %}<p class="vz-text" style="margin:0 0 14px;font-family:{{ primary.font }};font-size:16px;line-height:1.75;color:#12253b;word-break:break-word;overflow-wrap:anywhere;">{{ line }}</p>
 {% endfor %}</td>
 </tr>
+{% if code %}
+<tr>
+<td class="vz-pad" align="center" style="padding:6px 36px 18px;">
+<table role="presentation" class="vz-panel" cellpadding="0" cellspacing="0" border="0" align="center" bgcolor="#f5f8f9" style="margin:0 auto;background:#f5f8f9;border:1px solid #cfe3e6;border-radius:12px;border-collapse:separate;">
+<tr>
+<td class="vz-text" align="center" dir="ltr" style="padding:16px 28px;font-family:Menlo,Consolas,'Courier New',monospace;font-size:34px;font-weight:700;letter-spacing:10px;line-height:1.2;color:#0e7c86;text-align:center;">{{ code }}</td>
+</tr>
+</table>
+</td>
+</tr>
+{% endif %}
 {% if link %}
 <tr>
 <td class="vz-pad" align="center" style="padding:14px 36px 6px;">

@@ -5,7 +5,7 @@
 // pages name is here, and that each text is the one the app catalog has.
 import { translateFrom } from "./i18nCore.js";
 import {
-  contentAr, contentEn, homeAr, homeEn, installAr, installEn, landingAr, landingEn, pricingAr, pricingEn,
+  contentAr, contentEn, homeAr, homeEn, installAr, installEn, landingAr, landingEn, otpAr, otpEn, pricingAr, pricingEn,
   productAr, productEn, registerAr, registerEn, registrationAr, registrationEn, sharedAr, sharedEn, trackAr, trackEn,
 } from "./marketingI18n.js";
 
@@ -13,12 +13,12 @@ export const PUBLIC_CATALOG = {
   en: {
     ...sharedEn,
     landing: landingEn, content: contentEn, registration: registrationEn, install: installEn,
-    home: homeEn, pricing: pricingEn, product: productEn, register: registerEn, track: trackEn,
+    home: homeEn, pricing: pricingEn, product: productEn, register: registerEn, track: trackEn, otp: otpEn,
   },
   ar: {
     ...sharedAr,
     landing: landingAr, content: contentAr, registration: registrationAr, install: installAr,
-    home: homeAr, pricing: pricingAr, product: productAr, register: registerAr, track: trackAr,
+    home: homeAr, pricing: pricingAr, product: productAr, register: registerAr, track: trackAr, otp: otpAr,
   },
 };
 
