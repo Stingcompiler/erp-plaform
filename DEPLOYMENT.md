@@ -251,6 +251,7 @@ Every change here must be copied into the service's **Settings** /
 | `erp-api` | `WEB_CONCURRENCY` | `3` |
 | `erp-api` (optional) | `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS` / `DEFAULT_FROM_EMAIL` | SMTP for transactional email (owner/platform activation links). Unset = email disabled: the app still works, activation links are delivered by hand and preflight reports a warning |
 | `erp-api` (optional) | `PUBLIC_APP_ORIGIN` | absolute origin used in emailed links; defaults to `https://vezano.app` on SaaS. A standalone install must set its own origin for emails to carry links |
+| `erp-api`, `erp-daily-scans` (optional) | `PLATFORM_NOTIFY_EMAILS` | comma-separated extra inboxes emailed about new business (registration requests, demo requests, subscription payments, plan changes, trials ending in 3 days). Default empty: only active platform-team members whose role covers the event (superusers always) are emailed, plus a Web Push to each browser they enabled on the platform overview. Needs the SMTP settings above |
 
 A worker log showing `transport: redis://localhost:6379/0` means
 `CELERY_BROKER_URL` is missing; `concurrency: 8 (prefork)` followed by

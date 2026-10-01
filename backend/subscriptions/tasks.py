@@ -5,12 +5,15 @@ windows about to close. Logged once per day as a platform-level ActivityLog
 row (company=None); the platform overview shows the same queues live.
 """
 
+import logging
 from datetime import timedelta
 
 from celery import shared_task
 from django.utils import timezone
 
 from core.activity import log_activity
+
+logger = logging.getLogger(__name__)
 
 
 @shared_task
@@ -35,6 +38,8 @@ def scan_subscription_expiries():
 
     payload = {
         "downgrades_applied": apply_due_downgrades(now),
+        # Told to the team once per trial (core.team_notify keeps the marker).
+        "trial_notices_sent": _trial_notices(now),
         "trials_ending_7d": trials_ending,
         "trials_lapsed": trials_lapsed,
         "periods_lapsed": periods_lapsed,
@@ -43,6 +48,18 @@ def scan_subscription_expiries():
     if any(payload.values()):
         log_activity(action="scan", entity_type="SubscriptionExpiries", metadata=payload)
     return payload
+
+
+def _trial_notices(now):
+    """Email/push the team about trials ending within 3 days; a failure
+    here must never cost the rest of the scan."""
+    from core.team_notify import notify_trials_ending
+
+    try:
+        return notify_trials_ending(now)
+    except Exception:  # noqa: BLE001
+        logger.exception("trial-ending notices failed")
+        return 0
 
 
 @shared_task

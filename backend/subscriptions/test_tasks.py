@@ -33,7 +33,7 @@ class SubscriptionScanTests(TestCase):
             payload,
             {
                 "downgrades_applied": 0, "trials_ending_7d": 1, "trials_lapsed": 1,
-                "periods_lapsed": 1, "grace_closing_7d": 1,
+                "periods_lapsed": 1, "grace_closing_7d": 1, "trial_notices_sent": 1,
             },
         )
         self.assertEqual(ActivityLog.objects.filter(entity_type="SubscriptionExpiries").count(), 1)
