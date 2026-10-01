@@ -17,9 +17,9 @@ export const GUIDES = [
     related: "offline-pos",
     ar: {
       title: "كيف تواصل البيع أثناء انقطاع الإنترنت والكهرباء",
-      metaTitle: "كيف تواصل البيع أثناء انقطاع الإنترنت والكهرباء — دليل عملي للمتاجر والشركات بفرع أو عدة فروع",
+      metaTitle: "كيف تواصل البيع أثناء انقطاع الإنترنت والكهرباء",
       description:
-        "خطة عملية لمتجر أو شركة بفرع واحد أو عدة فروع — سوبرماركت أو صيدلية أو موزّع — كي لا يتوقف البيع حين تنقطع الشبكة أو الكهرباء: الأجهزة، الطاقة، البرنامج، والإجراء الذي يتبعه الكاشير ومدير الفرع.",
+        "خطة عملية لمتجر أو شركة بفرع أو عدة فروع كي لا يتوقف البيع حين تنقطع الشبكة أو الكهرباء: الأجهزة، الطاقة، البرنامج، وما يفعله الكاشير ومدير الفرع.",
       intro: [
         "انقطاع الإنترنت في ساعة الذروة لا يوقف البيع فحسب، بل يوقف الطابور. الزبون الذي ينتظر خمس دقائق أمام كاشير معلّق يترك بضاعته ويخرج. والانقطاع في أسواقنا ليس حادثًا نادرًا يُخطَّط له مرة، بل حالة أسبوعية تحتاج إجراءً ثابتًا.",
         "هذا الدليل يرتّب ما تحتاجه في أربع طبقات: الطاقة، الاتصال، البرنامج، والإجراء البشري. الطبقات الثلاث الأولى تشتريها مرة، والرابعة تدرّب عليها فريقك مرة ثم تصبح عادة. وفي شركة بعدة فروع تتكرر الطبقات نفسها في كل فرع، والمهم أن يكون الإجراء واحدًا في كل الفروع.",
@@ -71,9 +71,9 @@ export const GUIDES = [
     },
     en: {
       title: "How to keep selling through internet and power outages",
-      metaTitle: "How to keep selling through internet and power outages — a practical guide for stores and companies, one branch or many",
+      metaTitle: "How to keep selling through internet outages",
       description:
-        "A working plan for a store or company with one branch or many — a supermarket, a pharmacy or a distributor — so that sales do not stop when the network or the power goes: devices, power, software, and the routine the cashier and the branch manager follow.",
+        "A working plan for stores and companies, one branch or many, so sales don't stop when the network or power goes: devices, power, software and the till routine.",
       intro: [
         "An internet outage at rush hour does not only stop sales; it stops the queue. A customer who waits five minutes at a frozen till leaves their goods and walks out. And in our markets an outage is not a rare event you plan for once; it is a weekly condition that needs a fixed routine.",
         "This guide arranges what you need in four layers: power, connectivity, software, and the human routine. You buy the first three once; the fourth you train your team on once and it becomes habit. In a company with several branches the same layers repeat in every branch, and what matters is that the routine is the same everywhere.",
@@ -132,7 +132,7 @@ export const GUIDES = [
     related: "inventory-expiry",
     ar: {
       title: "كيف تجرد مخزونك دون إغلاق المتجر أو المستودع",
-      metaTitle: "كيف تجرد المخزون دون إغلاق المتجر أو المستودع — جرد دوري بالتناوب لكل فرع ومستودع",
+      metaTitle: "الجرد الدوري: جرد المخزون دون إغلاق المتجر",
       description:
         "طريقة الجرد الدوري بالتناوب: تعدّ جزءًا صغيرًا كل يوم بدل يوم إغلاق كامل، تعتمد الفروقات قبل تطبيقها، وتكتشف سبب الفرق بدل أن تصححه في صمت.",
       intro: [
@@ -189,9 +189,9 @@ export const GUIDES = [
     },
     en: {
       title: "How to count your stock without closing the store or warehouse",
-      metaTitle: "How to count stock without closing the store or warehouse — cycle counting for every branch and warehouse",
+      metaTitle: "Cycle counting: count stock without closing",
       description:
-        "The cycle-counting method: count a small part every day instead of a full closure day, approve variances before applying them, and find the cause of a difference instead of correcting it silently.",
+        "Count a small part of the stock every day instead of closing for a full count, approve variances before applying them, and find the cause of each difference.",
       intro: [
         "The annual stocktake is an exhausting day: the store or warehouse closes, everything is counted once, the balance is corrected and the cause is forgotten. Two months later the difference is back, because nobody learned where it came from.",
         "The alternative the large retail chains use is available to any store or company, with one branch or several: cycle counting. You count one shelf or one category each day at a quiet time, covering the whole warehouse within a month without closing for an hour.",
@@ -253,7 +253,7 @@ export const GUIDES = [
     related: "customer-debts",
     ar: {
       title: "كيف تحصّل ديون العملاء دون أن تخسرهم",
-      metaTitle: "كيف تحصّل ديون العملاء دون أن تخسرهم — نظام تحصيل للمتاجر وشركات الجملة والتوزيع",
+      metaTitle: "كيف تحصّل ديون العملاء دون أن تخسرهم",
       description:
         "نظام تحصيل بسيط لمتاجر التجزئة وشركات الجملة والتوزيع: حد ائتمان لكل عميل، كشف حساب شهري بدل المطالبة الشفهية، تقسيم الديون بعمرها، وترتيب الاتصال بمن تأخر.",
       intro: [
@@ -304,9 +304,9 @@ export const GUIDES = [
     },
     en: {
       title: "How to collect customer debts without losing the customers",
-      metaTitle: "How to collect customer debts without losing the customers — a collection routine for retailers, wholesalers and distributors",
+      metaTitle: "How to collect debts without losing customers",
       description:
-        "A simple collection routine for retail, wholesale and distribution: a credit limit per customer, a monthly statement instead of a verbal demand, debts sorted by age, and a short list of who to call.",
+        "A simple collection routine for retail, wholesale and distribution: a credit limit per customer, a monthly statement instead of a verbal demand, debts by age.",
       intro: [
         "Selling on credit wins the customer and keeps them, but a debt that is not followed up turns from a service into a loss and then into a quarrel. Most merchants do not lose because of a customer acting in bad faith; they lose because a debt was forgotten for two months and then suddenly demanded in an accusing tone.",
         "Good collection is neither harsh nor soft; it is regular. When a customer knows their statement arrives on the first of every month, and that the balance is not up for debate because it is backed by their own invoices, they pay on time because that is the norm, not because they were chased.",

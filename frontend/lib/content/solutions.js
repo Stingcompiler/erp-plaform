@@ -13,9 +13,9 @@ export const SOLUTIONS = [
     shot: "dashboard",
     ar: {
       title: "نظام إدارة متكامل للشركات متعددة الفروع",
-      metaTitle: "نظام إدارة شركات متعددة الفروع — تجزئة وجملة وتوزيع بصلاحيات لكل دور وفرع",
+      metaTitle: "نظام إدارة الشركات متعددة الفروع والمستودعات",
       description:
-        "نظام واحد لمتاجر التجزئة وشركات الجملة والتوزيع بفرع أو عدة فروع ومستودعات: نقطة البيع والمخزون والمشتريات والعملاء والموظفون والإدارة المالية، بصلاحيات لكل دور وفرع، واعتمادات تفصل من يسجّل عمّن يعتمد، والبيع يستمر حين تنقطع الشبكة.",
+        "نظام واحد للتجزئة والجملة والتوزيع بفرع أو عدة فروع ومستودعات: البيع والمخزون والمشتريات والموظفون والإدارة المالية، بصلاحيات واعتمادات لكل دور وفرع.",
       lead:
         "الفرع الثاني يضاعف المشكلات لا الأرباح إن كان النظام مبنيًا لكاونتر واحد: كاشير فرع يرى مخزون فرع آخر، وتحويل بضاعة يُسجَّل في طرف ولا يُسجَّل في الآخر، وخصم يُمنح بلا حد، والمالك يجمع الأرقام يدويًا آخر الشهر. فيزانو برو صُمم لشركة بفروع ومستودعات وأدوار من اليوم الأول، ويبدأ معك بفرع واحد إن كنت في أول الطريق.",
       sections: [
@@ -83,9 +83,9 @@ export const SOLUTIONS = [
     },
     en: {
       title: "Integrated management for multi-branch companies",
-      metaTitle: "Multi-branch company management — retail, wholesale and distribution with access by role and branch",
+      metaTitle: "Multi-branch company management software",
       description:
-        "One system for retail chains, wholesalers and distributors with one branch or many and several warehouses: point of sale, inventory, purchasing, customers, HR and financial management, with access by role and branch, approvals that separate who records from who approves, and selling that continues when the network drops.",
+        "One system for retail chains, wholesalers and distributors: POS, stock, purchasing, HR and financial management across every branch, with access by role.",
       lead:
         "A second branch doubles the problems, not the profit, if the system was built for a single counter: a cashier sees another branch's stock, a transfer is recorded at one end and not the other, discounts are given without a limit, and the owner assembles the figures by hand at month end. Vezano Pro was designed for a company with branches, warehouses and roles from day one, and starts with you on one branch if that is where you are.",
       sections: [
@@ -157,9 +157,9 @@ export const SOLUTIONS = [
     shot: "pos",
     ar: {
       title: "نقطة بيع تعمل بلا إنترنت",
-      metaTitle: "نقطة بيع تعمل بدون إنترنت — كاشير يواصل البيع أثناء الانقطاع",
+      metaTitle: "نقطة بيع تعمل بدون إنترنت — كاشير لا يتوقف",
       description:
-        "برنامج كاشير يواصل البيع حين ينقطع الإنترنت أو الكهرباء: المنتجات والأسعار محفوظة على الجهاز، والمبيعات تُحفظ محليًا وتُزامَن مرة واحدة عند عودة الاتصال، دون تكرار ودون فقد.",
+        "برنامج كاشير يواصل البيع حين ينقطع الإنترنت أو الكهرباء: المنتجات والأسعار على الجهاز، والمبيعات تُحفظ محليًا وتُزامَن مرة واحدة عند عودة الاتصال.",
       lead:
         "في السودان والخليج ينقطع الإنترنت والكهرباء في أسوأ الأوقات: ساعة الذروة، أو عشية العيد. الكاشير الذي يتوقف مع الشبكة يعطّل الطابور ويخسر البيع. فيزانو برو مبني على افتراض أن الاتصال سينقطع، لا على أمل ألا ينقطع.",
       sections: [
@@ -204,9 +204,9 @@ export const SOLUTIONS = [
     },
     en: {
       title: "A point of sale that works offline",
-      metaTitle: "Offline POS — a cashier that keeps selling through outages",
+      metaTitle: "Offline POS — a till that keeps selling",
       description:
-        "Cashier software that keeps selling when the internet or the power goes: products and prices live on the device, sales are saved locally and synced exactly once when the connection returns. No duplicates, nothing lost.",
+        "Cashier software that keeps selling when the internet or power goes: prices live on the device, and sales are saved locally and synced once on reconnect.",
       lead:
         "Across Sudan and the Gulf, the internet and the power fail at the worst moments: the evening rush, the night before Eid. A till that stops with the network stalls the queue and loses the sale. Vezano Pro is built on the assumption that the connection will drop, not on the hope that it won't.",
       sections: [
@@ -255,7 +255,7 @@ export const SOLUTIONS = [
     shot: "inventory",
     ar: {
       title: "مخزون بالدفعات وتواريخ الصلاحية",
-      metaTitle: "برنامج إدارة مخزون بتاريخ الصلاحية — دفعات، FEFO، وتنبيه قبل التلف على اللوحة",
+      metaTitle: "برنامج مخزون بتاريخ الصلاحية والدفعات",
       description:
         "نظام مخزون للأغذية والأدوية ومستحضرات التجميل: كل استلام دفعة بتاريخ صلاحية، والبيع يستهلك الأقرب انتهاءً أولًا، ولوحة تعرض ما يقترب من التلف أو النفاد.",
       lead:
@@ -302,9 +302,9 @@ export const SOLUTIONS = [
     },
     en: {
       title: "Inventory by batch and expiry date",
-      metaTitle: "Inventory software with expiry dates — batches, FEFO and alerts before spoilage",
+      metaTitle: "Inventory software with batch and expiry dates",
       description:
-        "Stock control for food, pharmacy and cosmetics: every receipt carries a batch and expiry date, sales consume the nearest expiry first, and a dashboard shows what is about to spoil or run out.",
+        "Track food, medicine and cosmetics by batch and expiry date: sales take the nearest expiry first, and the dashboard flags what is about to spoil or run out.",
       lead:
         "A merchant who sells perishable goods loses in two ways: stock that expires on the shelf because the newer batch sold before the older one, or a shelf that empties because nobody noticed the balance had reached the danger line. Both losses are information problems, not luck.",
       sections: [
@@ -353,9 +353,9 @@ export const SOLUTIONS = [
     shot: "debts",
     ar: {
       title: "دفتر ديون العملاء",
-      metaTitle: "دفتر ديون العملاء — كشف حساب برصيد متحرك، أعمار الديون، وسداد موثّق",
+      metaTitle: "دفتر ديون العملاء — كشف حساب وأعمار الديون",
       description:
-        "دفتر ديون رقمي يشتق رصيد كل عميل من فواتيره ودفعاته وإشعاراته الدائنة، لا من رقم يُكتب باليد: كشف حساب لأي فترة برصيد افتتاحي وختامي، أعمار الديون بعد تاريخ الاستحقاق، سداد نقدي أو بتحويل بنكي موثّق، وتنبيه على اللوحة بمن تأخر.",
+        "دفتر ديون رقمي يحسب رصيد كل عميل من فواتيره ودفعاته: كشف حساب لأي فترة، أعمار الديون بعد الاستحقاق، وسداد نقدي أو بتحويل بنكي موثّق.",
       lead:
         "البيع الآجل جزء من التجارة في أسواقنا، والمشكلة ليست في أن تبيع بالدين بل في ألا تعرف من يدين لك بكم ومنذ متى، وألا تملك ورقة تحسم الخلاف حين يقول العميل «دفعتها». دفتر الديون في فيزانو برو يجيب عن الأسئلة الثلاثة من المستندات نفسها.",
       sections: [
@@ -421,9 +421,9 @@ export const SOLUTIONS = [
     },
     en: {
       title: "Customer debt ledger",
-      metaTitle: "Customer debt ledger — running-balance statements, ageing and documented payments",
+      metaTitle: "Customer debt ledger: statements and ageing",
       description:
-        "A digital debt ledger that derives every customer's balance from their invoices, payments and credit notes, not from a hand-written number: a statement for any period with opening and closing balances, ageing past the due date, cash or documented bank-transfer payments, and a dashboard alert for who is late.",
+        "A digital debt ledger that derives each balance from invoices, payments and credit notes: statements for any period, ageing past due, documented payments.",
       lead:
         "Selling on credit is part of trade in our markets. The problem is not selling on credit; it is not knowing who owes you how much and since when, and having no document to settle it when the customer says \"I paid that\". The debt ledger in Vezano Pro answers all three from the documents themselves.",
       sections: [
@@ -493,9 +493,9 @@ export const SOLUTIONS = [
     shot: "store-page",
     ar: {
       title: "صفحة عامة لشركتك أو متجرك على الإنترنت",
-      metaTitle: "صفحة عامة لشركتك — واجهة إلكترونية بغلاف ومنتجات وقنوات تواصل وخريطة، جاهزة لـ Google",
+      metaTitle: "صفحة عامة لشركتك أو متجرك على الإنترنت",
       description:
-        "كل اشتراك في فيزانو برو يشمل صفحة عامة لنشاطك: غلاف وشعار، منتجات بالصور والأسعار، زر واتساب، ساعات العمل والموقع على الخريطة، جاهزة لتفهرسها محركات البحث مثل Google، دون مصمم ولا استضافة.",
+        "كل اشتراك في فيزانو برو يشمل صفحة عامة لنشاطك: غلاف وشعار، منتجات بالصور والأسعار، ساعات العمل والموقع على الخريطة، جاهزة لـ Google دون مصمم ولا استضافة.",
       lead:
         "العميل اليوم يبحث عن الشركة في Google قبل أن يتصل بها، ويريد قناة تواصل مباشرة لا صفحة على شبكة اجتماعية. صفحة شركتك على فيزانو برو تُنشأ من بياناتك الموجودة أصلًا في النظام، وتصبح على الإنترنت بضغطة، وعنوانها vezano.app/s/اسم-الشركة.",
       sections: [
@@ -540,9 +540,9 @@ export const SOLUTIONS = [
     },
     en: {
       title: "A public web page for your company or store",
-      metaTitle: "A public page for your company — an online presence with cover, products, contact channels and a map, ready for Google",
+      metaTitle: "A public web page for your company or store",
       description:
-        "Every Vezano Pro subscription includes a public page for the business: cover and logo, products with photos and prices, a WhatsApp button, opening hours and a map link, ready for search engines such as Google to index, with no designer and no hosting.",
+        "Every Vezano Pro plan includes a public page: cover and logo, products with photos and prices, hours and a map link, ready for Google. No designer, no hosting.",
       lead:
         "Customers look a shop up on Google before they visit, and they want a WhatsApp number, not a Facebook page. Your store page on Vezano Pro is built from the data already in the system, goes live with one click, and lives at vezano.app/s/your-store.",
       sections: [
