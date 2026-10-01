@@ -142,7 +142,7 @@
 | `erp-daily-scans` | 03:30 UTC — مسح الديون المستحقة، نواقص وصلاحيات المخزون، انتهاءات الاشتراك (`run_daily_scans`) |
 | قرص دائم | `/var/data/media/` للمرفقات (إثباتات، صور المنتجات، مستندات) |
 
-النطاقات: `vezano.app` (الأساسي)، `www.`، `enterprise.vezano.app`. الواجهة العربية على الجذر والإنجليزية تحت `/en/` مع hreflang وخريطة موقع.
+النطاقات: `vezano.app` (الأساسي)، `www.`، `pro.vezano.app` (أُلغي `enterprise.vezano.app` في 2026-10-01). الواجهة العربية على الجذر والإنجليزية تحت `/en/` مع hreflang وخريطة موقع.
 
 **متغيرات البيئة الأساسية:** `DJANGO_SECRET_KEY`، `DATABASE_URL`، `MEDIA_ROOT`، `SUBSCRIPTION_POLICY` (`enforce` في الإنتاج)، بريد Brevo SMTP، مفاتيح VAPID للإشعارات، و`BACKUP_S3_*` (نسخ خارج الصندوق). التفاصيل في `DEPLOYMENT.md`.
 

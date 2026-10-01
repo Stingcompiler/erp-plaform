@@ -37,11 +37,10 @@ application records.
        domain, so at the DNS provider use an ALIAS/ANAME record (or the A
        record Render shows for apex domains), not a CNAME.
      - `www.vezano.app` — CNAME to the `erp-api` Render hostname.
-     - `enterprise.vezano.app` — the original host. Keep it: existing
-       customers have cookies and installed PWAs on it, and it keeps working
-       without any redirect.
+     - (`enterprise.vezano.app`, the original host, was retired on
+       2026-10-01.)
 
-     The three hosts are always in `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS`
+     The hosts are always in `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS`
      (config/settings.py `VEZANO_PUBLIC_HOSTS`); `DJANGO_ALLOWED_HOSTS` only
      needs `.onrender.com`. Leave `AUTH_COOKIE_DOMAIN` unset so each host keeps
      its own host-only auth cookie.
@@ -279,10 +278,10 @@ section lists what the code expects from it.
   - `vezano.app` (canonical: canonical tags, sitemap and Open Graph point
     here);
   - `www.vezano.app`;
-  - `pro.vezano.app`;
-  - `enterprise.vezano.app`.
+  - `pro.vezano.app`.
 
-  All four are in `VEZANO_PUBLIC_HOSTS` (config/settings.py), so
+  (`enterprise.vezano.app` was retired on 2026-10-01: no DNS record, not
+  trusted by Django.) All three are in `VEZANO_PUBLIC_HOSTS` (config/settings.py), so
   `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` include them without any env
   value. At the DNS provider, `vezano.app` gets an A record to the server
   (not Render any more), and the other hosts get A records or CNAMEs to it.
@@ -290,7 +289,7 @@ section lists what the code expects from it.
   certificate:
 
   ```
-  vezano.app, www.vezano.app, pro.vezano.app, enterprise.vezano.app {
+  vezano.app, www.vezano.app, pro.vezano.app {
       reverse_proxy 127.0.0.1:8000
   }
   ```
