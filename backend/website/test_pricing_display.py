@@ -2,6 +2,7 @@
 platform API that sets it, who may, what every visitor reads, and the
 billing cycles the public plan list really offers."""
 from django.core.cache import cache
+from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -146,6 +147,9 @@ class PublicPlanCyclesTests(SeoAdminBase):
         self.assertEqual(rows["only"]["cycles"]["monthly"]["id"], only_monthly_newer.id)
         self.assertNotEqual(rows["only"]["cycles"]["monthly"]["id"], only_monthly.id)
 
+    @override_settings(
+        EMAIL_ENABLED=True, EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend"
+    )
     def test_a_yearly_offer_can_be_requested(self):
         plan = Plan.objects.create(code="p", name="P")
         self._version(plan, 1, "monthly", "1000")
@@ -158,4 +162,5 @@ class PublicPlanCyclesTests(SeoAdminBase):
                 "privacy_version": "2026-01", "country": "SD",
             }, format="json")
             cache.clear()  # the registration throttle
-            self.assertIn(response.status_code, (200, 201), response.data)
+            # Accepted: the emailed code comes next (website.trial_requests).
+            self.assertEqual(response.status_code, 202, response.data)

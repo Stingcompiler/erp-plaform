@@ -4,7 +4,7 @@ import { subscriptionEn, subscriptionAr } from "./subscriptionI18n.js";
 import { labelsAr, labelsEn, statesAr, statesEn } from "./labelsI18n.js";
 import {
   contentAr, contentEn, homeAr, homeEn, installAr, installEn, landingAr, landingEn, pricingAr, pricingEn, productAr, productEn,
-  registerAr, registerEn, registrationAr, registrationEn, sharedAr, sharedEn, trackAr, trackEn,
+  otpAr, otpEn, registerAr, registerEn, registrationAr, registrationEn, sharedAr, sharedEn, trackAr, trackEn,
 } from "./marketingI18n.js";
 import { DEFAULT_LANGUAGE, LANGUAGES, dirFor, translateFrom } from "./i18nCore.js";
 // The app's translation catalog: every namespace, for the workspace and the
@@ -6275,6 +6275,8 @@ en.product = productEn;
 ar.product = productAr;
 en.track = trackEn;
 ar.track = trackAr;
+en.otp = otpEn;
+ar.otp = otpAr;
 en.landing = landingEn;
 ar.landing = landingAr;
 en.content = contentEn;

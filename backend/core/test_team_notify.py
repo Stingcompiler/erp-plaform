@@ -1,6 +1,7 @@
 """Platform-team notices: who gets them, each event sends once, replays and
 mail outages are harmless, and push reaches platform members' browsers."""
 
+from contextlib import nullcontext
 from datetime import timedelta
 from decimal import Decimal
 from io import StringIO
@@ -170,15 +171,39 @@ class PublicEventTests(TeamFixture, TestCase):
             published_at=timezone.now(),
         )
 
-    def register(self, request_uuid):
+    def register(self, request_uuid, verify_patch=None):
+        """The form, then its emailed code (since 2026-10-01 the request
+        exists only after the code verifies). A replayed form answers 200
+        straight away."""
         cache.clear()
-        with self.captureOnCommitCallbacks(execute=True):
-            return APIClient().post("/api/public/registration-requests/", {
+        client = APIClient()
+        with mock.patch("core.otp.new_code", return_value="246810"):
+            started = client.post("/api/public/registration-requests/", {
                 "request_uuid": request_uuid, "company_name": "Nile Shop",
                 "contact_name": "Ali", "email": "ali@visitor.test", "phone": "+249912345678",
                 "delivery_mode": "saas", "plan_version": self.version.pk,
                 "privacy_version": "2026-01", "country": "SD",
             }, format="json")
+        if started.status_code != 202:
+            return started
+        with self.captureOnCommitCallbacks(execute=True), (verify_patch or nullcontext()):
+            return client.post("/api/public/registration-requests/verify/", {
+                "pending_id": started.data["pending_id"], "code": "246810",
+            }, format="json")
+
+    def test_registration_notice_waits_for_the_code(self):
+        cache.clear()
+        client = APIClient()
+        with self.captureOnCommitCallbacks(execute=True):
+            started = client.post("/api/public/registration-requests/", {
+                "request_uuid": str(uuid4()), "company_name": "Nile Shop",
+                "contact_name": "Ali", "email": "ali@visitor.test", "phone": "+249912345678",
+                "delivery_mode": "saas", "plan_version": self.version.pk,
+                "privacy_version": "2026-01", "country": "SD",
+            }, format="json")
+        self.assertEqual(started.status_code, 202, started.data)
+        # Only the code went out: nobody on the team hears of an unverified form.
+        self.assertEqual(self.sent_to(), ["ali@visitor.test"])
 
     def test_registration_emails_reviewers_once_and_replays_stay_quiet(self):
         ref = str(uuid4())
@@ -232,7 +257,13 @@ class PublicEventTests(TeamFixture, TestCase):
             "django.core.mail.EmailMultiAlternatives.send", side_effect=OSError("smtp down")
         ):
             self.assertEqual(self.demo(str(uuid4())).status_code, 201)
-            self.assertEqual(self.register(str(uuid4())).status_code, 201)
+            # Without email the code cannot go out: the form says so instead.
+            self.assertEqual(self.register(str(uuid4())).status_code, 503)
+        smtp_down = mock.patch(
+            "django.core.mail.EmailMultiAlternatives.send", side_effect=OSError("smtp down")
+        )
+        # The code arrived; the acknowledgement and team notice then fail quietly.
+        self.assertEqual(self.register(str(uuid4()), verify_patch=smtp_down).status_code, 201)
         with mock.patch.object(team_notify, "recipients", side_effect=RuntimeError("db")):
             self.assertEqual(self.demo(str(uuid4())).status_code, 201)
 

@@ -1,4 +1,5 @@
 from datetime import timedelta
+from unittest import mock
 from uuid import uuid4
 
 from django.core import mail
@@ -41,11 +42,27 @@ class RegistrationRequestTests(APITestCase):
             "privacy_version": "2026-09",
         }
 
+    def _submit(self, body=None):
+        """The form and then its emailed code; (form answer, verify answer)."""
+        with mock.patch("core.otp.new_code", return_value="135790"):
+            started = self.client.post(
+                reverse("registration-request"), body or self.body, format="json"
+            )
+        if started.status_code != 202:
+            return started, None
+        verified = self.client.post(reverse("registration-request-verify"), {
+            "pending_id": started.data["pending_id"], "code": "135790",
+        }, format="json")
+        return started, verified
+
+    @override_settings(
+        EMAIL_ENABLED=True, EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend"
+    )
     def test_public_request_is_idempotent_and_does_not_expose_tenants(self):
-        url = reverse("registration-request")
-        first = self.client.post(url, self.body, format="json")
-        again = self.client.post(url, self.body, format="json")
+        started, first = self._submit()
+        self.assertEqual(started.status_code, 202, started.data)
         self.assertEqual(first.status_code, 201, first.data)
+        again, _none = self._submit()
         self.assertEqual(again.status_code, 200, again.data)
         self.assertEqual(RegistrationRequest.objects.count(), 1)
         self.assertEqual(
@@ -58,18 +75,21 @@ class RegistrationRequestTests(APITestCase):
         EMAIL_ENABLED=True, EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend"
     )
     def test_new_request_is_acknowledged_by_email_once(self):
-        url = reverse("registration-request")
-        self.assertEqual(self.client.post(url, self.body, format="json").status_code, 201)
-        self.assertEqual(len(mail.outbox), 1)
-        message = mail.outbox[0]
+        _started, verified = self._submit()
+        self.assertEqual(verified.status_code, 201)
+        # The code first, then the acknowledgement.
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertIn("135790", mail.outbox[0].body)
+        message = mail.outbox[1]
         self.assertEqual(message.to, ["amina@northwind.test"])
         reference = RegistrationRequest.objects.get().public_reference
         self.assertIn(reference, message.body)
         self.assertIn("/track/", message.body)
         self.assertIn("Northwind Trading", message.body)
         # A retry of the same request must not send a second acknowledgement.
-        self.assertEqual(self.client.post(url, self.body, format="json").status_code, 200)
-        self.assertEqual(len(mail.outbox), 1)
+        again, _none = self._submit()
+        self.assertEqual(again.status_code, 200)
+        self.assertEqual(len(mail.outbox), 2)
 
     def test_public_endpoint_only_lists_published_public_plans(self):
         hidden_plan = Plan.objects.create(code="hidden", name="Hidden", is_public=False)

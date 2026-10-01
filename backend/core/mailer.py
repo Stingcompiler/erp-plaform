@@ -104,22 +104,23 @@ def _asset_origin():
 
 
 def render_bilingual_html(*, subject, blocks, order, link=None, preheader=None,
-                          button_labels=None):
+                          button_labels=None, code=None):
     """The HTML body of a bilingual email (templates/emails/bilingual.html).
 
     ``blocks`` maps "ar"/"en" to plain-text paragraphs, which the template
     autoescapes; ``order`` is (primary, secondary). The preheader (the
-    inbox preview line) defaults to the first line of the primary block."""
+    inbox preview line) defaults to the first line of the primary block.
+    ``code`` (a one-time code) is set large under the first half."""
     labels = button_labels or {}
     sides = []
-    for code in order:
-        copy = LANGUAGE_COPY[code]
+    for language in order:
+        copy = LANGUAGE_COPY[language]
         sides.append({
             **copy,
-            "code": code,
-            "font": FONTS[code],
-            "paragraphs": [line for line in blocks[code] if line],
-            "button": labels.get(code) or copy["button"],
+            "code": language,
+            "font": FONTS[language],
+            "paragraphs": [line for line in blocks[language] if line],
+            "button": labels.get(language) or copy["button"],
         })
     primary, secondary = sides
     if preheader is None:
@@ -130,6 +131,7 @@ def render_bilingual_html(*, subject, blocks, order, link=None, preheader=None,
         "primary": primary,
         "secondary": secondary,
         "link": link,
+        "code": code,
         "preheader": preheader,
         "logo": {
             "url": _asset_origin() + LOGO_PATH.format(code=order[0]),
@@ -144,7 +146,7 @@ def render_bilingual_html(*, subject, blocks, order, link=None, preheader=None,
 
 
 def send_bilingual(*, subject_ar, subject_en, ar, en, recipient, link=None, primary=None,
-                   preheader=None, button_label_ar=None, button_label_en=None):
+                   preheader=None, button_label_ar=None, button_label_en=None, code=None):
     """One email that reads correctly for either audience: the Arabic block
     is right-to-left, the English block left-to-right, and whichever matches
     the reader's screen language comes first — in the subject too. A plain
@@ -153,24 +155,29 @@ def send_bilingual(*, subject_ar, subject_en, ar, en, recipient, link=None, prim
     ``link`` is rendered once as a button after the first half so nobody
     has to hunt for it inside a paragraph; ``button_label_ar``/``_en``
     replace its generic "Open the link" label. ``preheader`` overrides the
-    inbox preview line (by default the first line of the first half)."""
+    inbox preview line (by default the first line of the first half).
+    ``code`` is a one-time code shown large after the first half (and on a
+    line of its own in the text twin); keep it out of the subject and the
+    preheader, which notification previews and logs may show."""
     primary = primary or primary_language()
     order = ("ar", "en") if primary == "ar" else ("en", "ar")
     subjects = {"ar": subject_ar, "en": subject_en}
     blocks = {"ar": list(ar), "en": list(en)}
-    subject = " | ".join(subjects[code] for code in order)
+    subject = " | ".join(subjects[language] for language in order)
 
     text_parts = []
-    for code in order:
-        text_parts.append("\n".join(blocks[code]))
-        if link and code == order[0]:
+    for language in order:
+        text_parts.append("\n".join(blocks[language]))
+        if code and language == order[0]:
+            text_parts.append(code)
+        if link and language == order[0]:
             text_parts.append(link)
     text_parts.append(f"— {BRAND}")
     text = "\n\n".join(text_parts)
 
     html = render_bilingual_html(
         subject=subject, blocks=blocks, order=order, link=link, preheader=preheader,
-        button_labels={"ar": button_label_ar, "en": button_label_en},
+        button_labels={"ar": button_label_ar, "en": button_label_en}, code=code,
     )
 
     if not recipient:

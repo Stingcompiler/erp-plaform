@@ -17,12 +17,18 @@ from website.views import (
     PlatformTrackView,
     PublicPlanListView,
     PublicRegistrationRequestView,
+    PublicRegistrationResendView,
+    PublicRegistrationVerifyView,
     PublicOrderCreateView,
     PublicOrderStatusView,
     PushSubscriptionView,
     PublicOrderViewSet,
     PublicSiteView,
     SectionViewSet,
+    TrackRequestResendView,
+    TrackRequestStartView,
+    TrackRequestVerifyView,
+    TrackRequestView,
     WebsitePublishView,
     WebsiteView, WebsiteImageUploadView, WebsiteImageViewSet, WebsitePreviewView,
 )
@@ -75,8 +81,29 @@ urlpatterns = [
     ),
     path("public/track/", PlatformTrackView.as_view(), name="platform-track"),
     path(
+        "public/track/requests/", TrackRequestStartView.as_view(),
+        name="track-request-start",
+    ),
+    path(
+        "public/track/requests/verify/", TrackRequestVerifyView.as_view(),
+        name="track-request-verify",
+    ),
+    path(
+        "public/track/requests/resend/", TrackRequestResendView.as_view(),
+        name="track-request-resend",
+    ),
+    path("public/track/requests/view/", TrackRequestView.as_view(), name="track-request-view"),
+    path(
         "public/registration-requests/", PublicRegistrationRequestView.as_view(),
         name="registration-request",
+    ),
+    path(
+        "public/registration-requests/verify/", PublicRegistrationVerifyView.as_view(),
+        name="registration-request-verify",
+    ),
+    path(
+        "public/registration-requests/resend/", PublicRegistrationResendView.as_view(),
+        name="registration-request-resend",
     ),
     path(
         "public/owner-invitations/accept/", OwnerInvitationAcceptView.as_view(),
