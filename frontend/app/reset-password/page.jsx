@@ -33,8 +33,8 @@ export default function ResetPasswordPage() {
   }, [seconds, router]);
 
   return (
-    <main className="grid min-h-screen place-items-center bg-paper px-4 py-8 sm:p-6">
-      <div className="w-full max-w-md">
+    <main className="flex min-h-screen items-center justify-center bg-paper px-4 py-8 sm:p-6">
+      <div className="w-full min-w-0 max-w-md">
         <Link href="/" className="mb-6 inline-flex items-center gap-2 font-display text-lg font-bold">
           <LogoMark size={36} decorative />
           <Wordmark />
