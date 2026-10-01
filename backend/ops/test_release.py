@@ -26,7 +26,23 @@ class VersionAndHashingTests(TestCase):
             release.deployed_commit({"RENDER_GIT_COMMIT": " ", "GIT_COMMIT": "abcdef01ff"}),
             "abcdef01",
         )
-        self.assertIsNone(release.deployed_commit({}))
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertIsNone(release.deployed_commit({}, root=Path(directory)))
+
+    def test_deployed_commit_falls_back_to_the_ovh_deployment_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "DEPLOYMENT.json").write_text(
+                json.dumps({"commit": "C1473A11099B" + "0" * 28, "archive_sha256": "x"})
+            )
+            self.assertEqual(release.deployed_commit({}, root=root), "c1473a11")
+            # A variable still wins over the file.
+            self.assertEqual(
+                release.deployed_commit({"GIT_COMMIT": "abcdef01ff"}, root=root), "abcdef01"
+            )
+            for bad in ("{", '{"commit": "not-a-sha"}', '["c1473a11"]', '{"commit": "abc"}'):
+                (root / "DEPLOYMENT.json").write_text(bad)
+                self.assertIsNone(release.deployed_commit({}, root=root), bad)
 
     def test_sha256_file_matches_a_known_digest(self):
         payload = b"vezano"
