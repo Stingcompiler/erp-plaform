@@ -41,6 +41,7 @@ urlpatterns = [
 # by Django (website.public_pages), so they sit outside the export too.
 from website.public_pages import (  # noqa: E402
     public_site_directory,
+    public_site_fallback,
     public_pay_page,
     public_site_page,
     public_sites_sitemap,
@@ -62,6 +63,9 @@ urlpatterns += [
         name="public-track-order-page",
     ),
     path("sitemap-sites.xml", public_sites_sitemap, name="public-sites-sitemap"),
+    # Last of the /s/ routes: an address none of the above serves may still
+    # be a saved redirect (website.redirects); otherwise a 404.
+    re_path(r"^s/(?P<rest>.+)$", public_site_fallback, name="public-site-fallback"),
 ]
 
 _FRONTEND_CATCH_ALL = re_path(

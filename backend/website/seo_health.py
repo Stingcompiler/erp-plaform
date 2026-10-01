@@ -16,6 +16,8 @@ what is missing or off, so the team knows which override to write next.
   result, kept out of the index, or not listed in the directory.
 - Settings: the verification tags, the default share image and the extra
   robots.txt lines.
+- Redirects (website.redirects): an old path still listed in a sitemap, and
+  a new address on this site with no page behind it.
 
 Every finding is a code plus plain params; the page words them in either
 language. The whole report is cached for five minutes (CACHE_SECONDS);
@@ -482,6 +484,81 @@ def robots_extra_issues(extra, listed_paths=()):
     return issues
 
 
+# Paths Django serves itself (not the export): a redirect landing there is
+# not judged against frontend/out.
+_NOT_IN_EXPORT = ("/api", "/admin", "/static", "/media", "/sitemap-sites.xml")
+
+
+def _export_serves(dist, key):
+    """Whether the export at `dist` has a file for the lookup key `key`,
+    the way core.frontend looks one up."""
+    relative = key.strip("/")
+    if ".." in relative.split("/"):
+        return False
+    if not relative:
+        return (dist / "index.html").is_file()
+    base = dist / relative
+    return any(
+        candidate.is_file()
+        for candidate in (base, base / "index.html", base.with_name(f"{base.name}.html"))
+    )
+
+
+def check_redirects(dist, origin):
+    """Active redirects whose old path is still listed in a sitemap, or
+    whose new address on this site has no page."""
+    from website.models import SeoRedirect, Website
+    from website.redirects import request_key, target_key
+
+    dist = Path(dist)
+    export = (dist / "index.html").is_file()
+    listed = set()
+    sitemap_file = dist / "sitemap.xml"
+    if sitemap_file.is_file():
+        try:
+            paths, _foreign = sitemap_paths(sitemap_file.read_text(encoding="utf-8"), origin)
+            listed = {request_key(path) for path in paths}
+        except ElementTree.ParseError:
+            pass
+    published = {
+        slug.lower(): listed_flag
+        for slug, listed_flag in Website.objects.filter(
+            is_published=True, company__is_active=True
+        ).values_list("company__slug", "list_in_directory")
+    }
+    rows = []
+    for row in SeoRedirect.objects.filter(is_active=True).order_by("source_path"):
+        issues = []
+        source = row.source_path
+        parts = source.split("/")
+        if source in listed:
+            issues.append(issue("redirect_in_sitemap", WARN, sitemap="sitemap.xml"))
+        elif len(parts) == 3 and parts[1] == "s" and published.get(parts[2]):
+            issues.append(issue("redirect_in_sitemap", WARN, sitemap="sitemap-sites.xml"))
+        landing, _problem = target_key(row.target, allow_external=True)
+        if landing is not None and not any(
+            landing == prefix or landing.startswith(prefix + "/") for prefix in _NOT_IN_EXPORT
+        ):
+            target_parts = landing.split("/")
+            if landing == "/s":
+                served = True
+            elif len(target_parts) >= 3 and target_parts[1] == "s":
+                served = target_parts[2] in published
+            else:
+                served = not export or _export_serves(dist, landing)
+            if not served:
+                issues.append(issue("redirect_target_missing", ERROR, target=row.target))
+        rows.append(_with_severity({
+            "id": row.pk,
+            "source_path": source,
+            "target": row.target,
+            "status_code": row.status_code,
+            "url": origin + source + ("/" if source != "/" else ""),
+            "issues": issues,
+        }))
+    return rows
+
+
 def _summary(*groups):
     counts = dict.fromkeys(SEVERITIES, 0)
     codes = {}
@@ -519,6 +596,7 @@ def build_report(dist=None):
     checks = check_settings(
         settings_row, overrides, [page["url_path"] for page in pages if page["in_sitemap"]]
     )
+    redirects = check_redirects(dist, origin)
     return {
         "generated_at": timezone.now().isoformat(),
         "origin": origin,
@@ -526,11 +604,12 @@ def build_report(dist=None):
             "title": [TITLE_MIN, TITLE_MAX],
             "description": [DESCRIPTION_MIN, DESCRIPTION_MAX],
         },
-        "summary": _summary(pages, [sitemap], companies, checks),
+        "summary": _summary(pages, [sitemap], companies, checks, redirects),
         "pages": pages,
         "sitemap": sitemap,
         "companies": companies,
         "settings": checks,
+        "redirects": redirects,
     }
 
 
