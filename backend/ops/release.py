@@ -43,11 +43,14 @@ def application_version(root=None):
 
 
 # Render exports the deployed commit on every service; a self-hosted
-# operator can set GIT_COMMIT from their deploy script. The OVH deployment
-# (deploy/ovh/deploy_release.py) writes DEPLOYMENT.json into the release root
-# instead, so that is read when no variable is set. Nothing shells out to git:
-# a standalone install is unpacked from an archive with no .git.
+# operator can set GIT_COMMIT from their deploy script. A packaged release
+# carries it too: CI records GITHUB_SHA as `source_commit` in the release
+# manifest (owned by the app user, so readable), and the OVH deployment
+# writes DEPLOYMENT.json into the release root (root-only on that server,
+# hence the manifest). Nothing shells out to git: a standalone install is
+# unpacked from an archive with no .git.
 COMMIT_ENV_VARS = ("RENDER_GIT_COMMIT", "GIT_COMMIT")
+SOURCE_COMMIT_ENV_VARS = ("GITHUB_SHA", "GIT_COMMIT", "RENDER_GIT_COMMIT")
 DEPLOYMENT_FILE = "DEPLOYMENT.json"
 SHORT_COMMIT_LENGTH = 8
 _HEX = frozenset("0123456789abcdef")
@@ -60,18 +63,37 @@ def deployed_commit(environ=None, root=None):
         value = (environ.get(name) or "").strip()
         if value:
             return value[:SHORT_COMMIT_LENGTH]
-    return _commit_from_deployment_file(root or repository_root())
+    root = Path(root or repository_root())
+    return (
+        _commit_from_json(root / DEPLOYMENT_FILE, "commit")
+        or _commit_from_json(root / MANIFEST_NAME, "source_commit")
+    )
 
 
-def _commit_from_deployment_file(root):
-    try:
-        data = json.loads((Path(root) / DEPLOYMENT_FILE).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    commit = str(data.get("commit") or "").strip().lower() if isinstance(data, dict) else ""
+def _clean_commit(value):
+    commit = str(value or "").strip().lower()
     if len(commit) < SHORT_COMMIT_LENGTH or not set(commit) <= _HEX:
         return None
-    return commit[:SHORT_COMMIT_LENGTH]
+    return commit
+
+
+def _commit_from_json(path, key):
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    commit = _clean_commit(data.get(key)) if isinstance(data, dict) else None
+    return commit[:SHORT_COMMIT_LENGTH] if commit else None
+
+
+def source_commit(environ=None):
+    """The full commit a release is being built from (CI's GITHUB_SHA), or None."""
+    environ = os.environ if environ is None else environ
+    for name in SOURCE_COMMIT_ENV_VARS:
+        commit = _clean_commit(environ.get(name))
+        if commit:
+            return commit
+    return None
 
 
 def sha256_file(path, chunk_size=HASH_CHUNK_BYTES):
@@ -210,6 +232,9 @@ def build_manifest(root=None, requirements_path=None, frontend_out=None, extra=N
         "dependencies": dependency_inventory(requirements_path),
         "frontend": frontend_inventory(frontend_out),
     }
+    commit = source_commit()
+    if commit:
+        manifest["source_commit"] = commit
     if extra:
         manifest.update(extra)
     manifest["manifest_checksum"] = manifest_checksum(manifest)
