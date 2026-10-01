@@ -645,6 +645,23 @@ export const platformSeo = {
   deleteOverride: (id) => api.delete(`/platform/seo/overrides/${id}/`),
   // The health report; `refresh` recomputes it (managers only).
   health: (refresh = false) => api.get("/platform/seo/health/", { params: refresh ? { refresh: 1 } : {} }),
+  // Redirects (phase C): CRUD, the form's live check, "test a URL" and a
+  // CSV import with a dry run.
+  redirects: () => api.get("/platform/seo/redirects/"),
+  createRedirect: (body) => api.post("/platform/seo/redirects/", body),
+  updateRedirect: (id, body) => api.patch(`/platform/seo/redirects/${id}/`, body),
+  deleteRedirect: (id) => api.delete(`/platform/seo/redirects/${id}/`),
+  checkRedirect: (body) => api.post("/platform/seo/redirects/check/", body),
+  testRedirect: (path) => api.get("/platform/seo/redirects/test/", { params: { path } }),
+  importRedirects: ({ file, csv, dryRun }) => {
+    if (file) {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("dry_run", dryRun ? "1" : "0");
+      return api.post("/platform/seo/redirects/import/", form, { headers: { "Content-Type": "multipart/form-data" } });
+    }
+    return api.post("/platform/seo/redirects/import/", { csv, dry_run: Boolean(dryRun) });
+  },
 };
 
 export const platformLeads = {

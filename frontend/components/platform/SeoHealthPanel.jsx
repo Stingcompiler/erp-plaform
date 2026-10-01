@@ -5,7 +5,7 @@
 // jump from a finding to an override prefilled with that page and language.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Building2, ExternalLink, FileSearch, Map as MapIcon, Pencil, Plus, RefreshCw, Settings2 } from "lucide-react";
+import { ArrowLeftRight, Building2, ExternalLink, FileSearch, Map as MapIcon, Pencil, Plus, RefreshCw, Settings2 } from "lucide-react";
 
 import { useI18n } from "../../app/providers/I18nProvider";
 import { platformSeo } from "@/lib/api";
@@ -61,7 +61,7 @@ function IssueList({ issues, t }) {
   );
 }
 
-export default function SeoHealthPanel({ canManage, onOverride }) {
+export default function SeoHealthPanel({ canManage, onOverride, onRedirects }) {
   const { t, language } = useI18n();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -91,6 +91,7 @@ export default function SeoHealthPanel({ canManage, onOverride }) {
     () => [...(report?.companies || [])].sort((a, b) => SEVERITIES.indexOf(a.severity) - SEVERITIES.indexOf(b.severity)),
     [report],
   );
+  const flaggedRedirects = useMemo(() => (report?.redirects || []).filter((row) => row.issues.length > 0), [report]);
   const setFilter = (key) => (event) => setFilters({ ...filters, [key]: event.target.value });
   const fmt = (value) => new Date(value).toLocaleString(language === "ar" ? "ar" : "en", { dateStyle: "medium", timeStyle: "short" });
 
@@ -304,6 +305,43 @@ export default function SeoHealthPanel({ canManage, onOverride }) {
           </table>
         </div>
       </Section>
+
+      {/* Redirects: old paths still in a sitemap, new addresses with no page. */}
+      {(report.redirects || []).length > 0 && (
+        <Section
+          icon={ArrowLeftRight}
+          title={t("platformSeo.health.redirectsTitle")}
+          hint={t("platformSeo.health.redirectsHint", { count: report.redirects.length })}
+          actions={onRedirects && <Button variant="outline" className="shrink-0 whitespace-nowrap" onClick={onRedirects}>{t("platformSeo.health.openRedirects")}</Button>}
+        >
+          {flaggedRedirects.length === 0 ? (
+            <p className="mt-4 text-sm text-ok">{t("platformSeo.health.redirectsOk")}</p>
+          ) : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="stack-sm w-full text-sm">
+                <thead>
+                  <tr className="text-xs text-muted">
+                    <th className="px-2 py-2 text-start font-medium">{t("platformSeo.health.colRedirect")}</th>
+                    <th className="px-2 py-2 text-start font-medium">{t("platformSeo.health.colIssue")}</th>
+                    <th className="px-2 py-2 text-start font-medium">{t("platformSeo.health.colSeverity")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {flaggedRedirects.map((row) => (
+                    <tr key={row.id} className="border-t border-line align-top">
+                      <td className="px-2 py-2">
+                        <div className="break-all font-mono text-xs" dir="ltr">{row.source_path} → {row.target}</div>
+                      </td>
+                      <td className="px-2 py-2 text-sm"><IssueList issues={row.issues} t={t} /></td>
+                      <td className="px-2 py-2"><SeverityBadge severity={row.severity} t={t} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Section>
+      )}
 
       {/* Site-wide settings. */}
       <Section icon={Settings2} title={t("platformSeo.health.settingsTitle")} hint={t("platformSeo.health.settingsHint")}>
