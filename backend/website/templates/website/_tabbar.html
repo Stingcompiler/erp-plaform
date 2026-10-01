@@ -21,6 +21,7 @@
   function setOpen(open, refocus) {
     btn.setAttribute("aria-expanded", open ? "true" : "false");
     sheet.hidden = !open; scrim.hidden = !open;
+    placeInd(); if (open) show();
     if (open) { var first = sheet.querySelector("a"); if (first) first.focus(); }
     else if (refocus) btn.focus();
   }
@@ -30,6 +31,58 @@
     sheet.addEventListener("click", function (e) { if (e.target.closest("a")) setOpen(false); });
     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !sheet.hidden) setOpen(false, true); });
   }
+  // Motion (styles in _tabbar_head.html). One pill slides to the current tab — the open «more» sheet's
+  // button, else the current link, else «more» when the current section lives in the sheet. Without this
+  // script each tab draws its own tint.
+  var reduce = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
+  var ind = document.createElement("span");
+  ind.className = "tb-ind"; ind.setAttribute("aria-hidden", "true");
+  bar.insertBefore(ind, bar.firstChild); bar.classList.add("tb-js");
+  function placeInd() {
+    var on = bar.querySelector('[aria-expanded="true"]') || bar.querySelector("a[aria-current]") || bar.querySelector("button.on"),
+        ic = on && on.querySelector(".ic");
+    if (!ic || !ic.offsetWidth) { ind.classList.remove("on"); return; }
+    var place = "translate(" + ic.offsetLeft + "px," + ic.offsetTop + "px)";
+    if (place !== ind.getAttribute("data-at")) {
+      ind.style.width = ic.offsetWidth + "px"; ind.style.height = ic.offsetHeight + "px";
+      ind.style.transform = place; ind.setAttribute("data-at", place);
+    }
+    ind.classList.add("on");
+  }
+  placeInd();
+  // The pill slides only once it has a place: the first one is drawn where it is.
+  requestAnimationFrame(function () { requestAnimationFrame(function () { bar.classList.add("tb-anim"); }); });
+  window.addEventListener("resize", placeInd);
+  // The bar steps out of the way while reading down the page and comes back on the first scroll up
+  // (tbStep: thresholds so a jitter does neither). It always stays near the top, while the «more» sheet
+  // is open, while a form field or the bar itself has focus (a phone keyboard is up), for a moment after
+  // a tab is tapped (its smooth scroll is not "reading down"), and under reduced motion.
+  function tbStep(s, y, top, down, up) {
+    if (y <= top) return { anchor: y, hidden: false };
+    if (!s.hidden) {
+      if (y < s.anchor) return { anchor: y, hidden: false };
+      return y - s.anchor >= down ? { anchor: y, hidden: true } : s;
+    }
+    if (y > s.anchor) return { anchor: y, hidden: true };
+    return s.anchor - y >= up ? { anchor: y, hidden: false } : s;
+  } /* end tbStep */
+  var scrollState = { anchor: window.scrollY, hidden: false }, holdUntil = 0, frame = 0;
+  function keyboardIn(a) { try { return bar.contains(a) && a.matches(":focus-visible"); } catch (e) { return bar.contains(a); } }
+  function held() {
+    var a = document.activeElement;
+    return reduce.matches || (sheet && !sheet.hidden) || Date.now() < holdUntil ||
+      !!(a && a !== document.body && (keyboardIn(a) || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable));
+  }
+  function show() { scrollState = { anchor: window.scrollY, hidden: false }; bar.classList.remove("tb-hide"); }
+  function onScrollFrame() {
+    frame = 0;
+    if (held() || !bar.offsetHeight) { show(); return; }
+    scrollState = tbStep(scrollState, window.scrollY, 64, 48, 16);
+    bar.classList.toggle("tb-hide", scrollState.hidden);
+  }
+  window.addEventListener("scroll", function () { if (!frame) frame = requestAnimationFrame(onScrollFrame); }, { passive: true });
+  document.addEventListener("focusin", function () { if (held()) show(); });
+  bar.addEventListener("click", function () { holdUntil = Date.now() + 1000; show(); });
   // On the company page the tab of the section in view is the current one.
   var links = [].slice.call(document.querySelectorAll(".tabbar a[data-section], .tb-sheet a[data-section]"))
     .filter(function (a) { return a.getAttribute("href").charAt(0) === "#"; });
@@ -48,6 +101,7 @@
       if (on && bar.contains(a)) inBar = true;
     });
     if (btn) btn.classList.toggle("on", !inBar && !!sheet.querySelector('[data-section="' + id + '"]'));
+    placeInd();
   }
   var ticking = false;
   function update() {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -12,11 +12,12 @@ import {
   Store,
   Sun,
   SunMoon,
-  X,
 } from "lucide-react";
 
 import { storageKey } from "@/lib/localIdentity";
 import { useRouteEnter } from "@/lib/useRouteEnter";
+import { useScrolledPast } from "@/lib/useScrolledPast";
+import { MobileDrawer, NavIndicator, useNavIndicator } from "@/components/ui/NavMotion";
 import { countLeaves, visibleNav, SHOP_OPTIONAL } from "./nav";
 import AttentionBadge, { badgeFor } from "./attention/AttentionBadge";
 import { useAttention } from "./attention/AttentionProvider";
@@ -80,17 +81,17 @@ function NavLeaf({ item, onNavigate, nested = false }) {
       href={item.href}
       onClick={onClick}
       aria-current={active ? "page" : undefined}
-      className={`tap relative flex items-center gap-3 rounded-control py-2.5 text-sm transition-colors ${
+      className={`nav-item tap relative flex items-center gap-3 rounded-control py-2.5 text-sm ${
         nested ? "ps-9 pe-3" : "px-3"
       } ${
         active
-          ? "bg-accent/20 font-semibold text-sidebarText ring-1 ring-inset ring-white/10"
+          ? "font-semibold text-sidebarText"
           : "text-sidebarText/70 hover:bg-white/5 hover:text-sidebarText"
       }`}
     >
-      {active && (
-        <span className="absolute inset-y-1 start-0 w-1 rounded-full bg-accent" />
-      )}
+      {/* The tint and bar of the active item until the sliding pill
+          (NavIndicator) takes over. */}
+      {active && <span className="nav-item__bar" />}
       <Icon size={18} strokeWidth={2} className="shrink-0" />
       <span className="flex-1 truncate">{t(item.labelKey)}</span>
       <AttentionBadge count={badge.count} tone={badge.tone} />
@@ -113,7 +114,7 @@ function NavGroup({ group, open, onToggle, onNavigate }) {
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className={`tap flex w-full items-center gap-3 rounded-control px-3 py-2.5 text-sm transition-colors ${
+        className={`nav-item tap flex w-full items-center gap-3 rounded-control px-3 py-2.5 text-sm ${
           holdsActive && !open
             ? "text-sidebarText"
             : "text-sidebarText/70 hover:bg-white/5 hover:text-sidebarText"
@@ -131,21 +132,25 @@ function NavGroup({ group, open, onToggle, onNavigate }) {
             the same in RTL without mirroring the icon. */}
         <ChevronDown
           size={15}
-          className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`nav-chevron shrink-0 ${open ? "rotate-180" : ""}`}
         />
       </button>
-      {open && (
-        <div className="mt-0.5 space-y-0.5">
-          {group.children.map((child) => (
-            <NavLeaf
-              key={child.href}
-              item={child}
-              onNavigate={onNavigate}
-              nested
-            />
-          ))}
+      {/* Folds by its height (grid rows 0fr <-> 1fr); a folded group is
+          inert, so its links take no focus. */}
+      <div className="nav-collapse" data-open={open ? "true" : "false"}>
+        <div className="nav-collapse__clip" inert={!open}>
+          <div className="space-y-0.5 pt-0.5">
+            {group.children.map((child) => (
+              <NavLeaf
+                key={child.href}
+                item={child}
+                onNavigate={onNavigate}
+                nested
+              />
+            ))}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -186,21 +191,28 @@ function NavLinks({ items, onNavigate }) {
     });
   };
 
+  // The pill sliding to the active item; transitions arm once the saved
+  // groups are open, so a page load never plays a fold.
+  const { listRef, indicatorRef } = useNavIndicator(pathname, openGroups !== null);
+
   return (
-    <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
-      {items.map((item) =>
-        item.children ? (
-          <NavGroup
-            key={item.id}
-            group={item}
-            open={openGroups?.includes(item.id) ?? false}
-            onToggle={() => toggle(item.id)}
-            onNavigate={onNavigate}
-          />
-        ) : (
-          <NavLeaf key={item.href} item={item} onNavigate={onNavigate} />
-        ),
-      )}
+    <nav className="flex-1 overflow-y-auto px-3 pb-4">
+      <div ref={listRef} className="nav-list relative flex flex-col gap-1">
+        <NavIndicator ref={indicatorRef} />
+        {items.map((item) =>
+          item.children ? (
+            <NavGroup
+              key={item.id}
+              group={item}
+              open={openGroups?.includes(item.id) ?? false}
+              onToggle={() => toggle(item.id)}
+              onNavigate={onNavigate}
+            />
+          ) : (
+            <NavLeaf key={item.href} item={item} onNavigate={onNavigate} />
+          ),
+        )}
+      </div>
     </nav>
   );
 }
@@ -285,9 +297,14 @@ function Topbar({ onOpenMenu }) {
   };
 
   const ThemeIcon = theme === "dark" ? MoonStar : theme === "light" ? Sun : SunMoon;
+  // A soft shadow fades in under the bar once content scrolls beneath it.
+  const scrolled = useScrolledPast();
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-2 border-b border-line/80 bg-surface/95 px-3 backdrop-blur-md sm:px-8">
+    <header
+      data-scrolled={scrolled ? "true" : "false"}
+      className="shell-topbar sticky top-0 z-20 flex h-16 items-center justify-between gap-2 border-b bg-surface/95 px-3 backdrop-blur-md sm:px-8"
+    >
       <div className="flex min-w-0 items-center gap-2">
         <button
           onClick={onOpenMenu}
@@ -337,6 +354,7 @@ export default function AppShell({ children }) {
   const { user, refresh, offlineSession } = useAuth();
   const { online } = useSync();
   const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
   const [answered, setAnswered] = useState(false);
   const pathname = usePathname();
   // The page content fades and rises in on navigation (never onto the till).
@@ -377,25 +395,10 @@ export default function AppShell({ children }) {
         <SidebarContent />
       </aside>
 
-      {/* Mobile drawer */}
-      {menuOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setMenuOpen(false)}
-          />
-          <aside className="absolute inset-y-0 start-0 flex w-72 max-w-[85%] flex-col bg-sidebar shadow-xl">
-            <button
-              onClick={() => setMenuOpen(false)}
-              aria-label={t("common.close")}
-              className="tap absolute end-3 top-4 grid h-9 w-9 place-items-center rounded-control text-sidebarText/70 hover:bg-white/10"
-            >
-              <X size={18} />
-            </button>
-            <SidebarContent onNavigate={() => setMenuOpen(false)} />
-          </aside>
-        </div>
-      )}
+      {/* Mobile drawer: slides in from the start edge. */}
+      <MobileDrawer open={menuOpen} onClose={closeMenu} closeLabel={t("common.close")}>
+        <SidebarContent onNavigate={closeMenu} />
+      </MobileDrawer>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onOpenMenu={() => setMenuOpen(true)} />

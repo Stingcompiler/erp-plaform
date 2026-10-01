@@ -22,6 +22,20 @@ body{padding-bottom:calc(var(--tb-h) + env(safe-area-inset-bottom))}
 .tb-sheet a{display:flex;align-items:center;gap:12px;min-height:48px;padding:8px 12px;border-radius:12px;color:var(--ink);text-decoration:none;font-weight:600}
 .tb-sheet a:hover,.tb-sheet a[aria-current]{background:color-mix(in srgb,var(--tb-on) 12%,transparent)}
 .tb-sheet svg{width:22px;height:22px;flex:none;color:var(--tb-on)}
+/* Motion (the script in _tabbar.html arms it with .tb-js): one pill slides to the current tab, a tab
+   shrinks a hair under the finger, and the bar steps down out of the way while reading down the page
+   and comes back on the first scroll up. Transform and opacity only; nothing loops. */
+.tabbar{transition:transform .22s cubic-bezier(.2,0,0,1)}
+.tabbar.tb-hide{transform:translateY(calc(100% + 1px))}
+.tabbar a,.tabbar button{transition:transform .12s cubic-bezier(.2,0,0,1)}
+.tabbar a:active,.tabbar button:active{transform:scale(.96)}
+.tabbar.tb-js li .ic{background:none}
+.tb-ind{position:absolute;left:0;top:0;z-index:-1;border-radius:999px;background:color-mix(in srgb,var(--tb-on) 15%,transparent);pointer-events:none;opacity:0;will-change:transform}
+.tb-ind.on{opacity:1}
+.tabbar.tb-anim .tb-ind{transition:transform .2s cubic-bezier(.2,0,0,1),opacity .15s}
 }
+.tb-ind{display:none}
+@media (max-width:767.98px){.tabbar.tb-js .tb-ind{display:block}}
+@media (prefers-reduced-motion:reduce){.tabbar,.tabbar a,.tabbar button,.tabbar .tb-ind{transition:none!important}.tabbar a:active,.tabbar button:active{transform:none}.tabbar.tb-hide{transform:none}html{scroll-behavior:auto}}
 @media print{.tabbar,.tb-sheet,.tb-scrim{display:none!important}body{padding-bottom:0!important}}
 </style>
