@@ -29,6 +29,25 @@ class VersionAndHashingTests(TestCase):
         with tempfile.TemporaryDirectory() as directory:
             self.assertIsNone(release.deployed_commit({}, root=Path(directory)))
 
+    def test_deployed_commit_reads_the_manifest_source_commit(self):
+        # On the OVH server DEPLOYMENT.json is root-only; the manifest is not.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "release-manifest.json").write_text(
+                json.dumps({"source_commit": "0daff3181" + "a" * 31})
+            )
+            self.assertEqual(release.deployed_commit({}, root=root), "0daff318")
+            (root / "DEPLOYMENT.json").write_text(json.dumps({"commit": "1" * 40}))
+            self.assertEqual(release.deployed_commit({}, root=root), "11111111")
+
+    def test_manifest_records_the_ci_commit(self):
+        sha = "0daff3181" + "b" * 31
+        with patch.dict("os.environ", {"GITHUB_SHA": sha}):
+            self.assertEqual(release.build_manifest()["source_commit"], sha)
+        cleared = {"GITHUB_SHA": "", "GIT_COMMIT": "", "RENDER_GIT_COMMIT": ""}
+        with patch.dict("os.environ", cleared):
+            self.assertNotIn("source_commit", release.build_manifest())
+
     def test_deployed_commit_falls_back_to_the_ovh_deployment_file(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
