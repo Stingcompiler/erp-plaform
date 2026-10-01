@@ -9,56 +9,56 @@ import { OG_IMAGE, SITE_NAME, SITE_NAME_LATIN } from "./site";
 const COPY = {
   ar: {
     "/": {
-      title: `${SITE_NAME} | نظام إدارة متكامل للمتاجر والشركات بفرع أو عدة فروع — يعمل بلا إنترنت`,
+      title: `${SITE_NAME} | إدارة متكاملة لشركتك وفروعها… والبيع لا يتوقف`,
       description:
-        "فيزانو برو نظام واحد يدير متجرك أو شركتك بكل فروعها: نقطة البيع والمخزون والمشتريات والعملاء والموظفون والرواتب والإدارة المالية والتقارير، بصلاحيات لكل دور وفرع، والبيع يستمر حين تنقطع الشبكة. بالعربية والإنجليزية. تجربة مجانية 14 يومًا بلا بطاقة، وتفعيل في نفس اليوم بعد المراجعة.",
+        "فيزانو برو يدير شركتك أو متجرك بكل فروعها: نقطة البيع والمخزون والمشتريات والموظفون والإدارة المالية والتقارير، والبيع يستمر عند انقطاع الشبكة.",
     },
     "/product": {
-      title: "المنتج — المبيعات والمخزون والمشتريات والعملاء والموظفون والمالية والفروع في نظام واحد",
+      title: "المبيعات والمخزون والإدارة المالية في نظام واحد",
       description:
-        "كل ما يفعله فيزانو برو وحدة بوحدة: كاشير يعمل بلا إنترنت، مخزون بالدفعات والصلاحية، مشتريات ومرتجعات، العملاء والتحصيل، موارد بشرية ورواتب، إدارة مالية وتقارير، فروع ومستودعات متعددة بصلاحيات لكل دور.",
+        "كل وحدات فيزانو برو: كاشير يعمل بلا إنترنت، مخزون بالدفعات والصلاحية، مشتريات، عملاء وتحصيل، موظفون ورواتب، إدارة مالية وتقارير، وفروع بصلاحيات لكل دور.",
     },
     "/pricing": {
-      title: "الأسعار والباقات — تجربة مجانية 14 يومًا أو رخصة دائمة لخادمك",
+      title: "الأسعار والباقات — تجربة مجانية 14 يومًا",
       description:
-        "باقات فيزانو برو للمتاجر والشركات والموزعين: أسعار واضحة بلا رسوم على كل عملية. كل باقة تشمل العربية والإنجليزية ونقطة بيع تعمل بلا اتصال وصلاحيات حسب الدور، أو رخصة دائمة على خادمك الخاص.",
+        "باقات فيزانو برو بأسعار واضحة وبلا رسوم على كل عملية، وفي كل باقة نقطة بيع تعمل بلا اتصال وصلاحيات حسب الدور. أو رخصة دائمة على خادمك الخاص.",
     },
     "/register": {
       title: "ابدأ تجربة شركتك المجانية",
       description:
-        "سجّل شركتك في فيزانو برو: تجربة 14 يومًا بلا بطاقة على السحابة، أو اطلب عرض رخصة دائمة لخادمك الخاص. نراجع الطلب ونفعّل مساحة العمل في نفس اليوم ونرسل للمالك رابط التفعيل.",
+        "سجّل شركتك في فيزانو برو: تجربة 14 يومًا بلا بطاقة، أو عرض رخصة دائمة لخادمك الخاص. نراجع الطلب ونفعّل مساحة العمل في نفس اليوم.",
     },
     "/register/hosting": {
       title: "السحابة أم خادمك الخاص؟ — الفرق بين خياري تشغيل فيزانو برو",
       description:
-        "فيزانو برو على السحابة: لا تركيب، تحديثات ونسخ احتياطي ليلي علينا، اشتراك بالباقة. أو على خادمك الخاص: بياناتك عندك، رخصة دائمة، يعمل دون إنترنت. اعرف أيهما يناسب شركتك.",
+        "على السحابة: لا تركيب، والتحديثات والنسخ الاحتياطي الليلي علينا. على خادمك: بياناتك عندك برخصة دائمة وتعمل دون إنترنت. اعرف أيهما يناسب شركتك.",
     },
   },
   en: {
     "/": {
-      title: `${SITE_NAME_LATIN} | Integrated Management for Stores and Companies, One Branch or Many — Works Offline`,
+      title: `${SITE_NAME_LATIN} | Manage Every Branch and Keep Selling Offline`,
       description:
-        "Vezano Pro runs your store or company across every branch in one system: POS, inventory, purchasing, CRM, HR and payroll, financial management and reports, with access by role and branch — and selling continues when the network drops. Arabic and English. 14-day free trial, no card, activated the same day after review.",
+        "Vezano Pro runs your company or store across every branch: POS, stock, purchasing, HR, financial management and reports, and sales go on when the network drops.",
     },
     "/product": {
-      title: "Product — Sales, Inventory, Purchasing, CRM, HR, Finance and Branches in One System",
+      title: "POS, Inventory, HR and Financial Management",
       description:
-        "Everything Vezano Pro does, module by module: an offline-capable cashier, batch and expiry inventory, purchasing and returns, customers and collections, HR and payroll, financial management and reports, multiple branches and warehouses with role-based access.",
+        "Every Vezano Pro module: an offline-capable till, batch and expiry stock, purchasing, customers and collections, HR and payroll, and financial management.",
     },
     "/pricing": {
-      title: "Pricing — 14-Day Free Trial or a Perpetual Licence for Your Own Server",
+      title: "Pricing and Plans — 14-Day Free Trial",
       description:
-        "Vezano Pro plans for stores, companies and distributors: clear prices, no per-transaction fees. Every plan includes Arabic and English, an offline POS and role-based access, or a perpetual licence on your own server.",
+        "Vezano Pro plans with clear prices and no per-transaction fees. Every plan has an offline POS and role-based access. Or a perpetual licence on your server.",
     },
     "/register": {
       title: "Start Your Company's Free Trial",
       description:
-        "Register your company on Vezano Pro: a 14-day cloud trial with no card, or request a perpetual-licence quote for your own server. We review the request, activate the workspace the same day and send the owner an activation link.",
+        "Register your company on Vezano Pro: a 14-day trial with no card, or a perpetual-licence quote for your own server. We review it and activate it the same day.",
     },
     "/register/hosting": {
       title: "Cloud or Your Own Server? — Vezano Pro's Two Ways to Run",
       description:
-        "Vezano Pro in the cloud: nothing to install, updates and nightly backups on us, a plan subscription. Or on your own server: data stays with you, a perpetual licence, runs without internet. Find out which fits your company.",
+        "In the cloud: nothing to install, with updates and nightly backups on us. On your own server: your data stays with you on a perpetual licence. See which fits.",
     },
   },
 };

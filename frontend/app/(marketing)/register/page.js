@@ -7,10 +7,8 @@ import { useI18n } from "@/app/providers/I18nProvider";
 import { MarketingPage } from "@/components/marketing/Chrome";
 import RegisterForm from "@/components/marketing/RegisterForm";
 
-function Heading() {
+function HeadingView({ standalone }) {
   const { t } = useI18n();
-  const params = useSearchParams();
-  const standalone = params.get("mode") === "standalone";
   return (
     <div className="mx-auto max-w-2xl text-center">
       <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
@@ -23,17 +21,28 @@ function Heading() {
   );
 }
 
+function Heading() {
+  const params = useSearchParams();
+  return <HeadingView standalone={params.get("mode") === "standalone"} />;
+}
+
 export default function RegisterPage() {
   return (
     <MarketingPage>
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        {/* useSearchParams needs a Suspense boundary for the static export. */}
-        <Suspense fallback={null}>
+        {/* useSearchParams needs a Suspense boundary for the static export,
+            and whatever sits inside one is missing from the exported HTML.
+            The fallback is the default (trial) heading, so crawlers and the
+            first paint get the page's real <h1>; ?mode=standalone swaps it
+            once the client reads the query. */}
+        <Suspense fallback={<HeadingView standalone={false} />}>
           <Heading />
-          <div className="mt-10">
-            <RegisterForm />
-          </div>
         </Suspense>
+        <div className="mt-10">
+          <Suspense fallback={null}>
+            <RegisterForm />
+          </Suspense>
+        </div>
       </section>
     </MarketingPage>
   );

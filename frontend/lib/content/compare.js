@@ -12,9 +12,9 @@ export const COMPARISONS = [
     slug: "excel-and-paper",
     ar: {
       title: "فيزانو برو مقابل إكسل والدفاتر الورقية",
-      metaTitle: "فيزانو برو مقابل إكسل والدفاتر الورقية — متى يكفي الجدول ومتى يلزم نظام",
+      metaTitle: "إكسل والدفاتر أم نظام إدارة؟ مقارنة صريحة",
       description:
-        "مقارنة صريحة بين إدارة متجرك أو شركتك بالدفاتر وجداول إكسل وبين نظام فيزانو برو: أين يكفي الجدول، وأين تبدأ الخسارة الصامتة في المخزون والديون والفروع والأدوار.",
+        "مقارنة صريحة بين إدارة متجرك أو شركتك بالدفاتر وجداول إكسل وبين فيزانو برو: أين يكفي الجدول، وأين تبدأ الخسارة الصامتة في المخزون والديون والفروع.",
       lead:
         "الدفتر وجدول إكسل ليسا خطأ. معظم المتاجر والشركات الناجحة بدأت بهما، وكثير منها يستمر بهما لسنوات. المقارنة أدناه ليست عن أيهما أفضل مطلقًا، بل عن اللحظة التي يتحول فيها الجدول من أداة إلى عبء.",
       columns: ["الدفتر الورقي", "جدول إكسل", "فيزانو برو"],
@@ -42,9 +42,9 @@ export const COMPARISONS = [
     },
     en: {
       title: "Vezano Pro versus Excel and paper ledgers",
-      metaTitle: "Vezano Pro versus Excel and paper ledgers — when a spreadsheet is enough and when a system is needed",
+      metaTitle: "Excel and paper ledgers vs a management system",
       description:
-        "A frank comparison between running your store or company on ledgers and spreadsheets and running it on Vezano Pro: where the spreadsheet is enough, and where the silent losses in stock, debts, branches and roles begin.",
+        "A frank comparison of running your store or company on ledgers and spreadsheets versus Vezano Pro: where a spreadsheet is enough, and where silent losses begin.",
       lead:
         "A ledger and an Excel sheet are not a mistake. Most successful stores and companies started with them, and many carry on with them for years. The comparison below is not about which is better in the abstract, but about the moment the spreadsheet turns from a tool into a burden.",
       columns: ["Paper ledger", "Excel sheet", "Vezano Pro"],
